@@ -1,10 +1,9 @@
 "use client";
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { db } from "@/lib/firebase";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { useUser } from "@/hooks";
 import { useBranches } from "@/hooks/useBranches";
+import { useTechnicians } from "@/hooks/useTechnicians";
 import TechnicianForm from "@/modules/technician/TechnicianForm";
 
 export default function NewTechnicianPage() {
@@ -13,14 +12,21 @@ export default function NewTechnicianPage() {
   const isShopAdmin = user?.role === "shop_admin";
   // const isBranchAdmin = user?.role === "branch_admin";
   const { branches } = useBranches(shopId);
+  const { createTechnician } = useTechnicians(shopId);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
-  const handleAdd = async (data: { name: string; email: string; phone: string; branch_id: string }) => {
+  const handleAdd = async (data: { 
+    name: string; 
+    email: string; 
+    phone: string; 
+    branch_id: string;
+    password?: string;
+  }) => {
     setError(null);
-    if (!data.name.trim() || !data.email.trim() || !data.phone.trim()) {
-      setError("Name, email, and phone are required.");
+    if (!data.name.trim() || !data.email.trim() || !data.phone.trim() || !data.password?.trim()) {
+      setError("Name, email, phone, and password are required.");
       return;
     }
     if (isShopAdmin && !data.branch_id) {
@@ -29,18 +35,18 @@ export default function NewTechnicianPage() {
     }
     setLoading(true);
     try {
-      await addDoc(collection(db, "technicians"), {
+      console.log('Creating technician with data:', data);
+      await createTechnician({
         name: data.name,
         email: data.email,
         phone: data.phone,
-        shop_id: shopId,
-        branch_id: data.branch_id || user?.branch_id || "",
-        created_by: { role: user?.role || "", name: user?.name || "" },
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      });
+        branch_id: data.branch_id,
+        password: data.password!
+      }, user?.uid || "");
+      console.log('Technician created successfully');
       router.push("/technicians");
     } catch (err: unknown) {
+      console.error('Error creating technician:', err);
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setLoading(false);

@@ -1,30 +1,28 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { BranchForm } from "@/modules/branch/BranchForm";
 import { BranchList } from "@/modules/branch/BranchList";
 import { useBranches } from "@/hooks/useBranches";
 import { useUser } from "@/hooks";
-import { Branch } from "@/types";
 import { SearchFilter } from "@/components/ui";
 import { db } from "@/lib/firebase";
-import { collection, getDocs, where, query } from "firebase/firestore";
+import { collection, getDocs, query } from "firebase/firestore";
+import Link from "next/link";
 
 export default function BranchPage() {
   const { user } = useUser();
   const shopId = user?.shopId;
-  const { branches, loading, error, createBranch, deleteBranch } = useBranches(shopId);
-  const [formOpen, setFormOpen] = useState(false);
-  const [formLoading, setFormLoading] = useState(false);
-  const [formError, setFormError] = useState<string | null>(null);
+  const { branches, loading, error, deleteBranch } = useBranches(shopId);
   const [techniciansByBranch, setTechniciansByBranch] = useState<Record<string, string[]>>({});
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
 
   // Debug user data
   useEffect(() => {
-    console.log('Current user:', user);
-    console.log('ShopId:', shopId);
-    console.log('User role:', user?.role);
+    console.log('BranchPage - Current user:', user);
+    console.log('BranchPage - ShopId:', shopId);
+    console.log('BranchPage - User role:', user?.role);
+    console.log('BranchPage - User UID:', user?.uid);
+    console.log('BranchPage - User email:', user?.email);
   }, [user, shopId]);
 
   // Fetch technicians for each branch
@@ -73,24 +71,7 @@ export default function BranchPage() {
     fetchTechnicians();
   }, [branches]);
 
-  const handleAddBranch = async (branchData: {
-    name: string;
-    address: string;
-    phone: string;
-    email: string;
-    branchPassword: string;
-  }) => {
-    setFormLoading(true);
-    setFormError(null);
-    try {
-      await createBranch(branchData);
-      setFormOpen(false);
-    } catch (err: unknown) {
-      setFormError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setFormLoading(false);
-    }
-  };
+
 
   // Filter branches
   const filteredBranches = branches.filter(branch => {
@@ -118,15 +99,15 @@ export default function BranchPage() {
               <h1 className="text-xl font-bold text-gray-900 mb-q">Branch Management</h1>
               <p className="text-gray-600 text-sm">Organize and manage your business locations</p>
             </div>
-            <button
-              onClick={() => setFormOpen(true)}
+            <Link
+              href="/branch/new"
               className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
               </svg>
               Add Branch
-            </button>
+            </Link>
           </div>
         </div>
 
@@ -161,13 +142,7 @@ export default function BranchPage() {
           onDeleteBranch={(branch) => deleteBranch(branch.id)}
         />
 
-        {/* Add Branch Form */}
-        {formOpen && (
-          <BranchForm
-            onSubmit={handleAddBranch}
-            loading={formLoading}
-          />
-        )}
+
       </div>
     </div>
   );

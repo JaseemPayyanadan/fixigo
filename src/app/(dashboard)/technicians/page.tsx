@@ -2,15 +2,26 @@
 import React, { useState, useEffect } from "react";
 import { db } from "@/lib/firebase";
 import { collection, getDocs, deleteDoc, doc, query, where, DocumentData, Query, CollectionReference } from "firebase/firestore";
-import { useUser } from "@/hooks";
-// import { useBranches } from "@/hooks/useBranches";
-import TechnicianList, { Technician } from "@/modules/technician/TechnicianList";
+import { useUser, useBranches } from "@/hooks";
+import TechnicianList from "@/modules/technician/TechnicianList";
+import { Technician } from "@/types";
 import Link from "next/link";
 
 export default function TechniciansPage() {
   const { user } = useUser();
-  // const { branches } = useBranches(user?.shopId);
+  const { branches } = useBranches(user?.shopId);
   const [technicians, setTechnicians] = useState<Technician[]>([]);
+
+  // Debug technicians data
+  useEffect(() => {
+    console.log('TechniciansPage - Current user:', user);
+    console.log('TechniciansPage - ShopId:', user?.shopId);
+    console.log('TechniciansPage - User role:', user?.role);
+    console.log('TechniciansPage - Technicians count:', technicians.length);
+    console.log('TechniciansPage - Technicians data:', technicians);
+    console.log('TechniciansPage - Branches count:', branches.length);
+    console.log('TechniciansPage - Branches data:', branches);
+  }, [user, technicians, branches]);
 
   useEffect(() => {
     if (!user) return;
@@ -23,7 +34,23 @@ export default function TechniciansPage() {
       q = query(q, where("branch_id", "==", user.branch_id));
     }
     getDocs(q).then(snapshot => {
-      setTechnicians(snapshot.docs.map((doc: DocumentData) => ({ id: doc.id, ...doc.data() } as Technician)));
+      const technicianList: Technician[] = snapshot.docs.map((doc: DocumentData) => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          name: data.name || '',
+          email: data.email || '',
+          phone: data.phone || '',
+          role: "technician",
+          branchId: data.branch_id || data.branchId || '',
+          shopId: data.shop_id || data.shopId || '',
+          skills: data.skills || [],
+          status: data.status || "active",
+          createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(),
+          updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : new Date(),
+        };
+      });
+      setTechnicians(technicianList);
     });
   }, [user]);
 
@@ -97,7 +124,7 @@ export default function TechniciansPage() {
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-600">Assigned</p>
                   <p className="text-2xl font-bold text-gray-900">
-                    {technicians.filter(t => t.branch_id).length}
+                    {technicians.filter(t => t.branchId).length}
                   </p>
                 </div>
               </div>
@@ -113,7 +140,7 @@ export default function TechniciansPage() {
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-600">Branches</p>
                   <p className="text-2xl font-bold text-gray-900">
-                    {new Set(technicians.map(t => t.branch_id)).size}
+                    {new Set(technicians.map(t => t.branchId)).size}
                   </p>
                 </div>
               </div>
@@ -125,7 +152,7 @@ export default function TechniciansPage() {
 
         {/* Technician List */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-          <TechnicianList technicians={technicians} onDelete={handleDelete} />
+          <TechnicianList technicians={technicians} onDelete={handleDelete} branches={branches} />
         </div>
       </div>
     </div>

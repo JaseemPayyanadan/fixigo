@@ -15,6 +15,10 @@ service cloud.firestore {
       return isAuthenticated() && getUserData().role == "shop_admin";
     }
     
+    function isAdmin() {
+      return isAuthenticated() && getUserData().role == "admin";
+    }
+    
     function isBranchAdmin() {
       return isAuthenticated() && getUserData().role == "branch_admin";
     }
@@ -24,11 +28,15 @@ service cloud.firestore {
     }
     
     function belongsToShop(shopId) {
-      return getUserData().shopId == shopId;
+      let userData = getUserData();
+      // For shop admins, their shopId should match the technician's shop_id
+      // For technicians, their shopId should match the technician's shop_id
+      return userData.shopId == shopId || userData.shop_id == shopId;
     }
     
     function belongsToBranch(branchId) {
-      return getUserData().branch_id == branchId;
+      let userData = getUserData();
+      return userData.branch_id == branchId || userData.branchId == branchId;
     }
     
     function isOwner(userId) {
@@ -54,21 +62,28 @@ service cloud.firestore {
         request.resource.data.name is string &&
         request.resource.data.name.size() > 0 &&
         request.resource.data.email is string &&
-        request.resource.data.role in ['shop_admin', 'branch_admin', 'technician'] &&
+        request.resource.data.role in ['admin', 'shop_admin', 'branch_admin', 'technician'] &&
         request.resource.data.onboardingCompleted is bool &&
         request.resource.data.createdAt is timestamp;
       
-      // Allow users to update their own document (for onboarding completion)
+      // Allow users to update their own document (for onboarding completion and profile updates)
       allow update: if isAuthenticated() && isOwner(userId) &&
-        request.resource.data.diff(resource.data).affectedKeys().hasAny(['shopId', 'onboardingCompleted', 'updatedAt']) &&
-        request.resource.data.shopId is string &&
-        request.resource.data.onboardingCompleted is bool;
+        request.resource.data.diff(resource.data).affectedKeys().hasAny(['shopId', 'shop_id', 'onboardingCompleted', 'name', 'email', 'branch_id', 'branchId', 'updatedAt']) &&
+        (request.resource.data.shopId is string || request.resource.data.shop_id is string || request.resource.data.name is string || request.resource.data.email is string || request.resource.data.branch_id is string || request.resource.data.branchId is string || request.resource.data.onboardingCompleted is bool);
       
       // Shop admins can read all users in their shop
-      allow read: if isShopAdmin() && belongsToShop(resource.data.shopId);
+      allow read: if isShopAdmin() && (belongsToShop(resource.data.shopId) || belongsToShop(resource.data.shop_id));
+      
+      // Shop admins can update user documents for technicians in their shop
+      allow update: if isShopAdmin() && (belongsToShop(resource.data.shopId) || belongsToShop(resource.data.shop_id)) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasAny(['name', 'email', 'branch_id', 'branchId', 'updatedAt']) &&
+        (request.resource.data.name is string || request.resource.data.email is string || request.resource.data.branch_id is string || request.resource.data.branchId is string);
       
       // Branch admins can read users in their branch
-      allow read: if isBranchAdmin() && belongsToBranch(resource.data.branch_id);
+      allow read: if isBranchAdmin() && (belongsToBranch(resource.data.branch_id) || belongsToBranch(resource.data.branchId));
+      
+      // Admins have full access to all users
+      allow read, write: if isAdmin();
     }
     
     // Shops collection
@@ -94,6 +109,9 @@ service cloud.firestore {
       // Allow users to update their own shop document
       allow update: if isAuthenticated() && isOwner(shopId) &&
         request.resource.data.diff(resource.data).affectedKeys().hasAny(['gstNumber', 'description', 'updatedAt']);
+      
+      // Admins have full access to all shops
+      allow read, write: if isAdmin();
       
       // Branches subcollection
       match /branches/{branchId} {
@@ -158,26 +176,39 @@ service cloud.firestore {
     
     // Technicians collection
     match /technicians/{technicianId} {
-      // Allow read access for all authenticated users (for debugging)
-      allow read: if isAuthenticated();
+      // Shop admins can read/write all technicians in their shop
+      allow read, write: if isShopAdmin() && belongsToShop(resource.data.shop_id);
       
-      // Shop admins can access all technicians in their shop
-      allow write: if isShopAdmin() && belongsToShop(resource.data.shop_id);
-      
-      // Branch admins can access technicians in their branch
-      allow write: if isBranchAdmin() && belongsToBranch(resource.data.branch_id);
+      // Branch admins can read/write technicians in their branch
+      allow read, write: if isBranchAdmin() && belongsToBranch(resource.data.branch_id);
       
       // Technicians can read their own profile
       allow read: if isTechnician() && technicianId == request.auth.uid;
       
-      // Validate technician data
-      allow create, update: if 
+      // Allow authenticated users to read technicians (for debugging)
+      allow read: if isAuthenticated();
+      
+      // Allow creation with more flexible validation
+      allow create: if isAuthenticated() &&
         request.resource.data.keys().hasAll(['name', 'email', 'phone', 'shop_id', 'branch_id']) &&
         request.resource.data.name is string &&
         request.resource.data.name.size() > 0 &&
         request.resource.data.email is string &&
+        request.resource.data.email.size() > 0 &&
         request.resource.data.phone is string &&
+        request.resource.data.phone.size() > 0 &&
         request.resource.data.shop_id is string &&
+        request.resource.data.branch_id is string;
+      
+      // Allow updates with more flexible validation
+      allow update: if isAuthenticated() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasAny(['name', 'email', 'phone', 'branch_id', 'updatedAt']) &&
+        request.resource.data.name is string &&
+        request.resource.data.name.size() > 0 &&
+        request.resource.data.email is string &&
+        request.resource.data.email.size() > 0 &&
+        request.resource.data.phone is string &&
+        request.resource.data.phone.size() > 0 &&
         request.resource.data.branch_id is string;
     }
     

@@ -7,7 +7,7 @@ import { AppBar } from "@/components/layout/AppBar";
 import { SideNavBar } from "@/components/layout/SideNavBar";
 import { BottomNavBar } from "@/components/layout/BottomNavBar";
 import AuthGuard from "@/components/auth/AuthGuard";
-import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
+import LoadingSpinner from "@/components/ui/LoadingSpinner";
 
 const hideNavRoutes = ["/login", "/register", "/shop-onboarding"];
 

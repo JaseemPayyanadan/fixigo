@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { HiOfficeBuilding, HiPhone, HiMail, HiLockClosed, HiCheckCircle } from "react-icons/hi";
+import React, { useState, useEffect } from "react";
+import { HiOfficeBuilding, HiPhone, HiMail, HiLockClosed, HiCheckCircle, HiExclamationCircle } from "react-icons/hi";
 import TextInput from "../../components/ui/TextInput"
 
 interface BranchFormProps {
@@ -31,6 +31,33 @@ export const BranchForm: React.FC<BranchFormProps> = ({ onSubmit, loading, initi
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [success, setSuccess] = useState<string | null>(null);
+  const [hasChanges, setHasChanges] = useState(false);
+
+  // Update form data when initialData changes
+  useEffect(() => {
+    if (initialData) {
+      setFormData(prev => ({
+        ...prev,
+        name: initialData.name || "",
+        address: initialData.address || "",
+        phone: initialData.phone || "",
+        email: initialData.email || "",
+      }));
+    }
+  }, [initialData]);
+
+  // Track changes for edit mode
+  useEffect(() => {
+    if (editMode && initialData) {
+      const hasFormChanges = 
+        formData.name !== (initialData.name || "") ||
+        formData.address !== (initialData.address || "") ||
+        formData.phone !== (initialData.phone || "") ||
+        formData.email !== (initialData.email || "");
+      
+      setHasChanges(hasFormChanges);
+    }
+  }, [formData, initialData, editMode]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -40,19 +67,49 @@ export const BranchForm: React.FC<BranchFormProps> = ({ onSubmit, loading, initi
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
-    if (!formData.name.trim()) newErrors.name = "Branch name is required";
-    if (!formData.address.trim()) newErrors.address = "Address is required";
-    if (!formData.phone.trim()) newErrors.phone = "Phone number is required";
-    else if (!/^[\+]?[1-9][\d]{0,15}$/.test(formData.phone.replace(/\s/g, "")))
-      newErrors.phone = "Please enter a valid phone number";
-    if (!formData.email.trim()) newErrors.email = "Email is required";
-    else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = "Please enter a valid email address";
-    if (!editMode) {
-      if (!formData.branchPassword.trim()) newErrors.branchPassword = "Password is required";
-      else if (formData.branchPassword.length < 6) newErrors.branchPassword = "Password must be at least 6 characters";
-      if (!formData.confirmPassword.trim()) newErrors.confirmPassword = "Please confirm your password";
-      else if (formData.branchPassword !== formData.confirmPassword) newErrors.confirmPassword = "Passwords do not match";
+    
+    // Required field validation
+    if (!formData.name.trim()) {
+      newErrors.name = "Branch name is required";
+    } else if (formData.name.trim().length < 2) {
+      newErrors.name = "Branch name must be at least 2 characters";
     }
+    
+    if (!formData.address.trim()) {
+      newErrors.address = "Address is required";
+    } else if (formData.address.trim().length < 5) {
+      newErrors.address = "Address must be at least 5 characters";
+    }
+    
+    if (!formData.phone.trim()) {
+      newErrors.phone = "Phone number is required";
+    } else if (!/^[\+]?[1-9][\d]{0,15}$/.test(formData.phone.replace(/\s/g, ""))) {
+      newErrors.phone = "Please enter a valid phone number";
+    }
+    
+    if (!formData.email.trim()) {
+      newErrors.email = "Email is required";
+    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+      newErrors.email = "Please enter a valid email address";
+    }
+    
+    // Password validation (only for new branches)
+    if (!editMode) {
+      if (!formData.branchPassword.trim()) {
+        newErrors.branchPassword = "Password is required";
+      } else if (formData.branchPassword.length < 6) {
+        newErrors.branchPassword = "Password must be at least 6 characters";
+      } else if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(formData.branchPassword)) {
+        newErrors.branchPassword = "Password must contain at least one uppercase letter, one lowercase letter, and one number";
+      }
+      
+      if (!formData.confirmPassword.trim()) {
+        newErrors.confirmPassword = "Please confirm your password";
+      } else if (formData.branchPassword !== formData.confirmPassword) {
+        newErrors.confirmPassword = "Passwords do not match";
+      }
+    }
+    
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -60,25 +117,33 @@ export const BranchForm: React.FC<BranchFormProps> = ({ onSubmit, loading, initi
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSuccess(null);
-    if (!validateForm()) return;
+    
+    if (!validateForm()) {
+      return;
+    }
+    
     try {
       await onSubmit({
-        name: formData.name,
-        address: formData.address,
-        phone: formData.phone,
-        email: formData.email,
+        name: formData.name.trim(),
+        address: formData.address.trim(),
+        phone: formData.phone.trim(),
+        email: formData.email.trim(),
         branchPassword: formData.branchPassword,
       });
-      setFormData({
-        name: "",
-        address: "",
-        phone: "",
-        email: "",
-        branchPassword: "",
-        confirmPassword: "",
-      });
+      
+      if (!editMode) {
+        setFormData({
+          name: "",
+          address: "",
+          phone: "",
+          email: "",
+          branchPassword: "",
+          confirmPassword: "",
+        });
+      }
       setSuccess(editMode ? "Branch updated successfully!" : "Branch created successfully!");
     } catch (error: unknown) {
+      console.error('BranchForm - Error in onSubmit:', error);
       setErrors({ submit: error instanceof Error ? error.message : String(error) });
     }
   };
@@ -94,7 +159,9 @@ export const BranchForm: React.FC<BranchFormProps> = ({ onSubmit, loading, initi
             </div>
             <div>
               <h3 className="text-xl font-semibold text-gray-900">Branch Information</h3>
-              <p className="text-gray-600 text-sm">Enter the basic details for your branch</p>
+              <p className="text-gray-600 text-sm">
+                {editMode ? "Update the basic details for your branch" : "Enter the basic details for your branch"}
+              </p>
             </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -111,6 +178,20 @@ export const BranchForm: React.FC<BranchFormProps> = ({ onSubmit, loading, initi
               error={errors.name}
               autoComplete="off"
               aria-label="Branch Name"
+            />
+            <TextInput
+              type="text"
+              name="address"
+              id="address"
+              label="Branch Address"
+              value={formData.address}
+              onChange={handleInputChange}
+              placeholder="Enter branch address"
+              required
+              icon={<HiOfficeBuilding className="h-5 w-5 text-gray-400" />}
+              error={errors.address}
+              autoComplete="off"
+              aria-label="Branch Address"
             />
           </div>
         </div>
@@ -204,11 +285,23 @@ export const BranchForm: React.FC<BranchFormProps> = ({ onSubmit, loading, initi
                 aria-label="Confirm Password"
               />
             </div>
+            <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-start gap-3">
+                <HiExclamationCircle className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                <div>
+                  <h4 className="text-sm font-medium text-blue-900 mb-1">Password Requirements</h4>
+                  <ul className="text-sm text-blue-800 space-y-1">
+                    <li>• At least 6 characters long</li>
+                    <li>• Contains at least one uppercase letter</li>
+                    <li>• Contains at least one lowercase letter</li>
+                    <li>• Contains at least one number</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}
-
-
 
       {/* Error Message */}
       {errors.submit && (
@@ -255,10 +348,16 @@ export const BranchForm: React.FC<BranchFormProps> = ({ onSubmit, loading, initi
             >
               Cancel
             </button>
+            {editMode && hasChanges && (
+              <div className="flex items-center gap-2 text-sm text-amber-600">
+                <HiExclamationCircle className="w-4 h-4" />
+                <span>You have unsaved changes</span>
+              </div>
+            )}
           </div>
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || (editMode && !hasChanges)}
             className="px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-lg hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
             aria-busy={loading}
           >

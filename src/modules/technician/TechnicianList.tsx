@@ -1,23 +1,22 @@
 import React from "react";
 import { useRouter } from "next/navigation";
-
-
-export interface Technician {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  shop_id: string;
-  branch_id: string;
-}
+import { Technician, Branch } from "@/types";
 
 interface TechnicianListProps {
   technicians: Technician[];
   onDelete: (id: string) => void;
+  branches: Branch[];
 }
 
-export default function TechnicianList({ technicians, onDelete }: TechnicianListProps) {
+export default function TechnicianList({ technicians, onDelete, branches }: TechnicianListProps) {
   const router = useRouter();
+
+  // Helper function to get branch name by ID
+  const getBranchName = (branchId: string) => {
+    if (!branchId || branchId.trim() === '') return 'No Branch Assigned';
+    const branch = branches.find(b => b.id === branchId);
+    return branch ? branch.name : `Branch ${branchId.slice(0, 8)}...`;
+  };
 
   if (technicians.length === 0) {
     return (
@@ -64,7 +63,7 @@ export default function TechnicianList({ technicians, onDelete }: TechnicianList
                       </div>
                       <div>
                         <div className="text-sm font-semibold text-gray-900">{tech.name}</div>
-                        <div className="text-xs text-gray-500">ID: {tech.id.slice(0, 8)}...</div>
+                        <div className="text-xs text-gray-500">ID: {tech.id}</div>
                       </div>
                     </div>
                   </td>
@@ -77,7 +76,7 @@ export default function TechnicianList({ technicians, onDelete }: TechnicianList
                   <td className="px-6 py-4">
                     <div className="text-sm text-gray-900">
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                        {tech.branch_id.slice(0, 8)}...
+                        {getBranchName(tech.branchId)}
                       </span>
                     </div>
                   </td>
@@ -134,7 +133,7 @@ export default function TechnicianList({ technicians, onDelete }: TechnicianList
                   </div>
                   <div>
                     <h4 className="text-lg font-semibold text-gray-900">{tech.name}</h4>
-                    <p className="text-sm text-gray-500">ID: {tech.id.slice(0, 8)}...</p>
+                    <p className="text-sm text-gray-500">ID: {tech.id}</p>
                   </div>
                 </div>
                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
@@ -160,7 +159,7 @@ export default function TechnicianList({ technicians, onDelete }: TechnicianList
                   <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                   </svg>
-                  <span className="font-medium">Branch: {tech.branch_id.slice(0, 8)}...</span>
+                                          <span className="font-medium">Branch: {getBranchName(tech.branchId)}</span>
                 </div>
               </div>
               

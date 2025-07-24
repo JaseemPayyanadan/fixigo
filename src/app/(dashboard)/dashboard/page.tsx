@@ -1,6 +1,6 @@
 "use client"
 import React, { useEffect, useState } from "react";
-import { AuthGuard, RoleGuard, WelcomeModal, OnboardingGuide } from "@/components";
+import { AuthGuard, RoleGuard, OnboardingGuide } from "@/components";
 import { useUser } from "@/hooks";
 import { useRouter } from "next/navigation";
 import { db } from "@/lib/firebase";
@@ -52,7 +52,6 @@ function DashboardContent() {
   });
   const [loading, setLoading] = useState(true);
   const [branchName, setBranchName] = useState<string | null>(null);
-  const [showWelcomeModal, setShowWelcomeModal] = useState(false);
   const [showOnboardingGuide, setShowOnboardingGuide] = useState(false);
 
   // Helper function to safely get timestamp seconds
@@ -73,6 +72,25 @@ function DashboardContent() {
     }).slice(0, 5);
   }, []);
 
+  // Debug user data
+  useEffect(() => {
+    console.log('Dashboard - Current user:', user);
+    console.log('Dashboard - ShopId:', user?.shopId);
+    console.log('Dashboard - User role:', user?.role);
+    console.log('Dashboard - User UID:', user?.uid);
+    console.log('Dashboard - User email:', user?.email);
+    console.log('Dashboard - User data keys:', user ? Object.keys(user) : 'No user');
+    console.log('Dashboard - User shopId:', user?.shopId);
+    console.log('Dashboard - User shop_id:', user?.shop_id);
+    
+    // Test if user has shopId
+    if (user?.shopId) {
+      console.log('Dashboard - User has shopId:', user.shopId);
+    } else {
+      console.log('Dashboard - User does not have shopId');
+    }
+  }, [user]);
+
   // Check if shop_admin needs to complete onboarding
   useEffect(() => {
     if (user && user.role === "shop_admin" && !user.shopId) {
@@ -80,20 +98,12 @@ function DashboardContent() {
     }
   }, [user, router]);
 
-  // Show welcome modal for new users who just completed onboarding
+  // Show onboarding guide for users who have completed onboarding but might need guidance
   useEffect(() => {
     if (user && user.role === "shop_admin" && user.shopId) {
-      // Check if this is the first time the user is seeing the dashboard after onboarding
-      const hasSeenWelcome = localStorage.getItem('hasSeenWelcome');
-      if (!hasSeenWelcome) {
-        setShowWelcomeModal(true);
-        localStorage.setItem('hasSeenWelcome', 'true');
-      } else {
-        // Show onboarding guide for users who have completed onboarding but might need guidance
-        const hasSeenGuide = localStorage.getItem('hasSeenOnboardingGuide');
-        if (!hasSeenGuide && stats.branches === 0 && stats.technicians === 0) {
-          setShowOnboardingGuide(true);
-        }
+      const hasSeenGuide = localStorage.getItem('hasSeenOnboardingGuide');
+      if (!hasSeenGuide && stats.branches === 0 && stats.technicians === 0) {
+        setShowOnboardingGuide(true);
       }
     }
   }, [user, stats.branches, stats.technicians]);
@@ -255,11 +265,6 @@ function DashboardContent() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
-      <WelcomeModal 
-        isOpen={showWelcomeModal} 
-        onClose={() => setShowWelcomeModal(false)} 
-        user={user} 
-      />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Onboarding Guide */}
         {showOnboardingGuide && (

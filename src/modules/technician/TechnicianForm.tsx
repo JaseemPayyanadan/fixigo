@@ -1,6 +1,7 @@
 import React, { useState, useEffect, ChangeEvent, FormEvent } from "react";
 import TextInput from "../../components/ui/TextInput";
 import { MdPerson, MdEmail, MdPhone, MdBusiness } from "react-icons/md";
+import { HiLockClosed, HiExclamationCircle, HiCheckCircle } from "react-icons/hi";
 
 interface Branch {
   id: string;
@@ -8,7 +9,13 @@ interface Branch {
 }
 
 interface TechnicianFormProps {
-  onSubmit: (data: { name: string; email: string; phone: string; branch_id: string }) => void;
+  onSubmit: (data: { 
+    name: string; 
+    email: string; 
+    phone: string; 
+    branch_id: string;
+    password?: string;
+  }) => void;
   loading: boolean;
   editing: boolean;
   initialData?: { name: string; email: string; phone: string };
@@ -19,38 +26,131 @@ interface TechnicianFormProps {
 }
 
 export default function TechnicianForm({ onSubmit, loading, editing, initialData, branch_id, onCancel, branches, userRole }: TechnicianFormProps) {
-  const [form, setForm] = useState<{ name: string; email: string; phone: string }>({ name: "", email: "", phone: "" });
+  const [form, setForm] = useState<{ name: string; email: string; phone: string; password: string; confirmPassword: string }>({ 
+    name: "", 
+    email: "", 
+    phone: "", 
+    password: "", 
+    confirmPassword: "" 
+  });
   const [selectedBranch, setSelectedBranch] = useState<string>(branch_id);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [success, setSuccess] = useState<string | null>(null);
+  const [hasChanges, setHasChanges] = useState(false);
 
+  // Update form data when initialData changes
   useEffect(() => {
-    if (initialData) setForm(initialData);
+    if (initialData) {
+      setForm({
+        ...initialData,
+        password: "",
+        confirmPassword: ""
+      });
+    }
     setSelectedBranch(branch_id);
   }, [initialData, branch_id]);
+
+  // Track changes for edit mode
+  useEffect(() => {
+    if (editing && initialData) {
+      const hasFormChanges = 
+        form.name !== (initialData.name || "") ||
+        form.email !== (initialData.email || "") ||
+        form.phone !== (initialData.phone || "") ||
+        selectedBranch !== branch_id;
+      
+      setHasChanges(hasFormChanges);
+    }
+  }, [form, initialData, editing, selectedBranch, branch_id]);
 
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value });
     if (errors[e.target.name]) setErrors({ ...errors, [e.target.name]: "" });
   };
 
-  const handleBranchChange = (e: ChangeEvent<HTMLSelectElement>) => setSelectedBranch(e.target.value);
+  const handleBranchChange = (e: ChangeEvent<HTMLSelectElement>) => {
+    setSelectedBranch(e.target.value);
+    if (errors.branch) setErrors({ ...errors, branch: "" });
+  };
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
-    if (!form.name.trim()) newErrors.name = "Name is required";
-    if (!form.email.trim()) newErrors.email = "Email is required";
-    else if (!/\S+@\S+\.\S+/.test(form.email)) newErrors.email = "Please enter a valid email address";
-    if (!form.phone.trim()) newErrors.phone = "Phone number is required";
-    else if (!/^[\+]?[1-9][\d]{0,15}$/.test(form.phone.replace(/\s/g, ""))) newErrors.phone = "Please enter a valid phone number";
-    if (userRole === "shop_admin" && !selectedBranch) newErrors.branch = "Branch selection is required";
+    
+    // Required field validation
+    if (!form.name.trim()) {
+      newErrors.name = "Name is required";
+    } else if (form.name.trim().length < 2) {
+      newErrors.name = "Name must be at least 2 characters";
+    }
+    
+    if (!form.email.trim()) {
+      newErrors.email = "Email is required";
+    } else if (!/\S+@\S+\.\S+/.test(form.email)) {
+      newErrors.email = "Please enter a valid email address";
+    }
+    
+    if (!form.phone.trim()) {
+      newErrors.phone = "Phone number is required";
+    } else if (!/^[\+]?[1-9][\d]{0,15}$/.test(form.phone.replace(/\s/g, ""))) {
+      newErrors.phone = "Please enter a valid phone number";
+    }
+    
+    if (userRole === "shop_admin" && !selectedBranch) {
+      newErrors.branch = "Branch selection is required";
+    }
+    
+    // Password validation (only for new technicians)
+    if (!editing) {
+      if (!form.password.trim()) {
+        newErrors.password = "Password is required";
+      } else if (form.password.length < 6) {
+        newErrors.password = "Password must be at least 6 characters";
+      } else if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(form.password)) {
+        newErrors.password = "Password must contain at least one uppercase letter, one lowercase letter, and one number";
+      }
+      
+      if (!form.confirmPassword.trim()) {
+        newErrors.confirmPassword = "Please confirm your password";
+      } else if (form.password !== form.confirmPassword) {
+        newErrors.confirmPassword = "Passwords do not match";
+      }
+    }
+    
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!validateForm()) return;
-    onSubmit({ ...form, branch_id: selectedBranch });
+    setSuccess(null);
+    
+    if (!validateForm()) {
+      return;
+    }
+    
+    try {
+      onSubmit({ 
+        name: form.name.trim(),
+        email: form.email.trim(),
+        phone: form.phone.trim(),
+        branch_id: selectedBranch,
+        password: editing ? undefined : form.password
+      });
+      
+      if (!editing) {
+        setForm({
+          name: "",
+          email: "",
+          phone: "",
+          password: "",
+          confirmPassword: ""
+        });
+      }
+      setSuccess(editing ? "Technician updated successfully!" : "Technician created successfully!");
+    } catch (error: unknown) {
+      console.error('TechnicianForm - Error in onSubmit:', error);
+      setErrors({ submit: error instanceof Error ? error.message : String(error) });
+    }
   };
 
   return (
@@ -66,7 +166,9 @@ export default function TechnicianForm({ onSubmit, loading, editing, initialData
             </div>
             <div>
               <h3 className="text-xl font-semibold text-gray-900">Personal Information</h3>
-              <p className="text-gray-600 text-sm">Enter the technician&apos;s basic details</p>
+              <p className="text-gray-600 text-sm">
+                {editing ? "Update the technician's basic details" : "Enter the technician's basic details"}
+              </p>
             </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -78,7 +180,7 @@ export default function TechnicianForm({ onSubmit, loading, editing, initialData
               value={form.name}
               onChange={handleChange}
               required
-              placeholder="Enter technician&apos;s full name"
+              placeholder="Enter technician's full name"
               icon={<MdPerson className="h-5 w-5 text-gray-400" />}
               error={errors.name}
             />
@@ -109,6 +211,65 @@ export default function TechnicianForm({ onSubmit, loading, editing, initialData
           </div>
         </div>
       </div>
+
+      {/* Login Details Section (only for new technicians) */}
+      {!editing && (
+        <div className="border-b border-gray-200">
+          <div className="px-8 py-8">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                <HiLockClosed className="w-6 h-6 text-green-600" />
+              </div>
+              <div>
+                <h3 className="text-xl font-semibold text-gray-900">Login Details</h3>
+                <p className="text-gray-600 text-sm">Create login credentials for the technician</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <TextInput
+                id="password"
+                name="password"
+                type="password"
+                label="Password"
+                value={form.password}
+                onChange={handleChange}
+                required
+                placeholder="Create a strong password"
+                icon={<HiLockClosed className="h-5 w-5 text-gray-400" />}
+                error={errors.password}
+                autoComplete="off"
+              />
+              <TextInput
+                id="confirmPassword"
+                name="confirmPassword"
+                type="password"
+                label="Confirm Password"
+                value={form.confirmPassword}
+                onChange={handleChange}
+                required
+                placeholder="Confirm your password"
+                icon={<HiLockClosed className="h-5 w-5 text-gray-400" />}
+                error={errors.confirmPassword}
+                autoComplete="off"
+              />
+            </div>
+            <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-start gap-3">
+                <HiExclamationCircle className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                <div>
+                  <h4 className="text-sm font-medium text-blue-900 mb-1">Password Requirements</h4>
+                  <ul className="text-sm text-blue-800 space-y-1">
+                    <li>• At least 6 characters long</li>
+                    <li>• Contains at least one uppercase letter</li>
+                    <li>• Contains at least one lowercase letter</li>
+                    <li>• Contains at least one number</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Assignment Section */}
       <div className="px-8 py-8">
@@ -161,6 +322,40 @@ export default function TechnicianForm({ onSubmit, loading, editing, initialData
         )}
       </div>
 
+      {/* Error Message */}
+      {errors.submit && (
+        <div className="px-8 pb-6">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <p className="text-sm text-red-800">{errors.submit}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Success Message */}
+      {success && (
+        <div className="px-8 pb-6">
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <HiCheckCircle className="h-5 w-5 text-green-400" />
+              </div>
+              <div className="ml-3">
+                <p className="text-sm text-green-800">{success}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Action Buttons */}
       <div className="px-8 py-6 bg-gray-50 border-t border-gray-200">
         <div className="flex items-center justify-between">
@@ -172,10 +367,16 @@ export default function TechnicianForm({ onSubmit, loading, editing, initialData
             >
               Cancel
             </button>
+            {editing && hasChanges && (
+              <div className="flex items-center gap-2 text-sm text-amber-600">
+                <HiExclamationCircle className="w-4 h-4" />
+                <span>You have unsaved changes</span>
+              </div>
+            )}
           </div>
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || (editing && !hasChanges)}
             className="px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-lg hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
           >
             {loading ? (
