@@ -1,0 +1,268 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    
+    function isShopAdmin() {
+      return isAuthenticated() && getUserData().role == "shop_admin";
+    }
+    
+    function isBranchAdmin() {
+      return isAuthenticated() && getUserData().role == "branch_admin";
+    }
+    
+    function isTechnician() {
+      return isAuthenticated() && getUserData().role == "technician";
+    }
+    
+    function belongsToShop(shopId) {
+      return getUserData().shopId == shopId;
+    }
+    
+    function belongsToBranch(branchId) {
+      return getUserData().branch_id == branchId;
+    }
+    
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+    
+    function serviceBelongsToUser(serviceId) {
+      let serviceData = get(/databases/$(database)/documents/services/$(serviceId)).data;
+      return (isShopAdmin() && belongsToShop(serviceData.shop_id)) ||
+             (isBranchAdmin() && belongsToBranch(serviceData.branch_id)) ||
+             (isTechnician() && (serviceData.technician_id == request.auth.uid || 
+                                serviceData.branch_id == getUserData().branch_id));
+    }
+    
+    // Users collection
+    match /users/{userId} {
+      // Users can read/write their own document
+      allow read, write: if isAuthenticated() && isOwner(userId);
+      
+      // Allow users to create their own document during registration
+      allow create: if isAuthenticated() && isOwner(userId) &&
+        request.resource.data.keys().hasAll(['name', 'email', 'role', 'onboardingCompleted', 'createdAt']) &&
+        request.resource.data.name is string &&
+        request.resource.data.name.size() > 0 &&
+        request.resource.data.email is string &&
+        request.resource.data.role in ['shop_admin', 'branch_admin', 'technician'] &&
+        request.resource.data.onboardingCompleted is bool &&
+        request.resource.data.createdAt is timestamp;
+      
+      // Allow users to update their own document (for onboarding completion)
+      allow update: if isAuthenticated() && isOwner(userId) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasAny(['shopId', 'onboardingCompleted', 'updatedAt']) &&
+        request.resource.data.shopId is string &&
+        request.resource.data.onboardingCompleted is bool;
+      
+      // Shop admins can read all users in their shop
+      allow read: if isShopAdmin() && belongsToShop(resource.data.shopId);
+      
+      // Branch admins can read users in their branch
+      allow read: if isBranchAdmin() && belongsToBranch(resource.data.branch_id);
+    }
+    
+    // Shops collection
+    match /shops/{shopId} {
+      // Shop admins can read/write their own shop documents
+      allow read, write: if isShopAdmin() && belongsToShop(shopId);
+      
+      // Allow users to create their own shop document during onboarding
+      allow create: if isAuthenticated() && isOwner(shopId) &&
+        request.resource.data.keys().hasAll(['shopName', 'ownerName', 'email', 'phone', 'address', 'city', 'pinCode', 'createdAt', 'updatedAt']) &&
+        request.resource.data.shopName is string &&
+        request.resource.data.shopName.size() > 0 &&
+        request.resource.data.ownerName is string &&
+        request.resource.data.ownerName.size() > 0 &&
+        request.resource.data.email is string &&
+        request.resource.data.phone is string &&
+        request.resource.data.address is string &&
+        request.resource.data.city is string &&
+        request.resource.data.pinCode is string &&
+        request.resource.data.createdAt is timestamp &&
+        request.resource.data.updatedAt is timestamp;
+      
+      // Allow users to update their own shop document
+      allow update: if isAuthenticated() && isOwner(shopId) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasAny(['gstNumber', 'description', 'updatedAt']);
+      
+      // Branches subcollection
+      match /branches/{branchId} {
+        // Shop admins can access all branches in their shop
+        allow read, write: if isShopAdmin() && belongsToShop(shopId);
+        
+        // Branch admins can only access their own branch
+        allow read, write: if isBranchAdmin() && belongsToBranch(branchId);
+        
+        // Validate branch data
+        allow create, update: if 
+          request.resource.data.keys().hasAll(['name', 'address', 'phone', 'email', 'status']) &&
+          request.resource.data.name is string &&
+          request.resource.data.name.size() > 0 &&
+          request.resource.data.address is string &&
+          request.resource.data.phone is string &&
+          request.resource.data.email is string &&
+          request.resource.data.status in ['active', 'inactive'];
+      }
+    }
+    
+    // Services collection
+    match /services/{serviceId} {
+      // Shop admins can access all services in their shop
+      allow read, write: if isShopAdmin() && belongsToShop(resource.data.shop_id);
+      
+      // Branch admins can only access services in their branch
+      allow read, write: if isBranchAdmin() && belongsToBranch(resource.data.branch_id);
+      
+      // Technicians can read services assigned to them or in their branch
+      allow read: if isTechnician() && 
+        (resource.data.technician_id == request.auth.uid || 
+         resource.data.branch_id == getUserData().branch_id);
+      
+      // Technicians can update status of services assigned to them
+      allow update: if isTechnician() && 
+        resource.data.technician_id == request.auth.uid &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt', 'notes']);
+      
+      // Allow invoice generation access
+      allow read: if isAuthenticated() && 
+        (isShopAdmin() && belongsToShop(resource.data.shop_id) ||
+         isBranchAdmin() && belongsToBranch(resource.data.branch_id) ||
+         isTechnician() && (resource.data.technician_id == request.auth.uid || 
+                           resource.data.branch_id == getUserData().branch_id));
+      
+      // Validate service data
+      allow create, update: if 
+        request.resource.data.keys().hasAll(['name', 'description', 'price', 'shop_id', 'branch_id', 'status']) &&
+        request.resource.data.name is string &&
+        request.resource.data.name.size() > 0 &&
+        request.resource.data.description is string &&
+        request.resource.data.price is number &&
+        request.resource.data.price >= 0 &&
+        request.resource.data.shop_id is string &&
+        request.resource.data.branch_id is string &&
+        request.resource.data.status in ['To Do', 'In Progress', 'Completed', 'Cancelled', 'Pending', 'Awaiting Parts', 'On Hold', 'Ready for Pickup'];
+      
+      // Allow deletion only by shop admins
+      allow delete: if isShopAdmin() && belongsToShop(resource.data.shop_id);
+    }
+    
+    // Technicians collection
+    match /technicians/{technicianId} {
+      // Allow read access for all authenticated users (for debugging)
+      allow read: if isAuthenticated();
+      
+      // Shop admins can access all technicians in their shop
+      allow write: if isShopAdmin() && belongsToShop(resource.data.shop_id);
+      
+      // Branch admins can access technicians in their branch
+      allow write: if isBranchAdmin() && belongsToBranch(resource.data.branch_id);
+      
+      // Technicians can read their own profile
+      allow read: if isTechnician() && technicianId == request.auth.uid;
+      
+      // Validate technician data
+      allow create, update: if 
+        request.resource.data.keys().hasAll(['name', 'email', 'phone', 'shop_id', 'branch_id']) &&
+        request.resource.data.name is string &&
+        request.resource.data.name.size() > 0 &&
+        request.resource.data.email is string &&
+        request.resource.data.phone is string &&
+        request.resource.data.shop_id is string &&
+        request.resource.data.branch_id is string;
+    }
+    
+    // Invoices collection
+    match /invoices/{invoiceId} {
+      // Shop admins can access all invoices in their shop
+      allow read, write: if isShopAdmin() && belongsToShop(resource.data.shopId);
+      
+      // Branch admins can only access invoices in their branch
+      allow read, write: if isBranchAdmin() && belongsToBranch(resource.data.branchId);
+      
+      // Technicians can read invoices for services they're assigned to
+      allow read: if isTechnician() && 
+        exists(/databases/$(database)/documents/services/$(resource.data.serviceId)) &&
+        get(/databases/$(database)/documents/services/$(resource.data.serviceId)).data.technician_id == request.auth.uid;
+      
+      // Allow access if the associated service belongs to the user
+      allow read, write: if serviceBelongsToUser(resource.data.serviceId);
+      
+      // Validate invoice data structure and ensure service belongs to user
+      allow create: if 
+        serviceBelongsToUser(request.resource.data.serviceId) &&
+        request.resource.data.keys().hasAll(['serviceId', 'branchId', 'shopId', 'customer', 'device', 'items', 'subtotal', 'tax', 'total', 'status', 'paymentStatus', 'createdAt']) &&
+        request.resource.data.serviceId is string &&
+        request.resource.data.branchId is string &&
+        request.resource.data.shopId is string &&
+        request.resource.data.customer is map &&
+        request.resource.data.device is map &&
+        request.resource.data.items is list &&
+        request.resource.data.subtotal is number &&
+        request.resource.data.subtotal >= 0 &&
+        request.resource.data.tax is number &&
+        request.resource.data.tax >= 0 &&
+        request.resource.data.total is number &&
+        request.resource.data.total >= 0 &&
+        request.resource.data.status in ['Pending', 'Paid', 'Cancelled', 'Draft'] &&
+        request.resource.data.paymentStatus in ['Pending', 'Paid', 'Failed', 'Partial'] &&
+        request.resource.data.createdAt is timestamp;
+      
+      // Validate invoice updates
+      allow update: if 
+        request.resource.data.diff(resource.data).affectedKeys().hasAny(['status', 'paymentStatus', 'updatedAt', 'items', 'subtotal', 'tax', 'total', 'discount']) &&
+        request.resource.data.status in ['Pending', 'Paid', 'Cancelled', 'Draft'] &&
+        request.resource.data.paymentStatus in ['Pending', 'Paid', 'Failed', 'Partial'] &&
+        request.resource.data.total is number &&
+        request.resource.data.total >= 0;
+      
+      // Allow deletion only by shop admins
+      allow delete: if isShopAdmin() && belongsToShop(resource.data.shopId);
+    }
+    
+    // Notifications collection (for future use)
+    match /notifications/{notificationId} {
+      // Users can only access their own notifications
+      allow read, write: if isAuthenticated() && 
+        resource.data.userId == request.auth.uid;
+      
+      // Shop admins can read notifications for their shop
+      allow read: if isShopAdmin() && belongsToShop(resource.data.shopId);
+      
+      // Branch admins can read notifications for their branch
+      allow read: if isBranchAdmin() && belongsToBranch(resource.data.branchId);
+    }
+    
+    // Audit logs collection (for future use)
+    match /audit_logs/{logId} {
+      // Only shop admins can read audit logs
+      allow read: if isShopAdmin() && belongsToShop(resource.data.shopId);
+      
+      // System can create audit logs
+      allow create: if request.auth != null;
+    }
+    
+    // Settings collection (for future use)
+    match /settings/{settingId} {
+      // Shop admins can manage settings for their shop
+      allow read, write: if isShopAdmin() && belongsToShop(resource.data.shopId);
+      
+      // Branch admins can read settings for their branch
+      allow read: if isBranchAdmin() && belongsToBranch(resource.data.branchId);
+    }
+    
+    // Default: Deny all other access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+} 
