@@ -1,212 +1,107 @@
 import { logger } from './logger';
 
-export interface ApiResponse<T = any> {
+interface ApiResponse<T> {
   success: boolean;
   data?: T;
   error?: string;
   message?: string;
 }
 
-export interface ApiError {
-  code: string;
-  message: string;
-  details?: any;
+interface ApiError extends Error {
+  status?: number;
+  code?: string;
 }
 
-export class ApiError extends Error {
-  constructor(
-    public code: string,
-    message: string,
-    public details?: any
-  ) {
-    super(message);
-    this.name = 'ApiError';
-  }
+interface RequestConfig {
+  method?: string;
+  headers?: Record<string, string>;
+  body?: unknown;
+  timeout?: number;
 }
 
-export class ApiClient {
-  private baseUrl: string;
+interface ApiClient {
+  get<T>(url: string, config?: RequestConfig): Promise<ApiResponse<T>>;
+  post<T>(url: string, data?: unknown, config?: RequestConfig): Promise<ApiResponse<T>>;
+  put<T>(url: string, data?: unknown, config?: RequestConfig): Promise<ApiResponse<T>>;
+  delete<T>(url: string, config?: RequestConfig): Promise<ApiResponse<T>>;
+}
 
-  constructor(baseUrl?: string) {
-    this.baseUrl = baseUrl || '';
+class ApiClientImpl implements ApiClient {
+  private baseURL: string;
+  private defaultHeaders: Record<string, string>;
+
+  constructor(baseURL: string, defaultHeaders: Record<string, string> = {}) {
+    this.baseURL = baseURL;
+    this.defaultHeaders = {
+      'Content-Type': 'application/json',
+      ...defaultHeaders,
+    };
   }
 
   private async request<T>(
-    endpoint: string,
-    options: RequestInit = {}
+    method: string,
+    url: string,
+    data?: unknown,
+    config?: RequestConfig
   ): Promise<ApiResponse<T>> {
-    const url = `${this.baseUrl}${endpoint}`;
-    
     try {
-      logger.info('API Request', { url, method: options.method || 'GET' });
+      const fullURL = `${this.baseURL}${url}`;
+      const headers = { ...this.defaultHeaders, ...config?.headers };
+      
+      const requestConfig: RequestInit = {
+        method,
+        headers,
+        body: data ? JSON.stringify(data) : undefined,
+      };
 
-      const response = await fetch(url, {
-        headers: {
-          'Content-Type': 'application/json',
-          ...options.headers,
-        },
-        ...options,
-      });
+      logger.info('API Request', { method, url: fullURL, data });
 
-      const data = await response.json();
+      const response = await fetch(fullURL, requestConfig);
+      const responseData = await response.json();
 
       if (!response.ok) {
-        const error = new ApiError(
-          data.code || 'UNKNOWN_ERROR',
-          data.message || 'An unexpected error occurred',
-          data.details
-        );
-
-        logger.error('API Error', error, {
-          url,
-          status: response.status,
-          statusText: response.statusText,
-          data
-        });
-
+        const error: ApiError = new Error(responseData.message || 'API request failed');
+        error.status = response.status;
+        error.code = responseData.code;
         throw error;
       }
 
-      logger.info('API Response', { url, success: true });
+      logger.info('API Response', { method, url: fullURL, success: true });
 
       return {
         success: true,
-        data,
-        message: data.message
+        data: responseData,
       };
-    } catch (error) {
-      if (error instanceof ApiError) {
-        throw error;
-      }
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.error('API Error', error as Error, { method, url, error: errorMessage });
 
-      const apiError = new ApiError(
-        'NETWORK_ERROR',
-        error instanceof Error ? error.message : 'Network error occurred',
-        { originalError: error }
-      );
-
-      logger.error('API Network Error', apiError, { url });
-
-      throw apiError;
+      return {
+        success: false,
+        error: errorMessage,
+      };
     }
   }
 
-  async get<T>(endpoint: string, params?: Record<string, any>): Promise<ApiResponse<T>> {
-    const url = params ? `${endpoint}?${new URLSearchParams(params)}` : endpoint;
-    return this.request<T>(url, { method: 'GET' });
+  async get<T>(url: string, config?: RequestConfig): Promise<ApiResponse<T>> {
+    return this.request<T>('GET', url, undefined, config);
   }
 
-  async post<T>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, {
-      method: 'POST',
-      body: data ? JSON.stringify(data) : undefined,
-    });
+  async post<T>(url: string, data?: unknown, config?: RequestConfig): Promise<ApiResponse<T>> {
+    return this.request<T>('POST', url, data, config);
   }
 
-  async put<T>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, {
-      method: 'PUT',
-      body: data ? JSON.stringify(data) : undefined,
-    });
+  async put<T>(url: string, data?: unknown, config?: RequestConfig): Promise<ApiResponse<T>> {
+    return this.request<T>('PUT', url, data, config);
   }
 
-  async delete<T>(endpoint: string): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, { method: 'DELETE' });
-  }
-
-  async patch<T>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, {
-      method: 'PATCH',
-      body: data ? JSON.stringify(data) : undefined,
-    });
+  async delete<T>(url: string, config?: RequestConfig): Promise<ApiResponse<T>> {
+    return this.request<T>('DELETE', url, undefined, config);
   }
 }
 
-// Firebase-specific API utilities
-export class FirebaseApiClient {
-  private db: any;
-  private auth: any;
+// Create default API client instance
+export const apiClient = new ApiClientImpl(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api');
 
-  constructor(db: any, auth: any) {
-    this.db = db;
-    this.auth = auth;
-  }
-
-  async getDocument<T>(collection: string, id: string): Promise<T | null> {
-    try {
-      const { doc, getDoc } = await import('firebase/firestore');
-      const docRef = doc(this.db, collection, id);
-      const docSnap = await getDoc(docRef);
-
-      if (docSnap.exists()) {
-        return { id: docSnap.id, ...docSnap.data() } as T;
-      }
-
-      return null;
-    } catch (error) {
-      logger.error('Firebase getDocument error', error as Error, { collection, id });
-      throw new ApiError('FIRESTORE_ERROR', 'Failed to fetch document', { collection, id });
-    }
-  }
-
-  async getDocuments<T>(collection: string, query?: any): Promise<T[]> {
-    try {
-      const { collection: firestoreCollection, getDocs, query: firestoreQuery, where } = await import('firebase/firestore');
-      
-      const collectionRef = firestoreCollection(this.db, collection);
-      
-      if (query) {
-        const queryConstraints = Object.entries(query).map(([field, value]) => where(field, '==', value));
-        const q = firestoreQuery(collectionRef, ...queryConstraints);
-        const querySnapshot = await getDocs(q);
-        return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as T));
-      } else {
-        const querySnapshot = await getDocs(collectionRef);
-        return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as T));
-      }
-    } catch (error) {
-      logger.error('Firebase getDocuments error', error as Error, { collection, query });
-      throw new ApiError('FIRESTORE_ERROR', 'Failed to fetch documents', { collection, query });
-    }
-  }
-
-  async createDocument<T>(collection: string, data: any): Promise<string> {
-    try {
-      const { collection: firestoreCollection, addDoc } = await import('firebase/firestore');
-      const docRef = await addDoc(firestoreCollection(this.db, collection), {
-        ...data,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
-      return docRef.id;
-    } catch (error) {
-      logger.error('Firebase createDocument error', error as Error, { collection, data });
-      throw new ApiError('FIRESTORE_ERROR', 'Failed to create document', { collection, data });
-    }
-  }
-
-  async updateDocument<T>(collection: string, id: string, data: any): Promise<void> {
-    try {
-      const { doc, updateDoc } = await import('firebase/firestore');
-      const docRef = doc(this.db, collection, id);
-      await updateDoc(docRef, {
-        ...data,
-        updatedAt: new Date(),
-      });
-    } catch (error) {
-      logger.error('Firebase updateDocument error', error as Error, { collection, id, data });
-      throw new ApiError('FIRESTORE_ERROR', 'Failed to update document', { collection, id, data });
-    }
-  }
-
-  async deleteDocument(collection: string, id: string): Promise<void> {
-    try {
-      const { doc, deleteDoc } = await import('firebase/firestore');
-      const docRef = doc(this.db, collection, id);
-      await deleteDoc(docRef);
-    } catch (error) {
-      logger.error('Firebase deleteDocument error', error as Error, { collection, id });
-      throw new ApiError('FIRESTORE_ERROR', 'Failed to delete document', { collection, id });
-    }
-  }
-} 
+// Export types for external use
+export type { ApiResponse, ApiError, RequestConfig, ApiClient }; 

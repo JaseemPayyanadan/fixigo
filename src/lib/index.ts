@@ -1,5 +1,4 @@
-export { db, auth } from "./firebase";
-export { cn } from "./utils";
+export { apiClient } from "./api";
+export type { ApiClient, ApiError } from "./api";
 export { logger } from "./logger";
-export { Validator, patterns, rules, validateEmail, validatePhone, validatePassword, validateStrongPassword } from "./validation";
-export { ApiClient, FirebaseApiClient, ApiError } from "./api"; 
+export { Validator, patterns, rules, validateEmail, validatePhone, validatePassword, validateStrongPassword } from "./validation"; 

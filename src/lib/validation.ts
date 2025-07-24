@@ -1,16 +1,16 @@
-export interface ValidationRule {
+interface ValidationRule {
   required?: boolean;
   minLength?: number;
   maxLength?: number;
   pattern?: RegExp;
-  custom?: (value: any) => string | null;
+  custom?: (value: string) => string | null;
 }
 
-export interface ValidationSchema {
-  [key: string]: ValidationRule;
+interface ValidationSchema {
+  [field: string]: ValidationRule;
 }
 
-export interface ValidationResult {
+interface ValidationResult {
   isValid: boolean;
   errors: Record<string, string>;
 }
@@ -22,70 +22,54 @@ export class Validator {
     this.schema = schema;
   }
 
-  validate(data: Record<string, any>): ValidationResult {
+  validate(data: Record<string, string>): ValidationResult {
     const errors: Record<string, string> = {};
 
     for (const [field, rules] of Object.entries(this.schema)) {
-      const value = data[field];
-      const error = this.validateField(field, value, rules);
-      
-      if (error) {
-        errors[field] = error;
+      const value = data[field] || '';
+      const fieldErrors: string[] = [];
+
+      // Required validation
+      if (rules.required && !value.trim()) {
+        fieldErrors.push(`${field} is required`);
+      }
+
+      // Min length validation
+      if (rules.minLength && value.length < rules.minLength) {
+        fieldErrors.push(`${field} must be at least ${rules.minLength} characters`);
+      }
+
+      // Max length validation
+      if (rules.maxLength && value.length > rules.maxLength) {
+        fieldErrors.push(`${field} must be no more than ${rules.maxLength} characters`);
+      }
+
+      // Pattern validation
+      if (rules.pattern && !rules.pattern.test(value)) {
+        fieldErrors.push(`${field} format is invalid`);
+      }
+
+      // Custom validation
+      if (rules.custom) {
+        const customError = rules.custom(value);
+        if (customError) {
+          fieldErrors.push(customError);
+        }
+      }
+
+      if (fieldErrors.length > 0) {
+        errors[field] = fieldErrors.join(', ');
       }
     }
 
     return {
       isValid: Object.keys(errors).length === 0,
-      errors
+      errors,
     };
   }
-
-  private validateField(field: string, value: any, rules: ValidationRule): string | null {
-    // Required check
-    if (rules.required && (!value || (typeof value === 'string' && value.trim() === ''))) {
-      return `${this.formatFieldName(field)} is required`;
-    }
-
-    // Skip other validations if value is empty and not required
-    if (!value || (typeof value === 'string' && value.trim() === '')) {
-      return null;
-    }
-
-    // Type-specific validations
-    if (typeof value === 'string') {
-      // Length validations
-      if (rules.minLength && value.length < rules.minLength) {
-        return `${this.formatFieldName(field)} must be at least ${rules.minLength} characters`;
-      }
-
-      if (rules.maxLength && value.length > rules.maxLength) {
-        return `${this.formatFieldName(field)} must be no more than ${rules.maxLength} characters`;
-      }
-
-      // Pattern validation
-      if (rules.pattern && !rules.pattern.test(value)) {
-        return `${this.formatFieldName(field)} format is invalid`;
-      }
-    }
-
-    // Custom validation
-    if (rules.custom) {
-      const customError = rules.custom(value);
-      if (customError) {
-        return customError;
-      }
-    }
-
-    return null;
-  }
-
-  private formatFieldName(field: string): string {
-    return field
-      .replace(/([A-Z])/g, ' $1')
-      .replace(/^./, str => str.toUpperCase())
-      .replace(/_/g, ' ');
-  }
 }
+
+export type { ValidationRule, ValidationSchema, ValidationResult };
 
 // Common validation patterns
 export const patterns = {

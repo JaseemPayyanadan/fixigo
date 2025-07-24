@@ -1,10 +1,11 @@
-"use client"
+"use client";
 import React, { useState } from "react";
-import { auth } from "@/lib/firebase";
+import { useRouter } from "next/navigation";
 import { signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
+import { auth } from "@/lib/firebase";
 import { AuthGuard } from "@/components";
+import { HiMail, HiLockClosed, HiUsers, HiChartBar, HiClock, HiShieldCheck } from "react-icons/hi";
 import Link from "next/link";
-import { HiEye, HiEyeOff, HiMail, HiLockClosed, HiShieldCheck, HiSparkles, HiChartBar, HiUsers, HiClock } from "react-icons/hi";
 import TextInput from "@/components/ui/TextInput";
 import PasswordInput from "@/components/ui/PasswordInput";
 

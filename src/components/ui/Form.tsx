@@ -1,7 +1,15 @@
 "use client";
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback } from "react";
 import { Validator, ValidationSchema } from '@/lib/validation';
 import { logger } from '@/lib/logger';
+
+interface ValidationRule {
+  required?: boolean;
+  minLength?: number;
+  maxLength?: number;
+  pattern?: RegExp;
+  custom?: (value: string) => string | null;
+}
 
 interface FormField {
   name: string;
@@ -9,17 +17,17 @@ interface FormField {
   type: string;
   required?: boolean;
   placeholder?: string;
-  options?: { value: string; label: string }[];
-  validation?: any;
+  validation?: ValidationRule;
+  options?: Array<{ value: string; label: string }>;
 }
 
 interface FormProps {
   fields: FormField[];
-  onSubmit: (data: Record<string, any>) => Promise<void>;
-  initialData?: Record<string, any>;
+  onSubmit: (data: Record<string, string>) => void;
   submitText?: string;
   loading?: boolean;
   className?: string;
+  initialData?: Record<string, string>;
 }
 
 export function Form({ 
@@ -30,7 +38,7 @@ export function Form({
   loading = false,
   className = ""
 }: FormProps) {
-  const [formData, setFormData] = useState<Record<string, any>>(initialData);
+  const [formData, setFormData] = useState<Record<string, string>>(initialData);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -43,8 +51,8 @@ export function Form({
 
   const validator = new Validator(validationSchema);
 
-  const handleInputChange = useCallback((name: string, value: any) => {
-    setFormData(prev => ({ ...prev, [name]: value }));
+  const handleInputChange = useCallback((name: string, value: string | boolean) => {
+    setFormData(prev => ({ ...prev, [name]: String(value) }));
     
     // Clear error when user starts typing
     if (errors[name]) {
@@ -125,7 +133,7 @@ export function Form({
             type="checkbox"
             id={name}
             name={name}
-            checked={value}
+            checked={value === 'true'}
             onChange={(e) => handleInputChange(name, e.target.checked)}
             className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
           />
@@ -176,7 +184,7 @@ export function Form({
 }
 
 // Specialized form components
-export function ContactForm({ onSubmit }: { onSubmit: (data: any) => Promise<void> }) {
+export function ContactForm({ onSubmit }: { onSubmit: (data: Record<string, string>) => Promise<void> }) {
   const fields: FormField[] = [
     {
       name: 'name',
@@ -207,7 +215,7 @@ export function ContactForm({ onSubmit }: { onSubmit: (data: any) => Promise<voi
   return <Form fields={fields} onSubmit={onSubmit} submitText="Send Message" />;
 }
 
-export function LoginForm({ onSubmit }: { onSubmit: (data: any) => Promise<void> }) {
+export function LoginForm({ onSubmit }: { onSubmit: (data: Record<string, string>) => Promise<void> }) {
   const fields: FormField[] = [
     {
       name: 'email',

@@ -1,103 +1,67 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
-import { logger } from '@/lib/logger';
+import { useState, useEffect, useCallback } from 'react';
 
-interface UseAsyncState<T> {
+interface AsyncState<T> {
   data: T | null;
   loading: boolean;
   error: string | null;
 }
 
-interface UseAsyncOptions {
+interface AsyncOptions {
   immediate?: boolean;
-  onSuccess?: (data: any) => void;
-  onError?: (error: Error) => void;
+  onSuccess?: (data: unknown) => void;
+  onError?: (error: unknown) => void;
 }
 
-export function useAsync<T = any>(
-  asyncFunction: (...args: any[]) => Promise<T>,
-  options: UseAsyncOptions = {}
+type AsyncFunction<T> = (...args: unknown[]) => Promise<T>;
+
+export function useAsync<T>(
+  asyncFunction: AsyncFunction<T>,
+  options: AsyncOptions = {}
 ) {
-  const [state, setState] = useState<UseAsyncState<T>>({
+  const [state, setState] = useState<AsyncState<T>>({
     data: null,
     loading: false,
     error: null,
   });
 
-  const { immediate = false, onSuccess, onError } = options;
-  const mountedRef = useRef(true);
+  const { immediate = true, onSuccess, onError } = options;
 
   const execute = useCallback(
-    async (...args: any[]) => {
+    async (...args: unknown[]) => {
+      setState(prevState => ({ ...prevState, loading: true, error: null }));
+
       try {
-        setState(prev => ({ ...prev, loading: true, error: null }));
-        
-        logger.info('Async operation started', { functionName: asyncFunction.name });
-        
-        const result = await asyncFunction(...args);
-        
-        if (mountedRef.current) {
-          setState({ data: result, loading: false, error: null });
-          onSuccess?.(result);
-          
-          logger.info('Async operation completed', { 
-            functionName: asyncFunction.name,
-            success: true 
-          });
-        }
-        
-        return result;
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'An error occurred';
-        
-        if (mountedRef.current) {
-          setState(prev => ({ ...prev, loading: false, error: errorMessage }));
-          onError?.(error as Error);
-          
-          logger.error('Async operation failed', error as Error, {
-            functionName: asyncFunction.name,
-            error: errorMessage
-          });
-        }
-        
+        const data = await asyncFunction(...args);
+        setState({ data, loading: false, error: null });
+        onSuccess?.(data);
+        return data;
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        setState({ data: null, loading: false, error: errorMessage });
+        onError?.(error);
         throw error;
       }
     },
     [asyncFunction, onSuccess, onError]
   );
 
-  const reset = useCallback(() => {
-    setState({ data: null, loading: false, error: null });
-  }, []);
-
-  const setData = useCallback((data: T) => {
-    setState(prev => ({ ...prev, data, error: null }));
-  }, []);
-
-  const setError = useCallback((error: string) => {
-    setState(prev => ({ ...prev, error, loading: false }));
-  }, []);
-
-  // Cleanup on unmount
   useEffect(() => {
-    return () => {
-      mountedRef.current = false;
-    };
-  }, []);
+    if (immediate) {
+      execute();
+    }
+  }, [execute, immediate]);
 
   return {
     ...state,
     execute,
-    reset,
-    setData,
-    setError,
   };
 }
 
 // Specialized hook for data fetching
-export function useFetch<T = any>(
-  fetchFunction: (...args: any[]) => Promise<T>,
-  dependencies: any[] = [],
-  options: UseAsyncOptions = {}
+export function useFetch<T>(
+  fetchFunction: (...args: unknown[]) => Promise<T>,
+  dependencies: unknown[] = [],
+  options: AsyncOptions = {}
 ) {
   const { immediate = true, ...restOptions } = options;
 
@@ -114,9 +78,9 @@ export function useFetch<T = any>(
 }
 
 // Hook for handling form submissions
-export function useSubmit<T = any>(
-  submitFunction: (data: T) => Promise<any>,
-  options: UseAsyncOptions = {}
+export function useSubmit<T>(
+  submitFunction: (data: T) => Promise<unknown>,
+  options: AsyncOptions = {}
 ) {
   const { onSuccess, onError, ...restOptions } = options;
 
@@ -127,12 +91,12 @@ export function useSubmit<T = any>(
         onSuccess?.(result);
         return result;
       } catch (error) {
-        onError?.(error as Error);
+        onError?.(error);
         throw error;
       }
     },
     [submitFunction, onSuccess, onError]
   );
 
-  return useAsync(handleSubmit, restOptions);
+  return useAsync(handleSubmit as AsyncFunction<unknown>, restOptions);
 } 

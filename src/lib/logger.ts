@@ -1,88 +1,66 @@
-export enum LogLevel {
-  DEBUG = 'debug',
-  INFO = 'info',
-  WARN = 'warn',
-  ERROR = 'error'
+interface LogLevel {
+  DEBUG: 0;
+  INFO: 1;
+  WARN: 2;
+  ERROR: 3;
 }
 
-interface LogEntry {
-  timestamp: string;
-  level: LogLevel;
-  message: string;
-  context?: Record<string, any>;
-  error?: Error;
+interface LogContext {
+  [key: string]: unknown;
 }
 
-class Logger {
-  private isDevelopment = process.env.NODE_ENV === 'development';
+interface Logger {
+  debug(message: string, context?: LogContext): void;
+  info(message: string, context?: LogContext): void;
+  warn(message: string, context?: LogContext): void;
+  error(message: string, error?: Error, context?: LogContext): void;
+}
 
-  private formatMessage(entry: LogEntry): string {
-    const { timestamp, level, message, context, error } = entry;
-    let formatted = `[${timestamp}] ${level.toUpperCase()}: ${message}`;
-    
-    if (context && Object.keys(context).length > 0) {
-      formatted += ` | Context: ${JSON.stringify(context)}`;
-    }
-    
-    if (error) {
-      formatted += ` | Error: ${error.message}`;
-      if (error.stack) {
-        formatted += ` | Stack: ${error.stack}`;
-      }
-    }
-    
-    return formatted;
+const LOG_LEVELS: LogLevel = {
+  DEBUG: 0,
+  INFO: 1,
+  WARN: 2,
+  ERROR: 3,
+};
+
+const currentLogLevel = (process.env.NODE_ENV === 'development' ? LOG_LEVELS.DEBUG : LOG_LEVELS.INFO);
+
+class LoggerImpl implements Logger {
+  private formatMessage(level: string, message: string, context?: LogContext): string {
+    const timestamp = new Date().toISOString();
+    const contextStr = context ? ` ${JSON.stringify(context)}` : '';
+    return `[${timestamp}] ${level}: ${message}${contextStr}`;
   }
 
-  private log(level: LogLevel, message: string, context?: Record<string, any>, error?: Error) {
-    const entry: LogEntry = {
-      timestamp: new Date().toISOString(),
-      level,
-      message,
-      context,
-      error
-    };
+  private shouldLog(level: number): boolean {
+    return level >= currentLogLevel;
+  }
 
-    const formattedMessage = this.formatMessage(entry);
-
-    // In development, log to console
-    if (this.isDevelopment) {
-      switch (level) {
-        case LogLevel.DEBUG:
-          console.debug(formattedMessage);
-          break;
-        case LogLevel.INFO:
-          console.info(formattedMessage);
-          break;
-        case LogLevel.WARN:
-          console.warn(formattedMessage);
-          break;
-        case LogLevel.ERROR:
-          console.error(formattedMessage);
-          break;
-      }
-    } else {
-      // In production, send to external logging service
-      // TODO: Integrate with external logging service (e.g., Sentry, LogRocket)
-      console.log(formattedMessage);
+  debug(message: string, context?: LogContext): void {
+    if (this.shouldLog(LOG_LEVELS.DEBUG)) {
+      console.debug(this.formatMessage('DEBUG', message, context));
     }
   }
 
-  debug(message: string, context?: Record<string, any>) {
-    this.log(LogLevel.DEBUG, message, context);
+  info(message: string, context?: LogContext): void {
+    if (this.shouldLog(LOG_LEVELS.INFO)) {
+      console.info(this.formatMessage('INFO', message, context));
+    }
   }
 
-  info(message: string, context?: Record<string, any>) {
-    this.log(LogLevel.INFO, message, context);
+  warn(message: string, context?: LogContext): void {
+    if (this.shouldLog(LOG_LEVELS.WARN)) {
+      console.warn(this.formatMessage('WARN', message, context));
+    }
   }
 
-  warn(message: string, context?: Record<string, any>) {
-    this.log(LogLevel.WARN, message, context);
-  }
-
-  error(message: string, error?: Error, context?: Record<string, any>) {
-    this.log(LogLevel.ERROR, message, context, error);
+  error(message: string, error?: Error, context?: LogContext): void {
+    if (this.shouldLog(LOG_LEVELS.ERROR)) {
+      const errorContext = error ? { error: error.message, stack: error.stack } : {};
+      const fullContext = { ...errorContext, ...context };
+      console.error(this.formatMessage('ERROR', message, fullContext));
+    }
   }
 }
 
-export const logger = new Logger(); 
+export const logger = new LoggerImpl(); 
