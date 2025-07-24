@@ -17,8 +17,8 @@ interface TechnicianData {
   shop_id: string;
   role: string;
   status: string;
-  createdAt: any;
-  updatedAt: any;
+  createdAt: Date | null;
+  updatedAt: Date | null;
 }
 
 export default function TechnicianEditPage() {
