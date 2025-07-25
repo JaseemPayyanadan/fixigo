@@ -8,16 +8,14 @@ import {
   MdStore, 
   MdPhone, 
   MdLocationOn, 
-  MdMyLocation, 
   MdBusiness, 
   MdEmail,
   MdPerson,
   MdArrowForward,
-  MdArrowBack
+  MdArrowBack,
+  MdSearch
 } from "react-icons/md";
 import { HiCheckCircle } from "react-icons/hi";
-
-
 
 interface OnboardingStep {
   id: number;
@@ -25,6 +23,15 @@ interface OnboardingStep {
   subtitle: string;
   icon: React.ReactNode;
   completed: boolean;
+}
+
+interface LocationSuggestion {
+  place_id: string;
+  description: string;
+  structured_formatting: {
+    main_text: string;
+    secondary_text: string;
+  };
 }
 
 export default function ShopOnboardingPage() {
@@ -39,39 +46,36 @@ export default function ShopOnboardingPage() {
     address: "",
     city: "",
     pinCode: "",
-    gstNumber: "",
-    description: ""
-    });
+    gstNumber: ""
+  });
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [checkingExisting, setCheckingExisting] = useState(true);
   const [showSuccess, setShowSuccess] = useState(false);
+  
+  // Location auto-suggestion states
+  const [locationSuggestions, setLocationSuggestions] = useState<LocationSuggestion[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
 
   const steps: OnboardingStep[] = [
     {
       id: 1,
-      title: "Business Information",
-      subtitle: "Tell us about your shop",
+      title: "Business & Contact",
+      subtitle: "Tell us about your business and contact details",
       icon: <MdStore className="w-6 h-6" />,
       completed: false
     },
     {
       id: 2,
-      title: "Owner Details",
-      subtitle: "Tell us about the business owner",
-      icon: <MdPerson className="w-6 h-6" />,
-      completed: false
-    },
-    {
-      id: 3,
-      title: "Location Details",
+      title: "Location",
       subtitle: "Where is your business located?",
       icon: <MdLocationOn className="w-6 h-6" />,
       completed: false
     },
     {
-      id: 4,
+      id: 3,
       title: "Complete Setup",
       subtitle: "You're almost ready to go!",
       icon: <HiCheckCircle className="w-6 h-6" />,
@@ -83,11 +87,11 @@ export default function ShopOnboardingPage() {
   useEffect(() => {
     const checkExistingShop = async () => {
       if (!user?.uid) {
-        console.log("No user UID available");
+
         return;
       }
       
-      console.log("Checking existing shop for user:", user.uid);
+      
       
       try {
         // Dynamically import Firebase modules
@@ -97,7 +101,7 @@ export default function ShopOnboardingPage() {
         // Check if shop document exists
         const shopDoc = await getDoc(doc(db, "shops", user.uid));
         if (shopDoc.exists()) {
-          console.log("Shop document exists, redirecting to dashboard");
+
           // User already has shop information, redirect to dashboard
           router.push("/dashboard");
           return;
@@ -105,15 +109,15 @@ export default function ShopOnboardingPage() {
         
         // Check if user has shopId and has completed onboarding
         if (user.shopId && user.onboardingCompleted) {
-          console.log("User has completed onboarding, redirecting to dashboard");
+
           router.push("/dashboard");
           return;
         }
         
-        console.log("No existing shop found, showing onboarding form");
+        
         setCheckingExisting(false);
       } catch (err) {
-        console.error("Error checking existing shop:", err);
+        
         setCheckingExisting(false);
       }
     };
@@ -121,7 +125,7 @@ export default function ShopOnboardingPage() {
     if (user) {
       checkExistingShop();
     } else {
-      console.log("User not available yet");
+      
     }
   }, [user, router]);
 
@@ -131,32 +135,120 @@ export default function ShopOnboardingPage() {
       ...prev,
       [name]: value
     }));
-  };
 
-  const handleLocationDetect = () => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const { latitude, longitude } = position.coords;
-          alert(`Location detected: ${latitude}, ${longitude}. Please enter your address manually.`);
-        },
-        (error) => {
-          console.error('Error getting location:', error);
-          alert('Unable to detect your location. Please enter your address manually.');
-        }
-      );
-    } else {
-      alert('Geolocation is not supported by this browser.');
+    // Trigger location suggestions for address field
+    if (name === 'address' && value.length > 2) {
+      fetchLocationSuggestions(value);
+    } else if (name === 'address' && value.length <= 2) {
+      setLocationSuggestions([]);
+      setShowSuggestions(false);
     }
   };
+
+  const fetchLocationSuggestions = async (query: string) => {
+    if (query.length < 3) return;
+
+    setIsLoadingSuggestions(true);
+    setShowSuggestions(true);
+
+    try {
+      // Using Google Places API for location suggestions
+      // Note: In production, you'd need to set up Google Places API with proper API key
+      const response = await fetch(`/api/location-suggestions?query=${encodeURIComponent(query)}`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        setLocationSuggestions(data.predictions || []);
+      } else {
+        // Fallback: create mock suggestions based on common Indian cities
+        const mockSuggestions = [
+          {
+            place_id: "1",
+            description: `${query}, Mumbai, Maharashtra`,
+            structured_formatting: {
+              main_text: query,
+              secondary_text: "Mumbai, Maharashtra"
+            }
+          },
+          {
+            place_id: "2", 
+            description: `${query}, Delhi, Delhi`,
+            structured_formatting: {
+              main_text: query,
+              secondary_text: "Delhi, Delhi"
+            }
+          },
+          {
+            place_id: "3",
+            description: `${query}, Bangalore, Karnataka`,
+            structured_formatting: {
+              main_text: query,
+              secondary_text: "Bangalore, Karnataka"
+            }
+          },
+          {
+            place_id: "4",
+            description: `${query}, Chennai, Tamil Nadu`,
+            structured_formatting: {
+              main_text: query,
+              secondary_text: "Chennai, Tamil Nadu"
+            }
+          }
+        ];
+        setLocationSuggestions(mockSuggestions);
+      }
+    } catch (error) {
+      
+      // Fallback to mock suggestions
+      const mockSuggestions = [
+        {
+          place_id: "1",
+          description: `${query}, Mumbai, Maharashtra`,
+          structured_formatting: {
+            main_text: query,
+            secondary_text: "Mumbai, Maharashtra"
+          }
+        },
+        {
+          place_id: "2",
+          description: `${query}, Delhi, Delhi`,
+          structured_formatting: {
+            main_text: query,
+            secondary_text: "Delhi, Delhi"
+          }
+        }
+      ];
+      setLocationSuggestions(mockSuggestions);
+    } finally {
+      setIsLoadingSuggestions(false);
+    }
+  };
+
+  const handleSuggestionClick = (suggestion: LocationSuggestion) => {
+    const fullAddress = suggestion.description;
+    const parts = fullAddress.split(', ');
+    
+    setFormData(prev => ({
+      ...prev,
+      address: parts[0] || '',
+      city: parts[1] || '',
+      pinCode: '' // Keep PIN code empty for manual entry
+    }));
+    
+    setShowSuggestions(false);
+    setLocationSuggestions([]);
+  };
+
+
 
   const validateStep = (step: number): boolean => {
     switch (step) {
       case 1:
-        return formData.shopName.trim().length > 0;
+        return formData.shopName.trim().length > 0 && 
+               formData.ownerName.trim().length > 0 && 
+               formData.email.trim().length > 0 && 
+               formData.phone.trim().length > 0;
       case 2:
-        return formData.ownerName.trim().length > 0 && formData.email.trim().length > 0;
-      case 3:
         return formData.address.trim().length > 0 && formData.city.trim().length > 0 && formData.pinCode.trim().length > 0;
       default:
         return true;
@@ -167,22 +259,30 @@ export default function ShopOnboardingPage() {
     if (validateStep(currentStep)) {
       setCurrentStep(prev => Math.min(prev + 1, steps.length));
       setError("");
+      setShowSuggestions(false);
     }
   };
 
   const prevStep = () => {
     setCurrentStep(prev => Math.max(prev - 1, 1));
     setError("");
+    setShowSuggestions(false);
   };
 
-  const saveShopInfo = async (uid: string, shopData: { shopName: string; ownerName: string; email: string; phone: string; address: string; city: string; pinCode: string; gstNumber: string; description: string }) => {
+  const saveShopInfo = async (uid: string, shopData: { shopName: string; ownerName: string; email: string; phone: string; address: string; city: string; pinCode: string; gstNumber: string }) => {
     // Dynamically import Firebase modules
     const { doc, setDoc, updateDoc } = await import("firebase/firestore");
     const { db } = await import("@/lib/firebase");
     
     // Create shop document
     await setDoc(doc(db, "shops", uid), {
-      ...shopData,
+      name: shopData.shopName,
+      address: `${shopData.address}, ${shopData.city} - ${shopData.pinCode}`,
+      phone: shopData.phone,
+      email: shopData.email,
+      ownerId: uid,
+      gstNumber: shopData.gstNumber || null,
+      status: "active",
       createdAt: new Date(),
       updatedAt: new Date()
     });
@@ -224,7 +324,7 @@ export default function ShopOnboardingPage() {
 
   // Show loading while user is loading or checking existing shop
   if (loading || checkingExisting) {
-    console.log("Showing loading state - user loading or checking existing shop");
+    
     return (
       <div className="min-h-screen w-full bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
         <div className="text-center">
@@ -237,7 +337,7 @@ export default function ShopOnboardingPage() {
 
   // If user is not authenticated, show login prompt instead of redirecting
   if (!user) {
-    console.log("No user available, showing login prompt");
+    
     return (
       <div className="min-h-screen w-full bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
         <div className="text-center">
@@ -261,7 +361,7 @@ export default function ShopOnboardingPage() {
 
   // If user is not a shop_admin, show unauthorized message
   if (user.role !== "shop_admin") {
-    console.log("User is not shop_admin, showing unauthorized message");
+    
     return (
       <div className="min-h-screen w-full  bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
         <div className="text-center">
@@ -322,13 +422,13 @@ export default function ShopOnboardingPage() {
     );
   }
 
-  console.log("Rendering onboarding form for user:", user.uid);
+  
   return (
     <div className="min-h-screen w-full bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
       <div className="max-w-4xl w-full">
         {/* Progress Bar */}
         <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-center mb-4">
             {steps.map((step, index) => (
               <div key={step.id} className="flex items-center">
                 <div className={`flex items-center justify-center w-10 h-10 rounded-full border-2 ${
@@ -362,94 +462,136 @@ export default function ShopOnboardingPage() {
         <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
           {currentStep === 1 && (
             <div className="space-y-6">
-              <TextInput
-                type="text"
-                id="shopName"
-                name="shopName"
-                label="Shop Name"
-                required
-                placeholder="Enter your shop name"
-                value={formData.shopName}
-                onChange={handleInputChange}
-                icon={<MdStore className="h-5 w-5 text-gray-400" />}
-              />
-              <TextInput
-                type="text"
-                id="description"
-                name="description"
-                label="Business Description"
-                placeholder="Brief description of your services"
-                value={formData.description}
-                onChange={handleInputChange}
-                icon={<MdBusiness className="h-5 w-5 text-gray-400" />}
-              />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                    <MdStore className="w-5 h-5 mr-2 text-blue-600" />
+                    Business Information
+                  </h3>
+                  <TextInput
+                    type="text"
+                    id="shopName"
+                    name="shopName"
+                    label="Shop Name"
+                    required
+                    placeholder="Enter your shop name"
+                    value={formData.shopName}
+                    onChange={handleInputChange}
+                    icon={<MdStore className="h-5 w-5 text-gray-400" />}
+                  />
+                </div>
+                
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                    <MdPerson className="w-5 h-5 mr-2 text-green-600" />
+                    Contact Details
+                  </h3>
+                  <TextInput
+                    type="text"
+                    id="ownerName"
+                    name="ownerName"
+                    label="Owner Name"
+                    required
+                    placeholder="Enter owner's full name"
+                    value={formData.ownerName}
+                    onChange={handleInputChange}
+                    icon={<MdPerson className="h-5 w-5 text-gray-400" />}
+                  />
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <TextInput
+                  type="email"
+                  id="email"
+                  name="email"
+                  label="Email Address"
+                  required
+                  placeholder="Enter email address"
+                  value={formData.email}
+                  onChange={handleInputChange}
+                  icon={<MdEmail className="h-5 w-5 text-gray-400" />}
+                />
+                <TextInput
+                  type="tel"
+                  id="phone"
+                  name="phone"
+                  label="Phone Number"
+                  required
+                  placeholder="Enter phone number"
+                  value={formData.phone}
+                  onChange={handleInputChange}
+                  icon={<MdPhone className="h-5 w-5 text-gray-400" />}
+                />
+              </div>
+              
+              <div className="bg-blue-50 rounded-lg p-4">
+                <p className="text-sm text-blue-800">
+                  <strong>Note:</strong> This information will be used for customer communications and service notifications.
+                </p>
+              </div>
             </div>
           )}
 
           {currentStep === 2 && (
             <div className="space-y-6">
-              <TextInput
-                type="text"
-                id="ownerName"
-                name="ownerName"
-                label="Owner Name"
-                required
-                placeholder="Enter owner's full name"
-                value={formData.ownerName}
-                onChange={handleInputChange}
-                icon={<MdPerson className="h-5 w-5 text-gray-400" />}
-              />
-              <TextInput
-                type="email"
-                id="email"
-                name="email"
-                label="Email Address"
-                required
-                placeholder="Enter email address"
-                value={formData.email}
-                onChange={handleInputChange}
-                icon={<MdEmail className="h-5 w-5 text-gray-400" />}
-              />
-              <TextInput
-                type="tel"
-                id="phone"
-                name="phone"
-                label="Phone Number"
-                required
-                placeholder="Enter phone number"
-                value={formData.phone}
-                onChange={handleInputChange}
-                icon={<MdPhone className="h-5 w-5 text-gray-400" />}
-              />
-            </div>
-          )}
-
-          {currentStep === 3 && (
-            <div className="space-y-6">
-              <div>
+              <div className="relative">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Address
                 </label>
-                <div className="flex gap-2">
+                <div className="relative">
                   <input
                     type="text"
                     name="address"
-                    placeholder="Enter your business address"
+                    placeholder="Start typing your address..."
                     value={formData.address}
                     onChange={handleInputChange}
-                    className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-10"
                     required
+                    autoComplete="off"
                   />
-                  <button
-                    type="button"
-                    onClick={handleLocationDetect}
-                    className="px-4 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-                    title="Detect my location"
-                  >
-                    <MdMyLocation className="h-5 w-5" />
-                  </button>
+                  <MdSearch className="absolute right-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                 </div>
+                
+                {/* Location Suggestions Dropdown */}
+                {showSuggestions && (
+                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                    {isLoadingSuggestions ? (
+                      <div className="p-4 text-center text-gray-500">
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 mx-auto"></div>
+                        <p className="mt-2 text-sm">Searching locations...</p>
+                      </div>
+                    ) : locationSuggestions.length > 0 ? (
+                      <div>
+                        {locationSuggestions.map((suggestion) => (
+                          <button
+                            key={suggestion.place_id}
+                            onClick={() => handleSuggestionClick(suggestion)}
+                            className="w-full px-4 py-3 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0 focus:outline-none focus:bg-gray-50"
+                          >
+                            <div className="flex items-center">
+                              <MdLocationOn className="h-4 w-4 text-gray-400 mr-3" />
+                              <div>
+                                <div className="font-medium text-gray-900">
+                                  {suggestion.structured_formatting.main_text}
+                                </div>
+                                <div className="text-sm text-gray-500">
+                                  {suggestion.structured_formatting.secondary_text}
+                                </div>
+                              </div>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    ) : formData.address.length > 2 ? (
+                      <div className="p-4 text-center text-gray-500">
+                        <p className="text-sm">No suggestions found. Please type manually.</p>
+                      </div>
+                    ) : null}
+                  </div>
+                )}
               </div>
+              
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <TextInput
                   type="text"
@@ -468,7 +610,7 @@ export default function ShopOnboardingPage() {
                   name="pinCode"
                   label="PIN Code"
                   required
-                  placeholder="Enter PIN code"
+                  placeholder="Enter 6-digit PIN code"
                   value={formData.pinCode}
                   onChange={handleInputChange}
                   icon={<MdLocationOn className="h-5 w-5 text-gray-400" />}
@@ -484,10 +626,15 @@ export default function ShopOnboardingPage() {
                 onChange={handleInputChange}
                 icon={<MdBusiness className="h-5 w-5 text-gray-400" />}
               />
+              <div className="bg-blue-50 rounded-lg p-4">
+                <p className="text-sm text-blue-800">
+                  <strong>Tip:</strong> Start typing your address to see location suggestions. City will be auto-filled, but please enter your PIN code manually.
+                </p>
+              </div>
             </div>
           )}
 
-          {currentStep === 4 && (
+          {currentStep === 3 && (
             <div className="space-y-6">
               <div className="bg-gray-50 rounded-lg p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Review Your Information</h3>
@@ -532,7 +679,7 @@ export default function ShopOnboardingPage() {
                   <button
                     type="submit"
                     disabled={submitting}
-                    className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold py-3 px-4 rounded-lg hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold py-3 px-4 rounded-lg hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed mt-6"
                   >
                     {submitting ? (
                       <div className="flex items-center justify-center">
@@ -568,7 +715,7 @@ export default function ShopOnboardingPage() {
           )}
 
           {/* Navigation Buttons */}
-          {currentStep > 1 && currentStep < 5 && (
+          {currentStep > 1 && currentStep < 4 && (
             <div className="flex justify-between mt-8">
               <button
                 onClick={prevStep}
@@ -593,7 +740,7 @@ export default function ShopOnboardingPage() {
                 onClick={nextStep}
                 className="flex items-center px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors mx-auto"
               >
-                Get Started
+                Continue
                 <MdArrowForward className="w-5 h-5 ml-2" />
               </button>
             </div>

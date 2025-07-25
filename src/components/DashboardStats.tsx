@@ -10,8 +10,7 @@ import {
   HiCheckCircle,
   HiStar,
   HiUsers,
-  HiLocationMarker,
-  HiChartBar
+  HiLocationMarker
 } from 'react-icons/hi';
 import type { DashboardStats as DashboardStatsType } from '@/types';
 
@@ -220,13 +219,7 @@ export const DashboardStats: React.FC<DashboardStatsProps> = ({
             color="bg-emerald-500"
             change={{ value: 8, isPositive: true }}
           />
-          <StatCard
-            title="Avg Service Time"
-            value={`${Math.round(stats.averageServiceTime)} min`}
-            icon={<HiChartBar className="w-6 h-6 text-white" />}
-            color="bg-orange-500"
-            subtitle="Per service"
-          />
+
         </div>
       )}
 

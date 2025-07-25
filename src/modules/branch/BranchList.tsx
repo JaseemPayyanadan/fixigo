@@ -20,18 +20,25 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, loading, error
   useEffect(() => {
     const fetchTechnicians = async () => {
       if (!branches.length) return;
-      // Get all branch IDs
-      const branchIds = branches.map(b => b.id);
-      // Fetch all technicians whose branch_id is in branchIds
-      const q = query(collection(db, "technicians"), where("branch_id", "in", branchIds));
-      const snap = await getDocs(q);
-      const byBranch: Record<string, string[]> = {};
-      snap.docs.forEach(doc => {
-        const data = doc.data();
-        if (!byBranch[data.branch_id]) byBranch[data.branch_id] = [];
-        byBranch[data.branch_id].push(data.name);
-      });
-      setTechniciansByBranch(byBranch);
+      // Get all branch IDs, filtering out any undefined IDs
+      const branchIds = branches.map(b => b.id).filter(id => id);
+      if (branchIds.length === 0) return;
+      
+      try {
+        // Fetch all technicians whose branch_id is in branchIds
+        const q = query(collection(db, "technicians"), where("branch_id", "in", branchIds));
+        const snap = await getDocs(q);
+        const byBranch: Record<string, string[]> = {};
+        snap.docs.forEach(doc => {
+          const data = doc.data();
+          if (data.branch_id && !byBranch[data.branch_id]) byBranch[data.branch_id] = [];
+          if (data.branch_id && data.name) byBranch[data.branch_id].push(data.name);
+        });
+        setTechniciansByBranch(byBranch);
+      } catch (error) {
+        console.error('Error fetching technicians:', error);
+        setTechniciansByBranch({});
+      }
     };
     fetchTechnicians();
   }, [branches]);
@@ -119,7 +126,7 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, loading, error
             </thead>
             <tbody className="divide-y divide-gray-200">
               {branches.map((branch) => (
-                <tr key={branch.id} className="hover:bg-gray-50 transition-colors duration-150">
+                <tr key={branch.id || `branch-${Math.random()}`} className="hover:bg-gray-50 transition-colors duration-150">
                   <td className="px-6 py-4">
                     <div className="flex items-center">
                       <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
@@ -129,7 +136,7 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, loading, error
                       </div>
                       <div>
                         <div className="text-sm font-semibold text-gray-900">{branch.name}</div>
-                        <div className="text-xs text-gray-500">Branch ID: {branch.id.slice(0, 8)}...</div>
+                        <div className="text-xs text-gray-500">Branch ID: {branch.id ? branch.id.slice(0, 8) + '...' : 'N/A'}</div>
                       </div>
                     </div>
                   </td>
@@ -153,11 +160,11 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, loading, error
                       {techniciansByBranch[branch.id]?.length ? (
                         <div className="flex items-center gap-1">
                           <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
-                            {techniciansByBranch[branch.id].length} tech
+                            {techniciansByBranch[branch.id]?.length} tech
                           </span>
                           <span className="text-gray-500 text-xs">
-                            {techniciansByBranch[branch.id].slice(0, 2).join(", ")}
-                            {techniciansByBranch[branch.id].length > 2 && "..."}
+                            {techniciansByBranch[branch.id]?.slice(0, 2).join(", ")}
+                            {techniciansByBranch[branch.id]?.length > 2 && "..."}
                           </span>
                         </div>
                       ) : (
@@ -181,7 +188,7 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, loading, error
                     <div className="flex items-center gap-2">
                       <button
                         className="text-blue-600 hover:text-blue-900 font-medium text-sm transition-colors"
-                        onClick={() => router.push(`/branch/edit?id=${branch.id}`)}
+                        onClick={() => branch.id && router.push(`/branch/edit?id=${branch.id}`)}
                         title="Edit branch"
                       >
                         Edit
@@ -216,7 +223,7 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, loading, error
         </div>
         <div className="p-4 space-y-4">
           {branches.map((branch) => (
-            <div key={branch.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
+            <div key={branch.id || `branch-${Math.random()}`} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -267,7 +274,7 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, loading, error
               <div className="flex gap-2 pt-4 border-t border-gray-100">
                 <button
                   className="flex-1 px-4 py-2 text-blue-600 hover:text-blue-900 font-medium text-sm transition-colors border border-blue-200 rounded-lg hover:bg-blue-50"
-                  onClick={() => router.push(`/branch/edit?id=${branch.id}`)}
+                  onClick={() => branch.id && router.push(`/branch/edit?id=${branch.id}`)}
                   title="Edit branch"
                 >
                   Edit

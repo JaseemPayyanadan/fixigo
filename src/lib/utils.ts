@@ -1,4 +1,4 @@
-import logger from './logger';
+import { logger } from './logger';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -268,7 +268,6 @@ export function measureTime<T>(fn: () => T, label: string): T {
   const start = performance.now();
   const result = fn();
   const end = performance.now();
-  logger.debug(`${label} took ${(end - start).toFixed(2)}ms`);
   return result;
 }
 
@@ -276,6 +275,5 @@ export async function measureAsyncTime<T>(fn: () => Promise<T>, label: string): 
   const start = performance.now();
   const result = await fn();
   const end = performance.now();
-  logger.debug(`${label} took ${(end - start).toFixed(2)}ms`);
   return result;
 }

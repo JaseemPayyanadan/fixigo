@@ -1,117 +1,248 @@
-import { useEffect, useState, useCallback } from "react";
-import { collection, getDocs, query, where, addDoc, serverTimestamp, setDoc, doc } from "firebase/firestore";
+"use client";
+import { useState, useEffect } from "react";
+import { collection, query, where, getDocs, addDoc, updateDoc, doc, deleteDoc, orderBy } from "firebase/firestore";
 import { createUserWithEmailAndPassword } from "firebase/auth";
-import { db, auth } from "../lib/firebase";
-import type { Technician, User } from "../types";
+import { db, auth } from "@/lib/firebase";
+import { useUser } from "./useUser";
+import { logger } from "@/lib/logger";
+import type { Technician } from "@/types";
 
-export function useTechnicians(shopId: string | undefined, branchId?: string) {
+export function useTechnicians(shopId?: string, branchId?: string) {
   const [technicians, setTechnicians] = useState<Technician[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  const fetchTechnicians = useCallback(async () => {
-    if (!shopId) return;
-    setLoading(true);
-    setError(null);
-    try {
-      let q = query(collection(db, "technicians"), where("shop_id", "==", shopId));
-      
-      // If branchId is provided, filter by branch
-      if (branchId) {
-        q = query(q, where("branch_id", "==", branchId));
-      }
-      
-      const querySnapshot = await getDocs(q);
-      const technicianList: Technician[] = querySnapshot.docs.map((docSnap) => {
-        const data = docSnap.data();
-        return {
-          id: docSnap.id,
-          uid: data.uid || "", // Add UID field
-          name: data.name,
-          email: data.email,
-          phone: data.phone,
-          role: "technician",
-          branchId: data.branch_id || "",
-          shopId: data.shop_id || "",
-          skills: data.skills || [],
-          status: data.status || "active",
-          createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(),
-          updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : new Date(),
-        };
-      });
-      setTechnicians(technicianList);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setLoading(false);
-    }
-  }, [shopId, branchId]);
+  const { user } = useUser();
 
   useEffect(() => {
-    if (shopId) fetchTechnicians();
-  }, [fetchTechnicians, shopId]);
+    if (!user) return;
 
-  const createTechnician = async (technicianData: {
-    name: string;
-    email: string;
-    phone: string;
-    branch_id: string;
-    password: string;
-  }, createdBy: string) => {
-    if (!shopId) throw new Error("No shopId provided");
-    setLoading(true);
-    setError(null);
-    
+    const fetchTechnicians = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        let q;
+        if (shopId && branchId) {
+          q = query(
+            collection(db, "shops", shopId, "branches", branchId, "technicians"),
+            orderBy("createdAt", "desc")
+          );
+        } else if (shopId) {
+          q = query(
+            collection(db, "shops", shopId, "branches"),
+            orderBy("createdAt", "desc")
+          );
+        } else {
+          setTechnicians([]);
+          setLoading(false);
+          return;
+        }
+
+        const querySnapshot = await getDocs(q);
+        const technicianList: Technician[] = [];
+
+        for (const docSnapshot of querySnapshot.docs) {
+          const data = docSnapshot.data();
+          const technician: Technician = {
+            id: docSnapshot.id,
+            name: data.name || "",
+            email: data.email || "",
+            phone: data.phone || "",
+            role: data.role || "technician",
+            shopId: data.shopId || "",
+            branchId: data.branchId || "",
+            skills: data.skills || [],
+            status: data.status || "active",
+            bio: data.bio || "",
+            specializations: data.specializations || [],
+            createdAt: data.createdAt?.toDate() || new Date(),
+            updatedAt: data.updatedAt?.toDate() || new Date(),
+          };
+          technicianList.push(technician);
+        }
+
+        setTechnicians(technicianList);
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : "Failed to fetch technicians";
+        setError(errorMessage);
+        logger.error("Error fetching technicians", { error: errorMessage });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTechnicians();
+  }, [user, shopId, branchId]);
+
+  const createTechnician = async (technicianData: Omit<Technician, "id" | "createdAt" | "updatedAt">) => {
+    if (!user || !shopId || !branchId) {
+      throw new Error("User not authenticated or missing shop/branch ID");
+    }
+
     try {
-      console.log('Creating technician with data:', technicianData);
-      
-      // 1. Create Firebase Auth user for technician
-      const userCredential = await createUserWithEmailAndPassword(auth, technicianData.email, technicianData.password);
-      const technicianUid = userCredential.user.uid;
-      console.log('Firebase Auth user created with UID:', technicianUid);
-      
-      // 2. Add user document for technician
-      const technicianUser: User = {
-        id: technicianUid,
-        uid: technicianUid,
+      // Create Firebase Auth user for technician
+      const technicianUid = await createUserWithEmailAndPassword(
+        auth,
+        technicianData.email,
+        "tempPassword123!" // This should be changed by the user
+      );
+
+      const userEmail = technicianData.email;
+
+      // Create technician document
+      const technicianDocRef = await addDoc(
+        collection(db, "shops", shopId, "branches", branchId, "technicians"),
+        {
+          ...technicianData,
+          uid: technicianUid.user.uid,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        }
+      );
+
+      // Create user document for technician
+      await addDoc(collection(db, "users"), {
+        uid: technicianUid.user.uid,
         name: technicianData.name,
         email: technicianData.email,
         role: "technician",
-        shopId,
-        branchId: technicianData.branch_id,
+        shopId: shopId,
+        branchId: branchId,
+        status: "active",
+        onboardingCompleted: false,
         createdAt: new Date(),
         updatedAt: new Date(),
-      };
-      await setDoc(doc(db, "users", technicianUid), technicianUser);
-      console.log('User document created for technician');
-      
-      // 3. Add technician to technicians collection
-      const technicianDocRef = await addDoc(collection(db, "technicians"), {
-        name: technicianData.name,
-        email: technicianData.email,
-        phone: technicianData.phone,
-        branchId: technicianData.branch_id,
-        shop_id: shopId,
-        role: "technician",
-        status: "active",
-        skills: [],
-        created_by: createdBy,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
       });
-      console.log('Technician document created with ID:', technicianDocRef.id);
-      
-      // 4. Refresh the technicians list
-      await fetchTechnicians();
-      console.log('Technicians list refreshed');
-      
+
+      // Refresh technicians list
+      const updatedTechnicians = await getDocs(
+        query(
+          collection(db, "shops", shopId, "branches", branchId, "technicians"),
+          orderBy("createdAt", "desc")
+        )
+      );
+
+      const technicianList: Technician[] = [];
+      for (const docSnapshot of updatedTechnicians.docs) {
+        const data = docSnapshot.data();
+        const technician: Technician = {
+          id: docSnapshot.id,
+          name: data.name || "",
+          email: data.email || "",
+          phone: data.phone || "",
+          role: data.role || "technician",
+          shopId: data.shopId || "",
+          branchId: data.branchId || "",
+          skills: data.skills || [],
+          status: data.status || "active",
+          bio: data.bio || "",
+          specializations: data.specializations || [],
+          createdAt: data.createdAt?.toDate() || new Date(),
+          updatedAt: data.updatedAt?.toDate() || new Date(),
+        };
+        technicianList.push(technician);
+      }
+
+      setTechnicians(technicianList);
       return technicianDocRef.id;
-    } catch (err: unknown) {
-      console.error('Error creating technician:', err);
-      setError(err instanceof Error ? err.message : String(err));
-      throw err;
-    } finally {
-      setLoading(false);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to create technician";
+      logger.error("Error creating technician", { error: errorMessage });
+      throw new Error(errorMessage);
+    }
+  };
+
+  const updateTechnician = async (technicianId: string, updates: Partial<Technician>) => {
+    if (!user || !shopId || !branchId) {
+      throw new Error("User not authenticated or missing shop/branch ID");
+    }
+
+    try {
+      const technicianRef = doc(db, "shops", shopId, "branches", branchId, "technicians", technicianId);
+      await updateDoc(technicianRef, {
+        ...updates,
+        updatedAt: new Date(),
+      });
+
+      // Refresh technicians list
+      const updatedTechnicians = await getDocs(
+        query(
+          collection(db, "shops", shopId, "branches", branchId, "technicians"),
+          orderBy("createdAt", "desc")
+        )
+      );
+
+      const technicianList: Technician[] = [];
+      for (const docSnapshot of updatedTechnicians.docs) {
+        const data = docSnapshot.data();
+        const technician: Technician = {
+          id: docSnapshot.id,
+          name: data.name || "",
+          email: data.email || "",
+          phone: data.phone || "",
+          role: data.role || "technician",
+          shopId: data.shopId || "",
+          branchId: data.branchId || "",
+          skills: data.skills || [],
+          status: data.status || "active",
+          bio: data.bio || "",
+          specializations: data.specializations || [],
+          createdAt: data.createdAt?.toDate() || new Date(),
+          updatedAt: data.updatedAt?.toDate() || new Date(),
+        };
+        technicianList.push(technician);
+      }
+
+      setTechnicians(technicianList);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to update technician";
+      logger.error("Error updating technician", { error: errorMessage });
+      throw new Error(errorMessage);
+    }
+  };
+
+  const deleteTechnician = async (technicianId: string) => {
+    if (!user || !shopId || !branchId) {
+      throw new Error("User not authenticated or missing shop/branch ID");
+    }
+
+    try {
+      await deleteDoc(doc(db, "shops", shopId, "branches", branchId, "technicians", technicianId));
+      
+      // Refresh technicians list
+      const updatedTechnicians = await getDocs(
+        query(
+          collection(db, "shops", shopId, "branches", branchId, "technicians"),
+          orderBy("createdAt", "desc")
+        )
+      );
+
+      const technicianList: Technician[] = [];
+      for (const docSnapshot of updatedTechnicians.docs) {
+        const data = docSnapshot.data();
+        const technician: Technician = {
+          id: docSnapshot.id,
+          name: data.name || "",
+          email: data.email || "",
+          phone: data.phone || "",
+          role: data.role || "technician",
+          shopId: data.shopId || "",
+          branchId: data.branchId || "",
+          skills: data.skills || [],
+          status: data.status || "active",
+          bio: data.bio || "",
+          specializations: data.specializations || [],
+          createdAt: data.createdAt?.toDate() || new Date(),
+          updatedAt: data.updatedAt?.toDate() || new Date(),
+        };
+        technicianList.push(technician);
+      }
+
+      setTechnicians(technicianList);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to delete technician";
+      logger.error("Error deleting technician", { error: errorMessage });
+      throw new Error(errorMessage);
     }
   };
 
@@ -119,7 +250,8 @@ export function useTechnicians(shopId: string | undefined, branchId?: string) {
     technicians,
     loading,
     error,
-    fetchTechnicians,
     createTechnician,
+    updateTechnician,
+    deleteTechnician,
   };
 } 

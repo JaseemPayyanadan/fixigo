@@ -91,7 +91,7 @@ function RegisterContent() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col lg:flex-row">
+    <div className="min-h-screen flex flex-col lg:flex-row w-full">
       
       {/* Left Side - Hero Section */}
       <div className="hidden lg:flex lg:flex-1 bg-gradient-to-br from-green-600 via-emerald-600 to-teal-600">

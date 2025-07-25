@@ -1,103 +1,76 @@
-type LogLevel = 'DEBUG' | 'INFO' | 'WARN' | 'ERROR';
+type LogLevel = 'INFO' | 'WARN' | 'ERROR';
 
 interface LogContext {
-  [key: string]: unknown;
+  [key: string]: any;
 }
 
 interface Logger {
-  debug(message: string, context?: LogContext): void;
   info(message: string, context?: LogContext): void;
   warn(message: string, context?: LogContext): void;
-  error(message: string, error?: Error, context?: LogContext): void;
+  error(message: string, context?: LogContext): void;
 }
 
-const LOG_LEVELS: Record<LogLevel, number> = {
-  DEBUG: 0,
+const LOG_LEVELS = {
   INFO: 1,
   WARN: 2,
   ERROR: 3,
 };
 
-// Get current log level from environment
-const getCurrentLogLevel = (): number => {
-  const envLevel = process.env.NEXT_PUBLIC_LOG_LEVEL?.toUpperCase() as LogLevel;
-  if (envLevel && LOG_LEVELS[envLevel] !== undefined) {
-    return LOG_LEVELS[envLevel];
-  }
-  return process.env.NODE_ENV === 'development' ? LOG_LEVELS.DEBUG : LOG_LEVELS.INFO;
-};
+function getLogLevel(): number {
+  return process.env.NODE_ENV === 'development' ? LOG_LEVELS.INFO : LOG_LEVELS.INFO;
+}
 
-const currentLogLevel = getCurrentLogLevel();
+function sanitizeContext(context?: LogContext): LogContext | undefined {
+  if (!context) return undefined;
+  
+  const sanitized: LogContext = {};
+  for (const [key, value] of Object.entries(context)) {
+    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+      sanitized[key] = value;
+    } else if (value === null || value === undefined) {
+      sanitized[key] = value;
+    } else {
+      sanitized[key] = '[Complex Object]';
+    }
+  }
+  return sanitized;
+}
+
+function formatMessage(level: LogLevel, message: string, context?: LogContext): string {
+  const timestamp = new Date().toISOString();
+  const contextStr = context ? ` | ${JSON.stringify(context)}` : '';
+  return `[${timestamp}] ${level}: ${message}${contextStr}`;
+}
 
 class LoggerImpl implements Logger {
-  private formatMessage(level: string, message: string, context?: LogContext): string {
-    const timestamp = new Date().toISOString();
-    const contextStr = context ? ` ${JSON.stringify(context)}` : '';
-    return `[${timestamp}] ${level}: ${message}${contextStr}`;
-  }
-
   private shouldLog(level: number): boolean {
-    return level >= currentLogLevel;
-  }
-
-  private isProduction(): boolean {
-    return process.env.NODE_ENV === 'production';
-  }
-
-  private sanitizeContext(context?: LogContext): LogContext | undefined {
-    if (!context || this.isProduction()) return context;
-    
-    // Remove sensitive information in production
-    const sanitized = { ...context };
-    const sensitiveKeys = ['password', 'token', 'secret', 'key', 'auth'];
-    
-    sensitiveKeys.forEach(key => {
-      if (key in sanitized) {
-        sanitized[key] = '[REDACTED]';
-      }
-    });
-    
-    return sanitized;
-  }
-
-  debug(message: string, context?: LogContext): void {
-    if (this.shouldLog(LOG_LEVELS.DEBUG)) {
-      const sanitizedContext = this.sanitizeContext(context);
-      console.debug(this.formatMessage('DEBUG', message, sanitizedContext));
-    }
+    return level >= getLogLevel();
   }
 
   info(message: string, context?: LogContext): void {
     if (this.shouldLog(LOG_LEVELS.INFO)) {
-      const sanitizedContext = this.sanitizeContext(context);
+      const sanitizedContext = sanitizeContext(context);
       console.info(this.formatMessage('INFO', message, sanitizedContext));
     }
   }
 
   warn(message: string, context?: LogContext): void {
     if (this.shouldLog(LOG_LEVELS.WARN)) {
-      const sanitizedContext = this.sanitizeContext(context);
+      const sanitizedContext = sanitizeContext(context);
       console.warn(this.formatMessage('WARN', message, sanitizedContext));
     }
   }
 
-  error(message: string, error?: Error, context?: LogContext): void {
+  error(message: string, context?: LogContext): void {
     if (this.shouldLog(LOG_LEVELS.ERROR)) {
-      const errorContext = error ? { 
-        error: error.message, 
-        stack: this.isProduction() ? undefined : error.stack 
-      } : {};
-      const fullContext = { ...errorContext, ...context };
-      const sanitizedContext = this.sanitizeContext(fullContext);
+      const sanitizedContext = sanitizeContext(context);
       console.error(this.formatMessage('ERROR', message, sanitizedContext));
     }
   }
+
+  private formatMessage(level: LogLevel, message: string, context?: LogContext): string {
+    return formatMessage(level, message, context);
+  }
 }
 
-// Create logger instance
-const logger = new LoggerImpl();
-
-// Export logger and types
-export default logger;
-export { logger };
-export type { Logger, LogContext, LogLevel }; 
+export const logger = new LoggerImpl(); 

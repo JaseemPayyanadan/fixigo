@@ -8,7 +8,8 @@ interface BranchFormProps {
     address: string;
     phone: string;
     email: string;
-    branchPassword: string;
+    userName: string;
+    userPassword: string;
   }) => Promise<void>;
   loading: boolean;
   initialData?: Partial<{
@@ -26,7 +27,8 @@ export const BranchForm: React.FC<BranchFormProps> = ({ onSubmit, loading, initi
     address: initialData?.address || "",
     phone: initialData?.phone || "",
     email: initialData?.email || "",
-    branchPassword: "",
+    userName: "",
+    userPassword: "",
     confirmPassword: "",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -93,19 +95,25 @@ export const BranchForm: React.FC<BranchFormProps> = ({ onSubmit, loading, initi
       newErrors.email = "Please enter a valid email address";
     }
     
-    // Password validation (only for new branches)
+    // User validation (only for new branches)
     if (!editMode) {
-      if (!formData.branchPassword.trim()) {
-        newErrors.branchPassword = "Password is required";
-      } else if (formData.branchPassword.length < 6) {
-        newErrors.branchPassword = "Password must be at least 6 characters";
-      } else if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(formData.branchPassword)) {
-        newErrors.branchPassword = "Password must contain at least one uppercase letter, one lowercase letter, and one number";
+      if (!formData.userName.trim()) {
+        newErrors.userName = "User name is required";
+      } else if (formData.userName.trim().length < 2) {
+        newErrors.userName = "User name must be at least 2 characters";
+      }
+      
+      if (!formData.userPassword.trim()) {
+        newErrors.userPassword = "Password is required";
+      } else if (formData.userPassword.length < 6) {
+        newErrors.userPassword = "Password must be at least 6 characters";
+      } else if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(formData.userPassword)) {
+        newErrors.userPassword = "Password must contain at least one uppercase letter, one lowercase letter, and one number";
       }
       
       if (!formData.confirmPassword.trim()) {
         newErrors.confirmPassword = "Please confirm your password";
-      } else if (formData.branchPassword !== formData.confirmPassword) {
+      } else if (formData.userPassword !== formData.confirmPassword) {
         newErrors.confirmPassword = "Passwords do not match";
       }
     }
@@ -128,7 +136,8 @@ export const BranchForm: React.FC<BranchFormProps> = ({ onSubmit, loading, initi
         address: formData.address.trim(),
         phone: formData.phone.trim(),
         email: formData.email.trim(),
-        branchPassword: formData.branchPassword,
+        userName: formData.userName.trim(),
+        userPassword: formData.userPassword,
       });
       
       if (!editMode) {
@@ -137,7 +146,8 @@ export const BranchForm: React.FC<BranchFormProps> = ({ onSubmit, loading, initi
           address: "",
           phone: "",
           email: "",
-          branchPassword: "",
+          userName: "",
+          userPassword: "",
           confirmPassword: "",
         });
       }
@@ -242,34 +252,50 @@ export const BranchForm: React.FC<BranchFormProps> = ({ onSubmit, loading, initi
         </div>
       </div>
 
-      {/* Security Section (only for new branches) */}
+      {/* User Information Section (only for new branches) */}
       {!editMode && (
         <div className="border-b border-gray-200">
           <div className="px-8 py-8">
             <div className="flex items-center gap-3 mb-6">
               <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-                <HiLockClosed className="w-6 h-6 text-green-600" />
+                <HiOfficeBuilding className="w-6 h-6 text-green-600" />
               </div>
               <div>
-                <h3 className="text-xl font-semibold text-gray-900">Security Setup</h3>
-                <p className="text-gray-600 text-sm">Create login credentials for branch admin</p>
+                <h3 className="text-xl font-semibold text-gray-900">Branch Manager</h3>
+                <p className="text-gray-600 text-sm">Create login credentials for branch manager</p>
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <TextInput
+                type="text"
+                name="userName"
+                id="userName"
+                label="Manager Name"
+                value={formData.userName}
+                onChange={handleInputChange}
+                placeholder="Enter manager name"
+                required
+                icon={<HiOfficeBuilding className="h-5 w-5 text-gray-400" />}
+                error={errors.userName}
+                autoComplete="off"
+                aria-label="Manager Name"
+              />
+              <TextInput
                 type="password"
-                name="branchPassword"
-                id="branchPassword"
+                name="userPassword"
+                id="userPassword"
                 label="Password"
-                value={formData.branchPassword}
+                value={formData.userPassword}
                 onChange={handleInputChange}
                 placeholder="Create a strong password"
                 required
                 icon={<HiLockClosed className="h-5 w-5 text-gray-400" />}
-                error={errors.branchPassword}
+                error={errors.userPassword}
                 autoComplete="off"
-                aria-label="Branch Password"
+                aria-label="Manager Password"
               />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
               <TextInput
                 type="password"
                 name="confirmPassword"

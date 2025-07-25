@@ -28,14 +28,10 @@ export {
 // Form Components
 export { Form, ContactForm, LoginForm } from "./ui/Form";
 
-// Error Boundary
-export { ErrorBoundary } from "./ErrorBoundary";
-
 // Onboarding Components
 export { default as OnboardingComplete } from "./OnboardingComplete";
 export { default as OnboardingGuide } from "./OnboardingGuide";
 export { default as WelcomeModal } from "./WelcomeModal";
 
 // Other Components
-export { default as PageHeader } from "./PageHeader";
 export { Providers } from "./providers"; 

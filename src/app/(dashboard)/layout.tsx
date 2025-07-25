@@ -9,6 +9,7 @@ import { BottomNavBar } from "@/components/layout/BottomNavBar";
 import AuthGuard from "@/components/auth/AuthGuard";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 
+
 const hideNavRoutes = ["/login", "/register", "/shop-onboarding"];
 
 export default function DashboardLayout({
@@ -42,6 +43,7 @@ export default function DashboardLayout({
         {children}
       </main>
       {!hideNav && <BottomNavBar />}
+      
     </>
   );
 } 

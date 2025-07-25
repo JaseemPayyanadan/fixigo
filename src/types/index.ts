@@ -1,6 +1,6 @@
-// Place your shared TypeScript types and interfaces here
+// Professional Role-Based Access Control Types
 
-export type Role = "shop_admin" | "branch_admin" | "technician" | "super_admin";
+export type Role = "shop_admin" | "branch_admin" | "technician";
 
 // Permission-based access control
 export type Permission = 
@@ -11,13 +11,8 @@ export type Permission =
   | "invoice:read" | "invoice:write" | "invoice:delete"
   | "task:read" | "task:write" | "task:delete"
   | "user:read" | "user:write" | "user:delete"
-  | "onboarding:manage"
-  | "report:read" | "report:write" | "report:delete"
-  | "feedback:read" | "feedback:write" | "feedback:delete"
-  | "worklog:read" | "worklog:write" | "worklog:delete"
-  | "notification:read" | "notification:write" | "notification:delete"
-  | "audit:read" | "audit:write"
-  | "setting:read" | "setting:write" | "setting:delete";
+  | "report:read" | "report:write"
+  | "setting:read" | "setting:write";
 
 // Role hierarchy and permissions mapping
 export interface RolePermissions {
@@ -33,14 +28,10 @@ export interface User {
   email: string;
   name: string;
   role: Role;
-  permissions?: Permission[]; // Explicit permissions (overrides role defaults)
-  shopId: string; // Standardized field name
-  branchId?: string; // Standardized field name
-  onboardingCompleted?: boolean;
-  status?: "active" | "inactive" | "suspended";
-  bio?: string;
-  specializations?: string[];
-  assignedServices?: string[]; // For technicians to track their services
+  shopId: string; // Shop the user belongs to
+  branchId?: string; // Branch the user belongs to (for branch_admin and technician)
+  status: "active" | "inactive" | "suspended";
+  onboardingCompleted: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -51,7 +42,7 @@ export interface Shop {
   address: string;
   phone: string;
   email: string;
-  ownerId: string;
+  ownerId: string; // Shop admin's user ID
   gstNumber?: string;
   businessType?: string;
   description?: string;
@@ -61,7 +52,6 @@ export interface Shop {
     billing?: Record<string, unknown>;
     security?: Record<string, unknown>;
     workflow?: Record<string, unknown>;
-    custom?: Record<string, unknown>;
   };
   businessHours?: {
     monday?: { open: string; close: string; closed: boolean };
@@ -83,24 +73,20 @@ export interface Branch {
   phone: string;
   email: string;
   status: "active" | "inactive" | "maintenance";
-  shopId: string; // Standardized field name
-  managerId: string;
-  location?: string; // Legacy field for backward compatibility
-  contactNumber?: string; // Legacy field for backward compatibility
-  branchEmail?: string; // Legacy field for backward compatibility
+  shopId: string; // Parent shop ID
+  managerId: string; // Branch admin's user ID
   createdAt: Date;
   updatedAt: Date;
 }
 
 export interface Technician {
   id: string;
-  uid?: string; // Firebase Auth UID
   name: string;
   email: string;
   phone: string;
   role: "technician";
-  branchId: string; // Standardized field name
-  shopId: string; // Standardized field name
+  shopId: string; // Parent shop ID
+  branchId: string; // Parent branch ID
   skills: string[];
   status: "active" | "inactive";
   bio?: string;
@@ -124,7 +110,7 @@ export interface Technician {
 
 export interface Service {
   id: string;
-  name: string; // Standardized field name
+  name: string;
   description: string;
   customer: {
     name: string;
@@ -142,15 +128,14 @@ export interface Service {
   };
   status: "pending" | "in_progress" | "completed" | "cancelled" | "on_hold" | "awaiting_parts" | "ready_for_pickup" | "quality_check";
   priority: "low" | "medium" | "high" | "urgent";
-  assignedTechnicianId?: string; // Standardized field name
-  branchId: string; // Standardized field name
-  shopId: string; // Standardized field name
+  assignedTechnicianId?: string;
+  shopId: string; // Parent shop ID
+  branchId: string; // Parent branch ID
   estimatedDuration: number; // in minutes
   actualDuration?: number; // in minutes
   scheduledDate?: Date;
   completedDate?: Date;
   price: number;
-  total?: number; // Legacy field for backward compatibility
   notes?: string;
   workNotes?: string[];
   partsUsed?: Array<{
@@ -163,7 +148,7 @@ export interface Service {
     comment?: string;
     date: Date;
   };
-  qualityScore?: number; // New field for quality assessment
+  qualityScore?: number;
   estimatedCompletion?: Date;
   actualCompletion?: Date;
   createdAt: Date;
@@ -172,7 +157,7 @@ export interface Service {
 
 export interface Invoice {
   id: string;
-  serviceId: string; // Standardized field name
+  serviceId: string;
   customerName: string;
   customerEmail: string;
   customerPhone: string;
@@ -188,8 +173,8 @@ export interface Invoice {
   dueDate: Date;
   paidDate?: Date;
   notes?: string;
-  branchId: string; // Standardized field name
-  shopId: string; // Standardized field name
+  shopId: string; // Parent shop ID
+  branchId: string; // Parent branch ID
   items: Array<{
     name: string;
     description?: string;
@@ -207,87 +192,16 @@ export interface Task {
   description: string;
   status: "pending" | "in_progress" | "completed" | "cancelled" | "on_hold";
   priority: "low" | "medium" | "high" | "urgent";
-  assignedTechnicianId: string; // Standardized field name
-  serviceId?: string; // Standardized field name
+  assignedTechnicianId: string;
+  serviceId?: string;
   dueDate: Date;
   completedDate?: Date;
   notes?: string;
-  branchId: string; // Standardized field name
-  shopId: string; // Standardized field name
+  shopId: string; // Parent shop ID
+  branchId: string; // Parent branch ID
   estimatedHours?: number;
   actualHours?: number;
   createdAt: Date;
-  updatedAt: Date;
-}
-
-export interface WorkLog {
-  id: string;
-  serviceId: string; // Standardized field name
-  technicianId: string; // Standardized field name
-  action: string;
-  description: string;
-  timestamp: Date;
-  duration?: number; // in minutes
-  partsUsed?: string[];
-  notes?: string;
-  createdAt: Date;
-}
-
-export interface Notification {
-  id: string;
-  userId: string; // Standardized field name
-  title: string;
-  message: string;
-  type: "info" | "success" | "warning" | "error";
-  read: boolean;
-  relatedId?: string; // ID of related service, invoice, etc.
-  relatedType?: "service" | "invoice" | "task";
-  createdAt: Date;
-}
-
-// New collections for enhanced features
-export interface CustomerFeedback {
-  id: string;
-  serviceId: string;
-  shopId: string;
-  rating: number; // 1-5 stars
-  comment?: string;
-  customerName?: string;
-  customerEmail?: string;
-  createdAt: Date;
-}
-
-export interface Report {
-  id: string;
-  shopId: string;
-  type: "sales" | "services" | "technicians" | "customers" | "financial";
-  data: Record<string, unknown>;
-  generatedAt: Date;
-  period: {
-    start: Date;
-    end: Date;
-  };
-  createdBy: string;
-}
-
-export interface AuditLog {
-  id: string;
-  operation: "create" | "update" | "delete" | "read";
-  resourcePath: string;
-  userId: string;
-  userRole: string;
-  timestamp: Date;
-  oldData?: Record<string, unknown>;
-  newData?: Record<string, unknown>;
-  ipAddress?: string;
-  shopId?: string;
-}
-
-export interface Setting {
-  id: string;
-  shopId: string;
-  type: "notification" | "billing" | "security" | "workflow" | "custom";
-  value: Record<string, unknown>;
   updatedAt: Date;
 }
 
@@ -314,8 +228,7 @@ export interface ShopOnboardingFormData {
   city: string;
   pinCode: string;
   gstNumber?: string;
-  businessType: string;
-  description?: string;
+  businessType?: string;
 }
 
 // API Response types
@@ -358,7 +271,6 @@ export interface DashboardStats {
   completedServices: number;
   totalRevenue: number;
   monthlyRevenue: number;
-  averageServiceTime: number;
   customerSatisfaction: number;
   activeTechnicians: number;
   totalBranches: number;
@@ -371,7 +283,7 @@ export interface DashboardStats {
   }>;
 }
 
-// Enhanced service status with better UX
+// Service status with better UX
 export type ServiceStatus = 
   | "pending" 
   | "in_progress" 
@@ -395,16 +307,4 @@ export type InvoiceStatus = "draft" | "sent" | "paid" | "overdue" | "cancelled";
 export type UserStatus = "active" | "inactive" | "suspended";
 
 // Branch status
-export type BranchStatus = "active" | "inactive" | "maintenance";
-
-// Report types
-export type ReportType = "sales" | "services" | "technicians" | "customers" | "financial";
-
-// Setting types
-export type SettingType = "notification" | "billing" | "security" | "workflow" | "custom";
-
-// Notification types
-export type NotificationType = "info" | "success" | "warning" | "error";
-
-// Audit operation types
-export type AuditOperation = "create" | "update" | "delete" | "read"; 
+export type BranchStatus = "active" | "inactive" | "maintenance"; 

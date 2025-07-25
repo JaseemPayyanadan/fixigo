@@ -15,19 +15,6 @@ const firebaseConfig = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID || 'G-TSFLWZF5EL'
 };
 
-// Log environment variables for debugging
-if (isClient) {
-  console.log('Firebase Config:', {
-    apiKey: firebaseConfig.apiKey ? 'SET' : 'NOT SET',
-    authDomain: firebaseConfig.authDomain ? 'SET' : 'NOT SET',
-    projectId: firebaseConfig.projectId ? 'SET' : 'NOT SET',
-    storageBucket: firebaseConfig.storageBucket ? 'SET' : 'NOT SET',
-    messagingSenderId: firebaseConfig.messagingSenderId ? 'SET' : 'NOT SET',
-    appId: firebaseConfig.appId ? 'SET' : 'NOT SET',
-    measurementId: firebaseConfig.measurementId ? 'SET' : 'NOT SET'
-  });
-}
-
 const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app); 

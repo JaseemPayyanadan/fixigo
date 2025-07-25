@@ -86,7 +86,7 @@ export default function ProfilePage() {
           
           if (technicianDocForServices) {
             const technicianId = technicianDocForServices.id;
-            console.log('Profile - Found technician document ID:', technicianId);
+    
             
             // Fetch work statistics
             const servicesQuery = query(
@@ -108,7 +108,7 @@ export default function ProfilePage() {
 
             setWorkStats(stats);
           } else {
-            console.log('Profile - No technician document found for UID:', user.uid);
+    
             setWorkStats({
               totalTasks: 0,
               completedTasks: 0,
@@ -119,7 +119,7 @@ export default function ProfilePage() {
           }
         }
       } catch (error) {
-        console.error("Error fetching profile:", error);
+
         setError("Failed to load profile");
       } finally {
         setLoading(false);
@@ -176,7 +176,7 @@ export default function ProfilePage() {
 
       setEditing(false);
     } catch (error) {
-      console.error("Error updating profile:", error);
+      
       setError("Failed to update profile");
     } finally {
       setSaving(false);

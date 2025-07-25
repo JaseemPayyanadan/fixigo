@@ -47,18 +47,23 @@ function NewTechnicianContent() {
     }
     setLoading(true);
     try {
-      console.log('Creating technician with data:', data);
+      
       await createTechnician({
         name: data.name,
         email: data.email,
         phone: data.phone,
-        branch_id: data.branch_id,
-        password: data.password!
-      }, user?.uid || "");
-      console.log('Technician created successfully');
+        shopId: user?.shopId || "",
+        branchId: data.branch_id,
+        role: "technician",
+        skills: [],
+        status: "active",
+        bio: "",
+        specializations: []
+      });
+      
       router.push("/technicians");
     } catch (err: unknown) {
-      console.error('Error creating technician:', err);
+      
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setLoading(false);
