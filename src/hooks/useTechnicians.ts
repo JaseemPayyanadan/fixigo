@@ -26,6 +26,7 @@ export function useTechnicians(shopId: string | undefined, branchId?: string) {
         const data = docSnap.data();
         return {
           id: docSnap.id,
+          uid: data.uid || "", // Add UID field
           name: data.name,
           email: data.email,
           phone: data.phone,
@@ -77,7 +78,7 @@ export function useTechnicians(shopId: string | undefined, branchId?: string) {
         email: technicianData.email,
         role: "technician",
         shopId,
-        branch_id: technicianData.branch_id,
+        branchId: technicianData.branch_id,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -89,7 +90,7 @@ export function useTechnicians(shopId: string | undefined, branchId?: string) {
         name: technicianData.name,
         email: technicianData.email,
         phone: technicianData.phone,
-        branch_id: technicianData.branch_id,
+        branchId: technicianData.branch_id,
         shop_id: shopId,
         role: "technician",
         status: "active",

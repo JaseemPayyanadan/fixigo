@@ -19,10 +19,10 @@ export default function NewServicePage() {
   const router = useRouter();
 
   React.useEffect(() => {
-    if (isBranchAdmin && user?.branch_id) {
-      setBranchId(user.branch_id);
+    if (isBranchAdmin && user?.branchId) {
+      setBranchId(user.branchId);
     }
-  }, [isBranchAdmin, user?.branch_id]);
+      }, [isBranchAdmin, user?.branchId]);
 
   const handleAdd = async (data: {
     customer: { name: string; phone: string; email: string };
@@ -115,7 +115,7 @@ export default function NewServicePage() {
             setBranchId={setBranchId}
             isShopAdmin={isShopAdmin}
             isBranchAdmin={isBranchAdmin}
-            userBranchId={user?.branch_id}
+            userBranchId={user?.branchId}
             shopId={shopId}
           />
         </div>

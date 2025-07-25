@@ -1,6 +1,6 @@
 "use client"
 import React, { useState, useEffect } from "react";
-import dynamic from "next/dynamic";
+
 import { useUser } from "@/hooks";
 import { useRouter } from "next/navigation";
 import TextInput from "@/components/ui/TextInput";
@@ -15,7 +15,7 @@ import {
   MdArrowForward,
   MdArrowBack
 } from "react-icons/md";
-import { HiSparkles, HiChartBar, HiUsers, HiClock, HiCheckCircle } from "react-icons/hi";
+import { HiCheckCircle } from "react-icons/hi";
 
 
 
@@ -41,8 +41,8 @@ export default function ShopOnboardingPage() {
     pinCode: "",
     gstNumber: "",
     description: ""
-  });
-  const [location, setLocation] = useState({ lat: 0, lng: 0 });
+    });
+
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [checkingExisting, setCheckingExisting] = useState(true);
@@ -138,7 +138,6 @@ export default function ShopOnboardingPage() {
       navigator.geolocation.getCurrentPosition(
         (position) => {
           const { latitude, longitude } = position.coords;
-          setLocation({ lat: latitude, lng: longitude });
           alert(`Location detected: ${latitude}, ${longitude}. Please enter your address manually.`);
         },
         (error) => {

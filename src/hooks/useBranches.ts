@@ -4,6 +4,7 @@ import { createUserWithEmailAndPassword } from "firebase/auth";
 import { setDoc } from "firebase/firestore";
 import { db, auth } from "../lib/firebase";
 import type { Branch, User } from "../types";
+import logger from "@/lib/logger";
 
 export function useBranches(shopId: string | undefined) {
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -15,9 +16,9 @@ export function useBranches(shopId: string | undefined) {
     setLoading(true);
     setError(null);
     try {
-      console.log('Fetching branches for shopId:', shopId);
+      logger.info('Fetching branches', { shopId });
       const querySnapshot = await getDocs(collection(db, `shops/${shopId}/branches`));
-      console.log('Branches fetched:', querySnapshot.docs.length);
+      logger.debug('Branches fetched successfully', { count: querySnapshot.docs.length });
       
       const branchList: Branch[] = querySnapshot.docs.map((docSnap) => {
         const data = docSnap.data();
@@ -37,10 +38,10 @@ export function useBranches(shopId: string | undefined) {
           updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : new Date(),
         };
       });
-      console.log('Processed branches:', branchList);
+      logger.debug('Processed branches data', { branches: branchList });
       setBranches(branchList);
     } catch (err: unknown) {
-      console.error('Error fetching branches:', err);
+      logger.error('Error fetching branches', err as Error, { shopId });
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setLoading(false);
@@ -58,8 +59,7 @@ export function useBranches(shopId: string | undefined) {
     email: string;
     branchPassword: string;
   }) => {
-    console.log('createBranch called with shopId:', shopId);
-    console.log('createBranch called with branchData:', branchData);
+    logger.info('Creating branch', { shopId, branchData: { ...branchData, branchPassword: '[REDACTED]' } });
     
     if (!shopId) throw new Error("No shopId provided");
     
@@ -69,64 +69,72 @@ export function useBranches(shopId: string | undefined) {
       if (!shopDoc.exists()) {
         throw new Error("Shop document not found. Please complete your shop setup first.");
       }
-      console.log('Shop document exists:', shopDoc.data());
+      logger.debug('Shop document verified', { shopData: shopDoc.data() });
     } catch (err) {
-      console.error('Error checking shop document:', err);
+      logger.error('Error checking shop document', err as Error, { shopId });
       throw new Error("Unable to verify shop setup. Please try again.");
     }
     
     setLoading(true);
     setError(null);
     try {
-      console.log('Step 1: Creating Firebase Auth user...');
-      // 1. Create Firebase Auth user for branch admin
-      const userCredential = await createUserWithEmailAndPassword(auth, branchData.email, branchData.branchPassword);
-      const branchAdminUid = userCredential.user.uid;
-      console.log('Step 1 completed: Branch admin UID:', branchAdminUid);
+      logger.debug('Step 1: Creating Firebase Auth user for branch admin');
+      const branchAdminUid = `branch_${Date.now()}`;
+      const branchAdminEmail = `${branchData.email}`;
+      const branchAdminPassword = branchData.branchPassword;
       
-      console.log('Step 2: Adding user document for branch admin...');
-      // 2. Add user document for branch admin
-      const branchAdminUser: User = {
-        id: branchAdminUid,
-        uid: branchAdminUid,
+      const userCredential = await createUserWithEmailAndPassword(
+        auth,
+        branchAdminEmail,
+        branchAdminPassword
+      );
+      const branchAdminUid2 = userCredential.user.uid;
+      logger.debug('Step 1 completed: Branch admin user created', { branchAdminUid: branchAdminUid2 });
+      
+      logger.debug('Step 2: Adding user document for branch admin');
+      const userData: User = {
+        id: branchAdminUid2,
+        uid: branchAdminUid2,
         name: branchData.name,
         email: branchData.email,
         role: "branch_admin",
-        shopId,
-        branch_id: "", // Will be set after branch is created
+        shopId: shopId,
+        branchId: "", // Will be updated after branch creation
+        onboardingCompleted: true,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
-      await setDoc(doc(db, "users", branchAdminUid), branchAdminUser);
-      console.log('Step 2 completed: User document created');
       
-      console.log('Step 3: Adding branch to Firestore...');
-      // 3. Add branch to Firestore
+      await setDoc(doc(db, "users", branchAdminUid2), userData);
+      logger.debug('Step 2 completed: User document created');
+      
+      logger.debug('Step 3: Adding branch to Firestore');
       const branchDocRef = await addDoc(collection(db, `shops/${shopId}/branches`), {
-        name: branchData.name,
-        address: branchData.address,
-        phone: branchData.phone,
-        email: branchData.email,
+        name: branchData.name.trim(),
+        address: branchData.address.trim(),
+        phone: branchData.phone.trim(),
+        email: branchData.email.trim(),
         status: "active",
-        shopId,
-        managerId: branchAdminUid,
+        managerId: branchAdminUid2,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
-      console.log('Step 3 completed: Branch document created with ID:', branchDocRef.id);
+      logger.debug('Step 3 completed: Branch document created', { branchId: branchDocRef.id });
       
-      console.log('Step 4: Updating branchId in user document...');
-      // 4. Update branchId in user document
-      await updateDoc(doc(db, "users", branchAdminUid), { branch_id: branchDocRef.id });
-      console.log('Step 4 completed: User document updated with branch_id');
+      logger.debug('Step 4: Updating branchId in user document');
+      await updateDoc(doc(db, "users", branchAdminUid2), {
+        branch_id: branchDocRef.id,
+        updatedAt: serverTimestamp(),
+      });
+      logger.debug('Step 4 completed: User document updated with branch_id');
       
-      console.log('Step 5: Fetching updated branches...');
+      logger.debug('Step 5: Fetching updated branches');
       await fetchBranches();
-      console.log('Step 5 completed: Branches refreshed');
+      logger.debug('Step 5 completed: Branches refreshed');
       
-      console.log('createBranch completed successfully');
+      logger.info('Branch created successfully', { branchId: branchDocRef.id, branchAdminUid: branchAdminUid2 });
     } catch (err: unknown) {
-      console.error('Error in createBranch:', err);
+      logger.error('Error in createBranch', err as Error);
       
       // Handle specific Firebase Auth errors
       if (err instanceof Error) {
@@ -149,38 +157,18 @@ export function useBranches(shopId: string | undefined) {
     }
   };
 
-  const updateBranch = async (id: string, updates: Partial<Branch>) => {
+  const updateBranch = async (id: string, updates: {
+    name: string;
+    address: string;
+    phone: string;
+    email: string;
+  }) => {
     if (!shopId) throw new Error("No shopId provided");
-    
-    // Validate required fields
-    if (!updates.name?.trim()) {
-      throw new Error("Branch name is required");
-    }
-    if (!updates.address?.trim()) {
-      throw new Error("Branch address is required");
-    }
-    if (!updates.phone?.trim()) {
-      throw new Error("Phone number is required");
-    }
-    if (!updates.email?.trim()) {
-      throw new Error("Email is required");
-    }
-    
-    // Validate email format
-    if (!/\S+@\S+\.\S+/.test(updates.email)) {
-      throw new Error("Please enter a valid email address");
-    }
-    
-    // Validate phone format
-    if (!/^[\+]?[1-9][\d]{0,15}$/.test(updates.phone.replace(/\s/g, ""))) {
-      throw new Error("Please enter a valid phone number");
-    }
-    
     setLoading(true);
     setError(null);
     
     try {
-      console.log('Updating branch:', id, 'with data:', updates);
+      logger.info('Updating branch', { branchId: id, updates });
       
       await updateDoc(doc(db, `shops/${shopId}/branches`, id), {
         name: updates.name.trim(),
@@ -190,10 +178,10 @@ export function useBranches(shopId: string | undefined) {
         updatedAt: serverTimestamp(),
       });
       
-      console.log('Branch updated successfully');
+      logger.info('Branch updated successfully', { branchId: id });
       await fetchBranches();
     } catch (err: unknown) {
-      console.error('Error updating branch:', err);
+      logger.error('Error updating branch', err as Error, { branchId: id });
       
       // Handle specific Firebase errors
       if (err instanceof Error) {
@@ -221,9 +209,12 @@ export function useBranches(shopId: string | undefined) {
     setLoading(true);
     setError(null);
     try {
+      logger.info('Deleting branch', { branchId: id, shopId });
       await deleteDoc(doc(db, `shops/${shopId}/branches`, id));
+      logger.info('Branch deleted successfully', { branchId: id });
       await fetchBranches();
     } catch (err: unknown) {
+      logger.error('Error deleting branch', err as Error, { branchId: id, shopId });
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setLoading(false);

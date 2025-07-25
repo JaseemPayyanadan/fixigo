@@ -4,10 +4,22 @@ import { useRouter } from "next/navigation";
 import { useUser } from "@/hooks";
 import { useBranches } from "@/hooks/useBranches";
 import { useTechnicians } from "@/hooks/useTechnicians";
+import { RoleGuard, PermissionGuard } from "@/components";
 import TechnicianForm from "@/modules/technician/TechnicianForm";
 
 export default function NewTechnicianPage() {
+  return (
+    <RoleGuard allowedRoles={["shop_admin", "branch_admin"]}>
+      <PermissionGuard permissions={["technician:write"]}>
+        <NewTechnicianContent />
+      </PermissionGuard>
+    </RoleGuard>
+  );
+}
+
+function NewTechnicianContent() {
   const { user } = useUser();
+
   const shopId = user?.shopId || "";
   const isShopAdmin = user?.role === "shop_admin";
   // const isBranchAdmin = user?.role === "branch_admin";
@@ -96,7 +108,7 @@ export default function NewTechnicianPage() {
             onSubmit={handleAdd}
             loading={loading}
             editing={false}
-            branch_id={user?.branch_id || ""}
+            branch_id={user?.branchId || ""}
             onCancel={() => router.push("/technicians")}
             branches={branches}
             userRole={user?.role || ""}

@@ -1,6 +1,7 @@
 // Auth Components
 export { default as AuthGuard } from "./auth/AuthGuard";
 export { default as RoleGuard } from "./auth/RoleGuard";
+export { default as PermissionGuard } from "./auth/PermissionGuard";
 
 // Layout Components
 export { AppBar } from "./layout/AppBar";

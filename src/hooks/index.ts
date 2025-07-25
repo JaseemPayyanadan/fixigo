@@ -7,6 +7,7 @@ export { useDebounce } from "./useDebounce";
 export { useFirestore } from "./useFirestore";
 export { useLocalStorage } from "./useLocalStorage";
 export { useOnboarding } from "./useOnboarding";
+export { usePermissions } from "./usePermissions";
 
 // New production-level hooks
 export { useAsync, useFetch, useSubmit } from "./useAsync"; 

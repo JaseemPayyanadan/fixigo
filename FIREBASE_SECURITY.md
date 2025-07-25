@@ -1,308 +1,199 @@
-# Firebase Security Rules
+# Firebase Security Rules - Enhanced Technician Access
 
 ## Overview
+Enhanced Firebase security rules to provide better technician access control, individual service assignment, and improved functionality.
 
-This document describes the Firebase Firestore security rules for the Fixigo application. The rules ensure proper access control and data validation for different user roles.
+## Key Improvements Made
 
-## User Roles
+### 1. **Enhanced Service Access Control**
+- **Individual Assignment**: Technicians can access services directly assigned to them
+- **Branch Access**: Technicians can access unassigned services in their branch
+- **Self-Assignment**: Technicians can assign themselves to unassigned services
 
-### 1. Shop Admin (`shop_admin`)
-- Can manage their own shop and all branches
-- Can create, read, update, and delete branches
-- Can manage all services and technicians in their shop
-- Can access all invoices and settings
+### 2. **Improved Helper Functions**
 
-### 2. Branch Admin (`branch_admin`)
-- Can manage their assigned branch only
-- Can read and update services in their branch
-- Can manage technicians in their branch
-- Limited access to invoices and settings
-
-### 3. Technician (`technician`)
-- Can read services assigned to them
-- Can update service status and add notes
-- Can read invoices for their assigned services
-- Limited access to branch information
-
-## Key Security Features
-
-### Authentication
-- All operations require authentication
-- Users can only access data they're authorized to see
-- Role-based access control (RBAC)
-
-### Data Validation
-- Strict validation for all data structures
-- Required fields are enforced
-- Data types are validated
-- Business logic validation (e.g., status values)
-
-### Hierarchical Access
-- Shop admins have access to all data in their shop
-- Branch admins have access to their branch data only
-- Technicians have access to their assigned services only
-
-## Recent Updates (Latest Deployment)
-
-### 1. Fixed Branch Creation Issues
-**Problem**: Branch creation was failing due to overly restrictive validation rules.
-
-**Solution**: 
-- Updated branch validation to include required fields: `name`, `address`, `phone`, `email`, `status`, `shopId`, `managerId`
-- Added size validation for string fields
-- Made validation more flexible while maintaining security
-
-### 2. Improved User Creation During Branch Creation
-**Problem**: Shop admins couldn't create branch admin users during branch creation.
-
-**Solution**:
-- Added specific rule for shop admins to create branch admin users
-- Required fields: `name`, `email`, `role`, `shopId`, `createdAt`
-- Role must be "branch_admin"
-
-### 3. Enhanced User Document Updates
-**Problem**: User document updates were too restrictive for branch creation workflow.
-
-**Solution**:
-- Updated user document update rules to allow `branch_id` field updates
-- Made `onboardingCompleted` field optional
-- Added support for both `shopId` and `branch_id` updates
-
-### 4. Better Error Handling
-**Problem**: Validation errors weren't providing clear feedback.
-
-**Solution**:
-- Added more specific validation messages
-- Improved field size validation
-- Better handling of optional fields
-
-## Collection Rules
-
-### Users Collection (`/users/{userId}`)
+#### `serviceBelongsToTechnician(serviceData)`
 ```javascript
-// Users can read/write their own document
-allow read, write: if isAuthenticated() && isOwner(userId);
-
-// Allow creation during registration
-allow create: if isAuthenticated() && isOwner(userId) && 
-  // Validation rules...
-
-// Allow updates for onboarding and branch creation
-allow update: if isAuthenticated() && isOwner(userId) &&
-  // Validation rules...
-
-// Shop admins can create branch admin users
-allow create: if isAuthenticated() && 
-  (isOwner(userId) || (isShopAdmin() && request.resource.data.role == "branch_admin"))
+// Enhanced function for service ownership
+function serviceBelongsToTechnician(serviceData) {
+  let userData = getUserData();
+  return userData.role == "technician" && 
+         (serviceData.technician_id == request.auth.uid || 
+          serviceData.branch_id == userData.branch_id);
+}
 ```
 
-### Shops Collection (`/shops/{shopId}`)
+#### `canTechnicianAccessService(serviceData)`
 ```javascript
-// Shop admins can manage their shop
-allow read, write: if isShopAdmin() && belongsToShop(shopId);
-
-// Allow shop creation during onboarding
-allow create: if isAuthenticated() && isOwner(shopId) &&
-  // Validation rules...
+// Function to check if technician can access specific service
+function canTechnicianAccessService(serviceData) {
+  let userData = getUserData();
+  return userData.role == "technician" && 
+         (serviceData.technician_id == request.auth.uid || 
+          (serviceData.branch_id == userData.branch_id && 
+           (serviceData.technician_id == null || serviceData.technician_id == "")));
+}
 ```
 
-### Branches Subcollection (`/shops/{shopId}/branches/{branchId}`)
+#### `canTechnicianUpdateService(serviceData)`
 ```javascript
-// Shop admins can manage all branches
-allow read, write: if isShopAdmin() && belongsToShop(shopId);
-
-// Branch admins can manage their branch
-allow read, write: if isBranchAdmin() && belongsToBranch(branchId);
-
-// Validation for branch creation/updates
-allow create, update: if 
-  // Required fields validation...
+// Function to check if technician can update specific service
+function canTechnicianUpdateService(serviceData) {
+  let userData = getUserData();
+  return userData.role == "technician" && 
+         (serviceData.technician_id == request.auth.uid || 
+          (serviceData.branch_id == userData.branch_id && 
+           (serviceData.technician_id == null || serviceData.technician_id == "")));
+}
 ```
 
-### Services Collection (`/services/{serviceId}`)
+### 3. **Enhanced Service Collection Rules**
+
+#### Read Access
 ```javascript
-// Shop admins can manage all services
-allow read, write: if isShopAdmin() && belongsToShop(resource.data.shop_id);
+// Technicians can read services they can access
+allow read: if isTechnician() && canTechnicianAccessService(resource.data);
+```
 
-// Branch admins can manage services in their branch
-allow read, write: if isBranchAdmin() && belongsToBranch(resource.data.branch_id);
+#### Update Access
+```javascript
+// Technicians can update services they can update
+allow update: if isTechnician() && 
+  canTechnicianUpdateService(resource.data) &&
+  request.resource.data.diff(resource.data).affectedKeys().hasAny([
+    'status', 'updatedAt', 'notes', 'technician_id', 
+    'estimatedCompletion', 'actualCompletion', 'workNotes', 
+    'partsUsed', 'customerFeedback'
+  ]);
+```
 
-// Technicians can read assigned services
+#### Self-Assignment
+```javascript
+// Technicians can assign themselves to unassigned services in their branch
+allow update: if isTechnician() && 
+  resource.data.branch_id == getUserData().branch_id &&
+  (resource.data.technician_id == null || resource.data.technician_id == "") &&
+  request.resource.data.diff(resource.data).affectedKeys().hasOnly(['technician_id', 'updatedAt']) &&
+  request.resource.data.technician_id != null &&
+  request.resource.data.technician_id != "";
+```
+
+### 4. **Enhanced Technician Profile Management**
+```javascript
+// Technicians can update their own profile
+allow update: if isTechnician() && 
+  resource.data.uid == request.auth.uid &&
+  request.resource.data.diff(resource.data).affectedKeys().hasAny([
+    'name', 'email', 'phone', 'skills', 'availability', 'updatedAt'
+  ]);
+```
+
+### 5. **New Work Logs Collection**
+```javascript
+// Work Logs collection for technician work tracking
+match /work_logs/{logId} {
+  // Technicians can read their own work logs
+  allow read: if isTechnician() && resource.data.technician_id == request.auth.uid;
+  
+  // Technicians can create work logs
+  allow create: if isTechnician() && 
+    request.resource.data.keys().hasAll(['service_id', 'technician_id', 'action', 'description', 'timestamp']) &&
+    request.resource.data.technician_id == request.auth.uid;
+  
+  // Technicians can update their own work logs
+  allow update: if isTechnician() && 
+    resource.data.technician_id == request.auth.uid &&
+    request.resource.data.diff(resource.data).affectedKeys().hasAny(['description', 'updatedAt']);
+}
+```
+
+### 6. **Enhanced Invoice Access**
+```javascript
+// Technicians can read invoices for services they can access
 allow read: if isTechnician() && 
-  (resource.data.technician_id == request.auth.uid || 
-   resource.data.branch_id == getUserData().branch_id);
+  exists(/databases/$(database)/documents/services/$(resource.data.serviceId)) &&
+  canTechnicianAccessService(get(/databases/$(database)/documents/services/$(resource.data.serviceId)).data);
 ```
 
-## Helper Functions
+## Security Benefits
 
-### Authentication Helpers
-```javascript
-function isAuthenticated() {
-  return request.auth != null;
-}
+1. **Individual Service Assignment**: Technicians can be assigned to specific services
+2. **Self-Service Assignment**: Technicians can pick up unassigned services
+3. **Enhanced Work Tracking**: New work logs collection for detailed tracking
+4. **Profile Management**: Technicians can update their skills and availability
+5. **Flexible Access Control**: Multiple levels of access based on assignment and branch
+6. **Data Isolation**: Proper isolation between branches and technicians
 
-function getUserData() {
-  return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
-}
-```
+## New Features
 
-### Role Helpers
-```javascript
-function isShopAdmin() {
-  return isAuthenticated() && getUserData().role == "shop_admin";
-}
+### 1. **Service Assignment System**
+- Technicians can be directly assigned to services
+- Unassigned services are available to all technicians in the branch
+- Self-assignment capability for better workflow
 
-function isBranchAdmin() {
-  return isAuthenticated() && getUserData().role == "branch_admin";
-}
+### 2. **Enhanced Service Updates**
+- Status updates (To Do, In Progress, Completed, etc.)
+- Work notes and customer feedback
+- Estimated and actual completion times
+- Parts used tracking
+- Customer feedback collection
 
-function isTechnician() {
-  return isAuthenticated() && getUserData().role == "technician";
-}
-```
+### 3. **Work Logs System**
+- Detailed work activity tracking
+- Action logging (started, paused, completed, etc.)
+- Description and timestamp for each action
+- Audit trail for work history
 
-### Access Control Helpers
-```javascript
-function belongsToShop(shopId) {
-  return getUserData().shopId == shopId;
-}
+### 4. **Profile Management**
+- Skills and expertise tracking
+- Availability status
+- Contact information updates
+- Performance metrics
 
-function belongsToBranch(branchId) {
-  return getUserData().branch_id == branchId;
-}
+## Application Integration
 
-function isOwner(userId) {
-  return request.auth.uid == userId;
-}
-```
+The following application changes support these enhanced rules:
 
-## Testing Security Rules
+1. **Dashboard**: Shows assigned and available services
+2. **My Tasks**: Displays personal assignments and branch services
+3. **Service Details**: Enhanced update capabilities
+4. **Work Logs**: New interface for activity tracking
+5. **Profile**: Enhanced technician profile management
 
-### Local Testing
+## Testing Scenarios
+
+### 1. **Service Assignment**
+- Verify technicians can see services assigned to them
+- Verify technicians can see unassigned services in their branch
+- Verify technicians can assign themselves to unassigned services
+
+### 2. **Service Updates**
+- Verify technicians can update status of assigned services
+- Verify technicians can add work notes and feedback
+- Verify technicians can update completion times
+
+### 3. **Work Logs**
+- Verify technicians can create work logs for their services
+- Verify technicians can read their own work logs
+- Verify work logs are properly secured
+
+### 4. **Profile Management**
+- Verify technicians can update their profile information
+- Verify skills and availability can be updated
+- Verify profile updates are properly validated
+
+## Deployment
+
+Rules deployed successfully to Firebase project: `fixigo-8dc40`
+
 ```bash
-# Install Firebase emulator
-npm install -g firebase-tools
-
-# Start emulator
-firebase emulators:start
-
-# Test rules
-firebase firestore:rules:test
-```
-
-### Production Testing
-```bash
-# Deploy rules
 firebase deploy --only firestore:rules
-
-# Check deployment status
-firebase projects:list
 ```
-
-## Best Practices
-
-### 1. Principle of Least Privilege
-- Users only have access to data they need
-- Role-based permissions are strictly enforced
-- No unnecessary read/write access
-
-### 2. Data Validation
-- All data is validated before write operations
-- Required fields are enforced
-- Data types are checked
-- Business logic validation is applied
-
-### 3. Security by Design
-- Rules are written defensively
-- Default deny for unknown operations
-- Explicit allow for known operations
-- Regular security reviews
-
-### 4. Monitoring and Logging
-- All operations are logged
-- Failed operations are tracked
-- Security events are monitored
-- Regular audits are conducted
-
-## Troubleshooting
-
-### Common Issues
-
-1. **Permission Denied**
-   - Check user authentication
-   - Verify user role
-   - Confirm data ownership
-   - Check field validation
-
-2. **Validation Errors**
-   - Verify required fields are present
-   - Check data types
-   - Ensure field sizes are correct
-   - Validate business logic
-
-3. **Branch Creation Fails**
-   - Ensure user is shop_admin
-   - Verify shopId is set
-   - Check all required fields
-   - Validate email format
-
-### Debug Steps
-
-1. **Check User Authentication**
-   ```javascript
-   console.log('User UID:', request.auth.uid);
-   console.log('User Role:', getUserData().role);
-   ```
-
-2. **Verify Data Structure**
-   ```javascript
-   console.log('Request Data:', request.resource.data);
-   console.log('Required Fields:', request.resource.data.keys());
-   ```
-
-3. **Test Permissions**
-   ```javascript
-   console.log('Is Shop Admin:', isShopAdmin());
-   console.log('Belongs to Shop:', belongsToShop(shopId));
-   ```
 
 ## Future Enhancements
 
-### Planned Improvements
-
-1. **Advanced Role Management**
-   - Custom roles
-   - Role inheritance
-   - Dynamic permissions
-
-2. **Enhanced Validation**
-   - Custom validation functions
-   - Complex business rules
-   - Data integrity checks
-
-3. **Audit Trail**
-   - Comprehensive logging
-   - Change tracking
-   - Security monitoring
-
-4. **Performance Optimization**
-   - Rule caching
-   - Query optimization
-   - Index management
-
-## Security Checklist
-
-- [x] Authentication required for all operations
-- [x] Role-based access control implemented
-- [x] Data validation rules in place
-- [x] Principle of least privilege applied
-- [x] Default deny for unknown operations
-- [x] Regular security reviews conducted
-- [x] Monitoring and logging enabled
-- [x] Error handling implemented
-- [x] Documentation maintained
-- [x] Testing procedures established
-
-## Contact
-
-For security-related questions or issues, please contact the development team or create an issue in the project repository. 
+1. **Advanced Assignment Logic**: Implement skill-based service assignment
+2. **Real-time Notifications**: Add push notifications for new assignments
+3. **Performance Metrics**: Track technician performance and efficiency
+4. **Automated Workflows**: Implement automated service assignment based on workload
+5. **Mobile Optimization**: Enhance mobile experience for technicians 

@@ -9,8 +9,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import TextInput from "@/components/ui/TextInput";
 import { MdPerson, MdEmail } from "react-icons/md";
-import { HiSparkles, HiChartBar, HiUsers, HiClock, HiShieldCheck, HiCheckCircle, HiStar } from "react-icons/hi";
-
+import { HiUsers, HiChartBar, HiClock } from "react-icons/hi";
 export default function RegisterPage() {
   return (
     <AuthGuard requireAuth={false}>

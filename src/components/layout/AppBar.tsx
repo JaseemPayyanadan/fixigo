@@ -66,7 +66,7 @@ export function AppBar() {
   };
 
   return (
-    <header className={`h-16 flex items-center justify-between px-8 bg-white border-b border-gray-200 fixed top-0 left-0 z-[9999] right-0 transition-all duration-300 ${
+    <header className={`h-16 flex items-center justify-between px-4 md:px-8 bg-white border-b border-gray-200 fixed top-0 left-0 z-[9999] right-0 transition-all duration-300 ${
       collapsed ? "md:ml-16" : "md:ml-64"
     }`}>
       {/* Left Section - Brand */}
@@ -113,14 +113,6 @@ export function AppBar() {
               {notifications}
             </span>
           )}
-        </button>
-
-        {/* Mobile Search Toggle */}
-        <button 
-          className="md:hidden p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors duration-200"
-          onClick={() => setSearchOpen(!searchOpen)}
-        >
-          <HiSearch className="h-6 w-6" />
         </button>
 
         {/* User Profile */}

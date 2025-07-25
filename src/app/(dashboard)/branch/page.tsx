@@ -7,22 +7,26 @@ import { SearchFilter } from "@/components/ui";
 import { db } from "@/lib/firebase";
 import { collection, getDocs, query } from "firebase/firestore";
 import Link from "next/link";
+import logger from "@/lib/logger";
 
 export default function BranchPage() {
   const { user } = useUser();
   const shopId = user?.shopId;
   const { branches, loading, error, deleteBranch } = useBranches(shopId);
-  const [techniciansByBranch, setTechniciansByBranch] = useState<Record<string, string[]>>({});
+
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
 
-  // Debug user data
+  // Log user data for debugging (only in development)
   useEffect(() => {
-    console.log('BranchPage - Current user:', user);
-    console.log('BranchPage - ShopId:', shopId);
-    console.log('BranchPage - User role:', user?.role);
-    console.log('BranchPage - User UID:', user?.uid);
-    console.log('BranchPage - User email:', user?.email);
+    if (process.env.NODE_ENV === 'development') {
+      logger.debug('Branch page user data', {
+        userId: user?.uid,
+        userRole: user?.role,
+        userEmail: user?.email,
+        shopId: shopId
+      });
+    }
   }, [user, shopId]);
 
   // Fetch technicians for each branch
@@ -31,15 +35,15 @@ export default function BranchPage() {
       if (!branches.length) return;
       
       try {
-        console.log('Fetching technicians for branches:', branches.length);
+        logger.info('Fetching technicians for branches', { branchCount: branches.length });
         
         // First, let's test if we can access the technicians collection at all
         const testQuery = query(collection(db, "technicians"));
         const testSnap = await getDocs(testQuery);
-        console.log('Total technicians in collection:', testSnap.docs.length);
+        logger.debug('Total technicians in collection', { count: testSnap.docs.length });
         
         if (testSnap.docs.length > 0) {
-          console.log('Sample technician data:', testSnap.docs[0].data());
+          logger.debug('Sample technician data', { data: testSnap.docs[0].data() });
         }
         
         // Fetch all technicians and filter client-side to avoid 'in' query limitations
@@ -51,7 +55,7 @@ export default function BranchPage() {
         
         snap.docs.forEach(doc => {
           const data = doc.data();
-          console.log('Technician data:', data);
+          logger.debug('Processing technician data', { data });
           // Only include technicians that belong to our branches
           if (branchIds.includes(data.branch_id)) {
             if (!byBranch[data.branch_id]) byBranch[data.branch_id] = [];
@@ -59,90 +63,149 @@ export default function BranchPage() {
           }
         });
         
-        console.log('Technicians by branch:', byBranch);
-        setTechniciansByBranch(byBranch);
+        logger.debug('Technicians grouped by branch', { byBranch });
       } catch (error) {
-        console.error('Error fetching technicians:', error);
+        logger.error('Error fetching technicians', error as Error);
         // Don't set error state here as it's not critical for the page to function
-        setTechniciansByBranch({});
       }
     };
     
     fetchTechnicians();
   }, [branches]);
 
-
-
-  // Filter branches
   const filteredBranches = branches.filter(branch => {
-    const matchesSearch = !search || 
-      branch.name?.toLowerCase().includes(search.toLowerCase()) ||
-      branch.address?.toLowerCase().includes(search.toLowerCase());
-    
+    const matchesSearch = branch.name.toLowerCase().includes(search.toLowerCase()) ||
+                         branch.address.toLowerCase().includes(search.toLowerCase());
     const matchesStatus = statusFilter === "All" || branch.status === statusFilter;
-    
     return matchesSearch && matchesStatus;
   });
 
-  const clearFilters = () => {
-    setSearch("");
-    setStatusFilter("All");
-  };
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
+        <div className="w-full px-4 py-8">
+          <div className="animate-pulse">
+            <div className="h-8 bg-gray-200 rounded w-1/4 mb-8"></div>
+            <div className="bg-white rounded-xl shadow-sm p-6">
+              <div className="h-4 bg-gray-200 rounded w-1/2 mb-4"></div>
+              <div className="space-y-3">
+                {[...Array(3)].map((_, i) => (
+                  <div key={i} className="h-16 bg-gray-200 rounded"></div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="w-full px-4 py-8">
         {/* Header */}
-        <div className="mb-8">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div>
-              <h1 className="text-xl font-bold text-gray-900 mb-q">Branch Management</h1>
-              <p className="text-gray-600 text-sm">Organize and manage your business locations</p>
-            </div>
-            <Link
-              href="/branch/new"
-              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
-              Add Branch
-            </Link>
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Branches</h1>
+            <p className="text-gray-600">
+              Manage your business locations and their operations
+            </p>
           </div>
+          <Link
+            href="/branch/new"
+            className="mt-4 sm:mt-0 inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 font-semibold shadow-lg transition-all duration-200 transform hover:scale-105"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            </svg>
+            Add Branch
+          </Link>
         </div>
 
-        {/* Search and Filters */}
-        <SearchFilter
-          search={search}
-          onSearchChange={setSearch}
-          placeholder="Search branches by name or address..."
-          filters={[
-            {
-              key: "status",
-              label: "Status",
-              value: statusFilter,
-              options: [
-                { value: "All", label: "All" },
-                { value: "active", label: "Active" },
-                { value: "inactive", label: "Inactive" }
-              ],
-              onChange: setStatusFilter
-            }
-          ]}
-          onClear={clearFilters}
-          showClear={true}
-          className="mb-6"
-        />
+        {/* Search and Filter */}
+        <div className="mb-6">
+          <SearchFilter
+            search={search}
+            onSearchChange={setSearch}
+            placeholder="Search branches..."
+            filters={[
+              {
+                key: "status",
+                label: "Status",
+                value: statusFilter,
+                options: [
+                  { value: "All", label: "All" },
+                  { value: "active", label: "Active" },
+                  { value: "inactive", label: "Inactive" }
+                ],
+                onChange: setStatusFilter
+              }
+            ]}
+            onClear={() => {
+              setSearch("");
+              setStatusFilter("All");
+            }}
+            showClear={true}
+          />
+        </div>
 
-        {/* Branch List */}
-        <BranchList
-          branches={filteredBranches}
-          loading={loading}
-          error={error}
-          onDeleteBranch={(branch) => deleteBranch(branch.id)}
-        />
+        {/* Error Display */}
+        {error && (
+          <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-red-800">Error loading branches</h3>
+                <div className="mt-2 text-sm text-red-700">{error}</div>
+              </div>
+            </div>
+          </div>
+        )}
 
+        {/* Branches List */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100">
+          <BranchList
+            branches={filteredBranches}
+            loading={loading}
+            error={error}
+            onDeleteBranch={(branch) => deleteBranch(branch.id)}
+          />
+        </div>
 
+        {/* Empty State */}
+        {!loading && filteredBranches.length === 0 && (
+          <div className="text-center py-12">
+            <div className="mx-auto h-12 w-12 text-gray-400">
+              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+              </svg>
+            </div>
+            <h3 className="mt-2 text-sm font-medium text-gray-900">No branches found</h3>
+            <p className="mt-1 text-sm text-gray-500">
+              {search || statusFilter !== "All" 
+                ? "Try adjusting your search or filter criteria."
+                : "Get started by creating your first branch."
+              }
+            </p>
+            {!search && statusFilter === "All" && (
+              <div className="mt-6">
+                <Link
+                  href="/branch/new"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  </svg>
+                  Add Your First Branch
+                </Link>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

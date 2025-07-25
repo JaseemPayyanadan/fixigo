@@ -1,32 +1,44 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { doc, getDoc, updateDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
-import { useUser, useBranches } from "@/hooks";
+import { useUser } from "@/hooks";
+import { useBranches } from "@/hooks/useBranches";
+
+import { RoleGuard, PermissionGuard } from "@/components";
 import TechnicianForm from "@/modules/technician/TechnicianForm";
 import { LoadingSpinner } from "@/components/ui";
+import { db } from "@/lib/firebase";
+import { doc, getDoc, updateDoc } from "firebase/firestore";
+
 import Link from "next/link";
+import logger from "@/lib/logger";
 
 interface TechnicianData {
-  id: string;
   name: string;
   email: string;
   phone: string;
   branch_id: string;
-  shop_id: string;
-  role: string;
+  skills: string[];
   status: string;
-  createdAt: Date | null;
-  updatedAt: Date | null;
 }
 
 export default function TechnicianEditPage() {
+  return (
+    <RoleGuard allowedRoles={["shop_admin", "branch_admin"]}>
+      <PermissionGuard permissions={["technician:write"]}>
+        <TechnicianEditContent />
+      </PermissionGuard>
+    </RoleGuard>
+  );
+}
+
+function TechnicianEditContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const id = searchParams.get("id");
   const { user } = useUser();
   const { branches } = useBranches(user?.shopId);
+
   const [technician, setTechnician] = useState<TechnicianData | null>(null);
   const [techUserId, setTechUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -42,7 +54,7 @@ export default function TechnicianEditPage() {
       }
 
       try {
-        console.log('Fetching technician with ID:', id);
+        logger.info('Fetching technician data', { technicianId: id });
         
         // Fetch technician document
         const techDoc = await getDoc(doc(db, "technicians", id));
@@ -53,7 +65,7 @@ export default function TechnicianEditPage() {
         }
 
         const techData = techDoc.data() as TechnicianData;
-        console.log('Technician data:', techData);
+        logger.debug('Technician data retrieved', { technicianId: id, data: techData });
         setTechnician(techData);
 
         // Try to find the corresponding user document
@@ -61,16 +73,16 @@ export default function TechnicianEditPage() {
           const userQuery = await getDoc(doc(db, "users", id));
           if (userQuery.exists()) {
             setTechUserId(id);
-            console.log('Found user document for technician');
+            logger.debug('Found user document for technician', { userId: id });
           } else {
-            console.log('No user document found for technician');
+            logger.debug('No user document found for technician', { technicianId: id });
           }
         } catch (userErr) {
-          console.log('Error fetching user document:', userErr);
+          logger.warn('Error fetching user document', { technicianId: id, error: userErr });
         }
 
       } catch (err: unknown) {
-        console.error('Error fetching technician:', err);
+        logger.error('Error fetching technician', err as Error, { technicianId: id });
         setError(err instanceof Error ? err.message : "Failed to load technician");
       } finally {
         setLoading(false);
@@ -96,10 +108,13 @@ export default function TechnicianEditPage() {
     setError(null);
     
     try {
-      console.log('Updating technician:', id, 'with data:', data);
-      console.log('Current user:', user);
-      console.log('Shop ID:', user?.shopId);
-      console.log('User role:', user?.role);
+      logger.info('Updating technician', { 
+        technicianId: id, 
+        userId: user?.uid,
+        shopId: user?.shopId,
+        userRole: user?.role,
+        updateData: { ...data, password: '[REDACTED]' }
+      });
       
       // Update technician document
       const technicianUpdateData = {
@@ -110,9 +125,9 @@ export default function TechnicianEditPage() {
         updatedAt: new Date(),
       };
       
-      console.log('Technician update data:', technicianUpdateData);
+      logger.debug('Updating technician document', { technicianId: id, data: technicianUpdateData });
       await updateDoc(doc(db, "technicians", id), technicianUpdateData);
-      console.log('Technician document updated successfully');
+      logger.info('Technician document updated successfully', { technicianId: id });
       
       // Update user document if found
       if (techUserId) {
@@ -122,17 +137,17 @@ export default function TechnicianEditPage() {
           branch_id: data.branch_id,
           updatedAt: new Date(),
         };
-        console.log('User update data:', userUpdateData);
+        logger.debug('Updating user document', { userId: techUserId, data: userUpdateData });
         await updateDoc(doc(db, "users", techUserId), userUpdateData);
-        console.log('User document updated successfully');
+        logger.info('User document updated successfully', { userId: techUserId });
       } else {
-        console.log('No user document found for technician');
+        logger.debug('No user document found for technician', { technicianId: id });
       }
       
-      console.log('Technician updated successfully');
+      logger.info('Technician updated successfully', { technicianId: id });
       router.push("/technicians");
     } catch (err: unknown) {
-      console.error('Error updating technician:', err);
+      logger.error('Error updating technician', err as Error, { technicianId: id });
       
       // Handle specific Firebase errors
       if (err instanceof Error) {
@@ -177,27 +192,19 @@ export default function TechnicianEditPage() {
         <div className="max-w-2xl mx-auto px-4 py-8">
           <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
             <div className="text-center">
-              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                <svg className="h-8 w-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
-              <h2 className="text-xl font-semibold text-gray-900 mb-2">Unable to Load Technician</h2>
+              <h2 className="text-xl font-semibold text-gray-900 mb-4">Error Loading Technician</h2>
               <p className="text-gray-600 mb-6">{error}</p>
-              <div className="flex gap-3 justify-center">
-                <button
-                  onClick={() => window.location.reload()}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  Try Again
-                </button>
-                <Link
-                  href="/technicians"
-                  className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
-                >
-                  Back to Technicians
-                </Link>
-              </div>
+              <Link
+                href="/technicians"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Back to Technicians
+              </Link>
             </div>
           </div>
         </div>
@@ -211,16 +218,16 @@ export default function TechnicianEditPage() {
         <div className="max-w-2xl mx-auto px-4 py-8">
           <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
             <div className="text-center">
-              <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                <svg className="h-8 w-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
                 </svg>
               </div>
-              <h2 className="text-xl font-semibold text-gray-900 mb-2">Technician Not Found</h2>
+              <h2 className="text-xl font-semibold text-gray-900 mb-4">Technician Not Found</h2>
               <p className="text-gray-600 mb-6">The technician you&apos;re looking for doesn&apos;t exist or has been removed.</p>
               <Link
                 href="/technicians"
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
                 Back to Technicians
               </Link>
@@ -233,41 +240,64 @@ export default function TechnicianEditPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
-      <div className="max-w-2xl mx-auto px-4 py-8">
+      <div className="max-w-4xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="mb-8">
-          <div className="flex items-center gap-4 mb-6">
-            <Link
-              href="/technicians"
-              className="flex items-center gap-2 text-gray-600 hover:text-gray-800 transition-colors"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          <Link
+            href="/technicians"
+            className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800 font-medium mb-4 transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+            Back to Technicians
+          </Link>
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-3 bg-blue-100 rounded-lg">
+              <svg className="h-8 w-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
               </svg>
-              Back to Technicians
-            </Link>
-          </div>
-          <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
-            <div className="mb-6">
-              <h1 className="text-2xl font-bold text-gray-900 mb-2">Edit Technician</h1>
-              <p className="text-gray-600">Update technician information and assignments</p>
             </div>
-            
-                         <TechnicianForm
-               onSubmit={handleEdit}
-               loading={formLoading}
-               editing={true}
-               initialData={{
-                 name: technician.name,
-                 email: technician.email,
-                 phone: technician.phone,
-               }}
-               branch_id={technician.branch_id || user?.branch_id || ""}
-               onCancel={() => router.push("/technicians")}
-               branches={branches}
-               userRole={user?.role || ""}
-             />
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Edit Technician</h1>
+              <p className="text-gray-600">Update technician information and settings</p>
+            </div>
           </div>
+        </div>
+
+        {/* Error Display */}
+        {error && (
+          <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-red-800">Error updating technician</h3>
+                <div className="mt-2 text-sm text-red-700">{error}</div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Technician Form */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8">
+          <TechnicianForm
+            onSubmit={handleEdit}
+            loading={formLoading}
+            editing={true}
+            initialData={{
+              name: technician.name,
+              email: technician.email,
+              phone: technician.phone,
+            }}
+            branch_id={technician.branch_id || user?.branchId || ""}
+            onCancel={() => router.push("/technicians")}
+            branches={branches}
+            userRole={user?.role || ""}
+          />
         </div>
       </div>
     </div>

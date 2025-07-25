@@ -188,9 +188,6 @@ export function BottomNavBar() {
           </div>
         </div>
       )}
-
-      {/* Safe Area Spacing for iOS and Android */}
-      <div className="safe-area-bottom h-4 md:hidden"></div>
     </>
   );
 } 

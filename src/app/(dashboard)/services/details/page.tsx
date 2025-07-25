@@ -94,7 +94,7 @@ function ServiceDetailsPage() {
             createdAt: data.createdAt && typeof data.createdAt.toDate === 'function' ? data.createdAt.toDate() : undefined,
             updatedAt: data.updatedAt && typeof data.updatedAt.toDate === 'function' ? data.updatedAt.toDate() : undefined,
           } as Service);
-          setBranchId(data.branch_id || "");
+          setBranchId(data.branchId || "");
           setStatus(data.status || "To Do");
         } else {
           setError("Service not found");
@@ -235,7 +235,7 @@ function ServiceDetailsPage() {
             setBranchId={setBranchId}
             isShopAdmin={user?.role === "shop_admin"}
             isBranchAdmin={user?.role === "branch_admin"}
-            userBranchId={user?.branch_id}
+            userBranchId={user?.branchId}
             initialData={{
               customer: {
                 name: service.customer?.name || "",

@@ -1,5 +1,7 @@
 import React from "react";
 import { useRouter } from "next/navigation";
+import { usePermissions } from "@/hooks";
+import { PermissionGuard } from "@/components";
 import { Technician, Branch } from "@/types";
 
 interface TechnicianListProps {
@@ -10,6 +12,7 @@ interface TechnicianListProps {
 
 export default function TechnicianList({ technicians, onDelete, branches }: TechnicianListProps) {
   const router = useRouter();
+  const { canManageTechnician, canDeleteTechnician } = usePermissions();
 
   // Helper function to get branch name by ID
   const getBranchName = (branchId: string) => {
@@ -88,24 +91,28 @@ export default function TechnicianList({ technicians, onDelete, branches }: Tech
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-2">
-                      <button
-                        className="text-blue-600 hover:text-blue-900 font-medium text-sm transition-colors"
-                        onClick={() => router.push(`/technicians/edit?id=${tech.id}`)}
-                        title="Edit technician"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        className="text-red-600 hover:text-red-900 font-medium text-sm transition-colors"
-                        onClick={() => {
-                          if (window.confirm(`Are you sure you want to delete technician '${tech.name}'?`)) {
-                            onDelete(tech.id);
-                          }
-                        }}
-                        title="Delete technician"
-                      >
-                        Delete
-                      </button>
+                      <PermissionGuard permissions={["technician:write"]} fallback={null}>
+                        <button
+                          className="text-blue-600 hover:text-blue-900 font-medium text-sm transition-colors"
+                          onClick={() => router.push(`/technicians/edit?id=${tech.id}`)}
+                          title="Edit technician"
+                        >
+                          Edit
+                        </button>
+                      </PermissionGuard>
+                      <PermissionGuard permissions={["technician:delete"]} fallback={null}>
+                        <button
+                          className="text-red-600 hover:text-red-900 font-medium text-sm transition-colors"
+                          onClick={() => {
+                            if (window.confirm(`Are you sure you want to delete technician '${tech.name}'?`)) {
+                              onDelete(tech.id);
+                            }
+                          }}
+                          title="Delete technician"
+                        >
+                          Delete
+                        </button>
+                      </PermissionGuard>
                     </div>
                   </td>
                 </tr>
@@ -164,24 +171,28 @@ export default function TechnicianList({ technicians, onDelete, branches }: Tech
               </div>
               
               <div className="flex gap-2 pt-4 border-t border-gray-100">
-                <button
-                  className="flex-1 px-4 py-2 text-blue-600 hover:text-blue-900 font-medium text-sm transition-colors border border-blue-200 rounded-lg hover:bg-blue-50"
-                  onClick={() => router.push(`/technicians/edit?id=${tech.id}`)}
-                  title="Edit technician"
-                >
-                  Edit
-                </button>
-                <button
-                  className="flex-1 px-4 py-2 text-red-600 hover:text-red-900 font-medium text-sm transition-colors border border-red-200 rounded-lg hover:bg-red-50"
-                  onClick={() => {
-                    if (window.confirm(`Are you sure you want to delete technician '${tech.name}'?`)) {
-                      onDelete(tech.id);
-                    }
-                  }}
-                  title="Delete technician"
-                >
-                  Delete
-                </button>
+                <PermissionGuard permissions={["technician:write"]} fallback={null}>
+                  <button
+                    className="flex-1 px-4 py-2 text-blue-600 hover:text-blue-900 font-medium text-sm transition-colors border border-blue-200 rounded-lg hover:bg-blue-50"
+                    onClick={() => router.push(`/technicians/edit?id=${tech.id}`)}
+                    title="Edit technician"
+                  >
+                    Edit
+                  </button>
+                </PermissionGuard>
+                <PermissionGuard permissions={["technician:delete"]} fallback={null}>
+                  <button
+                    className="flex-1 px-4 py-2 text-red-600 hover:text-red-900 font-medium text-sm transition-colors border border-red-200 rounded-lg hover:bg-red-50"
+                    onClick={() => {
+                      if (window.confirm(`Are you sure you want to delete technician '${tech.name}'?`)) {
+                        onDelete(tech.id);
+                      }
+                    }}
+                    title="Delete technician"
+                  >
+                    Delete
+                  </button>
+                </PermissionGuard>
               </div>
             </div>
           ))}

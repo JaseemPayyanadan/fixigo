@@ -131,7 +131,7 @@
 /* Safe area handling for notched devices */
 @supports (padding: max(0px)) {
   .safe-area-bottom {
-    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+    padding-bottom: max(0.25rem, env(safe-area-inset-bottom));
   }
   
   .safe-area-top {
@@ -151,8 +151,8 @@
     background: white;
     border-top: 1px solid #e5e7eb;
     box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.1);
-    /* Add extra padding for Android navigation bar */
-    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+    /* Minimal padding for safe area */
+    /* padding-bottom: env(safe-area-inset-bottom); */
   }
   
   /* Ensure main content doesn't overlap with bottom nav */
@@ -161,18 +161,8 @@
   }
   
   /* Handle Android gesture navigation */
-  @media (hover: none) and (pointer: coarse) {
-    .bottom-nav-fixed {
-      /* Additional padding for gesture navigation */
-      padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
-    }
-  }
-}
-
-/* iOS-specific safe area handling */
-@supports (-webkit-touch-callout: none) {
   .safe-area-bottom {
-    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+    padding-bottom: max(0.25rem, env(safe-area-inset-bottom));
   }
   
   .safe-area-top {

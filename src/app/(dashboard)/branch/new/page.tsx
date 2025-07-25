@@ -7,6 +7,7 @@ import { useUser } from "@/hooks";
 import { AuthGuard, RoleGuard } from "@/components";
 import { HiArrowLeft, HiOfficeBuilding } from "react-icons/hi";
 import Link from "next/link";
+import logger from "@/lib/logger";
 
 export default function NewBranchPage() {
   const { user } = useUser();
@@ -16,12 +17,17 @@ export default function NewBranchPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Debug logging
-  console.log('NewBranchPage - User:', user);
-  console.log('NewBranchPage - ShopId:', shopId);
-  console.log('NewBranchPage - User UID:', user?.uid);
-  console.log('NewBranchPage - User role:', user?.role);
-  console.log('NewBranchPage - Onboarding completed:', user?.onboardingCompleted);
+  // Log user data for debugging (only in development)
+  React.useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      logger.debug('New branch page user data', {
+        userId: user?.uid,
+        userRole: user?.role,
+        shopId: shopId,
+        onboardingCompleted: user?.onboardingCompleted
+      });
+    }
+  }, [user, shopId]);
 
   const handleCreateBranch = async (branchData: {
     name: string;
@@ -30,18 +36,21 @@ export default function NewBranchPage() {
     email: string;
     branchPassword: string;
   }) => {
-    console.log('handleCreateBranch called with:', branchData);
-    console.log('ShopId:', shopId);
+    logger.info('Creating new branch', { 
+      shopId, 
+      branchData: { ...branchData, branchPassword: '[REDACTED]' } 
+    });
+    
     setLoading(true);
     setError(null);
     try {
-      console.log('Calling createBranch...');
+      logger.debug('Calling createBranch function');
       await createBranch(branchData);
-      console.log('createBranch completed successfully');
+      logger.info('Branch created successfully');
       // Redirect to branches list after successful creation
       router.push("/branch");
     } catch (err: unknown) {
-      console.error('Error in handleCreateBranch:', err);
+      logger.error('Error creating branch', err as Error, { shopId });
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setLoading(false);
@@ -81,43 +90,49 @@ export default function NewBranchPage() {
     <AuthGuard>
       <RoleGuard allowedRoles={["shop_admin"]}>
         <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="max-w-4xl mx-auto px-4 py-8">
             {/* Header */}
             <div className="mb-8">
-              <div className="flex items-center gap-4 mb-6">
-                <Link
-                  href="/branch"
-                  className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
-                >
-                  <HiArrowLeft className="w-5 h-5" />
-                  <span>Back to Branches</span>
-                </Link>
-              </div>
-              
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                  <HiOfficeBuilding className="w-6 h-6 text-blue-600" />
+              <Link
+                href="/branch"
+                className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800 font-medium mb-4 transition-colors"
+              >
+                <HiArrowLeft className="w-4 h-4" />
+                Back to Branches
+              </Link>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-3 bg-blue-100 rounded-lg">
+                  <HiOfficeBuilding className="h-8 w-8 text-blue-600" />
                 </div>
                 <div>
-                  <h1 className="text-2xl font-bold text-gray-900">Add New Branch</h1>
-                  <p className="text-gray-600">Create a new branch for your business</p>
+                  <h1 className="text-3xl font-bold text-gray-900">Add New Branch</h1>
+                  <p className="text-gray-600">Create a new branch location for your business</p>
                 </div>
               </div>
             </div>
 
             {/* Error Display */}
             {error && (
-              <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-                <p className="text-red-800">{error}</p>
+              <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
+                <div className="flex">
+                  <div className="flex-shrink-0">
+                    <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <div className="ml-3">
+                    <h3 className="text-sm font-medium text-red-800">Error creating branch</h3>
+                    <div className="mt-2 text-sm text-red-700">{error}</div>
+                  </div>
+                </div>
               </div>
             )}
 
             {/* Branch Form */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8">
               <BranchForm
                 onSubmit={handleCreateBranch}
                 loading={loading}
-                editMode={false}
               />
             </div>
           </div>

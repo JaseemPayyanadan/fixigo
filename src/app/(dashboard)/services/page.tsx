@@ -2,8 +2,9 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { collection, getDocs, query, where, orderBy } from "firebase/firestore";
 import { db } from "../../../lib/firebase";
-import { useUser } from "../../../hooks/useUser";
+import { useUser } from "../../../hooks";
 import { useBranches } from "../../../hooks/useBranches";
+import { RoleGuard, PermissionGuard } from "../../../components";
 import ServiceList from "../../../modules/service/ServiceList";
 import { SearchFilter } from "../../../components/ui";
 import { HiPlus, HiClock, HiCheckCircle, HiCurrencyRupee, HiDeviceMobile } from "react-icons/hi";
@@ -37,8 +38,19 @@ interface Service {
 const STATUS_OPTIONS = ["All", "To Do", "In Progress", "Awaiting Parts", "On Hold", "Ready for Pickup", "Completed", "Cancelled", "Pending"];
 
 export default function ServicesPage() {
+  return (
+    <RoleGuard allowedRoles={["shop_admin", "branch_admin", "technician"]}>
+      <PermissionGuard permissions={["service:read"]}>
+        <ServicesContent />
+      </PermissionGuard>
+    </RoleGuard>
+  );
+}
+
+function ServicesContent() {
   const { user } = useUser();
   const { branches } = useBranches(user?.shopId);
+
   
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,7 +67,7 @@ export default function ServicesPage() {
         const servicesRef = collection(db, "services");
         const q = query(
           servicesRef,
-          where("shop_id", "==", user.shopId),
+          where("shopId", "==", user.shopId),
           orderBy("createdAt", "desc")
         );
         
@@ -137,13 +149,15 @@ export default function ServicesPage() {
           <h1 className="text-2xl font-bold text-gray-900">Services</h1>
           <p className="text-gray-600 mt-1">Manage and track your service requests</p>
         </div>
-        <Link
-          href="/services/new"
-          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          <HiPlus className="w-4 h-4" />
-          New Service
-        </Link>
+        <PermissionGuard permissions={["service:write"]} fallback={null}>
+          <Link
+            href="/services/new"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <HiPlus className="w-4 h-4" />
+            New Service
+          </Link>
+        </PermissionGuard>
       </div>
 
       {/* Stats Cards */}
