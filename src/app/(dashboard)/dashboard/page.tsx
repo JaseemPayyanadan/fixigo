@@ -6,9 +6,16 @@ import { useTechnicians } from '@/hooks/useTechnicians';
 import { collection, query, where, orderBy, limit, getDocs, getDoc, doc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { logger } from '@/lib/logger';
-import { HiOfficeBuilding, HiUserGroup, HiClipboardList, HiDocumentText, HiUser, HiBriefcase, HiCurrencyDollar, HiTrendingUp, HiClock, HiCheckCircle, HiCalendar } from "react-icons/hi";
+import { HiOfficeBuilding, HiUserGroup, HiClipboardList, HiDocumentText, HiUser, HiCurrencyDollar, HiTrendingUp, HiClock, HiCheckCircle, HiCalendar } from "react-icons/hi";
 import Link from 'next/link';
 import PermissionGuard from '@/components/auth/PermissionGuard';
+import type { User } from "@/types";
+
+interface SimpleInvoice {
+  id: string;
+  total: number;
+  status: string;
+}
 
 // Memoized interfaces for better performance
 interface DashboardStats {
@@ -83,7 +90,7 @@ const DashboardContent = React.memo(() => {
   }, [getTimestampSeconds]);
 
   // Memoized data fetching functions
-  const fetchTechnicianData = useCallback(async (user: any) => {
+  const fetchTechnicianData = useCallback(async (user: User) => {
     const technicianQuery = query(
       collection(db, "technicians"),
       where("uid", "==", user.uid)
@@ -120,7 +127,7 @@ const DashboardContent = React.memo(() => {
     });
   }, []);
 
-  const fetchShopAdminData = useCallback(async (user: any) => {
+  const fetchShopAdminData = useCallback(async (user: User) => {
     const [servicesSnapshot, invoicesSnapshot] = await Promise.all([
       getDocs(query(collection(db, "services"), where("shopId", "==", user.shopId))),
       getDocs(query(collection(db, "invoices"), where("shopId", "==", user.shopId)))
@@ -154,7 +161,7 @@ const DashboardContent = React.memo(() => {
     return { services, invoices };
   }, []);
 
-  const fetchBranchAdminData = useCallback(async (user: any) => {
+  const fetchBranchAdminData = useCallback(async (user: User) => {
     const [servicesSnapshot, invoicesSnapshot] = await Promise.all([
       getDocs(query(collection(db, "services"), where("branchId", "==", user.branchId))),
       getDocs(query(collection(db, "invoices"), where("branchId", "==", user.branchId)))
@@ -233,7 +240,7 @@ const DashboardContent = React.memo(() => {
         });
 
         let services: Service[] = [];
-        let invoices: any[] = [];
+        let invoices: SimpleInvoice[] = [];
 
         if (user.role === "technician") {
           services = await fetchTechnicianData(user);
@@ -250,7 +257,7 @@ const DashboardContent = React.memo(() => {
         // Calculate stats efficiently
         const pendingServices = services.filter((s: Service) => s.status === "To Do" || s.status === "In Progress").length;
         const completedServices = services.filter((s: Service) => s.status === "Completed").length;
-        const totalRevenue = invoices.reduce((sum: number, inv: any) => sum + (Number(inv.total) || 0), 0);
+        const totalRevenue = invoices.reduce((sum: number, inv: SimpleInvoice) => sum + (Number(inv.total) || 0), 0);
         const monthlyRevenue = totalRevenue * (user.role === "shop_admin" ? 0.3 : 0.25);
         const activeServices = services.filter((s: Service) => s.status === "In Progress").length;
         const totalCustomers = new Set(services.map((s: Service) => s.customer?.email).filter(Boolean)).size;

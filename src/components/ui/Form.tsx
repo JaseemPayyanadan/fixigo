@@ -70,18 +70,18 @@ export function Form({
     e.preventDefault();
     
     if (!validateForm()) {
-      logger.warn('Form validation failed', { errors });
+      logger.warn('Form validation failed', { errorCount: Object.keys(errors).length });
       return;
     }
 
     setIsSubmitting(true);
     
     try {
-      logger.info('Form submission started', { formData });
+      logger.info('Form submission started', { fieldCount: Object.keys(formData).length });
       await onSubmit(formData);
       logger.info('Form submission completed successfully');
     } catch (error) {
-      logger.error('Form submission failed', error as Error, { formData });
+      logger.error('Form submission failed', { error: error as Error, fieldCount: Object.keys(formData).length });
       setErrors({ submit: error instanceof Error ? error.message : 'An error occurred' });
     } finally {
       setIsSubmitting(false);

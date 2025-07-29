@@ -116,20 +116,20 @@ export function useDashboardStats(shopId?: string, branchId?: string) {
 
         // Calculate stats
         const totalServices = services.length;
-        const completedServices = services.filter((service: any) => service.status === "completed").length;
-        const pendingServices = services.filter((service: any) => service.status === "pending" || service.status === "in_progress").length;
+        const completedServices = services.filter((service: Record<string, unknown>) => service.status === "completed").length;
+        const pendingServices = services.filter((service: Record<string, unknown>) => service.status === "pending" || service.status === "in_progress").length;
         const totalTechnicians = technicians.length;
         const totalBranches = branches.length;
         const totalInvoices = invoices.length;
-        const totalRevenue = invoices.reduce((sum: number, invoice: any) => sum + (invoice.total || 0), 0);
+        const totalRevenue = invoices.reduce((sum: number, invoice: Record<string, unknown>) => sum + (Number(invoice.total) || 0), 0);
         const customerSatisfaction = completedServices > 0 ? (completedServices / totalServices) * 100 : 0;
 
-        const recentServices = services.slice(0, 5).map((service: any) => ({
-          id: service.id,
-          name: service.name || "Unknown Service",
-          status: service.status || "pending",
-          customer: service.customer?.name || "Unknown Customer",
-          createdAt: service.createdAt?.toDate() || new Date()
+        const recentServices = services.slice(0, 5).map((service: Record<string, unknown>) => ({
+          id: String(service.id || ''),
+          name: String(service.name || "Unknown Service"),
+          status: String(service.status || "pending"),
+          customer: String((service.customer as Record<string, unknown>)?.name || "Unknown Customer"),
+          createdAt: (service.createdAt as { toDate?: () => Date })?.toDate?.() || new Date()
         }));
 
         const calculatedStats: DashboardStats = {

@@ -43,7 +43,6 @@ export default function RBACDemo() {
     canManageUser,
     canViewUser,
     canDeleteUser,
-    canManageOnboarding,
   } = usePermissions();
 
   if (loading) {
@@ -182,7 +181,7 @@ export default function RBACDemo() {
             <span className="font-medium">Can view user:</span> {canViewUser() ? "Yes" : "No"}
           </div>
           <div>
-            <span className="font-medium">Can manage onboarding:</span> {canManageOnboarding() ? "Yes" : "No"}
+
           </div>
           <div>
             <span className="font-medium">Can manage users:</span> {canManageUsers ? "Yes" : "No"}

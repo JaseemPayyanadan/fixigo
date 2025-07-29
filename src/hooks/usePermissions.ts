@@ -56,10 +56,7 @@ export function usePermissions() {
     return PermissionUtils.canManageUsers(user);
   }, [user]);
 
-  const isSuperAdmin = useMemo(() => {
-    if (!user) return false;
-    return PermissionUtils.isSuperAdmin(user);
-  }, [user]);
+
 
   const isShopAdminOrHigher = useMemo(() => {
     if (!user) return false;
@@ -272,66 +269,6 @@ export function usePermissions() {
     return PERMISSION_ACTIONS.canViewReport(user);
   };
 
-  const canDeleteReport = (): boolean => {
-    if (!user) return false;
-    return PERMISSION_ACTIONS.canDeleteReport(user);
-  };
-
-  const canManageFeedback = (): boolean => {
-    if (!user) return false;
-    return PERMISSION_ACTIONS.canManageFeedback(user);
-  };
-
-  const canViewFeedback = (): boolean => {
-    if (!user) return false;
-    return PERMISSION_ACTIONS.canViewFeedback(user);
-  };
-
-  const canDeleteFeedback = (): boolean => {
-    if (!user) return false;
-    return PERMISSION_ACTIONS.canDeleteFeedback(user);
-  };
-
-  const canManageWorkLog = (): boolean => {
-    if (!user) return false;
-    return PERMISSION_ACTIONS.canManageWorkLog(user);
-  };
-
-  const canViewWorkLog = (): boolean => {
-    if (!user) return false;
-    return PERMISSION_ACTIONS.canViewWorkLog(user);
-  };
-
-  const canDeleteWorkLog = (): boolean => {
-    if (!user) return false;
-    return PERMISSION_ACTIONS.canDeleteWorkLog(user);
-  };
-
-  const canManageNotification = (): boolean => {
-    if (!user) return false;
-    return PERMISSION_ACTIONS.canManageNotification(user);
-  };
-
-  const canViewNotification = (): boolean => {
-    if (!user) return false;
-    return PERMISSION_ACTIONS.canViewNotification(user);
-  };
-
-  const canDeleteNotification = (): boolean => {
-    if (!user) return false;
-    return PERMISSION_ACTIONS.canDeleteNotification(user);
-  };
-
-  const canViewAudit = (): boolean => {
-    if (!user) return false;
-    return PERMISSION_ACTIONS.canViewAudit(user);
-  };
-
-  const canWriteAudit = (): boolean => {
-    if (!user) return false;
-    return PERMISSION_ACTIONS.canWriteAudit(user);
-  };
-
   const canManageSetting = (): boolean => {
     if (!user) return false;
     return PERMISSION_ACTIONS.canManageSetting(user);
@@ -340,16 +277,6 @@ export function usePermissions() {
   const canViewSetting = (): boolean => {
     if (!user) return false;
     return PERMISSION_ACTIONS.canViewSetting(user);
-  };
-
-  const canDeleteSetting = (): boolean => {
-    if (!user) return false;
-    return PERMISSION_ACTIONS.canDeleteSetting(user);
-  };
-
-  const canManageOnboarding = (): boolean => {
-    if (!user) return false;
-    return PERMISSION_ACTIONS.canManageOnboarding(user);
   };
 
   return {
@@ -423,39 +350,14 @@ export function usePermissions() {
     // Report permissions
     canManageReport,
     canViewReport,
-    canDeleteReport,
-    
-    // Feedback permissions
-    canManageFeedback,
-    canViewFeedback,
-    canDeleteFeedback,
-    
-    // Work log permissions
-    canManageWorkLog,
-    canViewWorkLog,
-    canDeleteWorkLog,
-    
-    // Notification permissions
-    canManageNotification,
-    canViewNotification,
-    canDeleteNotification,
-    
-    // Audit permissions
-    canViewAudit,
-    canWriteAudit,
     
     // Setting permissions
     canManageSetting,
     canViewSetting,
-    canDeleteSetting,
-    
-    // Onboarding permissions
-    canManageOnboarding,
     
     // User level checks
     hasElevatedPermissions,
     canManageUsers,
-    isSuperAdmin,
     isShopAdminOrHigher,
     isBranchAdminOrHigher,
     userScope,

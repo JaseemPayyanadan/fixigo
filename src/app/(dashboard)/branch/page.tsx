@@ -7,7 +7,7 @@ import { SearchFilter } from "@/components/ui";
 import { db } from "@/lib/firebase";
 import { collection, getDocs, query } from "firebase/firestore";
 import Link from "next/link";
-import logger from "@/lib/logger";
+import { logger } from "@/lib/logger";
 
 export default function BranchPage() {
   const { user } = useUser();
@@ -26,8 +26,7 @@ export default function BranchPage() {
         userEmail: user?.email,
         shopId: shopId,
         userShopId: user?.shopId,
-        onboardingCompleted: user?.onboardingCompleted,
-        fullUserData: user
+        onboardingCompleted: user?.onboardingCompleted
       });
     }
   }, [user, shopId]);
@@ -46,7 +45,7 @@ export default function BranchPage() {
         logger.debug('Total technicians in collection', { count: testSnap.docs.length });
         
         if (testSnap.docs.length > 0) {
-          logger.debug('Sample technician data', { data: testSnap.docs[0].data() });
+          logger.debug('Sample technician data', { technicianId: testSnap.docs[0].id });
         }
         
         // Fetch all technicians and filter client-side to avoid 'in' query limitations
@@ -58,7 +57,7 @@ export default function BranchPage() {
         
         snap.docs.forEach(doc => {
           const data = doc.data();
-          logger.debug('Processing technician data', { data });
+          logger.debug('Processing technician data', { technicianId: doc.id });
           // Only include technicians that belong to our branches
           if (branchIds.includes(data.branch_id)) {
             if (!byBranch[data.branch_id]) byBranch[data.branch_id] = [];
@@ -66,9 +65,9 @@ export default function BranchPage() {
           }
         });
         
-        logger.debug('Technicians grouped by branch', { byBranch });
+        logger.debug('Technicians grouped by branch', { branchCount: Object.keys(byBranch).length });
       } catch (error) {
-        logger.error('Error fetching technicians', error as Error);
+        logger.error('Error fetching technicians', { error: error as Error });
         // Don't set error state here as it's not critical for the page to function
       }
     };

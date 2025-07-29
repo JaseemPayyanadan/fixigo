@@ -47,11 +47,11 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, loading, error
   const getBranchField = (branch: Branch, field: 'address' | 'phone' | 'email') => {
     switch (field) {
       case 'address':
-        return branch.address || branch.location || 'No address';
+        return branch.address || 'No address';
       case 'phone':
-        return branch.phone || branch.contactNumber || 'No phone';
+        return branch.phone || 'No phone';
       case 'email':
-        return branch.email || branch.branchEmail || 'No email';
+        return branch.email || 'No email';
       default:
         return '';
     }

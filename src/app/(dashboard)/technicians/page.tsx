@@ -9,7 +9,7 @@ import { db } from "@/lib/firebase";
 import { collection, getDocs, query, where, DocumentData, Query, CollectionReference } from "firebase/firestore";
 import type { Technician } from "@/types";
 import Link from "next/link";
-import logger from "@/lib/logger";
+import { logger } from "@/lib/logger";
 
 export default function TechniciansPage() {
   return (
@@ -79,7 +79,7 @@ function TechniciansContent() {
         });
         setTechnicians(technicianList);
       } catch (error) {
-        logger.error('Error fetching technicians', error as Error, { userRole: user.role });
+        logger.error('Error fetching technicians', { userRole: user.role, error: error as Error });
       }
     };
     
@@ -100,7 +100,7 @@ function TechniciansContent() {
       // Add your delete logic here
       logger.info('Technician deleted successfully', { technicianId });
     } catch (error) {
-      logger.error('Error deleting technician', error as Error, { technicianId });
+      logger.error('Error deleting technician', { technicianId, error: error as Error });
     }
   };
 

@@ -1,23 +1,25 @@
-type LogLevel = 'INFO' | 'WARN' | 'ERROR';
+type LogLevel = 'DEBUG' | 'INFO' | 'WARN' | 'ERROR';
 
 interface LogContext {
-  [key: string]: any;
+  [key: string]: string | number | boolean | null | undefined | Error;
 }
 
 interface Logger {
+  debug(message: string, context?: LogContext): void;
   info(message: string, context?: LogContext): void;
   warn(message: string, context?: LogContext): void;
   error(message: string, context?: LogContext): void;
 }
 
 const LOG_LEVELS = {
+  DEBUG: 0,
   INFO: 1,
   WARN: 2,
   ERROR: 3,
 };
 
 function getLogLevel(): number {
-  return process.env.NODE_ENV === 'development' ? LOG_LEVELS.INFO : LOG_LEVELS.INFO;
+  return process.env.NODE_ENV === 'development' ? LOG_LEVELS.DEBUG : LOG_LEVELS.INFO;
 }
 
 function sanitizeContext(context?: LogContext): LogContext | undefined {
@@ -47,6 +49,13 @@ class LoggerImpl implements Logger {
     return level >= getLogLevel();
   }
 
+  debug(message: string, context?: LogContext): void {
+    if (this.shouldLog(LOG_LEVELS.DEBUG)) {
+      const sanitizedContext = sanitizeContext(context);
+      console.debug(this.formatMessage('DEBUG', message, sanitizedContext));
+    }
+  }
+
   info(message: string, context?: LogContext): void {
     if (this.shouldLog(LOG_LEVELS.INFO)) {
       const sanitizedContext = sanitizeContext(context);
@@ -73,4 +82,5 @@ class LoggerImpl implements Logger {
   }
 }
 
-export const logger = new LoggerImpl(); 
+export const logger = new LoggerImpl();
+export default logger; 

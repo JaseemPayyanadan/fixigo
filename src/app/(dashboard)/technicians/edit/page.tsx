@@ -11,7 +11,7 @@ import { db } from "@/lib/firebase";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 
 import Link from "next/link";
-import logger from "@/lib/logger";
+import { logger } from "@/lib/logger";
 
 interface TechnicianData {
   name: string;
@@ -65,7 +65,7 @@ function TechnicianEditContent() {
         }
 
         const techData = techDoc.data() as TechnicianData;
-        logger.debug('Technician data retrieved', { technicianId: id, data: techData });
+        logger.debug('Technician data retrieved', { technicianId: id, technicianName: techData.name });
         setTechnician(techData);
 
         // Try to find the corresponding user document
@@ -73,16 +73,16 @@ function TechnicianEditContent() {
           const userQuery = await getDoc(doc(db, "users", id));
           if (userQuery.exists()) {
             setTechUserId(id);
-            logger.debug('Found user document for technician', { userId: id });
+            logger.debug('Found user document for technician', { userId: id, technicianId: id });
           } else {
             logger.debug('No user document found for technician', { technicianId: id });
           }
         } catch (userErr) {
-          logger.warn('Error fetching user document', { technicianId: id, error: userErr });
+          logger.warn('Error fetching user document', { technicianId: id, error: String(userErr) });
         }
 
       } catch (err: unknown) {
-        logger.error('Error fetching technician', err as Error, { technicianId: id });
+        logger.error('Error fetching technician', { technicianId: id, error: err as Error });
         setError(err instanceof Error ? err.message : "Failed to load technician");
       } finally {
         setLoading(false);
@@ -108,13 +108,12 @@ function TechnicianEditContent() {
     setError(null);
     
     try {
-      logger.info('Updating technician', { 
-        technicianId: id, 
-        userId: user?.uid,
-        shopId: user?.shopId,
-        userRole: user?.role,
-        updateData: { ...data, password: '[REDACTED]' }
-      });
+              logger.info('Updating technician', { 
+          technicianId: id, 
+          userId: user?.uid,
+          shopId: user?.shopId,
+          userRole: user?.role
+        });
       
       // Update technician document
       const technicianUpdateData = {
@@ -125,7 +124,7 @@ function TechnicianEditContent() {
         updatedAt: new Date(),
       };
       
-      logger.debug('Updating technician document', { technicianId: id, data: technicianUpdateData });
+      logger.debug('Updating technician document', { technicianId: id });
       await updateDoc(doc(db, "technicians", id), technicianUpdateData);
       logger.info('Technician document updated successfully', { technicianId: id });
       
@@ -137,7 +136,7 @@ function TechnicianEditContent() {
           branch_id: data.branch_id,
           updatedAt: new Date(),
         };
-        logger.debug('Updating user document', { userId: techUserId, data: userUpdateData });
+        logger.debug('Updating user document', { userId: techUserId });
         await updateDoc(doc(db, "users", techUserId), userUpdateData);
         logger.info('User document updated successfully', { userId: techUserId });
       } else {
@@ -147,7 +146,7 @@ function TechnicianEditContent() {
       logger.info('Technician updated successfully', { technicianId: id });
       router.push("/technicians");
     } catch (err: unknown) {
-      logger.error('Error updating technician', err as Error, { technicianId: id });
+      logger.error('Error updating technician', { technicianId: id, error: err as Error });
       
       // Handle specific Firebase errors
       if (err instanceof Error) {

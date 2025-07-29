@@ -7,7 +7,7 @@ import { useUser } from "@/hooks";
 import { AuthGuard, RoleGuard } from "@/components";
 import { HiArrowLeft, HiOfficeBuilding } from "react-icons/hi";
 import Link from "next/link";
-import logger from "@/lib/logger";
+import { logger } from "@/lib/logger";
 
 export default function NewBranchPage() {
   const { user } = useUser();
@@ -34,23 +34,30 @@ export default function NewBranchPage() {
     address: string;
     phone: string;
     email: string;
-    branchPassword: string;
+    userName: string;
+    userPassword: string;
   }) => {
     logger.info('Creating new branch', { 
       shopId, 
-      branchData: { ...branchData, branchPassword: '[REDACTED]' } 
+      branchName: branchData.name,
+      branchEmail: branchData.email
     });
     
     setLoading(true);
     setError(null);
     try {
       logger.debug('Calling createBranch function');
-      await createBranch(branchData);
+      await createBranch({
+        ...branchData,
+        status: "active" as const,
+        shopId: shopId!,
+        managerId: "", // Will be set by the createBranch function
+      });
       logger.info('Branch created successfully');
       // Redirect to branches list after successful creation
       router.push("/branch");
     } catch (err: unknown) {
-      logger.error('Error creating branch', err as Error, { shopId });
+      logger.error('Error creating branch', { shopId, error: err as Error });
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setLoading(false);

@@ -15,26 +15,6 @@ export interface PermissionContext {
 
 // Enhanced role hierarchy and permissions configuration
 export const ROLE_PERMISSIONS: Record<Role, RolePermissions> = {
-  super_admin: {
-    role: "super_admin",
-    permissions: [
-      // Full system access
-      "shop:read", "shop:write", "shop:delete",
-      "branch:read", "branch:write", "branch:delete",
-      "technician:read", "technician:write", "technician:delete",
-      "service:read", "service:write", "service:delete",
-      "invoice:read", "invoice:write", "invoice:delete",
-      "task:read", "task:write", "task:delete",
-      "user:read", "user:write", "user:delete",
-      "report:read", "report:write", "report:delete",
-      "feedback:read", "feedback:write", "feedback:delete",
-      "worklog:read", "worklog:write", "worklog:delete",
-      "notification:read", "notification:write", "notification:delete",
-      "audit:read", "audit:write",
-      "setting:read", "setting:write", "setting:delete",
-      "onboarding:manage"
-    ]
-  },
   shop_admin: {
     role: "shop_admin",
     permissions: [
@@ -45,13 +25,8 @@ export const ROLE_PERMISSIONS: Record<Role, RolePermissions> = {
       "invoice:read", "invoice:write", "invoice:delete",
       "task:read", "task:write", "task:delete",
       "user:read", "user:write", "user:delete",
-      "report:read", "report:write", "report:delete",
-      "feedback:read", "feedback:write", "feedback:delete",
-      "worklog:read", "worklog:write", "worklog:delete",
-      "notification:read", "notification:write", "notification:delete",
-      "audit:read", "audit:write",
-      "setting:read", "setting:write", "setting:delete",
-      "onboarding:manage"
+      "report:read", "report:write",
+      "setting:read", "setting:write"
     ]
   },
   branch_admin: {
@@ -64,9 +39,6 @@ export const ROLE_PERMISSIONS: Record<Role, RolePermissions> = {
       "task:read", "task:write",
       "user:read",
       "report:read",
-      "feedback:read",
-      "worklog:read", "worklog:write",
-      "notification:read",
       "setting:read"
     ],
     inheritsFrom: ["shop_admin"]
@@ -78,15 +50,13 @@ export const ROLE_PERMISSIONS: Record<Role, RolePermissions> = {
       "task:read", "task:write",
       "user:read", // Allow technicians to read their own user data
       "invoice:read", // Allow technicians to read invoices for their services
-      "worklog:read", "worklog:write", // Allow technicians to create work logs
-      "feedback:read" // Allow technicians to read feedback for their services
+      // Allow technicians to read their own data
     ]
   }
 };
 
 // Role hierarchy levels
 export const ROLE_LEVELS: Record<Role, number> = {
-  super_admin: 0, // Highest level
   shop_admin: 1,
   branch_admin: 2,
   technician: 3 // Lowest level
@@ -110,15 +80,10 @@ export function getRolePermissions(role: Role): Permission[] {
   return Array.from(permissions);
 }
 
-// Get all permissions for a user (role + explicit permissions)
+// Get all permissions for a user (role-based)
 export function getUserPermissions(user: User): Permission[] {
   const rolePermissions = getRolePermissions(user.role);
-  const explicitPermissions = user.permissions || [];
-  
-  // Combine role permissions with explicit permissions
-  const allPermissions = new Set<Permission>([...rolePermissions, ...explicitPermissions]);
-  
-  return Array.from(allPermissions);
+  return rolePermissions;
 }
 
 // Check if user has a specific permission
@@ -158,13 +123,11 @@ export function hasRoleLevel(user: User, requiredRole: Role): boolean {
 
 // Check if user can access a specific shop
 export function canAccessShop(user: User, shopId: string): boolean {
-  if (user.role === "super_admin") return true;
   return user.shopId === shopId;
 }
 
 // Check if user can access a specific branch
 export function canAccessBranch(user: User, branchId: string): boolean {
-  if (user.role === "super_admin") return true;
   if (user.role === "shop_admin") return true; // Shop admins can access all branches in their shop
   return user.branchId === branchId;
 }
@@ -249,8 +212,7 @@ export function canAccessResource(context: PermissionContext): boolean {
   
   if (!resource) return true; // No resource context, allow access
   
-  // Super admin can access any resource
-  if (user.role === "super_admin") return true;
+  // Shop admin can access any resource in their shop
   
   // Shop admin can access resources in their shop
   if (user.role === "shop_admin") {
@@ -326,34 +288,10 @@ export const PERMISSION_ACTIONS = {
   // Report management
   canManageReport: (user: User) => hasPermission(user, "report:write"),
   canViewReport: (user: User) => hasPermission(user, "report:read"),
-  canDeleteReport: (user: User) => hasPermission(user, "report:delete"),
-  
-  // Feedback management
-  canManageFeedback: (user: User) => hasPermission(user, "feedback:write"),
-  canViewFeedback: (user: User) => hasPermission(user, "feedback:read"),
-  canDeleteFeedback: (user: User) => hasPermission(user, "feedback:delete"),
-  
-  // Work log management
-  canManageWorkLog: (user: User) => hasPermission(user, "worklog:write"),
-  canViewWorkLog: (user: User) => hasPermission(user, "worklog:read"),
-  canDeleteWorkLog: (user: User) => hasPermission(user, "worklog:delete"),
-  
-  // Notification management
-  canManageNotification: (user: User) => hasPermission(user, "notification:write"),
-  canViewNotification: (user: User) => hasPermission(user, "notification:read"),
-  canDeleteNotification: (user: User) => hasPermission(user, "notification:delete"),
-  
-  // Audit management
-  canViewAudit: (user: User) => hasPermission(user, "audit:read"),
-  canWriteAudit: (user: User) => hasPermission(user, "audit:write"),
   
   // Setting management
   canManageSetting: (user: User) => hasPermission(user, "setting:write"),
   canViewSetting: (user: User) => hasPermission(user, "setting:read"),
-  canDeleteSetting: (user: User) => hasPermission(user, "setting:delete"),
-  
-  // Onboarding
-  canManageOnboarding: (user: User) => hasPermission(user, "onboarding:manage"),
 } as const;
 
 // CRUD permission helpers
@@ -397,10 +335,6 @@ export const PermissionUtils = {
     if (hasPermission(user, "task:read")) resources.push("task");
     if (hasPermission(user, "user:read")) resources.push("user");
     if (hasPermission(user, "report:read")) resources.push("report");
-    if (hasPermission(user, "feedback:read")) resources.push("feedback");
-    if (hasPermission(user, "worklog:read")) resources.push("worklog");
-    if (hasPermission(user, "notification:read")) resources.push("notification");
-    if (hasPermission(user, "audit:read")) resources.push("audit");
     if (hasPermission(user, "setting:read")) resources.push("setting");
     
     return resources;
@@ -408,7 +342,7 @@ export const PermissionUtils = {
   
   // Check if user has elevated permissions (admin-like)
   hasElevatedPermissions: (user: User): boolean => {
-    return user.role === "super_admin" || user.role === "shop_admin" || hasPermission(user, "user:delete");
+    return user.role === "shop_admin" || hasPermission(user, "user:delete");
   },
   
   // Check if user can manage other users
@@ -416,24 +350,18 @@ export const PermissionUtils = {
     return hasPermission(user, "user:write") || hasPermission(user, "user:delete");
   },
   
-  // Check if user is super admin
-  isSuperAdmin: (user: User): boolean => {
-    return user.role === "super_admin";
-  },
-  
   // Check if user is shop admin or higher
   isShopAdminOrHigher: (user: User): boolean => {
-    return user.role === "super_admin" || user.role === "shop_admin";
+    return user.role === "shop_admin";
   },
   
   // Check if user is branch admin or higher
   isBranchAdminOrHigher: (user: User): boolean => {
-    return user.role === "super_admin" || user.role === "shop_admin" || user.role === "branch_admin";
+    return user.role === "shop_admin" || user.role === "branch_admin";
   },
   
   // Get user's scope (shop, branch, or global)
   getUserScope: (user: User): "global" | "shop" | "branch" => {
-    if (user.role === "super_admin") return "global";
     if (user.role === "shop_admin") return "shop";
     return "branch";
   },

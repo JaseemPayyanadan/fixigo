@@ -185,7 +185,7 @@ export function createError(message: string, code?: string): Error {
 
 export function handleError(error: unknown, context?: string): string {
   const errorMessage = error instanceof Error ? error.message : String(error);
-  logger.error(`Error${context ? ` in ${context}` : ''}`, error instanceof Error ? error : new Error(errorMessage));
+  logger.error(`Error${context ? ` in ${context}` : ''}`, { error: errorMessage });
   return errorMessage;
 }
 

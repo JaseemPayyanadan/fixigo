@@ -68,7 +68,8 @@ function EditBranchContent() {
     address: string;
     phone: string;
     email: string;
-    branchPassword: string;
+    userName: string;
+    userPassword: string;
   }) => {
     if (!branch) {
       setError("No branch data available");
@@ -203,9 +204,9 @@ function EditBranchContent() {
             loading={formLoading}
             initialData={{
               name: branch.name,
-              address: branch.address || branch.location || "",
-              phone: branch.phone || branch.contactNumber || "",
-              email: branch.email || branch.branchEmail || "",
+              address: branch.address || "",
+              phone: branch.phone || "",
+              email: branch.email || "",
             }}
             editMode={true}
           />
