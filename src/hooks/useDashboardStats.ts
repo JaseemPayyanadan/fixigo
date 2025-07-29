@@ -43,76 +43,100 @@ export function useDashboardStats(shopId?: string, branchId?: string) {
           return;
         }
 
-        // Fetch services
-        let servicesQuery;
+        let services: any[] = [];
+        let technicians: any[] = [];
+        let invoices: any[] = [];
+        let branches: any[] = [];
+
         if (branchId) {
-          servicesQuery = query(
+          // Fetch data for specific branch
+          const servicesQuery = query(
             collection(db, "shops", shopId, "branches", branchId, "services"),
             orderBy("createdAt", "desc")
           );
-        } else {
-          servicesQuery = query(
-            collection(db, "shops", shopId, "branches"),
-            orderBy("createdAt", "desc")
-          );
-        }
+          const servicesSnapshot = await getDocs(servicesQuery);
+          services = servicesSnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }));
 
-        const servicesSnapshot = await getDocs(servicesQuery);
-        const services = servicesSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
-
-        // Fetch technicians
-        let techniciansQuery;
-        if (branchId) {
-          techniciansQuery = query(
+          const techniciansQuery = query(
             collection(db, "shops", shopId, "branches", branchId, "technicians"),
             orderBy("createdAt", "desc")
           );
-        } else {
-          techniciansQuery = query(
-            collection(db, "shops", shopId, "branches"),
-            orderBy("createdAt", "desc")
-          );
-        }
+          const techniciansSnapshot = await getDocs(techniciansQuery);
+          technicians = techniciansSnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }));
 
-        const techniciansSnapshot = await getDocs(techniciansQuery);
-        const technicians = techniciansSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
-
-        // Fetch branches
-        const branchesQuery = query(
-          collection(db, "shops", shopId, "branches"),
-          orderBy("createdAt", "desc")
-        );
-        const branchesSnapshot = await getDocs(branchesQuery);
-        const branches = branchesSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
-
-        // Fetch invoices
-        let invoicesQuery;
-        if (branchId) {
-          invoicesQuery = query(
+          const invoicesQuery = query(
             collection(db, "shops", shopId, "branches", branchId, "invoices"),
             orderBy("createdAt", "desc")
           );
+          const invoicesSnapshot = await getDocs(invoicesQuery);
+          invoices = invoicesSnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }));
+
+          // For branch-specific view, we only have 1 branch
+          branches = [{ id: branchId }];
         } else {
-          invoicesQuery = query(
+          // Fetch data across all branches in the shop
+          const branchesQuery = query(
             collection(db, "shops", shopId, "branches"),
             orderBy("createdAt", "desc")
           );
-        }
+          const branchesSnapshot = await getDocs(branchesQuery);
+          branches = branchesSnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }));
 
-        const invoicesSnapshot = await getDocs(invoicesQuery);
-        const invoices = invoicesSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
+          // Aggregate services from all branches
+          for (const branch of branches) {
+            try {
+              const servicesQuery = query(
+                collection(db, "shops", shopId, "branches", branch.id, "services"),
+                orderBy("createdAt", "desc")
+              );
+              const servicesSnapshot = await getDocs(servicesQuery);
+              const branchServices = servicesSnapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+              }));
+              services.push(...branchServices);
+
+              // Aggregate technicians from all branches
+              const techniciansQuery = query(
+                collection(db, "shops", shopId, "branches", branch.id, "technicians"),
+                orderBy("createdAt", "desc")
+              );
+              const techniciansSnapshot = await getDocs(techniciansQuery);
+              const branchTechnicians = techniciansSnapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+              }));
+              technicians.push(...branchTechnicians);
+
+              // Aggregate invoices from all branches
+              const invoicesQuery = query(
+                collection(db, "shops", shopId, "branches", branch.id, "invoices"),
+                orderBy("createdAt", "desc")
+              );
+              const invoicesSnapshot = await getDocs(invoicesQuery);
+              const branchInvoices = invoicesSnapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+              }));
+              invoices.push(...branchInvoices);
+            } catch (error) {
+              logger.warn(`Error fetching data for branch ${branch.id}:`, { error: String(error) });
+              // Continue with other branches even if one fails
+            }
+          }
+        }
 
         // Calculate stats
         const totalServices = services.length;
@@ -148,7 +172,13 @@ export function useDashboardStats(shopId?: string, branchId?: string) {
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : "Failed to fetch dashboard stats";
         setError(errorMessage);
-        logger.error("Error fetching dashboard stats", { error: errorMessage });
+        logger.error("Error fetching dashboard data", {
+          error: errorMessage,
+          userId: user.uid,
+          role: user.role,
+          shopId: user.shopId,
+          ...(user.branchId && { branchId: user.branchId })
+        });
       } finally {
         setLoading(false);
       }

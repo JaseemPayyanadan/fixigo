@@ -64,22 +64,47 @@ function ServicesContent() {
       
       try {
         setLoading(true);
-        const servicesRef = collection(db, "services");
-        const q = query(
-          servicesRef,
-          where("shopId", "==", user.shopId),
-          orderBy("createdAt", "desc")
-        );
+        let allServices: Service[] = [];
+
+        if (user.role === "branch_admin" && user.branchId) {
+          // For branch admins, only fetch services from their branch
+          const servicesRef = collection(db, "shops", user.shopId, "branches", user.branchId, "services");
+          const q = query(servicesRef, orderBy("createdAt", "desc"));
+          
+          const querySnapshot = await getDocs(q);
+          allServices = querySnapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+            createdAt: doc.data().createdAt?.toDate() || new Date(),
+            updatedAt: doc.data().updatedAt?.toDate() || new Date(),
+          })) as Service[];
+        } else {
+          // For shop admins, fetch services from all branches
+          const branchesRef = collection(db, "shops", user.shopId, "branches");
+          const branchesSnapshot = await getDocs(branchesRef);
+          
+          for (const branchDoc of branchesSnapshot.docs) {
+            try {
+              const servicesRef = collection(db, "shops", user.shopId, "branches", branchDoc.id, "services");
+              const q = query(servicesRef, orderBy("createdAt", "desc"));
+              
+              const querySnapshot = await getDocs(q);
+              const branchServices = querySnapshot.docs.map((doc) => ({
+                id: doc.id,
+                ...doc.data(),
+                createdAt: doc.data().createdAt?.toDate() || new Date(),
+                updatedAt: doc.data().updatedAt?.toDate() || new Date(),
+              })) as Service[];
+              
+              allServices.push(...branchServices);
+            } catch (error) {
+              console.warn(`Error fetching services for branch ${branchDoc.id}:`, error);
+              // Continue with other branches even if one fails
+            }
+          }
+        }
         
-        const querySnapshot = await getDocs(q);
-        const servicesData = querySnapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-          createdAt: doc.data().createdAt?.toDate() || new Date(),
-          updatedAt: doc.data().updatedAt?.toDate() || new Date(),
-        })) as Service[];
-        
-        setServices(servicesData);
+        setServices(allServices);
       } catch (error) {
         console.error("Error fetching services:", error);
       } finally {
@@ -88,7 +113,7 @@ function ServicesContent() {
     };
 
     fetchServices();
-  }, [user?.shopId]);
+  }, [user?.shopId, user?.branchId, user?.role]);
 
   // Filtered services
   const filteredServices = useMemo(() => {

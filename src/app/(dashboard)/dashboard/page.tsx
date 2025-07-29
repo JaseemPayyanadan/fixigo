@@ -91,20 +91,14 @@ const DashboardContent = React.memo(() => {
 
   // Memoized data fetching functions
   const fetchTechnicianData = useCallback(async (user: User) => {
-    const technicianQuery = query(
-      collection(db, "technicians"),
-      where("uid", "==", user.uid)
-    );
-    const technicianSnapshot = await getDocs(technicianQuery);
-    
-    if (technicianSnapshot.empty) {
-      throw new Error('No technician document found');
+    // For technicians, we need to get their assigned services from their branch
+    if (!user.shopId || !user.branchId) {
+      throw new Error('Technician missing shopId or branchId');
     }
 
-    const technicianId = technicianSnapshot.docs[0].id;
     const servicesQuery = query(
-      collection(db, "services"),
-      where("technicianId", "==", technicianId),
+      collection(db, "shops", user.shopId, "branches", user.branchId, "services"),
+      where("assignedTechnicianId", "==", user.uid),
       orderBy("createdAt", "desc"),
       limit(10)
     );
@@ -128,43 +122,77 @@ const DashboardContent = React.memo(() => {
   }, []);
 
   const fetchShopAdminData = useCallback(async (user: User) => {
-    const [servicesSnapshot, invoicesSnapshot] = await Promise.all([
-      getDocs(query(collection(db, "services"), where("shopId", "==", user.shopId))),
-      getDocs(query(collection(db, "invoices"), where("shopId", "==", user.shopId)))
-    ]);
+    if (!user.shopId) {
+      throw new Error('Shop admin missing shopId');
+    }
 
-    const services = servicesSnapshot.docs.map(doc => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        name: data.name || data.serviceName || "Unknown Service",
-        status: data.status || "To Do",
-        price: data.price || data.total || 0,
-        createdAt: data.createdAt,
-        customer: data.customer || null,
-        device: data.device || null,
-        technician: data.technician || null,
-        branch: data.branch || null,
-        estimatedDuration: data.estimatedDuration || 0
-      };
-    });
+    // Get all branches for the shop
+    const branchesQuery = query(
+      collection(db, "shops", user.shopId, "branches"),
+      orderBy("createdAt", "desc")
+    );
+    const branchesSnapshot = await getDocs(branchesQuery);
+            const branches = branchesSnapshot.docs.map(doc => ({ 
+          id: doc.id, 
+          name: doc.data().name || "Unknown Branch",
+          ...doc.data() 
+        }));
 
-    const invoices = invoicesSnapshot.docs.map(doc => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        total: data.total || 0,
-        status: data.status || "pending"
-      };
-    });
+    // Aggregate services and invoices from all branches
+    let allServices: any[] = [];
+    let allInvoices: any[] = [];
 
-    return { services, invoices };
+    for (const branch of branches) {
+      try {
+        const [servicesSnapshot, invoicesSnapshot] = await Promise.all([
+          getDocs(query(collection(db, "shops", user.shopId, "branches", branch.id, "services"), orderBy("createdAt", "desc"))),
+          getDocs(query(collection(db, "shops", user.shopId, "branches", branch.id, "invoices"), orderBy("createdAt", "desc")))
+        ]);
+
+        const branchServices = servicesSnapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            name: data.name || data.serviceName || "Unknown Service",
+            status: data.status || "To Do",
+            price: data.price || data.total || 0,
+            createdAt: data.createdAt,
+            customer: data.customer || null,
+            device: data.device || null,
+            technician: data.technician || null,
+            branch: { id: branch.id, name: branch.name || "Unknown Branch" },
+            estimatedDuration: data.estimatedDuration || 0
+          };
+        });
+
+        const branchInvoices = invoicesSnapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            total: data.total || 0,
+            status: data.status || "pending"
+          };
+        });
+
+        allServices.push(...branchServices);
+        allInvoices.push(...branchInvoices);
+      } catch (error) {
+        logger.warn(`Error fetching data for branch ${branch.id}:`, { error: String(error) });
+        // Continue with other branches even if one fails
+      }
+    }
+
+    return { services: allServices, invoices: allInvoices };
   }, []);
 
   const fetchBranchAdminData = useCallback(async (user: User) => {
+    if (!user.shopId || !user.branchId) {
+      throw new Error('Branch admin missing shopId or branchId');
+    }
+
     const [servicesSnapshot, invoicesSnapshot] = await Promise.all([
-      getDocs(query(collection(db, "services"), where("branchId", "==", user.branchId))),
-      getDocs(query(collection(db, "invoices"), where("branchId", "==", user.branchId)))
+      getDocs(query(collection(db, "shops", user.shopId, "branches", user.branchId, "services"), orderBy("createdAt", "desc"))),
+      getDocs(query(collection(db, "shops", user.shopId, "branches", user.branchId, "invoices"), orderBy("createdAt", "desc")))
     ]);
 
     const services = servicesSnapshot.docs.map(doc => {
@@ -178,7 +206,7 @@ const DashboardContent = React.memo(() => {
         customer: data.customer || null,
         device: data.device || null,
         technician: data.technician || null,
-        branch: data.branch || null,
+        branch: { id: user.branchId!, name: "Current Branch" },
         estimatedDuration: data.estimatedDuration || 0
       };
     });
