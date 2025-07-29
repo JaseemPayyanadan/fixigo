@@ -21,44 +21,79 @@ export function useTechnicians(shopId?: string, branchId?: string) {
         setLoading(true);
         setError(null);
 
-        let q;
+        let technicianList: Technician[] = [];
+
         if (shopId && branchId) {
-          q = query(
+          // Fetch technicians from specific branch
+          const q = query(
             collection(db, "shops", shopId, "branches", branchId, "technicians"),
             orderBy("createdAt", "desc")
           );
+          const querySnapshot = await getDocs(q);
+
+          for (const docSnapshot of querySnapshot.docs) {
+            const data = docSnapshot.data();
+            const technician: Technician = {
+              id: docSnapshot.id,
+              name: data.name || "",
+              email: data.email || "",
+              phone: data.phone || "",
+              role: data.role || "technician",
+              shopId: data.shopId || "",
+              branchId: data.branchId || "",
+              skills: data.skills || [],
+              status: data.status || "active",
+              bio: data.bio || "",
+              specializations: data.specializations || [],
+              createdAt: data.createdAt?.toDate() || new Date(),
+              updatedAt: data.updatedAt?.toDate() || new Date(),
+            };
+            technicianList.push(technician);
+          }
         } else if (shopId) {
-          q = query(
+          // Fetch technicians from all branches in the shop
+          const branchesQuery = query(
             collection(db, "shops", shopId, "branches"),
             orderBy("createdAt", "desc")
           );
+          const branchesSnapshot = await getDocs(branchesQuery);
+
+          for (const branchDoc of branchesSnapshot.docs) {
+            try {
+              const techniciansQuery = query(
+                collection(db, "shops", shopId, "branches", branchDoc.id, "technicians"),
+                orderBy("createdAt", "desc")
+              );
+              const techniciansSnapshot = await getDocs(techniciansQuery);
+
+              for (const docSnapshot of techniciansSnapshot.docs) {
+                const data = docSnapshot.data();
+                const technician: Technician = {
+                  id: docSnapshot.id,
+                  name: data.name || "",
+                  email: data.email || "",
+                  phone: data.phone || "",
+                  role: data.role || "technician",
+                  shopId: data.shopId || "",
+                  branchId: data.branchId || "",
+                  skills: data.skills || [],
+                  status: data.status || "active",
+                  bio: data.bio || "",
+                  specializations: data.specializations || [],
+                  createdAt: data.createdAt?.toDate() || new Date(),
+                  updatedAt: data.updatedAt?.toDate() || new Date(),
+                };
+                technicianList.push(technician);
+              }
+            } catch (error) {
+              logger.warn(`Error fetching technicians for branch ${branchDoc.id}:`, { error: String(error) });
+              // Continue with other branches even if one fails
+            }
+          }
         } else {
           setTechnicians([]);
           setLoading(false);
           return;
-        }
-
-        const querySnapshot = await getDocs(q);
-        const technicianList: Technician[] = [];
-
-        for (const docSnapshot of querySnapshot.docs) {
-          const data = docSnapshot.data();
-          const technician: Technician = {
-            id: docSnapshot.id,
-            name: data.name || "",
-            email: data.email || "",
-            phone: data.phone || "",
-            role: data.role || "technician",
-            shopId: data.shopId || "",
-            branchId: data.branchId || "",
-            skills: data.skills || [],
-            status: data.status || "active",
-            bio: data.bio || "",
-            specializations: data.specializations || [],
-            createdAt: data.createdAt?.toDate() || new Date(),
-            updatedAt: data.updatedAt?.toDate() || new Date(),
-          };
-          technicianList.push(technician);
         }
 
         setTechnicians(technicianList);
