@@ -52,6 +52,7 @@ function NewTechnicianContent() {
         name: data.name,
         email: data.email,
         phone: data.phone,
+        password: data.password,
         shopId: user?.shopId || "",
         branchId: data.branch_id,
         role: "technician",

@@ -444,6 +444,36 @@ service cloud.firestore {
     }
     
     // ========================================
+    // TECHNICIANS COLLECTION (ROOT LEVEL)
+    // ========================================
+    match /technicians/{technicianId} {
+      // Shop admins can manage technicians in their shop
+      allow read, write, delete: if isShopAdmin() && belongsToShop(resource.data.shopId);
+      
+      // Branch admins can manage technicians in their branch
+      allow read, write, delete: if isBranchAdmin() && belongsToBranch(resource.data.branchId);
+      
+      // Technicians can read their own profile
+      allow read: if isTechnician() && resource.data.uid == request.auth.uid;
+      
+      // Technicians can update their own profile
+      allow update: if isTechnician() && resource.data.uid == request.auth.uid &&
+        request.resource.data.diff(resource.data).affectedKeys().hasAny(['name', 'email', 'phone', 'skills', 'status', 'bio', 'specializations', 'updatedAt']) &&
+        isValidOwnerName(request.resource.data.name) &&
+        isValidEmail(request.resource.data.email) &&
+        isValidPhone(request.resource.data.phone);
+      
+      // Allow creation with validation
+      allow create: if (isShopAdmin() && belongsToShop(request.resource.data.shopId)) || (isBranchAdmin() && belongsToBranch(request.resource.data.branchId)) &&
+        request.resource.data.keys().hasAll(['uid', 'name', 'email', 'phone', 'role', 'shopId', 'branchId', 'skills', 'status', 'createdAt', 'updatedAt']) &&
+        isValidOwnerName(request.resource.data.name) &&
+        isValidEmail(request.resource.data.email) &&
+        isValidPhone(request.resource.data.phone) &&
+        request.resource.data.role == "technician" &&
+        request.resource.data.status in ['active', 'inactive'];
+    }
+    
+    // ========================================
     // DEFAULT: DENY ALL OTHER ACCESS
     // ========================================
     match /{document=**} {

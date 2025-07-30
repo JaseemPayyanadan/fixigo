@@ -1,7 +1,25 @@
 import React, { useState, useEffect, ChangeEvent, FormEvent } from "react";
 import TextInput from "../../components/ui/TextInput";
-import { MdPerson, MdEmail, MdPhone, MdBusiness } from "react-icons/md";
-import { HiLockClosed, HiExclamationCircle, HiCheckCircle } from "react-icons/hi";
+import { 
+  MdPerson, 
+  MdEmail, 
+  MdPhone, 
+  MdBusiness, 
+  MdWork,
+  MdSchedule,
+  MdLocationOn,
+  MdDescription
+} from "react-icons/md";
+import { 
+  HiLockClosed, 
+  HiExclamationCircle, 
+  HiCheckCircle, 
+  HiPlus,
+  HiX,
+  HiStar,
+  HiCog,
+  HiBadgeCheck
+} from "react-icons/hi";
 
 interface Branch {
   id: string;
@@ -18,34 +36,46 @@ interface TechnicianFormProps {
   }) => void;
   loading: boolean;
   editing: boolean;
-  initialData?: { name: string; email: string; phone: string };
+  initialData?: { 
+    name: string; 
+    email: string; 
+    phone: string;
+  };
   branch_id: string;
   onCancel: () => void;
   branches: Branch[];
   userRole: string;
 }
 
+
+
+
+
 export default function TechnicianForm({ onSubmit, loading, editing, initialData, branch_id, onCancel, branches, userRole }: TechnicianFormProps) {
-  const [form, setForm] = useState<{ name: string; email: string; phone: string; password: string; confirmPassword: string }>({ 
+  const [form, setForm] = useState<{ 
+    name: string; 
+    email: string; 
+    phone: string; 
+    password: string; 
+  }>({ 
     name: "", 
     email: "", 
     phone: "", 
-    password: "", 
-    confirmPassword: "" 
+    password: ""
   });
   const [selectedBranch, setSelectedBranch] = useState<string>(branch_id);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [success, setSuccess] = useState<string | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
 
+
   // Update form data when initialData changes
   useEffect(() => {
     if (initialData) {
-      setForm({
-        ...initialData,
-        password: "",
-        confirmPassword: ""
-      });
+              setForm({
+          ...initialData,
+          password: ""
+        });
     }
     setSelectedBranch(branch_id);
   }, [initialData, branch_id]);
@@ -63,7 +93,7 @@ export default function TechnicianForm({ onSubmit, loading, editing, initialData
     }
   }, [form, initialData, editing, selectedBranch, branch_id]);
 
-  const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value });
     if (errors[e.target.name]) setErrors({ ...errors, [e.target.name]: "" });
   };
@@ -72,6 +102,10 @@ export default function TechnicianForm({ onSubmit, loading, editing, initialData
     setSelectedBranch(e.target.value);
     if (errors.branch) setErrors({ ...errors, branch: "" });
   };
+
+
+
+
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -103,16 +137,6 @@ export default function TechnicianForm({ onSubmit, loading, editing, initialData
     if (!editing) {
       if (!form.password.trim()) {
         newErrors.password = "Password is required";
-      } else if (form.password.length < 6) {
-        newErrors.password = "Password must be at least 6 characters";
-      } else if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(form.password)) {
-        newErrors.password = "Password must contain at least one uppercase letter, one lowercase letter, and one number";
-      }
-      
-      if (!form.confirmPassword.trim()) {
-        newErrors.confirmPassword = "Please confirm your password";
-      } else if (form.password !== form.confirmPassword) {
-        newErrors.confirmPassword = "Passwords do not match";
       }
     }
     
@@ -142,8 +166,7 @@ export default function TechnicianForm({ onSubmit, loading, editing, initialData
           name: "",
           email: "",
           phone: "",
-          password: "",
-          confirmPassword: ""
+          password: ""
         });
       }
       setSuccess(editing ? "Technician updated successfully!" : "Technician created successfully!");
@@ -159,10 +182,8 @@ export default function TechnicianForm({ onSubmit, loading, editing, initialData
       <div className="border-b border-gray-200">
         <div className="px-8 py-8">
           <div className="flex items-center gap-3 mb-6">
-            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-              <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
+            <div className="w-12 h-12 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center">
+              <MdPerson className="w-6 h-6 text-blue-600" />
             </div>
             <div>
               <h3 className="text-xl font-semibold text-gray-900">Personal Information</h3>
@@ -185,18 +206,6 @@ export default function TechnicianForm({ onSubmit, loading, editing, initialData
               error={errors.name}
             />
             <TextInput
-              id="email"
-              name="email"
-              type="email"
-              label="Email Address"
-              value={form.email}
-              onChange={handleChange}
-              required
-              placeholder="Enter email address"
-              icon={<MdEmail className="h-5 w-5 text-gray-400" />}
-              error={errors.email}
-            />
-            <TextInput
               id="phone"
               name="phone"
               type="tel"
@@ -208,17 +217,22 @@ export default function TechnicianForm({ onSubmit, loading, editing, initialData
               icon={<MdPhone className="h-5 w-5 text-gray-400" />}
               error={errors.phone}
             />
+
           </div>
         </div>
       </div>
+
+
+
+
 
       {/* Login Details Section (only for new technicians) */}
       {!editing && (
         <div className="border-b border-gray-200">
           <div className="px-8 py-8">
             <div className="flex items-center gap-3 mb-6">
-              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-                <HiLockClosed className="w-6 h-6 text-green-600" />
+              <div className="w-12 h-12 bg-gradient-to-br from-red-100 to-pink-100 rounded-full flex items-center justify-center">
+                <HiLockClosed className="w-6 h-6 text-red-600" />
               </div>
               <div>
                 <h3 className="text-xl font-semibold text-gray-900">Login Details</h3>
@@ -226,6 +240,18 @@ export default function TechnicianForm({ onSubmit, loading, editing, initialData
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <TextInput
+                id="email"
+                name="email"
+                type="email"
+                label="Email Address"
+                value={form.email}
+                onChange={handleChange}
+                required
+                placeholder="Enter email address"
+                icon={<MdEmail className="h-5 w-5 text-gray-400" />}
+                error={errors.email}
+              />
               <TextInput
                 id="password"
                 name="password"
@@ -239,34 +265,9 @@ export default function TechnicianForm({ onSubmit, loading, editing, initialData
                 error={errors.password}
                 autoComplete="off"
               />
-              <TextInput
-                id="confirmPassword"
-                name="confirmPassword"
-                type="password"
-                label="Confirm Password"
-                value={form.confirmPassword}
-                onChange={handleChange}
-                required
-                placeholder="Confirm your password"
-                icon={<HiLockClosed className="h-5 w-5 text-gray-400" />}
-                error={errors.confirmPassword}
-                autoComplete="off"
-              />
             </div>
-            <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <div className="flex items-start gap-3">
-                <HiExclamationCircle className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
-                <div>
-                  <h4 className="text-sm font-medium text-blue-900 mb-1">Password Requirements</h4>
-                  <ul className="text-sm text-blue-800 space-y-1">
-                    <li>• At least 6 characters long</li>
-                    <li>• Contains at least one uppercase letter</li>
-                    <li>• Contains at least one lowercase letter</li>
-                    <li>• Contains at least one number</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
+
+
           </div>
         </div>
       )}
@@ -274,8 +275,8 @@ export default function TechnicianForm({ onSubmit, loading, editing, initialData
       {/* Assignment Section */}
       <div className="px-8 py-8">
         <div className="flex items-center gap-3 mb-6">
-          <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center">
-            <MdBusiness className="w-6 h-6 text-indigo-600" />
+          <div className="w-12 h-12 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-full flex items-center justify-center">
+            <MdLocationOn className="w-6 h-6 text-indigo-600" />
           </div>
           <div>
             <h3 className="text-xl font-semibold text-gray-900">Branch Assignment</h3>
@@ -328,9 +329,7 @@ export default function TechnicianForm({ onSubmit, loading, editing, initialData
           <div className="bg-red-50 border border-red-200 rounded-lg p-4">
             <div className="flex">
               <div className="flex-shrink-0">
-                <svg className="h-5 w-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+                <HiExclamationCircle className="h-5 w-5 text-red-400" />
               </div>
               <div className="ml-3">
                 <p className="text-sm text-red-800">{errors.submit}</p>
@@ -357,7 +356,7 @@ export default function TechnicianForm({ onSubmit, loading, editing, initialData
       )}
 
       {/* Action Buttons */}
-      <div className="px-8 py-6 bg-gray-50 border-t border-gray-200">
+      <div className="px-8 py-6 bg-gradient-to-r from-gray-50 to-white border-t border-gray-200">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button
@@ -379,22 +378,10 @@ export default function TechnicianForm({ onSubmit, loading, editing, initialData
             disabled={loading || (editing && !hasChanges)}
             className="px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-lg hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
           >
-            {loading ? (
-              <div className="flex items-center gap-2">
-                <svg className="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                {editing ? "Updating..." : "Creating..."}
-              </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
-                {editing ? "Update Technician" : "Create Technician"}
-              </div>
-            )}
+            <div className="flex items-center gap-2">
+              <HiBadgeCheck className="w-5 h-5" />
+              {editing ? "Update Technician" : "Create Technician"}
+            </div>
           </button>
         </div>
       </div>
