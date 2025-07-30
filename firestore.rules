@@ -474,6 +474,46 @@ service cloud.firestore {
     }
     
     // ========================================
+    // NOTIFICATIONS COLLECTION
+    // ========================================
+    match /notifications/{notificationId} {
+      // Users can read their own notifications
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      
+      // Users can update their own notifications (mark as read)
+      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid &&
+        request.resource.data.diff(resource.data).affectedKeys().hasAny(['read', 'updatedAt']) &&
+        request.resource.data.read is bool;
+      
+      // Allow creation of notifications for users
+      allow create: if isAuthenticated() &&
+        request.resource.data.keys().hasAll(['userId', 'title', 'message', 'type', 'category', 'read', 'createdAt', 'updatedAt']) &&
+        request.resource.data.userId is string &&
+        request.resource.data.title is string &&
+        request.resource.data.message is string &&
+        request.resource.data.type in ['info', 'success', 'warning', 'error'] &&
+        request.resource.data.category in ['service', 'invoice', 'task', 'system', 'user'] &&
+        request.resource.data.read is bool;
+    }
+    
+    // ========================================
+    // NOTIFICATION PREFERENCES COLLECTION
+    // ========================================
+    match /notificationPreferences/{preferenceId} {
+      // Users can read/write their own preferences
+      allow read, write: if isAuthenticated() && isOwner(preferenceId);
+      
+      // Allow creation during onboarding
+      allow create: if isAuthenticated() && isOwner(preferenceId) &&
+        request.resource.data.keys().hasAll(['userId', 'email', 'push', 'sms', 'categories', 'updatedAt']) &&
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.email is bool &&
+        request.resource.data.push is bool &&
+        request.resource.data.sms is bool &&
+        request.resource.data.categories is map;
+    }
+    
+    // ========================================
     // DEFAULT: DENY ALL OTHER ACCESS
     // ========================================
     match /{document=**} {

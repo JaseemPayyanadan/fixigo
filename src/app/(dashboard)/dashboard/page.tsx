@@ -139,8 +139,8 @@ const DashboardContent = React.memo(() => {
         }));
 
     // Aggregate services and invoices from all branches
-    let allServices: any[] = [];
-    let allInvoices: any[] = [];
+            const allServices: any[] = [];
+        const allInvoices: any[] = [];
 
     for (const branch of branches) {
       try {

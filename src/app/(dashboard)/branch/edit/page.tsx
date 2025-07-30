@@ -68,8 +68,6 @@ function EditBranchContent() {
     address: string;
     phone: string;
     email: string;
-    userName: string;
-    userPassword: string;
   }) => {
     if (!branch) {
       setError("No branch data available");
@@ -208,7 +206,7 @@ function EditBranchContent() {
               phone: branch.phone || "",
               email: branch.email || "",
             }}
-            editMode={true}
+            editing={true}
           />
         </div>
       </div>

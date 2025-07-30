@@ -5,20 +5,14 @@ import {
   MdEmail, 
   MdPhone, 
   MdBusiness, 
-  MdWork,
-  MdSchedule,
   MdLocationOn,
-  MdDescription
 } from "react-icons/md";
 import { 
   HiLockClosed, 
   HiExclamationCircle, 
-  HiCheckCircle, 
-  HiPlus,
-  HiX,
-  HiStar,
-  HiCog,
-  HiBadgeCheck
+  HiCheckCircle,
+  HiBadgeCheck,
+  HiInformationCircle
 } from "react-icons/hi";
 
 interface Branch {
@@ -47,10 +41,6 @@ interface TechnicianFormProps {
   userRole: string;
 }
 
-
-
-
-
 export default function TechnicianForm({ onSubmit, loading, editing, initialData, branch_id, onCancel, branches, userRole }: TechnicianFormProps) {
   const [form, setForm] = useState<{ 
     name: string; 
@@ -67,15 +57,15 @@ export default function TechnicianForm({ onSubmit, loading, editing, initialData
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [success, setSuccess] = useState<string | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
-
+  const [autoGeneratePassword, setAutoGeneratePassword] = useState<boolean>(true);
 
   // Update form data when initialData changes
   useEffect(() => {
     if (initialData) {
-              setForm({
-          ...initialData,
-          password: ""
-        });
+      setForm({
+        ...initialData,
+        password: ""
+      });
     }
     setSelectedBranch(branch_id);
   }, [initialData, branch_id]);
@@ -103,9 +93,13 @@ export default function TechnicianForm({ onSubmit, loading, editing, initialData
     if (errors.branch) setErrors({ ...errors, branch: "" });
   };
 
-
-
-
+  const handlePasswordToggle = () => {
+    setAutoGeneratePassword(!autoGeneratePassword);
+    if (!autoGeneratePassword) {
+      setForm({ ...form, password: "" });
+    }
+    if (errors.password) setErrors({ ...errors, password: "" });
+  };
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -133,10 +127,12 @@ export default function TechnicianForm({ onSubmit, loading, editing, initialData
       newErrors.branch = "Branch selection is required";
     }
     
-    // Password validation (only for new technicians)
-    if (!editing) {
+    // Password validation (only for new technicians and when not auto-generating)
+    if (!editing && !autoGeneratePassword) {
       if (!form.password.trim()) {
         newErrors.password = "Password is required";
+      } else if (form.password.length < 6) {
+        newErrors.password = "Password must be at least 6 characters";
       }
     }
     
@@ -158,7 +154,7 @@ export default function TechnicianForm({ onSubmit, loading, editing, initialData
         email: form.email.trim(),
         phone: form.phone.trim(),
         branch_id: selectedBranch,
-        password: editing ? undefined : form.password
+        password: autoGeneratePassword ? undefined : form.password
       });
       
       if (!editing) {
@@ -168,6 +164,7 @@ export default function TechnicianForm({ onSubmit, loading, editing, initialData
           phone: "",
           password: ""
         });
+        setAutoGeneratePassword(true);
       }
       setSuccess(editing ? "Technician updated successfully!" : "Technician created successfully!");
     } catch (error: unknown) {
@@ -217,14 +214,9 @@ export default function TechnicianForm({ onSubmit, loading, editing, initialData
               icon={<MdPhone className="h-5 w-5 text-gray-400" />}
               error={errors.phone}
             />
-
           </div>
         </div>
       </div>
-
-
-
-
 
       {/* Login Details Section (only for new technicians) */}
       {!editing && (
@@ -239,6 +231,7 @@ export default function TechnicianForm({ onSubmit, loading, editing, initialData
                 <p className="text-gray-600 text-sm">Create login credentials for the technician</p>
               </div>
             </div>
+            
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <TextInput
                 id="email"
@@ -252,22 +245,52 @@ export default function TechnicianForm({ onSubmit, loading, editing, initialData
                 icon={<MdEmail className="h-5 w-5 text-gray-400" />}
                 error={errors.email}
               />
-              <TextInput
-                id="password"
-                name="password"
-                type="password"
-                label="Password"
-                value={form.password}
-                onChange={handleChange}
-                required
-                placeholder="Create a strong password"
-                icon={<HiLockClosed className="h-5 w-5 text-gray-400" />}
-                error={errors.password}
-                autoComplete="off"
-              />
+              
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    id="autoGeneratePassword"
+                    checked={autoGeneratePassword}
+                    onChange={handlePasswordToggle}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <label htmlFor="autoGeneratePassword" className="text-sm font-medium text-gray-700">
+                    Auto-generate secure password
+                  </label>
+                </div>
+                
+                {!autoGeneratePassword && (
+                  <TextInput
+                    id="password"
+                    name="password"
+                    type="password"
+                    label="Password"
+                    value={form.password}
+                    onChange={handleChange}
+                    required
+                    placeholder="Create a strong password"
+                    icon={<HiLockClosed className="h-5 w-5 text-gray-400" />}
+                    error={errors.password}
+                    autoComplete="off"
+                  />
+                )}
+              </div>
             </div>
 
-
+            {autoGeneratePassword && (
+              <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <HiInformationCircle className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <h4 className="text-sm font-medium text-blue-900 mb-1">Auto-Generated Password</h4>
+                    <p className="text-sm text-blue-800">
+                      A secure 12-character password will be generated automatically. The technician will receive their login credentials after creation.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

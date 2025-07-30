@@ -4,8 +4,9 @@ import { useUser } from "@/hooks/useUser";
 import { signOut } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import { auth } from "@/lib/firebase";
-import { HiBell, HiSearch, HiCog, HiLogout, HiUser, HiShieldCheck } from "react-icons/hi";
+import { HiSearch, HiCog, HiLogout, HiUser, HiShieldCheck } from "react-icons/hi";
 import { useSidebar } from "@/contexts/SidebarContext";
+import NotificationBell from "../NotificationBell";
 
 export function AppBar() {
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -106,14 +107,7 @@ export function AppBar() {
       {/* Right Section - Actions & User */}
       <div className="flex items-center gap-3 md:gap-4">
         {/* Notifications */}
-        <button className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors duration-200 hidden md:flex">
-          <HiBell className="h-6 w-6" />
-          {notifications > 0 && (
-            <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-semibold">
-              {notifications}
-            </span>
-          )}
-        </button>
+        <NotificationBell className="hidden md:flex" />
 
         {/* User Profile */}
         <div className="relative">

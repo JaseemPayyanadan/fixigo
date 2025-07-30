@@ -1,10 +1,10 @@
 "use client";
 import { useState, useEffect } from "react";
 import { collection, query, where, getDocs, getDoc, addDoc, updateDoc, doc, deleteDoc, orderBy } from "firebase/firestore";
-import { createUserWithEmailAndPassword } from "firebase/auth";
-import { db, auth } from "@/lib/firebase";
+import { db } from "@/lib/firebase";
 import { useUser } from "./useUser";
 import { logger } from "@/lib/logger";
+import { UserManagementService } from "@/lib/userManagement";
 import type { Branch } from "@/types";
 
 export function useBranches(shopId?: string) {
@@ -78,48 +78,41 @@ export function useBranches(shopId?: string) {
     }
 
     try {
-      // Verify shop exists
+      // Step 1: Verify shop exists
       const shopDocRef = doc(db, "shops", shopId);
       const shopDoc = await getDoc(shopDocRef);
       if (!shopDoc.exists()) {
         throw new Error("Shop not found");
       }
 
-      // Create Firebase Auth user for branch manager
-      const managerUid = await createUserWithEmailAndPassword(
-        auth,
-        branchData.email,
-        "tempPassword123!" // This should be changed by the user
-      );
-
-      const userEmail = branchData.email;
-
-      // Create branch document
+      // Step 2: Create branch document first
       const branchDocRef = await addDoc(
         collection(db, "shops", shopId, "branches"),
         {
           ...branchData,
-          managerId: managerUid.user.uid,
+          managerId: "", // Will be updated after user creation
           createdAt: new Date(),
           updatedAt: new Date(),
         }
       );
 
-      // Create user document for branch manager
-      await addDoc(collection(db, "users"), {
-        uid: managerUid.user.uid,
+      // Step 3: Create branch admin user using the service
+      const userResult = await UserManagementService.createUser({
         name: branchData.name,
         email: branchData.email,
         role: "branch_admin",
-        shopId: shopId,
+        shopId,
         branchId: branchDocRef.id,
-        status: "active",
-        onboardingCompleted: false,
-        createdAt: new Date(),
+        phone: branchData.phone,
+      });
+
+      // Step 4: Update branch document with manager ID
+      await updateDoc(doc(db, "shops", shopId, "branches", branchDocRef.id), {
+        managerId: userResult.uid,
         updatedAt: new Date(),
       });
 
-      // Refresh branches list
+      // Step 5: Refresh branches list
       const updatedBranches = await getDocs(
         query(
           collection(db, "shops", shopId, "branches"),
@@ -146,7 +139,13 @@ export function useBranches(shopId?: string) {
       }
 
       setBranches(branchList);
-      return branchDocRef.id;
+      
+      // Return both branch ID and temporary password for admin notification
+      return {
+        branchId: branchDocRef.id,
+        tempPassword: userResult.tempPassword,
+        managerEmail: branchData.email
+      };
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Failed to create branch";
       logger.error("Error creating branch", { error: errorMessage });
@@ -250,4 +249,14 @@ export function useBranches(shopId?: string) {
     updateBranch,
     deleteBranch,
   };
+} 
+
+// Helper function to generate secure passwords
+function generateSecurePassword(): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
+  let password = '';
+  for (let i = 0; i < 12; i++) {
+    password += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return password;
 } 

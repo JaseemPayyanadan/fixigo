@@ -5,6 +5,7 @@ import { useUser } from "@/hooks";
 import { useBranches } from "@/hooks/useBranches";
 import { useTechnicians } from "@/hooks/useTechnicians";
 import { RoleGuard, PermissionGuard } from "@/components";
+import CredentialsNotification from "@/components/CredentialsNotification";
 import TechnicianForm from "@/modules/technician/TechnicianForm";
 
 export default function NewTechnicianPage() {
@@ -19,14 +20,18 @@ export default function NewTechnicianPage() {
 
 function NewTechnicianContent() {
   const { user } = useUser();
-
   const shopId = user?.shopId || "";
+  const branchId = user?.branchId || "";
   const isShopAdmin = user?.role === "shop_admin";
-  // const isBranchAdmin = user?.role === "branch_admin";
   const { branches } = useBranches(shopId);
-  const { createTechnician } = useTechnicians(shopId);
+  const { createTechnician } = useTechnicians(shopId, branchId);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [credentials, setCredentials] = useState<{
+    email: string;
+    tempPassword: string;
+    role: 'branch_admin' | 'technician';
+  } | null>(null);
   const router = useRouter();
 
   const handleAdd = async (data: { 
@@ -37,24 +42,26 @@ function NewTechnicianContent() {
     password?: string;
   }) => {
     setError(null);
-    if (!data.name.trim() || !data.email.trim() || !data.phone.trim() || !data.password?.trim()) {
-      setError("Name, email, phone, and password are required.");
+    if (!data.name.trim() || !data.email.trim() || !data.phone.trim()) {
+      setError("Name, email, and phone are required.");
       return;
     }
     if (isShopAdmin && !data.branch_id) {
       setError("Branch selection is required for shop admin.");
       return;
     }
+    
+    const targetBranchId = isShopAdmin ? data.branch_id : branchId;
+    
     setLoading(true);
     try {
-      
-      await createTechnician({
+      const result = await createTechnician({
         name: data.name,
         email: data.email,
         phone: data.phone,
         password: data.password,
         shopId: user?.shopId || "",
-        branchId: data.branch_id,
+        branchId: targetBranchId,
         role: "technician",
         skills: [],
         status: "active",
@@ -62,53 +69,53 @@ function NewTechnicianContent() {
         specializations: []
       });
       
-      router.push("/technicians");
+      // Show credentials notification if password was auto-generated
+      if (!data.password) {
+        setCredentials({
+          email: data.email,
+          tempPassword: result.tempPassword || "Auto-generated password",
+          role: 'technician'
+        });
+      } else {
+        router.push("/technicians");
+      }
     } catch (err: unknown) {
-      
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setLoading(false);
     }
   };
 
+  const handleCloseCredentials = () => {
+    setCredentials(null);
+    router.push("/technicians");
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
-      <div className="max-w-6xl mx-auto p-6">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
+      {/* Header */}
+      <div className="bg-white shadow-sm border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-6">
             <div>
-              <h1 className="text-xl font-bold text-gray-900 mb-q">Add New Technician</h1>
-              <p className="text-gray-600 text-sm">Add a new technician to your team</p>
+              <h1 className="text-2xl font-bold text-gray-900">Create New Technician</h1>
+              <p className="text-gray-600 mt-1">Add a new technician to your team</p>
             </div>
             <button
               onClick={() => router.push("/technicians")}
-              className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+              className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 transition-colors"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
               </svg>
-              Back to Technicians
+              <span>Back to Technicians</span>
             </button>
           </div>
-          
-          {/* Progress Indicator */}
-          <div className="flex items-center justify-center mb-8">
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center">
-                <div className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-semibold">1</div>
-                <span className="ml-2 text-sm font-medium text-gray-700">Personal Info</span>
-              </div>
-              <div className="w-12 h-0.5 bg-gray-300"></div>
-              <div className="flex items-center">
-                <div className="w-8 h-8 bg-gray-300 text-gray-600 rounded-full flex items-center justify-center text-sm font-semibold">2</div>
-                <span className="ml-2 text-sm font-medium text-gray-500">Branch Assignment</span>
-              </div>
-            </div>
-          </div>
         </div>
+      </div>
 
-        {/* Form Container */}
+      {/* Form Container */}
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
           <TechnicianForm
             onSubmit={handleAdd}
@@ -139,6 +146,16 @@ function NewTechnicianContent() {
           </div>
         )}
       </div>
+
+      {/* Credentials Notification */}
+      {credentials && (
+        <CredentialsNotification
+          email={credentials.email}
+          tempPassword={credentials.tempPassword}
+          role={credentials.role}
+          onClose={handleCloseCredentials}
+        />
+      )}
     </div>
   );
 } 

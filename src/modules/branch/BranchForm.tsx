@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { HiOfficeBuilding, HiPhone, HiMail, HiLockClosed, HiCheckCircle, HiExclamationCircle } from "react-icons/hi";
+import { HiOfficeBuilding, HiPhone, HiMail, HiCheckCircle, HiExclamationCircle, HiInformationCircle } from "react-icons/hi";
 import TextInput from "../../components/ui/TextInput"
 
 interface BranchFormProps {
@@ -8,8 +8,6 @@ interface BranchFormProps {
     address: string;
     phone: string;
     email: string;
-    userName: string;
-    userPassword: string;
   }) => Promise<void>;
   loading: boolean;
   initialData?: Partial<{
@@ -18,18 +16,16 @@ interface BranchFormProps {
     phone: string;
     email: string;
   }>;
-  editMode?: boolean;
+  editing?: boolean;
+  onCancel?: () => void;
 }
 
-export const BranchForm: React.FC<BranchFormProps> = ({ onSubmit, loading, initialData, editMode }) => {
+export const BranchForm: React.FC<BranchFormProps> = ({ onSubmit, loading, initialData, editing, onCancel }) => {
   const [formData, setFormData] = useState({
     name: initialData?.name || "",
     address: initialData?.address || "",
     phone: initialData?.phone || "",
     email: initialData?.email || "",
-    userName: "",
-    userPassword: "",
-    confirmPassword: "",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [success, setSuccess] = useState<string | null>(null);
@@ -50,7 +46,7 @@ export const BranchForm: React.FC<BranchFormProps> = ({ onSubmit, loading, initi
 
   // Track changes for edit mode
   useEffect(() => {
-    if (editMode && initialData) {
+    if (editing && initialData) {
       const hasFormChanges = 
         formData.name !== (initialData.name || "") ||
         formData.address !== (initialData.address || "") ||
@@ -59,7 +55,7 @@ export const BranchForm: React.FC<BranchFormProps> = ({ onSubmit, loading, initi
       
       setHasChanges(hasFormChanges);
     }
-  }, [formData, initialData, editMode]);
+  }, [formData, initialData, editing]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -95,29 +91,6 @@ export const BranchForm: React.FC<BranchFormProps> = ({ onSubmit, loading, initi
       newErrors.email = "Please enter a valid email address";
     }
     
-    // User validation (only for new branches)
-    if (!editMode) {
-      if (!formData.userName.trim()) {
-        newErrors.userName = "User name is required";
-      } else if (formData.userName.trim().length < 2) {
-        newErrors.userName = "User name must be at least 2 characters";
-      }
-      
-      if (!formData.userPassword.trim()) {
-        newErrors.userPassword = "Password is required";
-      } else if (formData.userPassword.length < 6) {
-        newErrors.userPassword = "Password must be at least 6 characters";
-      } else if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(formData.userPassword)) {
-        newErrors.userPassword = "Password must contain at least one uppercase letter, one lowercase letter, and one number";
-      }
-      
-      if (!formData.confirmPassword.trim()) {
-        newErrors.confirmPassword = "Please confirm your password";
-      } else if (formData.userPassword !== formData.confirmPassword) {
-        newErrors.confirmPassword = "Passwords do not match";
-      }
-    }
-    
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -136,22 +109,17 @@ export const BranchForm: React.FC<BranchFormProps> = ({ onSubmit, loading, initi
         address: formData.address.trim(),
         phone: formData.phone.trim(),
         email: formData.email.trim(),
-        userName: formData.userName.trim(),
-        userPassword: formData.userPassword,
       });
       
-      if (!editMode) {
+      if (!editing) {
         setFormData({
           name: "",
           address: "",
           phone: "",
           email: "",
-          userName: "",
-          userPassword: "",
-          confirmPassword: "",
         });
       }
-      setSuccess(editMode ? "Branch updated successfully!" : "Branch created successfully!");
+      setSuccess(editing ? "Branch updated successfully!" : "Branch created successfully!");
     } catch (error: unknown) {
       console.error('BranchForm - Error in onSubmit:', error);
       setErrors({ submit: error instanceof Error ? error.message : String(error) });
@@ -170,7 +138,7 @@ export const BranchForm: React.FC<BranchFormProps> = ({ onSubmit, loading, initi
             <div>
               <h3 className="text-xl font-semibold text-gray-900">Branch Information</h3>
               <p className="text-gray-600 text-sm">
-                {editMode ? "Update the basic details for your branch" : "Enter the basic details for your branch"}
+                {editing ? "Update the basic details for your branch" : "Enter the basic details for your branch"}
               </p>
             </div>
           </div>
@@ -252,8 +220,8 @@ export const BranchForm: React.FC<BranchFormProps> = ({ onSubmit, loading, initi
         </div>
       </div>
 
-      {/* User Information Section (only for new branches) */}
-      {!editMode && (
+      {/* Branch Manager Information Section (only for new branches) */}
+      {!editing && (
         <div className="border-b border-gray-200">
           <div className="px-8 py-8">
             <div className="flex items-center gap-3 mb-6">
@@ -262,65 +230,19 @@ export const BranchForm: React.FC<BranchFormProps> = ({ onSubmit, loading, initi
               </div>
               <div>
                 <h3 className="text-xl font-semibold text-gray-900">Branch Manager</h3>
-                <p className="text-gray-600 text-sm">Create login credentials for branch manager</p>
+                <p className="text-gray-600 text-sm">A branch manager account will be created automatically</p>
               </div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <TextInput
-                type="text"
-                name="userName"
-                id="userName"
-                label="Manager Name"
-                value={formData.userName}
-                onChange={handleInputChange}
-                placeholder="Enter manager name"
-                required
-                icon={<HiOfficeBuilding className="h-5 w-5 text-gray-400" />}
-                error={errors.userName}
-                autoComplete="off"
-                aria-label="Manager Name"
-              />
-              <TextInput
-                type="password"
-                name="userPassword"
-                id="userPassword"
-                label="Password"
-                value={formData.userPassword}
-                onChange={handleInputChange}
-                placeholder="Create a strong password"
-                required
-                icon={<HiLockClosed className="h-5 w-5 text-gray-400" />}
-                error={errors.userPassword}
-                autoComplete="off"
-                aria-label="Manager Password"
-              />
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-              <TextInput
-                type="password"
-                name="confirmPassword"
-                id="confirmPassword"
-                label="Confirm Password"
-                value={formData.confirmPassword}
-                onChange={handleInputChange}
-                placeholder="Confirm your password"
-                required
-                icon={<HiLockClosed className="h-5 w-5 text-gray-400" />}
-                error={errors.confirmPassword}
-                autoComplete="off"
-                aria-label="Confirm Password"
-              />
-            </div>
-            <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <div className="flex items-start gap-3">
-                <HiExclamationCircle className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                <HiInformationCircle className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
                 <div>
-                  <h4 className="text-sm font-medium text-blue-900 mb-1">Password Requirements</h4>
+                  <h4 className="text-sm font-medium text-blue-900 mb-1">Automatic Account Creation</h4>
                   <ul className="text-sm text-blue-800 space-y-1">
-                    <li>• At least 6 characters long</li>
-                    <li>• Contains at least one uppercase letter</li>
-                    <li>• Contains at least one lowercase letter</li>
-                    <li>• Contains at least one number</li>
+                    <li>• A branch manager account will be created using the email address above</li>
+                    <li>• A secure temporary password will be generated automatically</li>
+                    <li>• The manager will receive login credentials after creation</li>
+                    <li>• They should change their password on first login</li>
                   </ul>
                 </div>
               </div>
@@ -370,11 +292,11 @@ export const BranchForm: React.FC<BranchFormProps> = ({ onSubmit, loading, initi
             <button
               type="button"
               className="px-6 py-3 text-gray-600 hover:text-gray-800 font-medium transition-colors"
-              onClick={() => window.history.back()}
+              onClick={onCancel || (() => window.history.back())}
             >
               Cancel
             </button>
-            {editMode && hasChanges && (
+            {editing && hasChanges && (
               <div className="flex items-center gap-2 text-sm text-amber-600">
                 <HiExclamationCircle className="w-4 h-4" />
                 <span>You have unsaved changes</span>
@@ -383,7 +305,7 @@ export const BranchForm: React.FC<BranchFormProps> = ({ onSubmit, loading, initi
           </div>
           <button
             type="submit"
-            disabled={loading || (editMode && !hasChanges)}
+            disabled={loading || (editing && !hasChanges)}
             className="px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-lg hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
             aria-busy={loading}
           >
@@ -393,12 +315,12 @@ export const BranchForm: React.FC<BranchFormProps> = ({ onSubmit, loading, initi
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
-                {editMode ? "Saving..." : "Creating..."}
+                {editing ? "Saving..." : "Creating..."}
               </div>
             ) : (
               <div className="flex items-center gap-2">
                 <HiOfficeBuilding className="w-5 h-5" />
-                {editMode ? "Save Changes" : "Create Branch"}
+                {editing ? "Save Changes" : "Create Branch"}
               </div>
             )}
           </button>
