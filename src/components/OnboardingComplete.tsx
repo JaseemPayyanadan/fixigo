@@ -1,7 +1,7 @@
 "use client"
 import React, { useState, useEffect } from "react";
-import { HiCheckCircle, HiUsers, HiChartBar } from "react-icons/hi";
-import { MdStore } from "react-icons/md";
+import { CheckCircleIcon, UsersIcon, ChartBarIcon } from "@heroicons/react/24/outline";
+import { BuildingStorefrontIcon } from "@heroicons/react/24/outline";
 
 interface OnboardingCompleteProps {
   onContinue: () => void;
@@ -42,7 +42,7 @@ export default function OnboardingComplete({ onContinue }: OnboardingCompletePro
 
       <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 text-center">
         <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-          <HiCheckCircle className="w-10 h-10 text-green-600" />
+          <CheckCircleIcon className="w-10 h-10 text-green-600" />
         </div>
         
         <h2 className="text-2xl font-bold text-gray-900 mb-4">
@@ -57,15 +57,15 @@ export default function OnboardingComplete({ onContinue }: OnboardingCompletePro
           <h3 className="font-semibold text-gray-900 mb-3">What&apos;s Next?</h3>
           <div className="space-y-2 text-sm">
             <div className="flex items-center">
-              <MdStore className="w-4 h-4 text-blue-500 mr-2" />
+              <BuildingStorefrontIcon className="w-4 h-4 text-blue-500 mr-2" />
               <span>Add your first branch</span>
             </div>
             <div className="flex items-center">
-              <HiUsers className="w-4 h-4 text-green-500 mr-2" />
+              <UsersIcon className="w-4 h-4 text-green-500 mr-2" />
               <span>Invite technicians to your team</span>
             </div>
             <div className="flex items-center">
-              <HiChartBar className="w-4 h-4 text-purple-500 mr-2" />
+              <ChartBarIcon className="w-4 h-4 text-purple-500 mr-2" />
               <span>Create your first service request</span>
             </div>
           </div>

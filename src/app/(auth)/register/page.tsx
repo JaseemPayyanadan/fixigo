@@ -8,8 +8,8 @@ import { AuthGuard } from "@/components";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import TextInput from "@/components/ui/TextInput";
-import { MdPerson, MdEmail } from "react-icons/md";
-import { HiUsers, HiChartBar, HiClock } from "react-icons/hi";
+import { UserIcon, EnvelopeIcon } from "@heroicons/react/24/outline";
+import { UsersIcon, ChartBarIcon, ClockIcon } from "@heroicons/react/24/outline";
 export default function RegisterPage() {
   return (
     <AuthGuard requireAuth={false}>
@@ -120,7 +120,7 @@ function RegisterContent() {
           <div className="space-y-6">
             <div className="flex items-center">
               <div className="w-10 h-10 xl:w-12 xl:h-12 bg-white/20 rounded-xl flex items-center justify-center mr-4">
-                <HiUsers className="w-4 h-4 xl:w-6 xl:h-6 text-white" />
+                <UsersIcon className="w-4 h-4 xl:w-6 xl:h-6 text-white" />
               </div>
               <div>
                 <h3 className="font-semibold text-sm lg:text-base xl:text-lg">Team Management</h3>
@@ -129,7 +129,7 @@ function RegisterContent() {
             </div>
             <div className="flex items-center">
               <div className="w-10 h-10 xl:w-12 xl:h-12 bg-white/20 rounded-xl flex items-center justify-center mr-4">
-                <HiChartBar className="w-4 h-4 xl:w-6 xl:h-6 text-white" />
+                <ChartBarIcon className="w-4 h-4 xl:w-6 xl:h-6 text-white" />
               </div>
               <div>
                 <h3 className="font-semibold text-sm lg:text-base xl:text-lg">Analytics & Insights</h3>
@@ -138,7 +138,7 @@ function RegisterContent() {
             </div>
             <div className="flex items-center">
               <div className="w-10 h-10 xl:w-12 xl:h-12 bg-white/20 rounded-xl flex items-center justify-center mr-4">
-                <HiClock className="w-4 h-4 xl:w-6 xl:h-6 text-white" />
+                <ClockIcon className="w-4 h-4 xl:w-6 xl:h-6 text-white" />
               </div>
               <div>
                 <h3 className="font-semibold text-sm lg:text-base xl:text-lg">Real-time Updates</h3>
@@ -176,7 +176,7 @@ function RegisterContent() {
                 placeholder="Enter your full name"
                 value={name}
                 onChange={e => setName(e.target.value)}
-                icon={<MdPerson className="h-5 w-5 text-gray-400" />}
+                icon={<UserIcon className="h-5 w-5 text-gray-400" />}
               />
               {/* Email Field */}
               <TextInput
@@ -188,7 +188,7 @@ function RegisterContent() {
                 placeholder="Enter your email address"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
-                icon={<MdEmail className="h-5 w-5 text-gray-400" />}
+                icon={<EnvelopeIcon className="h-5 w-5 text-gray-400" />}
               />
               {/* Password Field */}
               <TextInput

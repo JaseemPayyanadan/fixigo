@@ -7,7 +7,7 @@ import { useBranches } from "../../../hooks/useBranches";
 import { RoleGuard, PermissionGuard } from "../../../components";
 import ServiceList from "../../../modules/service/ServiceList";
 import { SearchFilter } from "../../../components/ui";
-import { HiPlus, HiClock, HiCheckCircle, HiCurrencyRupee, HiDeviceMobile } from "react-icons/hi";
+import { PlusIcon, ClockIcon, CheckCircleIcon, CurrencyDollarIcon, DevicePhoneMobileIcon } from "@heroicons/react/24/outline";
 import Link from "next/link";
 
 interface Service {
@@ -179,7 +179,7 @@ function ServicesContent() {
             href="/services/new"
             className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
-            <HiPlus className="w-4 h-4" />
+                            <PlusIcon className="w-4 h-4" />
             New Service
           </Link>
         </PermissionGuard>
@@ -194,7 +194,7 @@ function ServicesContent() {
               <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
             </div>
             <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-              <HiDeviceMobile className="w-6 h-6 text-blue-600" />
+                              <DevicePhoneMobileIcon className="w-6 h-6 text-blue-600" />
             </div>
           </div>
         </div>
@@ -206,7 +206,7 @@ function ServicesContent() {
               <p className="text-2xl font-bold text-green-600">{stats.completed}</p>
             </div>
             <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-              <HiCheckCircle className="w-6 h-6 text-green-600" />
+                              <CheckCircleIcon className="w-6 h-6 text-green-600" />
             </div>
           </div>
         </div>
@@ -218,7 +218,7 @@ function ServicesContent() {
               <p className="text-2xl font-bold text-yellow-600">{stats.inProgress}</p>
             </div>
             <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
-              <HiClock className="w-6 h-6 text-yellow-600" />
+                              <ClockIcon className="w-6 h-6 text-yellow-600" />
             </div>
           </div>
         </div>
@@ -230,7 +230,7 @@ function ServicesContent() {
               <p className="text-2xl font-bold text-gray-600">{stats.pending}</p>
             </div>
             <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
-              <HiClock className="w-6 h-6 text-gray-600" />
+                              <ClockIcon className="w-6 h-6 text-gray-600" />
             </div>
           </div>
         </div>
@@ -242,7 +242,7 @@ function ServicesContent() {
               <p className="text-2xl font-bold text-green-600">₹{stats.totalRevenue.toLocaleString()}</p>
             </div>
             <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-              <HiCurrencyRupee className="w-6 h-6 text-green-600" />
+                              <CurrencyDollarIcon className="w-6 h-6 text-green-600" />
             </div>
           </div>
         </div>

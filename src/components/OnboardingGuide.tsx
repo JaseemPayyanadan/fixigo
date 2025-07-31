@@ -1,7 +1,7 @@
 "use client"
 import React, { useState } from "react";
-import { HiSparkles, HiUsers, HiChartBar, HiCheckCircle, HiX } from "react-icons/hi";
-import { MdStore } from "react-icons/md";
+import { SparklesIcon, UsersIcon, ChartBarIcon, CheckCircleIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import { BuildingStorefrontIcon } from "@heroicons/react/24/outline";
 import Link from "next/link";
 
 interface OnboardingGuideProps {
@@ -14,21 +14,21 @@ export default function OnboardingGuide({ onDismiss }: OnboardingGuideProps) {
 
   const quickActions = [
     {
-      icon: <MdStore className="w-5 h-5" />,
+      icon: <BuildingStorefrontIcon className="w-5 h-5" />,
       title: "Add Branch",
       description: "Create your first branch",
       link: "/branch",
       color: "bg-blue-500"
     },
     {
-      icon: <HiUsers className="w-5 h-5" />,
+      icon: <UsersIcon className="w-5 h-5" />,
       title: "Add Technicians",
       description: "Invite your team",
       link: "/technicians",
       color: "bg-green-500"
     },
     {
-      icon: <HiChartBar className="w-5 h-5" />,
+      icon: <ChartBarIcon className="w-5 h-5" />,
       title: "Create Service",
       description: "Start managing requests",
       link: "/services/new",

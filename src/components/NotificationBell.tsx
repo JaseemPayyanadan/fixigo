@@ -2,13 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { useUser } from '@/hooks/useUser';
 import { NotificationService, type Notification } from '@/lib/notifications';
 import { 
-  HiBell, 
-  HiCheck, 
-  HiX, 
-  HiInformationCircle, 
-  HiCheckCircle,
-  HiExclamationCircle
-} from 'react-icons/hi';
+  BellIcon, 
+  CheckIcon, 
+  XMarkIcon, 
+  InformationCircleIcon, 
+  CheckCircleIcon,
+  ExclamationTriangleIcon
+} from '@heroicons/react/24/outline';
 
 interface NotificationBellProps {
   className?: string;
@@ -73,13 +73,13 @@ export default function NotificationBell({ className = "" }: NotificationBellPro
   const getNotificationIcon = (type: Notification['type']) => {
     switch (type) {
       case 'success':
-        return <HiCheckCircle className="w-5 h-5 text-green-500" />;
+        return <CheckCircleIcon className="w-5 h-5 text-green-500" />;
       case 'warning':
-        return <HiExclamationCircle className="w-5 h-5 text-yellow-500" />;
+        return <ExclamationTriangleIcon className="w-5 h-5 text-yellow-500" />;
       case 'error':
-        return <HiExclamationCircle className="w-5 h-5 text-red-500" />;
+        return <ExclamationTriangleIcon className="w-5 h-5 text-red-500" />;
       default:
-        return <HiInformationCircle className="w-5 h-5 text-blue-500" />;
+        return <InformationCircleIcon className="w-5 h-5 text-blue-500" />;
     }
   };
 
@@ -103,7 +103,7 @@ export default function NotificationBell({ className = "" }: NotificationBellPro
         className="relative p-2 text-gray-600 hover:text-gray-900 transition-colors"
         aria-label="Notifications"
       >
-        <HiBell className="w-6 h-6" />
+        <BellIcon className="w-6 h-6" />
         {unreadCount > 0 && (
           <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
             {unreadCount > 99 ? '99+' : unreadCount}
@@ -132,7 +132,7 @@ export default function NotificationBell({ className = "" }: NotificationBellPro
           <div className="max-h-96 overflow-y-auto">
             {notifications.length === 0 ? (
               <div className="p-4 text-center text-gray-500">
-                <HiBell className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                <BellIcon className="w-8 h-8 mx-auto mb-2 text-gray-300" />
                 <p>No notifications</p>
               </div>
             ) : (
@@ -166,7 +166,7 @@ export default function NotificationBell({ className = "" }: NotificationBellPro
                               className="ml-2 p-1 text-gray-400 hover:text-gray-600 disabled:opacity-50"
                               aria-label="Mark as read"
                             >
-                              <HiCheck className="w-4 h-4" />
+                              <CheckIcon className="w-4 h-4" />
                             </button>
                           )}
                         </div>

@@ -4,7 +4,7 @@ import { useUser } from "@/hooks/useUser";
 import { signOut } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import { auth } from "@/lib/firebase";
-import { HiSearch, HiCog, HiLogout, HiUser, HiShieldCheck } from "react-icons/hi";
+import { MagnifyingGlassIcon, Cog6ToothIcon, ArrowRightOnRectangleIcon, UserIcon, ShieldCheckIcon } from "@heroicons/react/24/outline";
 import { useSidebar } from "@/contexts/SidebarContext";
 import NotificationBell from "../NotificationBell";
 
@@ -84,7 +84,7 @@ export function AppBar() {
       <div className="hidden md:flex flex-1 max-w-md">
         <div className="relative w-full" ref={searchRef}>
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <HiSearch className="h-5 w-5 text-gray-400" />
+            <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" />
           </div>
           <input
             type="text"
@@ -100,7 +100,7 @@ export function AppBar() {
           onClick={() => setSearchOpen(!searchOpen)}
           className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors duration-200"
         >
-          <HiSearch className="h-6 w-6" />
+          <MagnifyingGlassIcon className="h-6 w-6" />
         </button>
       </div>
 
@@ -155,7 +155,7 @@ export function AppBar() {
                     {user?.email || "-"}
                   </div>
                   <div className="flex items-center gap-1 mt-1">
-                    <HiShieldCheck className="h-3 w-3 text-blue-600" />
+                    <ShieldCheckIcon className="h-3 w-3 text-blue-600" />
                     <span className="text-xs text-blue-600 font-medium">
                       {getUserRoleDisplay()}
                     </span>
@@ -172,7 +172,7 @@ export function AppBar() {
                     // TODO: Navigate to profile
                   }}
                 >
-                  <HiUser className="h-5 w-5" />
+                  <UserIcon className="h-5 w-5" />
                   <span>Profile</span>
                 </button>
                 
@@ -183,7 +183,7 @@ export function AppBar() {
                     // TODO: Navigate to settings
                   }}
                 >
-                  <HiCog className="h-5 w-5" />
+                  <Cog6ToothIcon className="h-5 w-5" />
                   <span>Settings</span>
                 </button>
               </div>
@@ -196,7 +196,7 @@ export function AppBar() {
                 className="w-full flex items-center gap-3 px-6 py-3 text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors duration-200 font-medium"
                 onClick={handleSignOut}
               >
-                <HiLogout className="h-5 w-5" />
+                <ArrowRightOnRectangleIcon className="h-5 w-5" />
                 <span>Sign Out</span>
               </button>
             </div>
@@ -209,7 +209,7 @@ export function AppBar() {
         <div className="md:hidden absolute top-16 left-0 right-0 bg-white border-b border-gray-200 p-4 shadow-lg">
           <div className="relative">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <HiSearch className="h-5 w-5 text-gray-400" />
+              <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" />
             </div>
             <input
               type="text"

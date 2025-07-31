@@ -1,19 +1,19 @@
 import React, { useState, useEffect, ChangeEvent, FormEvent } from "react";
 import TextInput from "../../components/ui/TextInput";
 import { 
-  MdPerson, 
-  MdEmail, 
-  MdPhone, 
-  MdBusiness, 
-  MdLocationOn,
-} from "react-icons/md";
+  UserIcon, 
+  EnvelopeIcon, 
+  PhoneIcon, 
+  BuildingOfficeIcon, 
+  MapPinIcon,
+} from "@heroicons/react/24/outline";
 import { 
-  HiLockClosed, 
-  HiExclamationCircle, 
-  HiCheckCircle,
-  HiBadgeCheck,
-  HiInformationCircle
-} from "react-icons/hi";
+  LockClosedIcon, 
+  ExclamationTriangleIcon, 
+  CheckCircleIcon,
+  ShieldCheckIcon,
+  InformationCircleIcon
+} from "@heroicons/react/24/outline";
 
 interface Branch {
   id: string;
@@ -180,7 +180,7 @@ export default function TechnicianForm({ onSubmit, loading, editing, initialData
         <div className="px-8 py-8">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-12 h-12 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center">
-              <MdPerson className="w-6 h-6 text-blue-600" />
+              <UserIcon className="w-6 h-6 text-blue-600" />
             </div>
             <div>
               <h3 className="text-xl font-semibold text-gray-900">Personal Information</h3>
@@ -199,7 +199,7 @@ export default function TechnicianForm({ onSubmit, loading, editing, initialData
               onChange={handleChange}
               required
               placeholder="Enter technician's full name"
-              icon={<MdPerson className="h-5 w-5 text-gray-400" />}
+              icon={<UserIcon className="h-5 w-5 text-gray-400" />}
               error={errors.name}
             />
             <TextInput
@@ -211,7 +211,7 @@ export default function TechnicianForm({ onSubmit, loading, editing, initialData
               onChange={handleChange}
               required
               placeholder="Enter phone number"
-              icon={<MdPhone className="h-5 w-5 text-gray-400" />}
+              icon={<PhoneIcon className="h-5 w-5 text-gray-400" />}
               error={errors.phone}
             />
           </div>
@@ -224,7 +224,7 @@ export default function TechnicianForm({ onSubmit, loading, editing, initialData
           <div className="px-8 py-8">
             <div className="flex items-center gap-3 mb-6">
               <div className="w-12 h-12 bg-gradient-to-br from-red-100 to-pink-100 rounded-full flex items-center justify-center">
-                <HiLockClosed className="w-6 h-6 text-red-600" />
+                <LockClosedIcon className="w-6 h-6 text-red-600" />
               </div>
               <div>
                 <h3 className="text-xl font-semibold text-gray-900">Login Details</h3>
@@ -242,7 +242,7 @@ export default function TechnicianForm({ onSubmit, loading, editing, initialData
                 onChange={handleChange}
                 required
                 placeholder="Enter email address"
-                icon={<MdEmail className="h-5 w-5 text-gray-400" />}
+                icon={<EnvelopeIcon className="h-5 w-5 text-gray-400" />}
                 error={errors.email}
               />
               
@@ -270,7 +270,7 @@ export default function TechnicianForm({ onSubmit, loading, editing, initialData
                     onChange={handleChange}
                     required
                     placeholder="Create a strong password"
-                    icon={<HiLockClosed className="h-5 w-5 text-gray-400" />}
+                    icon={<LockClosedIcon className="h-5 w-5 text-gray-400" />}
                     error={errors.password}
                     autoComplete="off"
                   />
@@ -281,7 +281,7 @@ export default function TechnicianForm({ onSubmit, loading, editing, initialData
             {autoGeneratePassword && (
               <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <div className="flex items-start gap-3">
-                  <HiInformationCircle className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                  <InformationCircleIcon className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
                   <div>
                     <h4 className="text-sm font-medium text-blue-900 mb-1">Auto-Generated Password</h4>
                     <p className="text-sm text-blue-800">
@@ -299,7 +299,7 @@ export default function TechnicianForm({ onSubmit, loading, editing, initialData
       <div className="px-8 py-8">
         <div className="flex items-center gap-3 mb-6">
           <div className="w-12 h-12 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-full flex items-center justify-center">
-            <MdLocationOn className="w-6 h-6 text-indigo-600" />
+            <MapPinIcon className="w-6 h-6 text-indigo-600" />
           </div>
           <div>
             <h3 className="text-xl font-semibold text-gray-900">Branch Assignment</h3>
@@ -314,7 +314,7 @@ export default function TechnicianForm({ onSubmit, loading, editing, initialData
             </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <MdBusiness className="h-5 w-5 text-gray-400" />
+                <BuildingOfficeIcon className="h-5 w-5 text-gray-400" />
               </div>
               <select
                 id="branch_id"
@@ -352,7 +352,7 @@ export default function TechnicianForm({ onSubmit, loading, editing, initialData
           <div className="bg-red-50 border border-red-200 rounded-lg p-4">
             <div className="flex">
               <div className="flex-shrink-0">
-                <HiExclamationCircle className="h-5 w-5 text-red-400" />
+                <ExclamationTriangleIcon className="h-5 w-5 text-red-400" />
               </div>
               <div className="ml-3">
                 <p className="text-sm text-red-800">{errors.submit}</p>
@@ -368,7 +368,7 @@ export default function TechnicianForm({ onSubmit, loading, editing, initialData
           <div className="bg-green-50 border border-green-200 rounded-lg p-4">
             <div className="flex">
               <div className="flex-shrink-0">
-                <HiCheckCircle className="h-5 w-5 text-green-400" />
+                <CheckCircleIcon className="h-5 w-5 text-green-400" />
               </div>
               <div className="ml-3">
                 <p className="text-sm text-green-800">{success}</p>
@@ -391,7 +391,7 @@ export default function TechnicianForm({ onSubmit, loading, editing, initialData
             </button>
             {editing && hasChanges && (
               <div className="flex items-center gap-2 text-sm text-amber-600">
-                <HiExclamationCircle className="w-4 h-4" />
+                <ExclamationTriangleIcon className="w-4 h-4" />
                 <span>You have unsaved changes</span>
               </div>
             )}
@@ -402,7 +402,7 @@ export default function TechnicianForm({ onSubmit, loading, editing, initialData
             className="px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-lg hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
           >
             <div className="flex items-center gap-2">
-              <HiBadgeCheck className="w-5 h-5" />
+              <ShieldCheckIcon className="w-5 h-5" />
               {editing ? "Update Technician" : "Create Technician"}
             </div>
           </button>

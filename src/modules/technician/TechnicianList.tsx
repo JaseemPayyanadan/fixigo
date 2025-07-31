@@ -4,21 +4,21 @@ import { usePermissions } from "@/hooks";
 import { PermissionGuard } from "@/components";
 import { Technician, Branch } from "@/types";
 import { 
-  HiUser, 
-  HiMail, 
-  HiPhone, 
-  HiOfficeBuilding, 
-  HiClock, 
-  HiCheckCircle, 
-  HiXCircle, 
-  HiPencil, 
-  HiTrash, 
-  HiEye,
-  HiStar,
-  HiCog,
-  HiBadgeCheck,
-  HiExclamation
-} from "react-icons/hi";
+  UserIcon, 
+  EnvelopeIcon, 
+  PhoneIcon, 
+  BuildingOfficeIcon, 
+  ClockIcon, 
+  CheckCircleIcon, 
+  XCircleIcon, 
+  PencilIcon, 
+  TrashIcon, 
+  EyeIcon,
+  StarIcon,
+  Cog6ToothIcon,
+  ShieldCheckIcon,
+  ExclamationTriangleIcon
+} from "@heroicons/react/24/outline";
 
 interface TechnicianListProps {
   technicians: Technician[];
@@ -74,12 +74,12 @@ export default function TechnicianList({ technicians, onDelete, branches }: Tech
     return (
       <div className="p-12 flex flex-col items-center justify-center text-center">
         <div className="w-24 h-24 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center mb-6">
-          <HiUser className="h-12 w-12 text-blue-600" />
+          <UserIcon className="h-12 w-12 text-blue-600" />
         </div>
         <h3 className="text-xl font-semibold text-gray-900 mb-2">No technicians yet</h3>
         <p className="text-gray-600 mb-6 max-w-md">Technicians help you manage service requests efficiently. Add your first technician to get started.</p>
         <div className="flex items-center gap-2 text-sm text-gray-500">
-          <HiExclamation className="w-4 h-4" />
+          <ExclamationTriangleIcon className="w-4 h-4" />
           <span>Start building your team</span>
         </div>
       </div>
@@ -114,7 +114,7 @@ export default function TechnicianList({ technicians, onDelete, branches }: Tech
                     <td className="px-6 py-4">
                       <div className="flex items-center">
                         <div className="w-12 h-12 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-lg flex items-center justify-center mr-4">
-                          <HiUser className="w-6 h-6 text-blue-600" />
+                          <UserIcon className="w-6 h-6 text-blue-600" />
                         </div>
                         <div>
                           <div className="flex items-center gap-2">
@@ -144,18 +144,18 @@ export default function TechnicianList({ technicians, onDelete, branches }: Tech
                     <td className="px-6 py-4">
                       <div className="space-y-1">
                         <div className="flex items-center gap-2 text-sm text-gray-900">
-                          <HiMail className="w-4 h-4 text-gray-400" />
+                          <EnvelopeIcon className="w-4 h-4 text-gray-400" />
                           {tech.email}
                         </div>
                         <div className="flex items-center gap-2 text-sm text-gray-600">
-                          <HiPhone className="w-4 h-4 text-gray-400" />
+                          <PhoneIcon className="w-4 h-4 text-gray-400" />
                           {tech.phone}
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
-                        <HiOfficeBuilding className="w-4 h-4 text-gray-400" />
+                        <BuildingOfficeIcon className="w-4 h-4 text-gray-400" />
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
                           {getBranchName(tech.branchId)}
                         </span>
@@ -165,9 +165,9 @@ export default function TechnicianList({ technicians, onDelete, branches }: Tech
                       <div className="flex items-center gap-2">
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getStatusColor(status.status)}`}>
                           {status.isOnline ? (
-                            <HiCheckCircle className="w-3 h-3 mr-1" />
+                            <CheckCircleIcon className="w-3 h-3 mr-1" />
                           ) : (
-                            <HiXCircle className="w-3 h-3 mr-1" />
+                                                          <XCircleIcon className="w-3 h-3 mr-1" />
                           )}
                           {status.isOnline ? 'Online' : 'Offline'}
                         </span>
@@ -179,11 +179,11 @@ export default function TechnicianList({ technicians, onDelete, branches }: Tech
                     <td className="px-6 py-4">
                       <div className="space-y-2">
                         <div className="flex items-center gap-2">
-                          <HiStar className="w-4 h-4 text-yellow-500" />
+                          <StarIcon className="w-4 h-4 text-yellow-500" />
                           <span className="text-sm font-medium text-gray-900">{status.rating}/5.0</span>
                         </div>
                         <div className="flex items-center gap-2">
-                          <HiCheckCircle className="w-4 h-4 text-green-500" />
+                          <CheckCircleIcon className="w-4 h-4 text-green-500" />
                           <span className="text-sm text-gray-600">{status.completedServices} completed</span>
                         </div>
                       </div>
@@ -196,7 +196,7 @@ export default function TechnicianList({ technicians, onDelete, branches }: Tech
                             onClick={() => setSelectedTechnician(tech.id)}
                             title="View details"
                           >
-                            <HiEye className="w-4 h-4" />
+                            <EyeIcon className="w-4 h-4" />
                           </button>
                         </PermissionGuard>
                         <PermissionGuard permissions={["technician:write"]} fallback={null}>
@@ -205,7 +205,7 @@ export default function TechnicianList({ technicians, onDelete, branches }: Tech
                             onClick={() => router.push(`/technicians/edit?id=${tech.id}`)}
                             title="Edit technician"
                           >
-                            <HiPencil className="w-4 h-4" />
+                            <PencilIcon className="w-4 h-4" />
                           </button>
                         </PermissionGuard>
                         <PermissionGuard permissions={["technician:delete"]} fallback={null}>
@@ -218,7 +218,7 @@ export default function TechnicianList({ technicians, onDelete, branches }: Tech
                             }}
                             title="Delete technician"
                           >
-                            <HiTrash className="w-4 h-4" />
+                            <TrashIcon className="w-4 h-4" />
                           </button>
                         </PermissionGuard>
                       </div>

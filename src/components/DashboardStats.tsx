@@ -1,17 +1,17 @@
 import React from 'react';
 import { 
-  HiOfficeBuilding, 
-  HiUserGroup, 
-  HiClipboardList, 
-  HiDocumentText, 
-  HiCurrencyDollar, 
-  HiTrendingUp, 
-  HiClock, 
-  HiCheckCircle,
-  HiStar,
-  HiUsers,
-  HiLocationMarker
-} from 'react-icons/hi';
+  BuildingOfficeIcon, 
+  UserGroupIcon, 
+  ClipboardDocumentListIcon, 
+  DocumentTextIcon, 
+  CurrencyDollarIcon, 
+  ChartBarIcon, 
+  ClockIcon, 
+  CheckCircleIcon,
+  StarIcon,
+  UsersIcon,
+  MapPinIcon
+} from '@heroicons/react/24/outline';
 import type { DashboardStats as DashboardStatsType } from '@/types';
 
 interface DashboardStatsProps {
@@ -97,28 +97,28 @@ export const DashboardStats: React.FC<DashboardStatsProps> = ({
           {
             title: 'Total Services',
             value: stats.totalServices,
-            icon: <HiClipboardList className="w-6 h-6 text-white" />,
+            icon: <ClipboardDocumentListIcon className="w-6 h-6 text-white" />,
             color: 'bg-blue-500',
             subtitle: 'All services across branches'
           },
           {
             title: 'Active Technicians',
             value: stats.activeTechnicians,
-            icon: <HiUsers className="w-6 h-6 text-white" />,
+            icon: <UsersIcon className="w-6 h-6 text-white" />,
             color: 'bg-green-500',
             subtitle: 'Currently working'
           },
           {
             title: 'Total Revenue',
             value: formatCurrency(stats.totalRevenue),
-            icon: <HiCurrencyDollar className="w-6 h-6 text-white" />,
+            icon: <CurrencyDollarIcon className="w-6 h-6 text-white" />,
             color: 'bg-yellow-500',
             change: { value: 12, isPositive: true }
           },
           {
             title: 'Customer Satisfaction',
             value: `${stats.customerSatisfaction}/5`,
-            icon: <HiStar className="w-6 h-6 text-white" />,
+            icon: <StarIcon className="w-6 h-6 text-white" />,
             color: 'bg-purple-500',
             subtitle: 'Average rating'
           }
@@ -129,27 +129,27 @@ export const DashboardStats: React.FC<DashboardStatsProps> = ({
           {
             title: 'Branch Services',
             value: stats.totalServices,
-            icon: <HiClipboardList className="w-6 h-6 text-white" />,
+            icon: <ClipboardDocumentListIcon className="w-6 h-6 text-white" />,
             color: 'bg-blue-500',
             subtitle: 'Services in this branch'
           },
           {
             title: 'Branch Technicians',
             value: stats.activeTechnicians,
-            icon: <HiUsers className="w-6 h-6 text-white" />,
+            icon: <UsersIcon className="w-6 h-6 text-white" />,
             color: 'bg-green-500',
             subtitle: 'Active in this branch'
           },
           {
             title: 'Branch Revenue',
             value: formatCurrency(stats.totalRevenue),
-            icon: <HiCurrencyDollar className="w-6 h-6 text-white" />,
+            icon: <CurrencyDollarIcon className="w-6 h-6 text-white" />,
             color: 'bg-yellow-500'
           },
           {
             title: 'Completion Rate',
             value: formatPercentage(stats.completedServices / Math.max(stats.totalServices, 1)),
-            icon: <HiCheckCircle className="w-6 h-6 text-white" />,
+            icon: <CheckCircleIcon className="w-6 h-6 text-white" />,
             color: 'bg-purple-500'
           }
         ];
@@ -159,28 +159,28 @@ export const DashboardStats: React.FC<DashboardStatsProps> = ({
           {
             title: 'My Services',
             value: stats.totalServices,
-            icon: <HiClipboardList className="w-6 h-6 text-white" />,
+            icon: <ClipboardDocumentListIcon className="w-6 h-6 text-white" />,
             color: 'bg-blue-500',
             subtitle: 'Assigned to me'
           },
           {
             title: 'Completed',
             value: stats.completedServices,
-            icon: <HiCheckCircle className="w-6 h-6 text-white" />,
+            icon: <CheckCircleIcon className="w-6 h-6 text-white" />,
             color: 'bg-green-500',
             subtitle: 'Successfully completed'
           },
           {
             title: 'Pending',
             value: stats.pendingServices,
-            icon: <HiClock className="w-6 h-6 text-white" />,
+            icon: <ClockIcon className="w-6 h-6 text-white" />,
             color: 'bg-yellow-500',
             subtitle: 'Awaiting completion'
           },
           {
             title: 'My Rating',
             value: `${stats.customerSatisfaction}/5`,
-            icon: <HiStar className="w-6 h-6 text-white" />,
+            icon: <StarIcon className="w-6 h-6 text-white" />,
             color: 'bg-purple-500',
             subtitle: 'Customer feedback'
           }
@@ -208,14 +208,14 @@ export const DashboardStats: React.FC<DashboardStatsProps> = ({
           <StatCard
             title="Total Branches"
             value={stats.totalBranches}
-            icon={<HiLocationMarker className="w-6 h-6 text-white" />}
+            icon={<MapPinIcon className="w-6 h-6 text-white" />}
             color="bg-indigo-500"
             subtitle="Active locations"
           />
           <StatCard
             title="Monthly Revenue"
             value={formatCurrency(stats.monthlyRevenue)}
-            icon={<HiTrendingUp className="w-6 h-6 text-white" />}
+            icon={<ChartBarIcon className="w-6 h-6 text-white" />}
             color="bg-emerald-500"
             change={{ value: 8, isPositive: true }}
           />
@@ -269,7 +269,7 @@ export const DashboardStats: React.FC<DashboardStatsProps> = ({
                 <div className="flex items-center">
                   <div className="flex items-center text-yellow-500">
                     {[...Array(5)].map((_, i) => (
-                      <HiStar
+                      <StarIcon
                         key={i}
                         className={`w-4 h-4 ${i < Math.floor(technician.rating) ? 'fill-current' : 'text-gray-300'}`}
                       />

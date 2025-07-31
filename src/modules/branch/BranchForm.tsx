@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { HiOfficeBuilding, HiPhone, HiMail, HiCheckCircle, HiExclamationCircle, HiInformationCircle } from "react-icons/hi";
-import TextInput from "../../components/ui/TextInput"
+import TextInput from "../../components/ui/TextInput";
+import { BuildingOfficeIcon, PhoneIcon, EnvelopeIcon, CheckCircleIcon, ExclamationTriangleIcon, InformationCircleIcon, ExclamationCircleIcon } from "@heroicons/react/24/outline";
 
 interface BranchFormProps {
   onSubmit: (branch: {
@@ -133,7 +133,7 @@ export const BranchForm: React.FC<BranchFormProps> = ({ onSubmit, loading, initi
         <div className="px-8 py-8">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-              <HiOfficeBuilding className="w-6 h-6 text-blue-600" />
+              <BuildingOfficeIcon className="w-6 h-6 text-blue-600" />
             </div>
             <div>
               <h3 className="text-xl font-semibold text-gray-900">Branch Information</h3>
@@ -152,7 +152,7 @@ export const BranchForm: React.FC<BranchFormProps> = ({ onSubmit, loading, initi
               onChange={handleInputChange}
               placeholder="Enter branch name"
               required
-              icon={<HiOfficeBuilding className="h-5 w-5 text-gray-400" />}
+              icon={<BuildingOfficeIcon className="h-5 w-5 text-gray-400" />}
               error={errors.name}
               autoComplete="off"
               aria-label="Branch Name"
@@ -166,7 +166,7 @@ export const BranchForm: React.FC<BranchFormProps> = ({ onSubmit, loading, initi
               onChange={handleInputChange}
               placeholder="Enter branch address"
               required
-              icon={<HiOfficeBuilding className="h-5 w-5 text-gray-400" />}
+              icon={<BuildingOfficeIcon className="h-5 w-5 text-gray-400" />}
               error={errors.address}
               autoComplete="off"
               aria-label="Branch Address"
@@ -180,7 +180,7 @@ export const BranchForm: React.FC<BranchFormProps> = ({ onSubmit, loading, initi
         <div className="px-8 py-8">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center">
-              <HiPhone className="w-6 h-6 text-indigo-600" />
+              <PhoneIcon className="w-6 h-6 text-indigo-600" />
             </div>
             <div>
               <h3 className="text-xl font-semibold text-gray-900">Contact Information</h3>
@@ -197,7 +197,7 @@ export const BranchForm: React.FC<BranchFormProps> = ({ onSubmit, loading, initi
               onChange={handleInputChange}
               placeholder="Enter phone number"
               required
-              icon={<HiPhone className="h-5 w-5 text-gray-400" />}
+              icon={<PhoneIcon className="h-5 w-5 text-gray-400" />}
               error={errors.phone}
               autoComplete="off"
               aria-label="Phone Number"
@@ -211,7 +211,7 @@ export const BranchForm: React.FC<BranchFormProps> = ({ onSubmit, loading, initi
               onChange={handleInputChange}
               placeholder="Enter email address"
               required
-              icon={<HiMail className="h-5 w-5 text-gray-400" />}
+              icon={<EnvelopeIcon className="h-5 w-5 text-gray-400" />}
               error={errors.email}
               autoComplete="off"
               aria-label="Email Address"
@@ -226,7 +226,7 @@ export const BranchForm: React.FC<BranchFormProps> = ({ onSubmit, loading, initi
           <div className="px-8 py-8">
             <div className="flex items-center gap-3 mb-6">
               <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-                <HiOfficeBuilding className="w-6 h-6 text-green-600" />
+                <BuildingOfficeIcon className="w-6 h-6 text-green-600" />
               </div>
               <div>
                 <h3 className="text-xl font-semibold text-gray-900">Branch Manager</h3>
@@ -235,7 +235,7 @@ export const BranchForm: React.FC<BranchFormProps> = ({ onSubmit, loading, initi
             </div>
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <div className="flex items-start gap-3">
-                <HiInformationCircle className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                <InformationCircleIcon className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
                 <div>
                   <h4 className="text-sm font-medium text-blue-900 mb-1">Automatic Account Creation</h4>
                   <ul className="text-sm text-blue-800 space-y-1">
@@ -275,7 +275,7 @@ export const BranchForm: React.FC<BranchFormProps> = ({ onSubmit, loading, initi
           <div className="bg-green-50 border border-green-200 rounded-lg p-4">
             <div className="flex">
               <div className="flex-shrink-0">
-                <HiCheckCircle className="h-5 w-5 text-green-400" />
+                <CheckCircleIcon className="h-5 w-5 text-green-400" />
               </div>
               <div className="ml-3">
                 <p className="text-sm text-green-800">{success}</p>
@@ -298,7 +298,7 @@ export const BranchForm: React.FC<BranchFormProps> = ({ onSubmit, loading, initi
             </button>
             {editing && hasChanges && (
               <div className="flex items-center gap-2 text-sm text-amber-600">
-                <HiExclamationCircle className="w-4 h-4" />
+                <ExclamationCircleIcon className="w-4 h-4" />
                 <span>You have unsaved changes</span>
               </div>
             )}
@@ -319,7 +319,7 @@ export const BranchForm: React.FC<BranchFormProps> = ({ onSubmit, loading, initi
               </div>
             ) : (
               <div className="flex items-center gap-2">
-                <HiOfficeBuilding className="w-5 h-5" />
+                <BuildingOfficeIcon className="w-5 h-5" />
                 {editing ? "Save Changes" : "Create Branch"}
               </div>
             )}

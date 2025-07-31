@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { AuthGuard } from "@/components";
-import { HiMail, HiLockClosed, HiUsers, HiChartBar, HiClock, HiShieldCheck } from "react-icons/hi";
+import { EnvelopeIcon, LockClosedIcon, UsersIcon, ChartBarIcon, ClockIcon, ShieldCheckIcon } from "@heroicons/react/24/outline";
 import Link from "next/link";
 import TextInput from "@/components/ui/TextInput";
 import PasswordInput from "@/components/ui/PasswordInput";
@@ -80,7 +80,7 @@ function LoginContent() {
           <div className="space-y-6">
             <div className="flex items-center">
               <div className="w-10 h-10 xl:w-12 xl:h-12 bg-white/20 rounded-xl flex items-center justify-center mr-4">
-                <HiUsers className="w-4 h-4 xl:w-6 xl:h-6 text-white" />
+                <UsersIcon className="w-4 h-4 xl:w-6 xl:h-6 text-white" />
               </div>
               <div>
                 <h3 className="font-semibold text-sm lg:text-base xl:text-lg">Team Management</h3>
@@ -89,7 +89,7 @@ function LoginContent() {
             </div>
             <div className="flex items-center">
               <div className="w-10 h-10 xl:w-12 xl:h-12 bg-white/20 rounded-xl flex items-center justify-center mr-4">
-                <HiChartBar className="w-4 h-4 xl:w-6 xl:h-6 text-white" />
+                <ChartBarIcon className="w-4 h-4 xl:w-6 xl:h-6 text-white" />
               </div>
               <div>
                 <h3 className="font-semibold text-sm lg:text-base xl:text-lg">Analytics & Insights</h3>
@@ -98,7 +98,7 @@ function LoginContent() {
             </div>
             <div className="flex items-center">
               <div className="w-10 h-10 xl:w-12 xl:h-12 bg-white/20 rounded-xl flex items-center justify-center mr-4">
-                <HiClock className="w-4 h-4 xl:w-6 xl:h-6 text-white" />
+                <ClockIcon className="w-4 h-4 xl:w-6 xl:h-6 text-white" />
               </div>
               <div>
                 <h3 className="font-semibold text-sm lg:text-base xl:text-lg">Real-time Updates</h3>
@@ -136,7 +136,7 @@ function LoginContent() {
                 placeholder="Email"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
-                icon={<HiMail className="h-5 w-5 text-gray-400" />}
+                icon={<EnvelopeIcon className="h-5 w-5 text-gray-400" />}
               />
 
               {/* Password Field */}
@@ -148,7 +148,7 @@ function LoginContent() {
                 placeholder="Password"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
-                icon={<HiLockClosed className="h-5 w-5 text-gray-400" />}
+                icon={<LockClosedIcon className="h-5 w-5 text-gray-400" />}
               />
 
               {/* Error Message */}
@@ -231,7 +231,7 @@ function LoginContent() {
           {/* Security Notice */}
           <div className="mt-6 text-center">
             <div className="flex items-center justify-center gap-2 text-sm text-gray-500">
-              <HiShieldCheck className="h-4 w-4 text-green-500" />
+                              <ShieldCheckIcon className="h-4 w-4 text-green-500" />
               <span>Your data is protected with enterprise-grade security</span>
             </div>
           </div>

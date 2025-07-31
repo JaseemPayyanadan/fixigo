@@ -11,16 +11,16 @@ import type { Technician } from "@/types";
 import Link from "next/link";
 import { logger } from "@/lib/logger";
 import { 
-  HiUserGroup, 
-  HiStar, 
-  HiCheckCircle, 
-  HiClock, 
-  HiPlus,
-  HiTrendingUp,
-  HiLocationMarker,
-  HiCog,
-  HiExclamation
-} from "react-icons/hi";
+  UserGroupIcon, 
+  StarIcon, 
+  CheckCircleIcon, 
+  ClockIcon, 
+  PlusIcon,
+  ChartBarIcon,
+  MapPinIcon,
+  Cog6ToothIcon,
+  ExclamationTriangleIcon
+} from "@heroicons/react/24/outline";
 
 export default function TechniciansPage() {
   return (
@@ -156,7 +156,7 @@ function TechniciansContent() {
               href="/technicians/new"
               className="mt-4 sm:mt-0 inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 font-semibold shadow-lg transition-all duration-200 transform hover:scale-105"
             >
-              <HiPlus className="w-5 h-5" />
+                              <PlusIcon className="w-5 h-5" />
               Add Technician
             </Link>
           </PermissionGuard>
@@ -171,7 +171,7 @@ function TechniciansContent() {
                 <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
               </div>
               <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                <HiUserGroup className="w-6 h-6 text-blue-600" />
+                <UserGroupIcon className="w-6 h-6 text-blue-600" />
               </div>
             </div>
           </div>
@@ -183,7 +183,7 @@ function TechniciansContent() {
                 <p className="text-2xl font-bold text-green-600">{stats.active}</p>
               </div>
               <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                <HiCheckCircle className="w-6 h-6 text-green-600" />
+                <CheckCircleIcon className="w-6 h-6 text-green-600" />
               </div>
             </div>
           </div>
@@ -195,7 +195,7 @@ function TechniciansContent() {
                 <p className="text-2xl font-bold text-blue-600">{stats.online}</p>
               </div>
               <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                <HiTrendingUp className="w-6 h-6 text-blue-600" />
+                <ChartBarIcon className="w-6 h-6 text-blue-600" />
               </div>
             </div>
           </div>
@@ -207,7 +207,7 @@ function TechniciansContent() {
                 <p className="text-2xl font-bold text-yellow-600">{stats.averageRating}/5.0</p>
               </div>
               <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
-                <HiStar className="w-6 h-6 text-yellow-600" />
+                <StarIcon className="w-6 h-6 text-yellow-600" />
               </div>
             </div>
           </div>
@@ -218,7 +218,7 @@ function TechniciansContent() {
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                <HiCheckCircle className="w-5 h-5 text-green-600" />
+                <CheckCircleIcon className="w-5 h-5 text-green-600" />
               </div>
               <div>
                 <h3 className="text-lg font-semibold text-gray-900">Completed Services</h3>
@@ -234,7 +234,7 @@ function TechniciansContent() {
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                <HiClock className="w-5 h-5 text-blue-600" />
+                <ClockIcon className="w-5 h-5 text-blue-600" />
               </div>
               <div>
                 <h3 className="text-lg font-semibold text-gray-900">Current Tasks</h3>
@@ -269,7 +269,7 @@ function TechniciansContent() {
                   className="flex items-center gap-3 p-4 border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-colors"
                 >
                   <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <HiPlus className="w-5 h-5 text-blue-600" />
+                    <PlusIcon className="w-5 h-5 text-blue-600" />
                   </div>
                   <div>
                     <h4 className="font-medium text-gray-900">Add New Technician</h4>
@@ -283,7 +283,7 @@ function TechniciansContent() {
                 className="flex items-center gap-3 p-4 border border-gray-200 rounded-lg hover:border-green-300 hover:bg-green-50 transition-colors"
               >
                 <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                  <HiTrendingUp className="w-5 h-5 text-green-600" />
+                  <ChartBarIcon className="w-5 h-5 text-green-600" />
                 </div>
                 <div>
                   <h4 className="font-medium text-gray-900">View Performance</h4>
@@ -296,7 +296,7 @@ function TechniciansContent() {
                 className="flex items-center gap-3 p-4 border border-gray-200 rounded-lg hover:border-purple-300 hover:bg-purple-50 transition-colors"
               >
                 <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                  <HiCog className="w-5 h-5 text-purple-600" />
+                  <Cog6ToothIcon className="w-5 h-5 text-purple-600" />
                 </div>
                 <div>
                   <h4 className="font-medium text-gray-900">Manage Services</h4>
