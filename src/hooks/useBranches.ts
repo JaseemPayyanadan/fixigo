@@ -4,7 +4,6 @@ import { collection, query, where, getDocs, getDoc, addDoc, updateDoc, doc, dele
 import { db } from "@/lib/firebase";
 import { useUser } from "./useUser";
 import { logger } from "@/lib/logger";
-import { UserManagementService } from "@/lib/userManagement";
 import type { Branch } from "@/types";
 
 export function useBranches(shopId?: string) {
@@ -48,6 +47,7 @@ export function useBranches(shopId?: string) {
             id: docSnapshot.id,
             name: data.name || "",
             address: data.address || "",
+            location: data.location || "",
             phone: data.phone || "",
             email: data.email || "",
             status: data.status || "active",
@@ -73,8 +73,8 @@ export function useBranches(shopId?: string) {
   }, [user, shopId]);
 
   const createBranch = async (branchData: Omit<Branch, "id" | "createdAt" | "updatedAt">) => {
-    if (!user || !shopId) {
-      throw new Error("User not authenticated or missing shop ID");
+    if (!shopId) {
+      throw new Error("Missing shop ID");
     }
 
     try {
@@ -85,34 +85,18 @@ export function useBranches(shopId?: string) {
         throw new Error("Shop not found");
       }
 
-      // Step 2: Create branch document first
+      // Step 2: Create branch document without user creation
       const branchDocRef = await addDoc(
         collection(db, "shops", shopId, "branches"),
         {
           ...branchData,
-          managerId: "", // Will be updated after user creation
+          managerId: "", // No manager creation - removed authentication
           createdAt: new Date(),
           updatedAt: new Date(),
         }
       );
 
-      // Step 3: Create branch admin user using the service
-      const userResult = await UserManagementService.createUser({
-        name: branchData.name,
-        email: branchData.email,
-        role: "branch_admin",
-        shopId,
-        branchId: branchDocRef.id,
-        phone: branchData.phone,
-      });
-
-      // Step 4: Update branch document with manager ID
-      await updateDoc(doc(db, "shops", shopId, "branches", branchDocRef.id), {
-        managerId: userResult.uid,
-        updatedAt: new Date(),
-      });
-
-      // Step 5: Refresh branches list
+      // Step 3: Refresh branches list
       const updatedBranches = await getDocs(
         query(
           collection(db, "shops", shopId, "branches"),
@@ -140,11 +124,9 @@ export function useBranches(shopId?: string) {
 
       setBranches(branchList);
       
-      // Return both branch ID and temporary password for admin notification
+      // Return branch ID for successful creation
       return {
-        branchId: branchDocRef.id,
-        tempPassword: userResult.tempPassword,
-        managerEmail: branchData.email
+        branchId: branchDocRef.id
       };
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Failed to create branch";
@@ -154,8 +136,8 @@ export function useBranches(shopId?: string) {
   };
 
   const updateBranch = async (branchId: string, updates: Partial<Branch>) => {
-    if (!user || !shopId) {
-      throw new Error("User not authenticated or missing shop ID");
+    if (!shopId) {
+      throw new Error("Missing shop ID");
     }
 
     try {
@@ -179,7 +161,7 @@ export function useBranches(shopId?: string) {
         const branch: Branch = {
           id: docSnapshot.id,
           name: data.name || "",
-          address: data.address || "",
+          location: data.location || "",
           phone: data.phone || "",
           email: data.email || "",
           status: data.status || "active",
@@ -200,8 +182,8 @@ export function useBranches(shopId?: string) {
   };
 
   const deleteBranch = async (branchId: string) => {
-    if (!user || !shopId) {
-      throw new Error("User not authenticated or missing shop ID");
+    if (!shopId) {
+      throw new Error("Missing shop ID");
     }
 
     try {
@@ -221,7 +203,7 @@ export function useBranches(shopId?: string) {
         const branch: Branch = {
           id: docSnapshot.id,
           name: data.name || "",
-          address: data.address || "",
+          location: data.location || "",
           phone: data.phone || "",
           email: data.email || "",
           status: data.status || "active",
@@ -249,14 +231,4 @@ export function useBranches(shopId?: string) {
     updateBranch,
     deleteBranch,
   };
-} 
-
-// Helper function to generate secure passwords
-function generateSecurePassword(): string {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
-  let password = '';
-  for (let i = 0; i < 12; i++) {
-    password += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return password;
 } 

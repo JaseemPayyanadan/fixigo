@@ -44,10 +44,10 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, loading, error
   }, [branches]);
 
   // Helper function to get the correct field values
-  const getBranchField = (branch: Branch, field: 'address' | 'phone' | 'email') => {
+  const getBranchField = (branch: Branch, field: 'location' | 'phone' | 'email') => {
     switch (field) {
-      case 'address':
-        return branch.address || 'No address';
+      case 'location':
+        return branch.location || 'No location';
       case 'phone':
         return branch.phone || 'No phone';
       case 'email':
@@ -142,7 +142,7 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, loading, error
                   </td>
                   <td className="px-6 py-4">
                     <div className="text-sm text-gray-900">
-                      {getBranchField(branch, 'address')}
+                      {getBranchField(branch, 'location')}
                     </div>
                   </td>
                   <td className="px-6 py-4">
@@ -233,7 +233,7 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, loading, error
                   </div>
                   <div>
                     <h4 className="text-lg font-semibold text-gray-900">{branch.name}</h4>
-                    <p className="text-sm text-gray-500">{getBranchField(branch, 'address')}</p>
+                    <p className="text-sm text-gray-500">{getBranchField(branch, 'location')}</p>
                   </div>
                 </div>
                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${

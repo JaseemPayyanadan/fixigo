@@ -1,7 +1,22 @@
 "use client";
 import React, { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { HomeIcon, BriefcaseIcon, BuildingOfficeIcon, UserGroupIcon, DocumentTextIcon, XMarkIcon, ChevronRightIcon, ClipboardDocumentListIcon, UserIcon } from "@heroicons/react/24/outline";
+import { 
+  HomeIcon, 
+  BriefcaseIcon, 
+  BuildingOfficeIcon, 
+  UserGroupIcon, 
+  DocumentTextIcon, 
+  XMarkIcon, 
+  ChevronRightIcon, 
+  ClipboardDocumentListIcon, 
+  UserIcon,
+  ChartBarIcon,
+  Cog6ToothIcon,
+  UsersIcon,
+  DocumentChartBarIcon,
+  CurrencyDollarIcon
+} from "@heroicons/react/24/outline";
 import { useUser } from "@/hooks/useUser";
 import { useSidebar } from "@/contexts/SidebarContext";
 
@@ -47,6 +62,34 @@ const navItems = [
     icon: UserGroupIcon,
     description: "Manage technical staff",
     roles: ["shop_admin", "branch_admin"]
+  },
+  // { 
+  //   label: "Reports", 
+  //   href: "/reports", 
+  //   icon: DocumentChartBarIcon,
+  //   description: "View business reports",
+  //   roles: ["shop_admin"]
+  // },
+  // { 
+  //   label: "Analytics", 
+  //   href: "/analytics", 
+  //   icon: ChartBarIcon,
+  //   description: "Business analytics",
+  //   roles: ["shop_admin"]
+  // },
+  { 
+    label: "Users", 
+    href: "/users", 
+    icon: UsersIcon,
+    description: "Manage user accounts",
+    roles: ["shop_admin"]
+  },
+  { 
+    label: "Settings", 
+    href: "/settings", 
+    icon: Cog6ToothIcon,
+    description: "System settings",
+    roles: ["shop_admin"]
   },
 ];
 

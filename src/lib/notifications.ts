@@ -144,8 +144,9 @@ export class NotificationService {
   ): () => void {
     const notificationsQuery = query(
       collection(db, "notifications"),
-      where("userId", "==", userId),
-      orderBy("createdAt", "desc")
+      where("userId", "==", userId)
+      // Temporarily removed orderBy to avoid index building issue
+      // orderBy("createdAt", "desc")
     );
 
     return onSnapshot(notificationsQuery, (snapshot) => {
@@ -155,6 +156,9 @@ export class NotificationService {
         createdAt: doc.data().createdAt?.toDate() || new Date(),
         updatedAt: doc.data().updatedAt?.toDate() || new Date(),
       })) as Notification[];
+
+      // Sort in memory as temporary workaround while index is building
+      notifications.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
       callback(notifications);
     });

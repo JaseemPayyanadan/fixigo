@@ -47,6 +47,27 @@ service cloud.firestore {
       return request.auth.uid == userId;
     }
     
+    // User management specific checks
+    function canManageUsers() {
+      return isShopAdmin() || isBranchAdmin();
+    }
+    
+    function canCreateUserRole(targetRole) {
+      return (isShopAdmin() && targetRole in ['branch_admin', 'technician']) ||
+             (isBranchAdmin() && targetRole == 'technician');
+    }
+    
+    function canEditUser(targetUser) {
+      return isShopAdmin() && belongsToShop(targetUser.shopId) ||
+             isBranchAdmin() && belongsToBranch(targetUser.branchId) ||
+             isOwner(targetUser.uid);
+    }
+    
+    function canDeleteUser(targetUser) {
+      return isShopAdmin() && belongsToShop(targetUser.shopId) ||
+             isBranchAdmin() && belongsToBranch(targetUser.branchId);
+    }
+    
     // Onboarding-specific checks
     function isOnboardingUser() {
       return isAuthenticated() && !getCurrentUser().onboardingCompleted;
@@ -114,6 +135,27 @@ service cloud.firestore {
              isValidPhone(phone);
     }
     
+    // User validation helpers
+    function isValidUserName(name) {
+      return name is string && name.size() >= 2 && name.size() <= 50;
+    }
+    
+    function isValidUserStatus(status) {
+      return status in ['active', 'inactive', 'suspended'];
+    }
+    
+    function isValidUserRole(role) {
+      return role in ['shop_admin', 'branch_admin', 'technician'];
+    }
+    
+    function isValidUserData(name, email, role, status, shopId) {
+      return isValidUserName(name) &&
+             isValidEmail(email) &&
+             isValidUserRole(role) &&
+             isValidUserStatus(status) &&
+             shopId is string;
+    }
+    
     // ========================================
     // ONBOARDING COLLECTION
     // ========================================
@@ -159,13 +201,10 @@ service cloud.firestore {
       
       // Allow users to create their own document during registration
       allow create: if isAuthenticated() && isOwner(userId) &&
-        request.resource.data.keys().hasAll(['name', 'email', 'role', 'shopId', 'onboardingCompleted', 'status', 'createdAt', 'updatedAt']) &&
-        isValidOwnerName(request.resource.data.name) &&
-        isValidEmail(request.resource.data.email) &&
-        request.resource.data.role in ['shop_admin', 'branch_admin', 'technician'] &&
-        request.resource.data.shopId is string &&
-        request.resource.data.onboardingCompleted is bool &&
-        request.resource.data.status in ['active', 'inactive', 'suspended'];
+        request.resource.data.keys().hasAll(['uid', 'name', 'email', 'role', 'shopId', 'onboardingCompleted', 'status', 'createdAt', 'updatedAt']) &&
+        request.resource.data.uid == request.auth.uid &&
+        isValidUserData(request.resource.data.name, request.resource.data.email, request.resource.data.role, request.resource.data.status, request.resource.data.shopId) &&
+        request.resource.data.onboardingCompleted is bool;
       
       // Allow onboarding status updates with enhanced validation
       allow update: if isAuthenticated() && isOwner(userId) &&
@@ -178,6 +217,59 @@ service cloud.firestore {
       
       // Branch admins can read user documents in their branch
       allow read: if isBranchAdmin() && belongsToBranch(resource.data.branchId);
+      
+      // ========================================
+      // USER MANAGEMENT OPERATIONS
+      // ========================================
+      
+      // Shop admins can create users in their shop
+      allow create: if isShopAdmin() && canManageUsers() &&
+        request.resource.data.keys().hasAll(['uid', 'name', 'email', 'role', 'shopId', 'branchId', 'status', 'onboardingCompleted', 'createdAt', 'updatedAt']) &&
+        isValidUserData(request.resource.data.name, request.resource.data.email, request.resource.data.role, request.resource.data.status, request.resource.data.shopId) &&
+        belongsToShop(request.resource.data.shopId) &&
+        canCreateUserRole(request.resource.data.role) &&
+        request.resource.data.onboardingCompleted is bool &&
+        (request.resource.data.branchId == null || request.resource.data.branchId is string);
+      
+      // Branch admins can create technicians in their branch
+      allow create: if isBranchAdmin() && canManageUsers() &&
+        request.resource.data.keys().hasAll(['uid', 'name', 'email', 'role', 'shopId', 'branchId', 'status', 'onboardingCompleted', 'createdAt', 'updatedAt']) &&
+        isValidUserData(request.resource.data.name, request.resource.data.email, request.resource.data.role, request.resource.data.status, request.resource.data.shopId) &&
+        belongsToShop(request.resource.data.shopId) &&
+        belongsToBranch(request.resource.data.branchId) &&
+        request.resource.data.role == "technician" &&
+        request.resource.data.onboardingCompleted is bool;
+      
+      // Shop admins can update users in their shop
+      allow update: if isShopAdmin() && canEditUser(resource.data) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasAny(['name', 'email', 'role', 'branchId', 'status', 'updatedAt']) &&
+        isValidUserName(request.resource.data.name) &&
+        isValidEmail(request.resource.data.email) &&
+        isValidUserRole(request.resource.data.role) &&
+        isValidUserStatus(request.resource.data.status) &&
+        belongsToShop(request.resource.data.shopId) &&
+        canCreateUserRole(request.resource.data.role) &&
+        (request.resource.data.branchId == null || request.resource.data.branchId is string);
+      
+      // Branch admins can update technicians in their branch
+      allow update: if isBranchAdmin() && canEditUser(resource.data) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasAny(['name', 'email', 'status', 'updatedAt']) &&
+        isValidUserName(request.resource.data.name) &&
+        isValidEmail(request.resource.data.email) &&
+        isValidUserStatus(request.resource.data.status) &&
+        belongsToShop(request.resource.data.shopId) &&
+        belongsToBranch(request.resource.data.branchId) &&
+        request.resource.data.role == "technician";
+      
+      // Shop admins can delete users in their shop
+      allow delete: if isShopAdmin() && canDeleteUser(resource.data) &&
+        belongsToShop(resource.data.shopId);
+      
+      // Branch admins can delete technicians in their branch
+      allow delete: if isBranchAdmin() && canDeleteUser(resource.data) &&
+        belongsToShop(resource.data.shopId) &&
+        belongsToBranch(resource.data.branchId) &&
+        resource.data.role == "technician";
     }
     
     // ========================================
@@ -236,9 +328,9 @@ service cloud.firestore {
         
         // Allow creation by shop admins for their shop
         allow create: if isShopAdmin() && belongsToShop(shopId) &&
-          request.resource.data.keys().hasAll(['name', 'address', 'phone', 'email', 'status', 'managerId', 'shopId', 'createdAt', 'updatedAt']) &&
+          request.resource.data.keys().hasAll(['name', 'location', 'phone', 'email', 'status', 'managerId', 'shopId', 'createdAt', 'updatedAt']) &&
           isValidShopName(request.resource.data.name) &&
-          isValidAddress(request.resource.data.address) &&
+          request.resource.data.location is string &&
           isValidPhone(request.resource.data.phone) &&
           isValidEmail(request.resource.data.email) &&
           request.resource.data.status in ['active', 'inactive', 'maintenance'] &&

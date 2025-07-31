@@ -69,7 +69,7 @@ export interface Shop {
 export interface Branch {
   id: string;
   name: string;
-  address: string;
+  location: string;
   phone: string;
   email: string;
   status: "active" | "inactive" | "maintenance";
