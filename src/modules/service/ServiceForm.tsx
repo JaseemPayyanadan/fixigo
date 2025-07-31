@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import type { Branch } from "../../types";
 import TextInput from "../../components/ui/TextInput";
-import { SwatchIcon, UserIcon, PhoneIcon, EnvelopeIcon, DevicePhoneMobileIcon, BuildingOfficeIcon, TagIcon, HashtagIcon, WrenchScrewdriverIcon, CurrencyDollarIcon, WrenchIcon } from "@heroicons/react/24/outline";
+import { UserIcon, PhoneIcon, EnvelopeIcon, DevicePhoneMobileIcon, BuildingOfficeIcon } from "@heroicons/react/24/outline";
 import { useTechnicians } from "../../hooks/useTechnicians";
 
 interface ServiceFormProps {
