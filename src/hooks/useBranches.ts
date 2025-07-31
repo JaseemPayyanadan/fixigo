@@ -45,7 +45,6 @@ export function useBranches(shopId?: string) {
           const branch: Branch = {
             id: docSnapshot.id,
             name: data.name || "",
-            address: data.address || "",
             location: data.location || "",
             phone: data.phone || "",
             email: data.email || "",
@@ -115,7 +114,7 @@ export function useBranches(shopId?: string) {
         const branch: Branch = {
           id: docSnapshot.id,
           name: data.name || "",
-          address: data.address || "",
+          location: data.location || "",
           phone: data.phone || "",
           email: data.email || "",
           status: data.status || "active",

@@ -65,7 +65,7 @@ function EditBranchContent() {
 
   const handleEditBranch = async (branchData: {
     name: string;
-    address: string;
+    location: string;
     phone: string;
     email: string;
   }) => {
@@ -202,7 +202,7 @@ function EditBranchContent() {
             loading={formLoading}
             initialData={{
               name: branch.name,
-              address: branch.location || "",
+              location: branch.location || "",
               phone: branch.phone || "",
               email: branch.email || "",
             }}

@@ -38,20 +38,13 @@ function NewTechnicianContent() {
     name: string; 
     email: string; 
     phone: string; 
-    branch_id: string;
-    password?: string;
   }) => {
     setError(null);
     if (!data.name.trim() || !data.email.trim() || !data.phone.trim()) {
       setError("Name, email, and phone are required.");
       return;
     }
-    if (isShopAdmin && !data.branch_id) {
-      setError("Branch selection is required for shop admin.");
-      return;
-    }
-    
-    const targetBranchId = isShopAdmin ? data.branch_id : branchId;
+    const targetBranchId = branchId;
     
     setLoading(true);
     try {
@@ -59,7 +52,7 @@ function NewTechnicianContent() {
         name: data.name,
         email: data.email,
         phone: data.phone,
-        password: data.password,
+        password: undefined, // Auto-generate password
         shopId: user?.shopId || "",
         branchId: targetBranchId,
         role: "technician",
@@ -69,16 +62,12 @@ function NewTechnicianContent() {
         specializations: []
       });
       
-      // Show credentials notification if password was auto-generated
-      if (!data.password) {
-        setCredentials({
-          email: data.email,
-          tempPassword: result.tempPassword || "Auto-generated password",
-          role: 'technician'
-        });
-      } else {
-        router.push("/technicians");
-      }
+      // Show credentials notification for auto-generated password
+      setCredentials({
+        email: data.email,
+        tempPassword: result.tempPassword || "Auto-generated password",
+        role: 'technician'
+      });
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -121,10 +110,7 @@ function NewTechnicianContent() {
             onSubmit={handleAdd}
             loading={loading}
             editing={false}
-            branch_id={user?.branchId || ""}
             onCancel={() => router.push("/technicians")}
-            branches={branches}
-            userRole={user?.role || ""}
           />
         </div>
 

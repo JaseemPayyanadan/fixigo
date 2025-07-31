@@ -96,8 +96,6 @@ function TechnicianEditContent() {
     name: string; 
     email: string; 
     phone: string; 
-    branch_id: string;
-    password?: string;
   }) => {
     if (!id) {
       setError("No technician ID available");
@@ -120,7 +118,7 @@ function TechnicianEditContent() {
         name: data.name.trim(),
         email: data.email.trim(),
         phone: data.phone.trim(),
-        branch_id: data.branch_id,
+        branch_id: technician?.branch_id || "",
         updatedAt: new Date(),
       };
       
@@ -133,7 +131,7 @@ function TechnicianEditContent() {
         const userUpdateData = {
           name: data.name.trim(),
           email: data.email.trim(),
-          branch_id: data.branch_id,
+          branch_id: technician?.branch_id || "",
           updatedAt: new Date(),
         };
         logger.debug('Updating user document', { userId: techUserId });
@@ -292,10 +290,7 @@ function TechnicianEditContent() {
               email: technician.email,
               phone: technician.phone,
             }}
-            branch_id={technician.branch_id || user?.branchId || ""}
             onCancel={() => router.push("/technicians")}
-            branches={branches}
-            userRole={user?.role || ""}
           />
         </div>
       </div>

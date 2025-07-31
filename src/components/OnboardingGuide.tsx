@@ -2,6 +2,7 @@
 import React, { useState } from "react";
 import { SparklesIcon, UsersIcon, ChartBarIcon, CheckCircleIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { BuildingStorefrontIcon } from "@heroicons/react/24/outline";
+import { HiSparkles, HiX, HiCheckCircle } from "react-icons/hi";
 import Link from "next/link";
 
 interface OnboardingGuideProps {

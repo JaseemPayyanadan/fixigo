@@ -15,7 +15,7 @@ export default function NewBranchPage() {
 
   const handleCreateBranch = async (branchData: {
     name: string;
-    address: string;
+    location: string;
     phone: string;
     email: string;
   }) => {
