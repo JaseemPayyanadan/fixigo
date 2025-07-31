@@ -6,20 +6,16 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { RoleGuard, PermissionGuard } from "@/components";
 import TechnicianList from "@/modules/technician/TechnicianList";
 import { db } from "@/lib/firebase";
-import { collection, getDocs, query, where, orderBy, DocumentData, Query, CollectionReference, getDoc, doc } from "firebase/firestore";
+import { collection, getDocs, query, where, orderBy, getDoc, doc } from "firebase/firestore";
 import type { Technician } from "@/types";
 import Link from "next/link";
 import { logger } from "@/lib/logger";
 import { 
   UserGroupIcon, 
   StarIcon, 
-  CheckCircleIcon, 
-  ClockIcon, 
+  CheckCircleIcon,
   PlusIcon,
   ChartBarIcon,
-  MapPinIcon,
-  Cog6ToothIcon,
-  ExclamationTriangleIcon
 } from "@heroicons/react/24/outline";
 
 export default function TechniciansPage() {
