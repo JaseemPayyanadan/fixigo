@@ -1,47 +1,105 @@
 import React, { useEffect, useState } from "react";
 import { Branch } from "../../types";
 import { db } from "../../lib/firebase";
-import { collection, getDocs, where, query } from "firebase/firestore";
+import { collection, getDocs, where, query, getDoc, doc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
+import { useUser } from "../../hooks/useUser";
 
 interface BranchListProps {
   branches: Branch[];
   loading: boolean;
   error: string | null;
+  shopId?: string;
   onAddBranch?: () => void;
   onEditBranch?: (branch: Branch) => void;
   onDeleteBranch?: (branch: Branch) => void;
 }
 
-export const BranchList: React.FC<BranchListProps> = ({ branches, loading, error, onAddBranch, onDeleteBranch }) => {
+export const BranchList: React.FC<BranchListProps> = ({ branches, loading, error, shopId, onAddBranch, onDeleteBranch }) => {
   const [techniciansByBranch, setTechniciansByBranch] = useState<Record<string, string[]>>({});
   const router = useRouter();
+  const { user } = useUser();
+
+
 
   useEffect(() => {
     const fetchTechnicians = async () => {
-      if (!branches.length) return;
-      // Get all branch IDs, filtering out any undefined IDs
-      const branchIds = branches.map(b => b.id).filter(id => id);
-      if (branchIds.length === 0) return;
+      if (!branches.length || !shopId) {
+        return;
+      }
       
       try {
-        // Fetch all technicians whose branch_id is in branchIds
-        const q = query(collection(db, "technicians"), where("branch_id", "in", branchIds));
-        const snap = await getDocs(q);
         const byBranch: Record<string, string[]> = {};
-        snap.docs.forEach(doc => {
-          const data = doc.data();
-          if (data.branch_id && !byBranch[data.branch_id]) byBranch[data.branch_id] = [];
-          if (data.branch_id && data.name) byBranch[data.branch_id].push(data.name);
-        });
+        
+        // Fetch technicians from branch members array for each branch
+        for (const branch of branches) {
+          try {
+            const branchDoc = await getDoc(doc(db, "shops", shopId, "branches", branch.id));
+            if (branchDoc.exists()) {
+              const branchData = branchDoc.data();
+              const members = branchData.members || [];
+              
+              const technicianNames: string[] = [];
+              
+              // Fetch user names for each technician
+              for (const member of members) {
+                if (member.role === "technician" && member.userId) {
+                  try {
+                    // Try to get user document directly by ID first
+                    try {
+                      const userDoc = await getDoc(doc(db, "users", member.userId));
+                      if (userDoc.exists()) {
+                        const userData = userDoc.data();
+                        const userName = userData.name || "Unknown User";
+                        technicianNames.push(userName);
+                        continue; // Skip the query method if direct access worked
+                      }
+                    } catch (directError) {
+                      // Direct access failed, try query method
+                    }
+                    
+                    // Method 2: Try query method
+                    const userQuery = query(
+                      collection(db, "users"),
+                      where("uid", "==", member.userId)
+                    );
+                    const userSnapshot = await getDocs(userQuery);
+                    
+                    if (!userSnapshot.empty) {
+                      const userData = userSnapshot.docs[0].data();
+                      const userName = userData.name || "Unknown User";
+                      technicianNames.push(userName);
+                    } else {
+                      // Fallback: Use name from member data if available
+                      if (member.name) {
+                        technicianNames.push(member.name);
+                      }
+                    }
+                  } catch (userError) {
+                    // Fallback: Use name from member data if available
+                    if (member.name) {
+                      technicianNames.push(member.name);
+                    }
+                  }
+                }
+              }
+              
+              byBranch[branch.id] = technicianNames;
+            } else {
+              byBranch[branch.id] = [];
+            }
+          } catch (error) {
+            byBranch[branch.id] = [];
+          }
+        }
+        
         setTechniciansByBranch(byBranch);
       } catch (error) {
-        console.error('Error fetching technicians:', error);
         setTechniciansByBranch({});
       }
     };
     fetchTechnicians();
-  }, [branches]);
+  }, [branches, shopId]);
 
   // Helper function to get the correct field values
   const getBranchField = (branch: Branch, field: 'location' | 'phone' | 'email') => {
@@ -158,17 +216,33 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, loading, error
                   <td className="px-6 py-4">
                     <div className="text-sm text-gray-900">
                       {techniciansByBranch[branch.id]?.length ? (
-                        <div className="flex items-center gap-1">
-                          <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
-                            {techniciansByBranch[branch.id]?.length} tech
-                          </span>
-                          <span className="text-gray-500 text-xs">
-                            {techniciansByBranch[branch.id]?.slice(0, 2).join(", ")}
-                            {techniciansByBranch[branch.id]?.length > 2 && "..."}
-                          </span>
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full font-medium">
+                              {techniciansByBranch[branch.id]?.length} {techniciansByBranch[branch.id]?.length === 1 ? 'technician' : 'technicians'}
+                            </span>
+                          </div>
+                          <div className="text-gray-600 text-xs">
+                            {techniciansByBranch[branch.id]?.slice(0, 3).map((name, index) => (
+                              <div key={index} className="flex items-center gap-1">
+                                <span className="w-1 h-1 bg-gray-400 rounded-full"></span>
+                                <span>{name}</span>
+                              </div>
+                            ))}
+                            {techniciansByBranch[branch.id]?.length > 3 && (
+                              <div className="text-gray-400 italic">
+                                +{techniciansByBranch[branch.id]?.length - 3} more
+                              </div>
+                            )}
+                          </div>
                         </div>
                       ) : (
-                        <span className="text-gray-400 text-xs">No technicians</span>
+                        <div className="text-gray-400 text-xs">
+                          <div className="flex items-center gap-1">
+                            <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
+                            <span>No technicians assigned</span>
+                          </div>
+                        </div>
                       )}
                     </div>
                   </td>
@@ -266,9 +340,31 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, loading, error
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                   </svg>
                   <span className="font-medium">
-                    {techniciansByBranch[branch.id]?.length || 0} technicians
+                    {techniciansByBranch[branch.id]?.length || 0} {techniciansByBranch[branch.id]?.length === 1 ? 'technician' : 'technicians'}
                   </span>
                 </div>
+                {techniciansByBranch[branch.id]?.length > 0 ? (
+                  <div className="text-xs text-gray-500 ml-6 space-y-1">
+                    {techniciansByBranch[branch.id]?.slice(0, 3).map((name, index) => (
+                      <div key={index} className="flex items-center gap-1">
+                        <span className="w-1 h-1 bg-gray-400 rounded-full"></span>
+                        <span>{name}</span>
+                      </div>
+                    ))}
+                    {techniciansByBranch[branch.id]?.length > 3 && (
+                      <div className="text-gray-400 italic">
+                        +{techniciansByBranch[branch.id]?.length - 3} more
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-xs text-gray-400 ml-6">
+                    <div className="flex items-center gap-1">
+                      <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
+                      <span>No technicians assigned</span>
+                    </div>
+                  </div>
+                )}
               </div>
               
               <div className="flex gap-2 pt-4 border-t border-gray-100">

@@ -6,7 +6,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { RoleGuard, PermissionGuard } from "@/components";
 import TechnicianList from "@/modules/technician/TechnicianList";
 import { db } from "@/lib/firebase";
-import { collection, getDocs, query, where, DocumentData, Query, CollectionReference } from "firebase/firestore";
+import { collection, getDocs, query, where, orderBy, DocumentData, Query, CollectionReference, getDoc, doc } from "firebase/firestore";
 import type { Technician } from "@/types";
 import Link from "next/link";
 import { logger } from "@/lib/logger";
@@ -46,51 +46,204 @@ function TechniciansContent() {
     totalCurrent: 0
   });
 
-  // Log user data for debugging (only in development)
-  useEffect(() => {
-    if (process.env.NODE_ENV === 'development') {
-      logger.debug('Technicians page user data', {
-        userId: user?.uid,
-        userRole: user?.role,
-        shopId: user?.shopId,
-        techniciansCount: technicians.length,
-        branchesCount: branches.length
-      });
-    }
-  }, [user, technicians, branches]);
+
 
   useEffect(() => {
     if (!user) return;
     
     const fetchTechnicians = async () => {
       try {
-        let q: Query<DocumentData> | CollectionReference<DocumentData> = collection(db, "technicians");
+        const technicianList: Technician[] = [];
         
         if (user.role === "shop_admin") {
-          if (!user.shopId) return;
-          q = query(q, where("shopId", "==", user.shopId));
-        } else if (user.role === "branch_admin") {
-          if (!user.branchId) return;
-          q = query(q, where("branchId", "==", user.branchId));
+          // For shop_admin, fetch technicians from all shops
+          const shopsQuery = query(collection(db, "shops"));
+          const shopsSnapshot = await getDocs(shopsQuery);
+
+          for (const shopDoc of shopsSnapshot.docs) {
+            const shopId = shopDoc.id;
+            const shopData = shopDoc.data();
+            
+            try {
+              // Fetch branches for this shop
+              const branchesQuery = query(
+                collection(db, "shops", shopId, "branches"),
+                orderBy("createdAt", "desc")
+              );
+              const branchesSnapshot = await getDocs(branchesQuery);
+
+              for (const branchDoc of branchesSnapshot.docs) {
+                try {
+                  const branchData = branchDoc.data();
+                  const members = branchData.members || [];
+                  
+                  // Filter technicians from members array
+                  for (const member of members) {
+                    if (member.role === "technician") {
+                      try {
+                        // Fetch complete user data from users collection
+                        let userData = null;
+                        try {
+                          // Try to get user document directly by ID first
+                          const userDoc = await getDoc(doc(db, "users", member.userId));
+                          if (userDoc.exists()) {
+                            userData = userDoc.data();
+                          } else {
+                            // Fallback: Try query by uid if direct access fails
+                            const userQuery = query(
+                              collection(db, "users"),
+                              where("uid", "==", member.userId)
+                            );
+                            const userSnapshot = await getDocs(userQuery);
+                            
+                            if (!userSnapshot.empty) {
+                              userData = userSnapshot.docs[0].data();
+                            }
+                          }
+                        } catch (error) {
+                          // If direct access fails, try query method
+                          const userQuery = query(
+                            collection(db, "users"),
+                            where("uid", "==", member.userId)
+                          );
+                          const userSnapshot = await getDocs(userQuery);
+                          
+                          if (!userSnapshot.empty) {
+                            userData = userSnapshot.docs[0].data();
+                          }
+                        }
+                        
+                        const technician: Technician = {
+                          id: member.userId || "",
+                          name: userData?.name || member.name || "Unknown Technician",
+                          email: userData?.email || member.email || "",
+                          phone: userData?.phone || member.phone || "",
+                          role: "technician",
+                          shopId: member.shopId || shopId,
+                          branchId: member.branchId || branchDoc.id,
+                          skills: member.skills || [],
+                          status: member.status || "active",
+                          bio: member.bio || "",
+                          specializations: member.specializations || [],
+                          createdAt: member.createdAt?.toDate() || new Date(),
+                          updatedAt: member.updatedAt?.toDate() || new Date(),
+                        };
+                        technicianList.push(technician);
+                      } catch (error) {
+                        logger.warn(`Error fetching user data for technician ${member.userId}:`, { error: String(error) });
+                        // Add technician with member data only if user fetch fails
+                        const technician: Technician = {
+                          id: member.userId || "",
+                          name: member.name || "Unknown Technician",
+                          email: member.email || "",
+                          phone: member.phone || "",
+                          role: "technician",
+                          shopId: member.shopId || shopId,
+                          branchId: member.branchId || branchDoc.id,
+                          skills: member.skills || [],
+                          status: member.status || "active",
+                          bio: member.bio || "",
+                          specializations: member.specializations || [],
+                          createdAt: member.createdAt?.toDate() || new Date(),
+                          updatedAt: member.updatedAt?.toDate() || new Date(),
+                        };
+                        technicianList.push(technician);
+                      }
+                    }
+                  }
+                } catch (error) {
+                  logger.warn(`Error fetching technicians for branch ${branchDoc.id} in shop ${shopId}:`, { error: String(error) });
+                  // Continue with other branches even if one fails
+                }
+              }
+            } catch (error) {
+              logger.warn(`Error fetching branches for shop ${shopId}:`, { error: String(error) });
+              // Continue with other shops even if one fails
+            }
+          }
+        } else if (user.role === "branch_admin" && user.shopId && user.branchId) {
+          // Fetch technicians from specific branch using members array
+          const branchDoc = await getDoc(doc(db, "shops", user.shopId, "branches", user.branchId));
+          if (branchDoc.exists()) {
+            const branchData = branchDoc.data();
+            const members = branchData.members || [];
+            
+            // Filter technicians from members array
+            for (const member of members) {
+              if (member.role === "technician") {
+                try {
+                  // Fetch complete user data from users collection
+                  let userData = null;
+                  try {
+                    // Try to get user document directly by ID first
+                    const userDoc = await getDoc(doc(db, "users", member.userId));
+                    if (userDoc.exists()) {
+                      userData = userDoc.data();
+                    } else {
+                      // Fallback: Try query by uid if direct access fails
+                      const userQuery = query(
+                        collection(db, "users"),
+                        where("uid", "==", member.userId)
+                      );
+                      const userSnapshot = await getDocs(userQuery);
+                      
+                      if (!userSnapshot.empty) {
+                        userData = userSnapshot.docs[0].data();
+                      }
+                    }
+                  } catch (error) {
+                    // If direct access fails, try query method
+                    const userQuery = query(
+                      collection(db, "users"),
+                      where("uid", "==", member.userId)
+                    );
+                    const userSnapshot = await getDocs(userQuery);
+                    
+                    if (!userSnapshot.empty) {
+                      userData = userSnapshot.docs[0].data();
+                    }
+                  }
+                  
+                  const technician: Technician = {
+                    id: member.userId || "",
+                    name: userData?.name || member.name || "",
+                    email: userData?.email || member.email || "",
+                    phone: userData?.phone || member.phone || "",
+                    role: "technician",
+                    shopId: member.shopId || "",
+                    branchId: member.branchId || user.branchId,
+                    skills: member.skills || [],
+                    status: member.status || "active",
+                    bio: member.bio || "",
+                    specializations: member.specializations || [],
+                    createdAt: member.createdAt?.toDate() || new Date(),
+                    updatedAt: member.updatedAt?.toDate() || new Date(),
+                  };
+                  technicianList.push(technician);
+                } catch (error) {
+                  logger.warn(`Error fetching user data for technician ${member.userId}:`, { error: String(error) });
+                  // Add technician with member data only if user fetch fails
+                  const technician: Technician = {
+                    id: member.userId || "",
+                    name: member.name || "",
+                    email: member.email || "",
+                    phone: member.phone || "",
+                    role: "technician",
+                    shopId: member.shopId || "",
+                    branchId: member.branchId || user.branchId,
+                    skills: member.skills || [],
+                    status: member.status || "active",
+                    bio: member.bio || "",
+                    specializations: member.specializations || [],
+                    createdAt: member.createdAt?.toDate() || new Date(),
+                    updatedAt: member.updatedAt?.toDate() || new Date(),
+                  };
+                  technicianList.push(technician);
+                }
+              }
+            }
+          }
         }
-        
-        const snapshot = await getDocs(q);
-        const technicianList: Technician[] = snapshot.docs.map((doc: DocumentData) => {
-          const data = doc.data();
-          return {
-            id: doc.id,
-            name: data.name || '',
-            email: data.email || '',
-            phone: data.phone || '',
-            role: "technician",
-            branchId: data.branch_id || data.branchId || '',
-            shopId: data.shop_id || data.shopId || '',
-            skills: data.skills || [],
-            status: data.status || "active",
-            createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(),
-            updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : new Date(),
-          };
-        });
         
         // Calculate stats
         const total = technicianList.length;
@@ -111,7 +264,8 @@ function TechniciansContent() {
         
         logger.debug('Technicians fetched successfully', { 
           count: technicianList.length,
-          userRole: user.role 
+          userRole: user.role,
+          technicianNames: technicianList.map(t => t.name).join(', ')
         });
         setTechnicians(technicianList);
       } catch (error) {
@@ -148,7 +302,10 @@ function TechniciansContent() {
           <div>
             <h1 className="text-3xl font-bold text-gray-900 mb-2">Technicians</h1>
             <p className="text-gray-600">
-              Manage your team of skilled technicians
+              {user?.role === "shop_admin" 
+                ? "View all technicians across all shops" 
+                : "Manage your team of skilled technicians"
+              }
             </p>
           </div>
           <PermissionGuard permissions={["technician:write"]} fallback={null}>
@@ -213,41 +370,6 @@ function TechniciansContent() {
           </div>
         </div>
 
-        {/* Performance Metrics */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                <CheckCircleIcon className="w-5 h-5 text-green-600" />
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">Completed Services</h3>
-                <p className="text-sm text-gray-600">Total services completed this month</p>
-              </div>
-            </div>
-            <div className="text-3xl font-bold text-green-600">{stats.totalCompleted}</div>
-            <div className="mt-2 text-sm text-gray-500">
-              <span className="text-green-600">+12%</span> from last month
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                <ClockIcon className="w-5 h-5 text-blue-600" />
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">Current Tasks</h3>
-                <p className="text-sm text-gray-600">Active tasks being worked on</p>
-              </div>
-            </div>
-            <div className="text-3xl font-bold text-blue-600">{stats.totalCurrent}</div>
-            <div className="mt-2 text-sm text-gray-500">
-              <span className="text-blue-600">+5%</span> from last week
-            </div>
-          </div>
-        </div>
-
         {/* Technicians List */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100">
           <TechnicianList
@@ -256,56 +378,6 @@ function TechniciansContent() {
             onDelete={handleDelete}
           />
         </div>
-
-
-        {/* Quick Actions */}
-        {technicians.length > 0 && (
-          <div className="mt-8 bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <PermissionGuard permissions={["technician:write"]} fallback={null}>
-                <Link
-                  href="/technicians/new"
-                  className="flex items-center gap-3 p-4 border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-colors"
-                >
-                  <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <PlusIcon className="w-5 h-5 text-blue-600" />
-                  </div>
-                  <div>
-                    <h4 className="font-medium text-gray-900">Add New Technician</h4>
-                    <p className="text-sm text-gray-600">Create a new technician account</p>
-                  </div>
-                </Link>
-              </PermissionGuard>
-
-              <Link
-                href="/dashboard"
-                className="flex items-center gap-3 p-4 border border-gray-200 rounded-lg hover:border-green-300 hover:bg-green-50 transition-colors"
-              >
-                <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                  <ChartBarIcon className="w-5 h-5 text-green-600" />
-                </div>
-                <div>
-                  <h4 className="font-medium text-gray-900">View Performance</h4>
-                  <p className="text-sm text-gray-600">Check technician performance metrics</p>
-                </div>
-              </Link>
-
-              <Link
-                href="/services"
-                className="flex items-center gap-3 p-4 border border-gray-200 rounded-lg hover:border-purple-300 hover:bg-purple-50 transition-colors"
-              >
-                <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                  <Cog6ToothIcon className="w-5 h-5 text-purple-600" />
-                </div>
-                <div>
-                  <h4 className="font-medium text-gray-900">Manage Services</h4>
-                  <p className="text-sm text-gray-600">Assign technicians to services</p>
-                </div>
-              </Link>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

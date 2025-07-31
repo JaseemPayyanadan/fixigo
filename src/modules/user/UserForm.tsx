@@ -65,7 +65,7 @@ export default function UserForm({
       setForm({
         name: initialData.name || "",
         email: initialData.email || "",
-        phone: "", // Phone not in User type, so we'll leave it empty
+        phone: initialData.phone || "",
         role: initialData.role || "technician",
         branchId: initialData.branchId || "",
         status: initialData.status || "active"

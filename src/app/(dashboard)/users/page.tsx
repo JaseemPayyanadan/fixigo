@@ -34,7 +34,7 @@ export default function UsersPage() {
   };
 
   const handleDeleteUser = async (user: User) => {
-    if (!window.confirm(`Are you sure you want to delete user '${user.name}'?`)) {
+    if (!window.confirm(`Are you sure you want to delete user &apos;${user.name}&apos;?`)) {
       return;
     }
 

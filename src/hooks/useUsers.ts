@@ -5,6 +5,7 @@ import { db } from "@/lib/firebase";
 import { useUser } from "./useUser";
 import { logger } from "@/lib/logger";
 import type { User, Role } from "@/types";
+import { addUserToBranchMembers } from "@/lib/userManagement";
 
 export interface UserFilters {
   role?: Role;
@@ -52,6 +53,27 @@ export function useUsers(shopId?: string, filters?: UserFilters) {
 
         for (const docSnapshot of querySnapshot.docs) {
           const data = docSnapshot.data();
+          let phone = "";
+          
+          // For technicians and branch admins, fetch phone from branch members array
+          if ((data.role === "technician" || data.role === "branch_admin") && data.branchId) {
+            try {
+              const branchDoc = await getDoc(doc(db, "shops", shopId, "branches", data.branchId));
+              if (branchDoc.exists()) {
+                const branchData = branchDoc.data();
+                const members = branchData.members || [];
+                
+                // Find the user in the members array
+                const userMember = members.find((member: any) => member.userId === data.uid);
+                if (userMember) {
+                  phone = userMember.phone || "";
+                }
+              }
+            } catch (error) {
+              console.warn(`Error fetching phone for ${data.uid}:`, error);
+            }
+          }
+          
           const user: User = {
             id: docSnapshot.id,
             uid: data.uid || "",
@@ -64,6 +86,7 @@ export function useUsers(shopId?: string, filters?: UserFilters) {
             onboardingCompleted: data.onboardingCompleted || false,
             createdAt: data.createdAt?.toDate() || new Date(),
             updatedAt: data.updatedAt?.toDate() || new Date(),
+            phone: phone, // Add phone to user object
           };
 
           // Apply filters
@@ -163,6 +186,11 @@ export function useUsers(shopId?: string, filters?: UserFilters) {
         ...updates,
         updatedAt: new Date(),
       });
+
+      // If role or branchId is being updated, also update the branch's members array
+      if ((updates.role || updates.branchId) && updates.role && updates.branchId) {
+        await addUserToBranchMembers(shopId, updates.branchId, userId, updates.role);
+      }
 
       // Refresh users list
       const updatedUsers = await getDocs(

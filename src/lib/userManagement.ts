@@ -1,4 +1,4 @@
-import { addDoc, collection, doc, getDoc } from "firebase/firestore";
+import { addDoc, collection, doc, getDoc, updateDoc, arrayUnion } from "firebase/firestore";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { db, auth } from "./firebase";
 import { logger } from "./logger";
@@ -23,6 +23,14 @@ export interface CreateUserResult {
   tempPassword?: string;
   email: string;
   role: Role;
+}
+
+// Utility function to add a user to the branch's members array
+export async function addUserToBranchMembers(shopId: string, branchId: string, userId: string, role: string) {
+  const branchRef = doc(db, "shops", shopId, "branches", branchId);
+  await updateDoc(branchRef, {
+    members: arrayUnion({ userId, role })
+  });
 }
 
 export class UserManagementService {
@@ -103,6 +111,8 @@ export class UserManagementService {
           branchId: branchId!,
           phone: phone || "",
         });
+        // Add to branch members array
+        await addUserToBranchMembers(shopId, branchId!, uid, role);
       } else if (role === "technician") {
         await this.createTechnicianProfile(uid, {
           name,
@@ -114,6 +124,8 @@ export class UserManagementService {
           specializations: specializations || [],
           bio: bio || "",
         });
+        // Add to branch members array
+        await addUserToBranchMembers(shopId, branchId!, uid, role);
       }
 
       logger.info("User created successfully", {

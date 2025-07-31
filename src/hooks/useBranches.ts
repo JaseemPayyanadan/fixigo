@@ -37,7 +37,6 @@ export function useBranches(shopId?: string) {
           collection(db, "shops", shopId, "branches"),
           orderBy("createdAt", "desc")
         );
-
         const querySnapshot = await getDocs(q);
         const branchList: Branch[] = [];
 
@@ -62,8 +61,14 @@ export function useBranches(shopId?: string) {
         setBranches(branchList);
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : "Failed to fetch branches";
-        setError(errorMessage);
         logger.error("Error fetching branches", { error: errorMessage });
+        
+        // Check if it's a permission error
+        if (errorMessage.includes("Missing or insufficient permissions")) {
+          setError("You don't have permission to access branches. Please contact your administrator.");
+        } else {
+          setError(errorMessage);
+        }
       } finally {
         setLoading(false);
       }

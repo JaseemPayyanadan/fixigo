@@ -202,7 +202,7 @@ function EditBranchContent() {
             loading={formLoading}
             initialData={{
               name: branch.name,
-              address: branch.address || "",
+              address: branch.location || "",
               phone: branch.phone || "",
               email: branch.email || "",
             }}

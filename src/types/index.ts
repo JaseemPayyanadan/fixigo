@@ -32,6 +32,7 @@ export interface User {
   branchId?: string; // Branch the user belongs to (for branch_admin and technician)
   status: "active" | "inactive" | "suspended";
   onboardingCompleted: boolean;
+  phone?: string; // Phone number (for technicians and branch admins)
   createdAt: Date;
   updatedAt: Date;
 }

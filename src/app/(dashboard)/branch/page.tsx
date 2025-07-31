@@ -5,7 +5,7 @@ import { useBranches } from "@/hooks/useBranches";
 import { useUser } from "@/hooks";
 import { SearchFilter } from "@/components/ui";
 import { db } from "@/lib/firebase";
-import { collection, getDocs, query } from "firebase/firestore";
+import { collection, getDocs, query, orderBy, getDoc, doc, where } from "firebase/firestore";
 import Link from "next/link";
 import { logger } from "@/lib/logger";
 
@@ -17,53 +17,61 @@ export default function BranchPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
 
-  // Log user data for debugging (only in development)
-  useEffect(() => {
-    if (process.env.NODE_ENV === 'development') {
-      logger.debug('Branch page user data', {
-        userId: user?.uid,
-        userRole: user?.role,
-        userEmail: user?.email,
-        shopId: shopId,
-        userShopId: user?.shopId,
-        onboardingCompleted: user?.onboardingCompleted
-      });
-    }
-  }, [user, shopId]);
+
 
   // Fetch technicians for each branch
   useEffect(() => {
     const fetchTechnicians = async () => {
-      if (!branches.length) return;
+      if (!branches.length || !shopId) return;
       
       try {
         logger.info('Fetching technicians for branches', { branchCount: branches.length });
         
-        // First, let's test if we can access the technicians collection at all
-        const testQuery = query(collection(db, "technicians"));
-        const testSnap = await getDocs(testQuery);
-        logger.debug('Total technicians in collection', { count: testSnap.docs.length });
-        
-        if (testSnap.docs.length > 0) {
-          logger.debug('Sample technician data', { technicianId: testSnap.docs[0].id });
-        }
-        
-        // Fetch all technicians and filter client-side to avoid 'in' query limitations
-        const q = query(collection(db, "technicians"));
-        const snap = await getDocs(q);
-        
         const byBranch: Record<string, string[]> = {};
-        const branchIds = branches.map(b => b.id);
         
-        snap.docs.forEach(doc => {
-          const data = doc.data();
-          logger.debug('Processing technician data', { technicianId: doc.id });
-          // Only include technicians that belong to our branches
-          if (branchIds.includes(data.branch_id)) {
-            if (!byBranch[data.branch_id]) byBranch[data.branch_id] = [];
-            byBranch[data.branch_id].push(data.name);
+        // Fetch technicians from branch members array for each branch
+        for (const branch of branches) {
+          try {
+            const branchDoc = await getDoc(doc(db, "shops", shopId, "branches", branch.id));
+            if (branchDoc.exists()) {
+              const branchData = branchDoc.data();
+              const members = branchData.members || [];
+              
+              const technicianNames: string[] = [];
+              
+              // Fetch user names for each technician
+              for (const member of members) {
+                if (member.role === "technician" && member.userId) {
+                  try {
+                    // Fetch user name from users collection
+                    const userQuery = query(
+                      collection(db, "users"),
+                      where("uid", "==", member.userId)
+                    );
+                    const userSnapshot = await getDocs(userQuery);
+                    
+                    if (!userSnapshot.empty) {
+                      const userData = userSnapshot.docs[0].data();
+                      const userName = userData.name || "Unknown User";
+                      technicianNames.push(userName);
+                    }
+                  } catch (userError) {
+                    logger.warn(`Error fetching user for userId ${member.userId}:`, { error: String(userError) });
+                  }
+                }
+              }
+              
+              if (technicianNames.length > 0) {
+                byBranch[branch.id] = technicianNames;
+              }
+              
+              logger.debug(`Fetched ${technicianNames.length} technicians for branch ${branch.id}`);
+            }
+          } catch (error) {
+            logger.warn(`Error fetching technicians for branch ${branch.id}:`, { error: String(error) });
+            // Continue with other branches even if one fails
           }
-        });
+        }
         
         logger.debug('Technicians grouped by branch', { branchCount: Object.keys(byBranch).length });
       } catch (error) {
@@ -73,7 +81,7 @@ export default function BranchPage() {
     };
     
     fetchTechnicians();
-  }, [branches]);
+  }, [branches, shopId]);
 
   // Check if user has proper access
   if (!user) {
@@ -97,7 +105,7 @@ export default function BranchPage() {
   }
 
   // Check if user has proper role and shopId
-  if (user.role !== "shop_admin" || !shopId) {
+  if ((user.role !== "shop_admin" && user.role !== "branch_admin" && user.role !== "technician") || !shopId) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
         <div className="w-full px-4 py-8">
@@ -109,16 +117,30 @@ export default function BranchPage() {
             </div>
             <h1 className="text-2xl font-bold text-gray-900 mb-4">Access Restricted</h1>
             <p className="text-gray-600 mb-6">
-              {user.role !== "shop_admin" 
-                ? "Only shop administrators can manage branches." 
+              {user.role !== "shop_admin" && user.role !== "branch_admin" && user.role !== "technician"
+                ? "Only shop administrators, branch administrators, and technicians can access branches." 
                 : "Please complete your shop setup to manage branches."
               }
             </p>
-            {user.role !== "shop_admin" && (
+            {user.role !== "shop_admin" && user.role !== "branch_admin" && user.role !== "technician" && (
               <p className="text-sm text-gray-500">
                 Your current role: {user.role}
               </p>
             )}
+            {!shopId && (
+              <p className="text-sm text-gray-500 mt-2">
+                Missing shopId: {user?.shopId || 'undefined'}
+              </p>
+            )}
+            <div className="mt-4 p-4 bg-gray-100 rounded-lg text-left text-sm">
+              <h3 className="font-semibold mb-2">Debug Info:</h3>
+              <p>User ID: {user?.uid}</p>
+              <p>User Role: {user?.role}</p>
+              <p>User Email: {user?.email}</p>
+              <p>Shop ID: {user?.shopId}</p>
+              <p>Branch ID: {user?.branchId}</p>
+              <p>Onboarding Completed: {user?.onboardingCompleted ? 'Yes' : 'No'}</p>
+            </div>
           </div>
         </div>
       </div>
@@ -126,18 +148,15 @@ export default function BranchPage() {
   }
 
   const filteredBranches = branches.filter(branch => {
-    // Log branch data for debugging
-    if (process.env.NODE_ENV === 'development') {
-      logger.debug('Filtering branch', { 
-        branchId: branch.id, 
-        branchName: branch.name,
-        hasId: !!branch.id,
-        idLength: branch.id?.length 
-      });
+
+    
+    // For branch admins, only show their own branch
+    if (user.role === "branch_admin" && user.branchId && branch.id !== user.branchId) {
+      return false;
     }
     
     const matchesSearch = branch.name.toLowerCase().includes(search.toLowerCase()) ||
-                         branch.address.toLowerCase().includes(search.toLowerCase());
+                         branch.location.toLowerCase().includes(search.toLowerCase());
     const matchesStatus = statusFilter === "All" || branch.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -192,20 +211,27 @@ export default function BranchPage() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Branches</h1>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+              {user.role === "shop_admin" ? "Branches" : "Branch"}
+            </h1>
             <p className="text-gray-600">
-              Manage your business locations and their operations
+              {user.role === "shop_admin" 
+                ? "Manage your business locations and their operations"
+                : "View and manage your branch information"
+              }
             </p>
           </div>
-          <Link
-            href="/branch/new"
-            className="mt-4 sm:mt-0 inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 font-semibold shadow-lg transition-all duration-200 transform hover:scale-105"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-            </svg>
-            Add Branch
-          </Link>
+          {user.role === "shop_admin" && (
+            <Link
+              href="/branch/new"
+              className="mt-4 sm:mt-0 inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 font-semibold shadow-lg transition-all duration-200 transform hover:scale-105"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              </svg>
+              Add Branch
+            </Link>
+          )}
         </div>
 
         {/* Search and Filter */}
@@ -258,6 +284,7 @@ export default function BranchPage() {
             branches={filteredBranches}
             loading={loading}
             error={error}
+            shopId={shopId}
             onDeleteBranch={(branch) => branch.id && deleteBranch(branch.id)}
           />
         </div>
