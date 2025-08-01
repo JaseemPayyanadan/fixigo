@@ -5,7 +5,6 @@ import { useUser } from "@/hooks";
 import { useBranches } from "@/hooks/useBranches";
 import { useTechnicians } from "@/hooks/useTechnicians";
 import { RoleGuard, PermissionGuard } from "@/components";
-import CredentialsNotification from "@/components/CredentialsNotification";
 import TechnicianForm from "@/modules/technician/TechnicianForm";
 
 export default function NewTechnicianPage() {
@@ -27,11 +26,6 @@ function NewTechnicianContent() {
   const { createTechnician } = useTechnicians(shopId, branchId);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [credentials, setCredentials] = useState<{
-    email: string;
-    tempPassword: string;
-    role: 'branch_admin' | 'technician';
-  } | null>(null);
   const router = useRouter();
 
   const handleAdd = async (data: { 
@@ -48,11 +42,10 @@ function NewTechnicianContent() {
     
     setLoading(true);
     try {
-      const result = await createTechnician({
+      await createTechnician({
         name: data.name,
         email: data.email,
         phone: data.phone,
-        password: undefined, // Auto-generate password
         shopId: user?.shopId || "",
         branchId: targetBranchId,
         role: "technician",
@@ -62,12 +55,8 @@ function NewTechnicianContent() {
         specializations: []
       });
       
-      // Show credentials notification for auto-generated password
-      setCredentials({
-        email: data.email,
-        tempPassword: result.tempPassword || "Auto-generated password",
-        role: 'technician'
-      });
+      // Redirect to technicians list after successful creation
+      router.push("/technicians");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -75,15 +64,10 @@ function NewTechnicianContent() {
     }
   };
 
-  const handleCloseCredentials = () => {
-    setCredentials(null);
-    router.push("/technicians");
-  };
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
       {/* Header */}
-      <div className="bg-white shadow-sm border-b border-gray-200">
+      <div className="bg-white shadow-sm border border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-6">
             <div>
@@ -132,16 +116,6 @@ function NewTechnicianContent() {
           </div>
         )}
       </div>
-
-      {/* Credentials Notification */}
-      {credentials && (
-        <CredentialsNotification
-          email={credentials.email}
-          tempPassword={credentials.tempPassword}
-          role={credentials.role}
-          onClose={handleCloseCredentials}
-        />
-      )}
     </div>
   );
 } 
