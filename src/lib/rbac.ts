@@ -18,6 +18,7 @@ export const ROLE_PERMISSIONS: Record<Role, RolePermissions> = {
   shop_admin: {
     role: "shop_admin",
     permissions: [
+      "dashboard:read",
       "shop:read", "shop:write", "shop:delete",
       "branch:read", "branch:write", "branch:delete",
       "technician:read", "technician:write", "technician:delete",
@@ -32,6 +33,7 @@ export const ROLE_PERMISSIONS: Record<Role, RolePermissions> = {
   branch_admin: {
     role: "branch_admin",
     permissions: [
+      "dashboard:read",
       "branch:read", "branch:write",
       "technician:read", "technician:write",
       "service:read", "service:write",
@@ -46,6 +48,7 @@ export const ROLE_PERMISSIONS: Record<Role, RolePermissions> = {
   technician: {
     role: "technician",
     permissions: [
+      "dashboard:read",
       "service:read", "service:write",
       "task:read", "task:write",
       "user:read", // Allow technicians to read their own user data
@@ -94,12 +97,18 @@ export function hasPermission(user: User, permission: Permission): boolean {
 
 // Check if user has any of the specified permissions
 export function hasAnyPermission(user: User, permissions: Permission[]): boolean {
+  if (!permissions || !Array.isArray(permissions) || permissions.length === 0) {
+    return false;
+  }
   const userPermissions = getUserPermissions(user);
   return permissions.some(permission => userPermissions.includes(permission));
 }
 
 // Check if user has all of the specified permissions
 export function hasAllPermissions(user: User, permissions: Permission[]): boolean {
+  if (!permissions || !Array.isArray(permissions) || permissions.length === 0) {
+    return false;
+  }
   const userPermissions = getUserPermissions(user);
   return permissions.every(permission => userPermissions.includes(permission));
 }

@@ -44,6 +44,24 @@ function formatMessage(level: LogLevel, message: string, context?: LogContext): 
   return `[${timestamp}] ${level}: ${message}${contextStr}`;
 }
 
+// Utility function to detect and handle Firestore index building errors
+export function isIndexBuildingError(error: string): boolean {
+  return error.includes('index is currently building') || 
+         error.includes('The query requires an index') ||
+         error.includes('cannot be used yet');
+}
+
+export function getIndexBuildingMessage(error: string): string {
+  if (isIndexBuildingError(error)) {
+    return 'Database indexes are being built. This may take a few minutes. Please try again later.';
+  }
+  return error;
+}
+
+export function shouldRetryOnIndexError(error: string): boolean {
+  return isIndexBuildingError(error);
+}
+
 class LoggerImpl implements Logger {
   private shouldLog(level: number): boolean {
     return level >= getLogLevel();

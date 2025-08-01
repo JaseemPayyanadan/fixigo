@@ -12,7 +12,8 @@ export type Permission =
   | "task:read" | "task:write" | "task:delete"
   | "user:read" | "user:write" | "user:delete"
   | "report:read" | "report:write"
-  | "setting:read" | "setting:write";
+  | "setting:read" | "setting:write"
+  | "dashboard:read";
 
 // Role hierarchy and permissions mapping
 export interface RolePermissions {
@@ -75,7 +76,6 @@ export interface Branch {
   email: string;
   status: "active" | "inactive" | "maintenance";
   shopId: string; // Parent shop ID
-  managerId: string; // Branch admin's user ID
   createdAt: Date;
   updatedAt: Date;
 }

@@ -1,39 +1,15 @@
 {
   "indexes": [
     {
-      "collectionGroup": "services",
+      "collectionGroup": "users",
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "shop_id",
+          "fieldPath": "shopId",
           "order": "ASCENDING"
         },
         {
-          "fieldPath": "createdAt",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "services",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "branch_id",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "createdAt",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "services",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "technician_id",
+          "fieldPath": "role",
           "order": "ASCENDING"
         },
         {
@@ -43,9 +19,59 @@
       ]
     },
     {
-      "collectionGroup": "services",
+      "collectionGroup": "users",
       "queryScope": "COLLECTION",
       "fields": [
+        {
+          "fieldPath": "shopId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "branchId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "role",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "email",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "shopId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "branches",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "shopId",
+          "order": "ASCENDING"
+        },
         {
           "fieldPath": "status",
           "order": "ASCENDING"
@@ -57,25 +83,11 @@
       ]
     },
     {
-      "collectionGroup": "technicians",
+      "collectionGroup": "branches",
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "shop_id",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "branch_id",
-          "order": "ASCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "technicians",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "status",
+          "fieldPath": "shopId",
           "order": "ASCENDING"
         },
         {
@@ -86,11 +98,233 @@
     },
 
     {
+      "collectionGroup": "technicians",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "shopId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "branchId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "technicians",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "shopId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "rating",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "technicians",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "branchId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "skills",
+          "arrayConfig": "CONTAINS"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "technicians",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "shopId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "technicians",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "shopId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "branchId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "services",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "shopId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "branchId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "services",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "shopId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "services",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "assignedTechnicianId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "services",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "shopId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "priority",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "services",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "branchId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "services",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "shopId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "services",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "shopId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "branchId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
       "collectionGroup": "invoices",
       "queryScope": "COLLECTION",
       "fields": [
         {
           "fieldPath": "shopId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "branchId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "invoices",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "shopId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "paymentStatus",
           "order": "ASCENDING"
         },
         {
@@ -108,6 +342,10 @@
           "order": "ASCENDING"
         },
         {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
           "fieldPath": "createdAt",
           "order": "DESCENDING"
         }
@@ -118,11 +356,79 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
+          "fieldPath": "serviceId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "invoices",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "shopId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "invoices",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "shopId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "branchId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "tasks",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "shopId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "branchId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "tasks",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "assignedTechnicianId",
+          "order": "ASCENDING"
+        },
+        {
           "fieldPath": "status",
           "order": "ASCENDING"
         },
         {
-          "fieldPath": "paymentStatus",
+          "fieldPath": "dueDate",
           "order": "ASCENDING"
         }
       ]
@@ -136,32 +442,8 @@
           "order": "ASCENDING"
         },
         {
-          "fieldPath": "assignedTechnicianId",
-          "order": "ASCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "tasks",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "status",
-          "order": "ASCENDING"
-        },
-        {
           "fieldPath": "priority",
           "order": "ASCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "tasks",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "dueDate",
-          "order": "ASCENDING"
         },
         {
           "fieldPath": "status",
@@ -170,30 +452,122 @@
       ]
     },
     {
-      "collectionGroup": "work_logs",
+      "collectionGroup": "tasks",
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "service_id",
+          "fieldPath": "shopId",
           "order": "ASCENDING"
         },
         {
-          "fieldPath": "timestamp",
+          "fieldPath": "createdAt",
           "order": "DESCENDING"
         }
       ]
     },
     {
-      "collectionGroup": "work_logs",
+      "collectionGroup": "tasks",
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "created_by",
+          "fieldPath": "shopId",
           "order": "ASCENDING"
         },
         {
-          "fieldPath": "timestamp",
+          "fieldPath": "branchId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
           "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "customers",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "shopId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "name",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "customers",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "shopId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "phone",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "customers",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "shopId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "email",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "parts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "shopId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "branchId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "stockQuantity",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "parts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "shopId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "name",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "parts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "shopId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "sku",
+          "order": "ASCENDING"
         }
       ]
     },
@@ -208,19 +582,9 @@
         {
           "fieldPath": "read",
           "order": "ASCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "notifications",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "type",
-          "order": "ASCENDING"
         },
         {
-          "fieldPath": "timestamp",
+          "fieldPath": "createdAt",
           "order": "DESCENDING"
         }
       ]
@@ -234,21 +598,11 @@
           "order": "ASCENDING"
         },
         {
-          "fieldPath": "createdAt",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "audit_logs",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "shopId",
+          "fieldPath": "type",
           "order": "ASCENDING"
         },
         {
-          "fieldPath": "timestamp",
+          "fieldPath": "createdAt",
           "order": "DESCENDING"
         }
       ]
@@ -262,31 +616,7 @@
           "order": "ASCENDING"
         },
         {
-          "fieldPath": "operation",
-          "order": "ASCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "customer_feedback",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "shopId",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "rating",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "customer_feedback",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "serviceId",
+          "fieldPath": "action",
           "order": "ASCENDING"
         },
         {
@@ -296,67 +626,15 @@
       ]
     },
     {
-      "collectionGroup": "reports",
+      "collectionGroup": "audit_logs",
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "shopId",
+          "fieldPath": "resourceType",
           "order": "ASCENDING"
         },
         {
-          "fieldPath": "type",
-          "order": "ASCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "reports",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "generatedAt",
-          "order": "DESCENDING"
-        },
-        {
-          "fieldPath": "type",
-          "order": "ASCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "settings",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "shopId",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "type",
-          "order": "ASCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "users",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "shopId",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "role",
-          "order": "ASCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "users",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "status",
+          "fieldPath": "action",
           "order": "ASCENDING"
         },
         {
@@ -366,11 +644,11 @@
       ]
     },
     {
-      "collectionGroup": "users",
+      "collectionGroup": "audit_logs",
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "shopId",
+          "fieldPath": "userId",
           "order": "ASCENDING"
         },
         {
@@ -380,48 +658,5 @@
       ]
     }
   ],
-  "fieldOverrides": [
-    {
-      "collectionGroup": "services",
-      "fieldPath": "price",
-      "indexes": [
-        {
-          "order": "ASCENDING",
-          "queryScope": "COLLECTION"
-        },
-        {
-          "order": "DESCENDING",
-          "queryScope": "COLLECTION"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "invoices",
-      "fieldPath": "total",
-      "indexes": [
-        {
-          "order": "ASCENDING",
-          "queryScope": "COLLECTION"
-        },
-        {
-          "order": "DESCENDING",
-          "queryScope": "COLLECTION"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "customer_feedback",
-      "fieldPath": "rating",
-      "indexes": [
-        {
-          "order": "ASCENDING",
-          "queryScope": "COLLECTION"
-        },
-        {
-          "order": "DESCENDING",
-          "queryScope": "COLLECTION"
-        }
-      ]
-    }
-  ]
+  "fieldOverrides": []
 } 

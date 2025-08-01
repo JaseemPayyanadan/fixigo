@@ -2,12 +2,12 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useUser } from "@/hooks/useUser";
-import { hasPermission, hasAnyPermission, hasAllPermissions, type PermissionContext, type ResourceAccess } from "@/lib/rbac";
+import { hasPermission, hasAnyPermission, hasAllPermissions, canAccessResource, type PermissionContext, type ResourceAccess } from "@/lib/rbac";
 import type { Permission } from "@/types";
 
 interface PermissionGuardProps {
   children: React.ReactNode;
-  permissions: Permission[];
+  permissions?: Permission[];
   requireAll?: boolean; // If true, user must have ALL permissions. If false, user must have ANY permission.
   resource?: ResourceAccess;
   redirectTo?: string;
@@ -30,7 +30,10 @@ export default function PermissionGuard({
     if (!loading && user && !isRedirecting) {
       let hasAccess = false;
       
-      if (resource) {
+      // If no permissions are required, allow access
+      if (!permissions || permissions.length === 0) {
+        hasAccess = true;
+      } else if (resource) {
         // Check permissions with resource context
         const context: PermissionContext = { user, resource };
         hasAccess = requireAll 
@@ -39,12 +42,7 @@ export default function PermissionGuard({
         
         // Additional resource access check
         if (hasAccess) {
-          // Import the canAccessResource function dynamically to avoid circular imports
-          import("@/lib/rbac").then(({ canAccessResource }) => {
-            if (!canAccessResource(context)) {
-              hasAccess = false;
-            }
-          });
+          hasAccess = canAccessResource(context);
         }
       } else {
         // Check permissions without resource context
@@ -88,11 +86,20 @@ export default function PermissionGuard({
 
   // Check permissions
   let hasAccess = false;
-  if (resource) {
+  
+  // If no permissions are required, allow access
+  if (!permissions || permissions.length === 0) {
+    hasAccess = true;
+  } else if (resource) {
     const context: PermissionContext = { user, resource };
     hasAccess = requireAll 
       ? permissions.every(permission => hasPermission(user, permission))
       : permissions.some(permission => hasPermission(user, permission));
+    
+    // Additional resource access check
+    if (hasAccess) {
+      hasAccess = canAccessResource(context);
+    }
   } else {
     hasAccess = requireAll 
       ? hasAllPermissions(user, permissions)

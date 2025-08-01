@@ -3,8 +3,7 @@ import { useState, useEffect } from "react";
 import { collection, query, where, getDocs, addDoc, updateDoc, doc, deleteDoc, orderBy } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useUser } from "./useUser";
-import { logger } from "@/lib/logger";
-import { UserManagementService } from "@/lib/userManagement";
+import { logger, isIndexBuildingError, getIndexBuildingMessage } from "@/lib/logger";
 import type { Technician } from "@/types";
 
 export function useTechnicians(shopId?: string, branchId?: string) {
@@ -21,86 +20,76 @@ export function useTechnicians(shopId?: string, branchId?: string) {
         setLoading(true);
         setError(null);
 
+        let q;
+        
+        if (shopId && branchId) {
+          // Fetch technicians for specific branch
+          q = query(
+            collection(db, "technicians"),
+            where("shopId", "==", shopId),
+            where("branchId", "==", branchId),
+            orderBy("createdAt", "desc")
+          );
+        } else if (shopId) {
+          // Fetch technicians for specific shop
+          q = query(
+            collection(db, "technicians"),
+            where("shopId", "==", shopId),
+            orderBy("createdAt", "desc")
+          );
+        } else {
+          // Fetch all technicians (for shop admin)
+          q = query(
+            collection(db, "technicians"),
+            orderBy("createdAt", "desc")
+          );
+        }
+
+        const querySnapshot = await getDocs(q);
         const technicianList: Technician[] = [];
 
-        if (shopId && branchId) {
-          // Fetch technicians from specific branch (nested collection only)
-          const nestedQuery = query(
-            collection(db, "shops", shopId, "branches", branchId, "technicians"),
-            orderBy("createdAt", "desc")
-          );
-          const nestedSnapshot = await getDocs(nestedQuery);
-
-          for (const docSnapshot of nestedSnapshot.docs) {
-            const data = docSnapshot.data();
-            const technician: Technician = {
-              id: docSnapshot.id,
-              name: data.name || "",
-              email: data.email || "",
-              phone: data.phone || "",
-              role: data.role || "technician",
-              shopId: data.shopId || "",
-              branchId: data.branchId || "",
-              skills: data.skills || [],
-              status: data.status || "active",
-              bio: data.bio || "",
-              specializations: data.specializations || [],
-              createdAt: data.createdAt?.toDate() || new Date(),
-              updatedAt: data.updatedAt?.toDate() || new Date(),
-            };
-            technicianList.push(technician);
-          }
-        } else if (shopId) {
-          // Fetch technicians from all branches in the shop (nested collections only)
-          const branchesQuery = query(
-            collection(db, "shops", shopId, "branches"),
-            orderBy("createdAt", "desc")
-          );
-          const branchesSnapshot = await getDocs(branchesQuery);
-
-          for (const branchDoc of branchesSnapshot.docs) {
-            try {
-              const techniciansQuery = query(
-                collection(db, "shops", shopId, "branches", branchDoc.id, "technicians"),
-                orderBy("createdAt", "desc")
-              );
-              const techniciansSnapshot = await getDocs(techniciansQuery);
-
-              for (const docSnapshot of techniciansSnapshot.docs) {
-                const data = docSnapshot.data();
-                const technician: Technician = {
-                  id: docSnapshot.id,
-                  name: data.name || "",
-                  email: data.email || "",
-                  phone: data.phone || "",
-                  role: data.role || "technician",
-                  shopId: data.shopId || "",
-                  branchId: data.branchId || "",
-                  skills: data.skills || [],
-                  status: data.status || "active",
-                  bio: data.bio || "",
-                  specializations: data.specializations || [],
-                  createdAt: data.createdAt?.toDate() || new Date(),
-                  updatedAt: data.updatedAt?.toDate() || new Date(),
-                };
-                technicianList.push(technician);
-              }
-            } catch (error) {
-              logger.warn(`Error fetching technicians for branch ${branchDoc.id}:`, { error: String(error) });
-              // Continue with other branches even if one fails
-            }
-          }
-        } else {
-          setTechnicians([]);
-          setLoading(false);
-          return;
+        for (const docSnapshot of querySnapshot.docs) {
+          const data = docSnapshot.data();
+          const technician: Technician = {
+            id: docSnapshot.id,
+            name: data.name || "",
+            email: data.email || "",
+            phone: data.phone || "",
+            role: "technician",
+            shopId: data.shopId || "",
+            branchId: data.branchId || "",
+            skills: data.skills || [],
+            status: data.status || "active",
+            bio: data.bio || "",
+            specializations: data.specializations || [],
+            experience: data.experience || 0,
+            rating: data.rating || 0,
+            totalServices: data.totalServices || 0,
+            completedServices: data.completedServices || 0,
+            availability: data.availability || {},
+            createdAt: data.createdAt?.toDate() || new Date(),
+            updatedAt: data.updatedAt?.toDate() || new Date(),
+          };
+          technicianList.push(technician);
         }
 
         setTechnicians(technicianList);
+        logger.debug('Technicians fetched successfully', { 
+          count: technicianList.length,
+          shopId,
+          branchId 
+        });
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : "Failed to fetch technicians";
-        setError(errorMessage);
-        logger.error("Error fetching technicians", { error: errorMessage });
+        
+        // Check if it's an index building error
+        if (isIndexBuildingError(errorMessage)) {
+          setError(getIndexBuildingMessage(errorMessage));
+        } else {
+          setError(errorMessage);
+        }
+        
+        logger.error("Error fetching technicians", { error: errorMessage, shopId, branchId });
       } finally {
         setLoading(false);
       }
@@ -109,35 +98,26 @@ export function useTechnicians(shopId?: string, branchId?: string) {
     fetchTechnicians();
   }, [user, shopId, branchId]);
 
-  const createTechnician = async (technicianData: Omit<Technician, "id" | "createdAt" | "updatedAt"> & { password?: string }) => {
-    if (!user || !shopId || !branchId) {
-      throw new Error("User not authenticated or missing shop/branch ID");
-    }
-
-    // Validate permissions
-    if (!UserManagementService.validateUserCreationPermissions(user, "technician", shopId, branchId)) {
-      throw new Error("You don't have permission to create technicians");
+  const createTechnician = async (technicianData: Omit<Technician, "id" | "createdAt" | "updatedAt">) => {
+    if (!user || !shopId) {
+      throw new Error("User not authenticated or missing shop ID");
     }
 
     try {
-      // Use the centralized user management service
-      const userResult = await UserManagementService.createUser({
-        name: technicianData.name,
-        email: technicianData.email,
-        password: technicianData.password,
-        role: "technician",
-        shopId,
-        branchId,
-        phone: technicianData.phone,
-        skills: technicianData.skills,
-        specializations: technicianData.specializations,
-        bio: technicianData.bio,
-      });
+      const technicianDocRef = await addDoc(
+        collection(db, "technicians"),
+        {
+          ...technicianData,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        }
+      );
 
       // Refresh technicians list
       const updatedTechnicians = await getDocs(
         query(
-          collection(db, "shops", shopId, "branches", branchId, "technicians"),
+          collection(db, "technicians"),
+          where("shopId", "==", shopId),
           orderBy("createdAt", "desc")
         )
       );
@@ -150,13 +130,18 @@ export function useTechnicians(shopId?: string, branchId?: string) {
           name: data.name || "",
           email: data.email || "",
           phone: data.phone || "",
-          role: data.role || "technician",
+          role: "technician",
           shopId: data.shopId || "",
           branchId: data.branchId || "",
           skills: data.skills || [],
           status: data.status || "active",
           bio: data.bio || "",
           specializations: data.specializations || [],
+          experience: data.experience || 0,
+          rating: data.rating || 0,
+          totalServices: data.totalServices || 0,
+          completedServices: data.completedServices || 0,
+          availability: data.availability || {},
           createdAt: data.createdAt?.toDate() || new Date(),
           updatedAt: data.updatedAt?.toDate() || new Date(),
         };
@@ -164,11 +149,7 @@ export function useTechnicians(shopId?: string, branchId?: string) {
       }
 
       setTechnicians(technicianList);
-      return {
-        userId: userResult.userId,
-        tempPassword: userResult.tempPassword,
-        email: userResult.email
-      };
+      return technicianDocRef.id;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Failed to create technician";
       logger.error("Error creating technician", { error: errorMessage });
@@ -177,12 +158,12 @@ export function useTechnicians(shopId?: string, branchId?: string) {
   };
 
   const updateTechnician = async (technicianId: string, updates: Partial<Technician>) => {
-    if (!user || !shopId || !branchId) {
-      throw new Error("User not authenticated or missing shop/branch ID");
+    if (!user || !shopId) {
+      throw new Error("User not authenticated or missing shop ID");
     }
 
     try {
-      const technicianRef = doc(db, "shops", shopId, "branches", branchId, "technicians", technicianId);
+      const technicianRef = doc(db, "technicians", technicianId);
       await updateDoc(technicianRef, {
         ...updates,
         updatedAt: new Date(),
@@ -191,7 +172,8 @@ export function useTechnicians(shopId?: string, branchId?: string) {
       // Refresh technicians list
       const updatedTechnicians = await getDocs(
         query(
-          collection(db, "shops", shopId, "branches", branchId, "technicians"),
+          collection(db, "technicians"),
+          where("shopId", "==", shopId),
           orderBy("createdAt", "desc")
         )
       );
@@ -204,13 +186,18 @@ export function useTechnicians(shopId?: string, branchId?: string) {
           name: data.name || "",
           email: data.email || "",
           phone: data.phone || "",
-          role: data.role || "technician",
+          role: "technician",
           shopId: data.shopId || "",
           branchId: data.branchId || "",
           skills: data.skills || [],
           status: data.status || "active",
           bio: data.bio || "",
           specializations: data.specializations || [],
+          experience: data.experience || 0,
+          rating: data.rating || 0,
+          totalServices: data.totalServices || 0,
+          completedServices: data.completedServices || 0,
+          availability: data.availability || {},
           createdAt: data.createdAt?.toDate() || new Date(),
           updatedAt: data.updatedAt?.toDate() || new Date(),
         };
@@ -220,23 +207,24 @@ export function useTechnicians(shopId?: string, branchId?: string) {
       setTechnicians(technicianList);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Failed to update technician";
-      logger.error("Error updating technician", { error: errorMessage });
+      logger.error("Error updating technician", { error: errorMessage, technicianId });
       throw new Error(errorMessage);
     }
   };
 
   const deleteTechnician = async (technicianId: string) => {
-    if (!user || !shopId || !branchId) {
-      throw new Error("User not authenticated or missing shop/branch ID");
+    if (!user || !shopId) {
+      throw new Error("User not authenticated or missing shop ID");
     }
 
     try {
-      await deleteDoc(doc(db, "shops", shopId, "branches", branchId, "technicians", technicianId));
+      await deleteDoc(doc(db, "technicians", technicianId));
       
       // Refresh technicians list
       const updatedTechnicians = await getDocs(
         query(
-          collection(db, "shops", shopId, "branches", branchId, "technicians"),
+          collection(db, "technicians"),
+          where("shopId", "==", shopId),
           orderBy("createdAt", "desc")
         )
       );
@@ -249,13 +237,18 @@ export function useTechnicians(shopId?: string, branchId?: string) {
           name: data.name || "",
           email: data.email || "",
           phone: data.phone || "",
-          role: data.role || "technician",
+          role: "technician",
           shopId: data.shopId || "",
           branchId: data.branchId || "",
           skills: data.skills || [],
           status: data.status || "active",
           bio: data.bio || "",
           specializations: data.specializations || [],
+          experience: data.experience || 0,
+          rating: data.rating || 0,
+          totalServices: data.totalServices || 0,
+          completedServices: data.completedServices || 0,
+          availability: data.availability || {},
           createdAt: data.createdAt?.toDate() || new Date(),
           updatedAt: data.updatedAt?.toDate() || new Date(),
         };
@@ -265,9 +258,29 @@ export function useTechnicians(shopId?: string, branchId?: string) {
       setTechnicians(technicianList);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Failed to delete technician";
-      logger.error("Error deleting technician", { error: errorMessage });
+      logger.error("Error deleting technician", { error: errorMessage, technicianId });
       throw new Error(errorMessage);
     }
+  };
+
+  const getTechnicianStats = () => {
+    const total = technicians.length;
+    const active = technicians.filter(t => t.status === 'active').length;
+    const online = Math.floor(total * 0.7); // Mock online count
+    const averageRating = technicians.length > 0 
+      ? technicians.reduce((sum, t) => sum + (t.rating || 0), 0) / technicians.length
+      : 0;
+    const totalCompleted = technicians.reduce((sum, t) => sum + (t.completedServices || 0), 0);
+    const totalCurrent = technicians.reduce((sum, t) => sum + (t.totalServices || 0), 0);
+
+    return {
+      total,
+      active,
+      online,
+      averageRating: parseFloat(averageRating.toFixed(1)),
+      totalCompleted,
+      totalCurrent
+    };
   };
 
   return {
@@ -277,5 +290,6 @@ export function useTechnicians(shopId?: string, branchId?: string) {
     createTechnician,
     updateTechnician,
     deleteTechnician,
+    getTechnicianStats,
   };
 } 

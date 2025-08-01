@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { collection, query, getDocs, orderBy } from "firebase/firestore";
+import { collection, query, where, getDocs, orderBy } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useUser } from "./useUser";
 import { logger } from "@/lib/logger";
@@ -49,9 +49,11 @@ export function useDashboardStats(shopId?: string, branchId?: string) {
         let branches: any[] = [];
 
         if (branchId) {
-          // Fetch data for specific branch
+          // Fetch data for specific branch using new flat structure
           const servicesQuery = query(
-            collection(db, "shops", shopId, "branches", branchId, "services"),
+            collection(db, "services"),
+            where("shopId", "==", shopId),
+            where("branchId", "==", branchId),
             orderBy("createdAt", "desc")
           );
           const servicesSnapshot = await getDocs(servicesQuery);
@@ -61,7 +63,9 @@ export function useDashboardStats(shopId?: string, branchId?: string) {
           }));
 
           const techniciansQuery = query(
-            collection(db, "shops", shopId, "branches", branchId, "technicians"),
+            collection(db, "technicians"),
+            where("shopId", "==", shopId),
+            where("branchId", "==", branchId),
             orderBy("createdAt", "desc")
           );
           const techniciansSnapshot = await getDocs(techniciansQuery);
@@ -71,7 +75,9 @@ export function useDashboardStats(shopId?: string, branchId?: string) {
           }));
 
           const invoicesQuery = query(
-            collection(db, "shops", shopId, "branches", branchId, "invoices"),
+            collection(db, "invoices"),
+            where("shopId", "==", shopId),
+            where("branchId", "==", branchId),
             orderBy("createdAt", "desc")
           );
           const invoicesSnapshot = await getDocs(invoicesQuery);
@@ -83,9 +89,10 @@ export function useDashboardStats(shopId?: string, branchId?: string) {
           // For branch-specific view, we only have 1 branch
           branches = [{ id: branchId }];
         } else {
-          // Fetch data across all branches in the shop
+          // Fetch data across all branches in the shop using new flat structure
           const branchesQuery = query(
-            collection(db, "shops", shopId, "branches"),
+            collection(db, "branches"),
+            where("shopId", "==", shopId),
             orderBy("createdAt", "desc")
           );
           const branchesSnapshot = await getDocs(branchesQuery);
@@ -94,48 +101,41 @@ export function useDashboardStats(shopId?: string, branchId?: string) {
             ...doc.data()
           }));
 
-          // Aggregate services from all branches
-          for (const branch of branches) {
-            try {
-              const servicesQuery = query(
-                collection(db, "shops", shopId, "branches", branch.id, "services"),
-                orderBy("createdAt", "desc")
-              );
-              const servicesSnapshot = await getDocs(servicesQuery);
-              const branchServices = servicesSnapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-              }));
-              services.push(...branchServices);
+          // Aggregate services from all branches using new flat structure
+          const servicesQuery = query(
+            collection(db, "services"),
+            where("shopId", "==", shopId),
+            orderBy("createdAt", "desc")
+          );
+          const servicesSnapshot = await getDocs(servicesQuery);
+          services = servicesSnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }));
 
-              // Aggregate technicians from all branches
-              const techniciansQuery = query(
-                collection(db, "shops", shopId, "branches", branch.id, "technicians"),
-                orderBy("createdAt", "desc")
-              );
-              const techniciansSnapshot = await getDocs(techniciansQuery);
-              const branchTechnicians = techniciansSnapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-              }));
-              technicians.push(...branchTechnicians);
+          // Aggregate technicians from all branches using new flat structure
+          const techniciansQuery = query(
+            collection(db, "technicians"),
+            where("shopId", "==", shopId),
+            orderBy("createdAt", "desc")
+          );
+          const techniciansSnapshot = await getDocs(techniciansQuery);
+          technicians = techniciansSnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }));
 
-              // Aggregate invoices from all branches
-              const invoicesQuery = query(
-                collection(db, "shops", shopId, "branches", branch.id, "invoices"),
-                orderBy("createdAt", "desc")
-              );
-              const invoicesSnapshot = await getDocs(invoicesQuery);
-              const branchInvoices = invoicesSnapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-              }));
-              invoices.push(...branchInvoices);
-            } catch (error) {
-              logger.warn(`Error fetching data for branch ${branch.id}:`, { error: String(error) });
-              // Continue with other branches even if one fails
-            }
-          }
+          // Aggregate invoices from all branches using new flat structure
+          const invoicesQuery = query(
+            collection(db, "invoices"),
+            where("shopId", "==", shopId),
+            orderBy("createdAt", "desc")
+          );
+          const invoicesSnapshot = await getDocs(invoicesQuery);
+          invoices = invoicesSnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }));
         }
 
         // Calculate stats

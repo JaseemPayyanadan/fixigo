@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { collection, query, where, getDocs, getDoc, addDoc, updateDoc, doc, deleteDoc, orderBy } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useUser } from "./useUser";
-import { logger } from "@/lib/logger";
+import { logger, isIndexBuildingError, getIndexBuildingMessage } from "@/lib/logger";
 import type { User, Role } from "@/types";
 import { addUserToBranchMembers } from "@/lib/userManagement";
 
@@ -53,27 +53,9 @@ export function useUsers(shopId?: string, filters?: UserFilters) {
 
         for (const docSnapshot of querySnapshot.docs) {
           const data = docSnapshot.data();
-          let phone = "";
           
-          // For technicians and branch admins, fetch phone from branch members array
-          if ((data.role === "technician" || data.role === "branch_admin") && data.branchId) {
-            try {
-              const branchDoc = await getDoc(doc(db, "shops", shopId, "branches", data.branchId));
-              if (branchDoc.exists()) {
-                const branchData = branchDoc.data();
-                const members = branchData.members || [];
-                
-                // Find the user in the members array
-                const userMember = members.find((member: any) => member.userId === data.uid);
-                if (userMember) {
-                  phone = userMember.phone || "";
-                }
-              }
-            } catch (error) {
-              console.warn(`Error fetching phone for ${data.uid}:`, error);
-            }
-          }
-          
+          // In the new flat structure, phone is stored directly in the user document
+          // or can be fetched from the technicians collection if needed
           const user: User = {
             id: docSnapshot.id,
             uid: data.uid || "",
@@ -84,9 +66,9 @@ export function useUsers(shopId?: string, filters?: UserFilters) {
             branchId: data.branchId || null,
             status: data.status || "active",
             onboardingCompleted: data.onboardingCompleted || false,
+            phone: data.phone || "", // Phone is now stored directly in user document
             createdAt: data.createdAt?.toDate() || new Date(),
             updatedAt: data.updatedAt?.toDate() || new Date(),
-            phone: phone, // Add phone to user object
           };
 
           // Apply filters
@@ -105,7 +87,14 @@ export function useUsers(shopId?: string, filters?: UserFilters) {
         setUsers(userList);
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : "Failed to fetch users";
-        setError(errorMessage);
+        
+        // Check if it's an index building error
+        if (isIndexBuildingError(errorMessage)) {
+          setError(getIndexBuildingMessage(errorMessage));
+        } else {
+          setError(errorMessage);
+        }
+        
         logger.error("Error fetching users", { error: errorMessage });
       } finally {
         setLoading(false);
@@ -157,6 +146,7 @@ export function useUsers(shopId?: string, filters?: UserFilters) {
           branchId: data.branchId || null,
           status: data.status || "active",
           onboardingCompleted: data.onboardingCompleted || false,
+          phone: data.phone || "",
           createdAt: data.createdAt?.toDate() || new Date(),
           updatedAt: data.updatedAt?.toDate() || new Date(),
         };
@@ -214,6 +204,7 @@ export function useUsers(shopId?: string, filters?: UserFilters) {
           branchId: data.branchId || null,
           status: data.status || "active",
           onboardingCompleted: data.onboardingCompleted || false,
+          phone: data.phone || "",
           createdAt: data.createdAt?.toDate() || new Date(),
           updatedAt: data.updatedAt?.toDate() || new Date(),
         };
@@ -258,6 +249,7 @@ export function useUsers(shopId?: string, filters?: UserFilters) {
           branchId: data.branchId || null,
           status: data.status || "active",
           onboardingCompleted: data.onboardingCompleted || false,
+          phone: data.phone || "",
           createdAt: data.createdAt?.toDate() || new Date(),
           updatedAt: data.updatedAt?.toDate() || new Date(),
         };
@@ -287,6 +279,7 @@ export function useUsers(shopId?: string, filters?: UserFilters) {
           branchId: data.branchId || null,
           status: data.status || "active",
           onboardingCompleted: data.onboardingCompleted || false,
+          phone: data.phone || "",
           createdAt: data.createdAt?.toDate() || new Date(),
           updatedAt: data.updatedAt?.toDate() || new Date(),
         };

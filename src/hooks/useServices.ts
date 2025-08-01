@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { collection, query, where, getDocs, addDoc, updateDoc, doc, deleteDoc, orderBy } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useUser } from "./useUser";
-import { logger } from "@/lib/logger";
+import { logger, isIndexBuildingError, getIndexBuildingMessage } from "@/lib/logger";
 import type { Service } from "@/types";
 
 export function useServices(shopId?: string, branchId?: string) {
@@ -22,13 +22,18 @@ export function useServices(shopId?: string, branchId?: string) {
 
         let q;
         if (shopId && branchId) {
+          // New flat structure: query top-level services collection with filters
           q = query(
-            collection(db, "shops", shopId, "branches", branchId, "services"),
+            collection(db, "services"),
+            where("shopId", "==", shopId),
+            where("branchId", "==", branchId),
             orderBy("createdAt", "desc")
           );
         } else if (shopId) {
+          // Query all services for the shop
           q = query(
-            collection(db, "shops", shopId, "branches"),
+            collection(db, "services"),
+            where("shopId", "==", shopId),
             orderBy("createdAt", "desc")
           );
         } else {
@@ -71,7 +76,14 @@ export function useServices(shopId?: string, branchId?: string) {
         setServices(serviceList);
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : "Failed to fetch services";
-        setError(errorMessage);
+        
+        // Check if it's an index building error
+        if (isIndexBuildingError(errorMessage)) {
+          setError(getIndexBuildingMessage(errorMessage));
+        } else {
+          setError(errorMessage);
+        }
+        
         logger.error("Error fetching services", { error: errorMessage });
       } finally {
         setLoading(false);
@@ -87,10 +99,13 @@ export function useServices(shopId?: string, branchId?: string) {
     }
 
     try {
+      // New flat structure: add to top-level services collection
       const serviceDocRef = await addDoc(
-        collection(db, "shops", shopId, "branches", branchId, "services"),
+        collection(db, "services"),
         {
           ...serviceData,
+          shopId, // Ensure shopId is set
+          branchId, // Ensure branchId is set
           createdAt: new Date(),
           updatedAt: new Date(),
         }
@@ -99,7 +114,9 @@ export function useServices(shopId?: string, branchId?: string) {
       // Refresh services list
       const updatedServices = await getDocs(
         query(
-          collection(db, "shops", shopId, "branches", branchId, "services"),
+          collection(db, "services"),
+          where("shopId", "==", shopId),
+          where("branchId", "==", branchId),
           orderBy("createdAt", "desc")
         )
       );
@@ -148,7 +165,8 @@ export function useServices(shopId?: string, branchId?: string) {
     }
 
     try {
-      const serviceRef = doc(db, "shops", shopId, "branches", branchId, "services", serviceId);
+      // New flat structure: update in top-level services collection
+      const serviceRef = doc(db, "services", serviceId);
       await updateDoc(serviceRef, {
         ...updates,
         updatedAt: new Date(),
@@ -157,7 +175,9 @@ export function useServices(shopId?: string, branchId?: string) {
       // Refresh services list
       const updatedServices = await getDocs(
         query(
-          collection(db, "shops", shopId, "branches", branchId, "services"),
+          collection(db, "services"),
+          where("shopId", "==", shopId),
+          where("branchId", "==", branchId),
           orderBy("createdAt", "desc")
         )
       );
@@ -205,12 +225,15 @@ export function useServices(shopId?: string, branchId?: string) {
     }
 
     try {
-      await deleteDoc(doc(db, "shops", shopId, "branches", branchId, "services", serviceId));
+      // New flat structure: delete from top-level services collection
+      await deleteDoc(doc(db, "services", serviceId));
       
       // Refresh services list
       const updatedServices = await getDocs(
         query(
-          collection(db, "shops", shopId, "branches", branchId, "services"),
+          collection(db, "services"),
+          where("shopId", "==", shopId),
+          where("branchId", "==", branchId),
           orderBy("createdAt", "desc")
         )
       );

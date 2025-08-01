@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { collection, query, where, getDocs, getDoc, addDoc, updateDoc, doc, deleteDoc, orderBy } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useUser } from "./useUser";
-import { logger } from "@/lib/logger";
+import { logger, isIndexBuildingError, getIndexBuildingMessage } from "@/lib/logger";
 import type { Branch } from "@/types";
 
 export function useBranches(shopId?: string) {
@@ -33,8 +33,10 @@ export function useBranches(shopId?: string) {
           throw new Error("Shop not found");
         }
 
+        // New flat structure: query top-level branches collection with shopId filter
         const q = query(
-          collection(db, "shops", shopId, "branches"),
+          collection(db, "branches"),
+          where("shopId", "==", shopId),
           orderBy("createdAt", "desc")
         );
         const querySnapshot = await getDocs(q);
@@ -50,7 +52,6 @@ export function useBranches(shopId?: string) {
             email: data.email || "",
             status: data.status || "active",
             shopId: data.shopId || "",
-            managerId: data.managerId || "",
             createdAt: data.createdAt?.toDate() || new Date(),
             updatedAt: data.updatedAt?.toDate() || new Date(),
           };
@@ -62,8 +63,10 @@ export function useBranches(shopId?: string) {
         const errorMessage = err instanceof Error ? err.message : "Failed to fetch branches";
         logger.error("Error fetching branches", { error: errorMessage });
         
-        // Check if it's a permission error
-        if (errorMessage.includes("Missing or insufficient permissions")) {
+        // Check if it's an index building error
+        if (isIndexBuildingError(errorMessage)) {
+          setError(getIndexBuildingMessage(errorMessage));
+        } else if (errorMessage.includes("Missing or insufficient permissions")) {
           setError("You don't have permission to access branches. Please contact your administrator.");
         } else {
           setError(errorMessage);
@@ -89,12 +92,12 @@ export function useBranches(shopId?: string) {
         throw new Error("Shop not found");
       }
 
-      // Step 2: Create branch document without user creation
+      // Step 2: Create branch document in new flat structure
       const branchDocRef = await addDoc(
-        collection(db, "shops", shopId, "branches"),
+        collection(db, "branches"),
         {
           ...branchData,
-          managerId: "", // No manager creation - removed authentication
+          shopId, // Ensure shopId is set
           createdAt: new Date(),
           updatedAt: new Date(),
         }
@@ -103,7 +106,8 @@ export function useBranches(shopId?: string) {
       // Step 3: Refresh branches list
       const updatedBranches = await getDocs(
         query(
-          collection(db, "shops", shopId, "branches"),
+          collection(db, "branches"),
+          where("shopId", "==", shopId),
           orderBy("createdAt", "desc")
         )
       );
@@ -145,7 +149,8 @@ export function useBranches(shopId?: string) {
     }
 
     try {
-      const branchRef = doc(db, "shops", shopId, "branches", branchId);
+      // New flat structure: update in top-level branches collection
+      const branchRef = doc(db, "branches", branchId);
       await updateDoc(branchRef, {
         ...updates,
         updatedAt: new Date(),
@@ -154,7 +159,8 @@ export function useBranches(shopId?: string) {
       // Refresh branches list
       const updatedBranches = await getDocs(
         query(
-          collection(db, "shops", shopId, "branches"),
+          collection(db, "branches"),
+          where("shopId", "==", shopId),
           orderBy("createdAt", "desc")
         )
       );
@@ -170,7 +176,6 @@ export function useBranches(shopId?: string) {
           email: data.email || "",
           status: data.status || "active",
           shopId: data.shopId || "",
-          managerId: data.managerId || "",
           createdAt: data.createdAt?.toDate() || new Date(),
           updatedAt: data.updatedAt?.toDate() || new Date(),
         };
@@ -191,12 +196,14 @@ export function useBranches(shopId?: string) {
     }
 
     try {
-      await deleteDoc(doc(db, "shops", shopId, "branches", branchId));
+      // New flat structure: delete from top-level branches collection
+      await deleteDoc(doc(db, "branches", branchId));
       
       // Refresh branches list
       const updatedBranches = await getDocs(
         query(
-          collection(db, "shops", shopId, "branches"),
+          collection(db, "branches"),
+          where("shopId", "==", shopId),
           orderBy("createdAt", "desc")
         )
       );
@@ -212,7 +219,6 @@ export function useBranches(shopId?: string) {
           email: data.email || "",
           status: data.status || "active",
           shopId: data.shopId || "",
-          managerId: data.managerId || "",
           createdAt: data.createdAt?.toDate() || new Date(),
           updatedAt: data.updatedAt?.toDate() || new Date(),
         };

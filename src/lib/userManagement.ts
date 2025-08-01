@@ -164,8 +164,8 @@ export class UserManagementService {
       phone: string;
     }
   ) {
-    // Branch admin profile is stored in the branch document itself
-    // The managerId field in the branch document contains the UID
+    // Branch admin profile is stored in the users collection
+    // Branch admins are identified by their branchId field
     logger.info("Branch admin profile created", { uid, branchId: data.branchId });
   }
 

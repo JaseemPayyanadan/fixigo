@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { collection, query, where, getDocs, addDoc, updateDoc, doc, deleteDoc, orderBy } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useUser } from "./useUser";
-import { logger } from "@/lib/logger";
+import { logger, isIndexBuildingError, getIndexBuildingMessage } from "@/lib/logger";
 import type { Invoice } from "@/types";
 
 export function useInvoices(shopId?: string, branchId?: string) {
@@ -22,13 +22,18 @@ export function useInvoices(shopId?: string, branchId?: string) {
 
         let q;
         if (shopId && branchId) {
+          // New flat structure: query top-level invoices collection with filters
           q = query(
-            collection(db, "shops", shopId, "branches", branchId, "invoices"),
+            collection(db, "invoices"),
+            where("shopId", "==", shopId),
+            where("branchId", "==", branchId),
             orderBy("createdAt", "desc")
           );
         } else if (shopId) {
+          // Query all invoices for the shop
           q = query(
-            collection(db, "shops", shopId, "branches"),
+            collection(db, "invoices"),
+            where("shopId", "==", shopId),
             orderBy("createdAt", "desc")
           );
         } else {
@@ -66,7 +71,14 @@ export function useInvoices(shopId?: string, branchId?: string) {
         setInvoices(invoiceList);
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : "Failed to fetch invoices";
-        setError(errorMessage);
+        
+        // Check if it's an index building error
+        if (isIndexBuildingError(errorMessage)) {
+          setError(getIndexBuildingMessage(errorMessage));
+        } else {
+          setError(errorMessage);
+        }
+        
         logger.error("Error fetching invoices", { error: errorMessage });
       } finally {
         setLoading(false);
@@ -82,10 +94,13 @@ export function useInvoices(shopId?: string, branchId?: string) {
     }
 
     try {
+      // New flat structure: add to top-level invoices collection
       const invoiceDocRef = await addDoc(
-        collection(db, "shops", shopId, "branches", branchId, "invoices"),
+        collection(db, "invoices"),
         {
           ...invoiceData,
+          shopId, // Ensure shopId is set
+          branchId, // Ensure branchId is set
           createdAt: new Date(),
           updatedAt: new Date(),
         }
@@ -94,7 +109,9 @@ export function useInvoices(shopId?: string, branchId?: string) {
       // Refresh invoices list
       const updatedInvoices = await getDocs(
         query(
-          collection(db, "shops", shopId, "branches", branchId, "invoices"),
+          collection(db, "invoices"),
+          where("shopId", "==", shopId),
+          where("branchId", "==", branchId),
           orderBy("createdAt", "desc")
         )
       );
@@ -138,7 +155,8 @@ export function useInvoices(shopId?: string, branchId?: string) {
     }
 
     try {
-      const invoiceRef = doc(db, "shops", shopId, "branches", branchId, "invoices", invoiceId);
+      // New flat structure: update in top-level invoices collection
+      const invoiceRef = doc(db, "invoices", invoiceId);
       await updateDoc(invoiceRef, {
         ...updates,
         updatedAt: new Date(),
@@ -147,7 +165,9 @@ export function useInvoices(shopId?: string, branchId?: string) {
       // Refresh invoices list
       const updatedInvoices = await getDocs(
         query(
-          collection(db, "shops", shopId, "branches", branchId, "invoices"),
+          collection(db, "invoices"),
+          where("shopId", "==", shopId),
+          where("branchId", "==", branchId),
           orderBy("createdAt", "desc")
         )
       );
@@ -190,12 +210,15 @@ export function useInvoices(shopId?: string, branchId?: string) {
     }
 
     try {
-      await deleteDoc(doc(db, "shops", shopId, "branches", branchId, "invoices", invoiceId));
+      // New flat structure: delete from top-level invoices collection
+      await deleteDoc(doc(db, "invoices", invoiceId));
       
       // Refresh invoices list
       const updatedInvoices = await getDocs(
         query(
-          collection(db, "shops", shopId, "branches", branchId, "invoices"),
+          collection(db, "invoices"),
+          where("shopId", "==", shopId),
+          where("branchId", "==", branchId),
           orderBy("createdAt", "desc")
         )
       );

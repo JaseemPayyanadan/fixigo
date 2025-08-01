@@ -1,37 +1,42 @@
 "use client";
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+
+import React, { useState, useEffect, useMemo } from 'react';
 import { useUser } from '@/hooks/useUser';
 import { useBranches } from '@/hooks/useBranches';
 import { useTechnicians } from '@/hooks/useTechnicians';
-import { collection, query, where, orderBy, limit, getDocs, getDoc, doc } from 'firebase/firestore';
+import { useServices } from '@/hooks/useServices';
+import { useInvoices } from '@/hooks/useInvoices';
+import { collection, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { logger } from '@/lib/logger';
-import { HiOfficeBuilding, HiUserGroup, HiClipboardList, HiDocumentText, HiUser, HiCurrencyDollar, HiTrendingUp, HiClock, HiCheckCircle, HiCalendar } from "react-icons/hi";
+import { logger, isIndexBuildingError, getIndexBuildingMessage } from '@/lib/logger';
+import { 
+  HiOfficeBuilding, 
+  HiUserGroup, 
+  HiClipboardList, 
+  HiCurrencyDollar, 
+  HiTrendingUp, 
+  HiClock, 
+  HiCheckCircle, 
+  HiUser,
+  HiChartBar,
+  HiCalendar,
+  HiStar,
+  HiExclamationTriangle
+} from "react-icons/hi";
 import Link from 'next/link';
 import PermissionGuard from '@/components/auth/PermissionGuard';
 import type { User } from "@/types";
 
-interface SimpleInvoice {
+// Types
+interface DashboardMetric {
   id: string;
-  total: number;
-  status: string;
-}
-
-// Memoized interfaces for better performance
-interface DashboardStats {
-  branches: number;
-  services: number;
-  technicians: number;
-  invoices: number;
-  pendingServices: number;
-  completedServices: number;
-  totalRevenue: number;
-  recentServices: Service[];
-
-  activeServices?: number;
-  totalCustomers?: number;
-  monthlyRevenue?: number;
-  customerSatisfaction?: number;
+  label: string;
+  value: number | string;
+  change?: number;
+  changeType?: 'increase' | 'decrease';
+  icon: React.ComponentType<{ className?: string }>;
+  color: string;
+  bgColor: string;
 }
 
 interface Service {
@@ -47,620 +52,448 @@ interface Service {
   estimatedDuration?: number;
 }
 
-// Memoized DashboardContent component
-const DashboardContent = React.memo(() => {
-  const { user } = useUser();
-  const [stats, setStats] = useState<DashboardStats>({
-    branches: 0,
-    services: 0,
-    technicians: 0,
-    invoices: 0,
-    pendingServices: 0,
-    completedServices: 0,
-    totalRevenue: 0,
-    recentServices: [],
-    
-    activeServices: 0,
-    totalCustomers: 0,
-    monthlyRevenue: 0,
-    customerSatisfaction: 0
-  });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+interface DashboardData {
+  metrics: DashboardMetric[];
+  recentServices: Service[];
+  loading: boolean;
+  error: string | null;
+}
 
-  // Use existing hooks with memoization
-  const { branches } = useBranches(user?.shopId);
-  const { technicians } = useTechnicians(user?.shopId, user?.role === 'branch_admin' ? user?.branchId : undefined);
+// Utility functions
+const getTimestampSeconds = (timestamp: unknown): number => {
+  if (!timestamp) return 0;
+  if (typeof timestamp === 'object' && timestamp && 'seconds' in timestamp) {
+    return (timestamp as { seconds: number }).seconds;
+  }
+  return 0;
+};
 
-  // Memoized helper functions
-  const getTimestampSeconds = useCallback((timestamp: unknown): number => {
-    if (!timestamp) return 0;
-    if (typeof timestamp === 'object' && timestamp && 'seconds' in timestamp) {
-      return (timestamp as { seconds: number }).seconds;
-    }
-    return 0;
-  }, []);
+const formatCurrency = (amount: number): string => {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+  }).format(amount);
+};
 
-  const sortServicesByTimestamp = useCallback((services: Service[]) => {
-    return services.sort((a, b) => {
-      const aTime = getTimestampSeconds(a.createdAt);
-      const bTime = getTimestampSeconds(b.createdAt);
-      return bTime - aTime; // Descending order
-    }).slice(0, 5);
-  }, [getTimestampSeconds]);
+const getStatusColor = (status: string): { bg: string; text: string } => {
+  switch (status.toLowerCase()) {
+    case 'completed':
+      return { bg: 'bg-green-100', text: 'text-green-800' };
+    case 'in_progress':
+      return { bg: 'bg-blue-100', text: 'text-blue-800' };
+    case 'pending':
+      return { bg: 'bg-yellow-100', text: 'text-yellow-800' };
+    default:
+      return { bg: 'bg-gray-100', text: 'text-gray-800' };
+  }
+};
 
-  // Memoized data fetching functions
-  const fetchTechnicianData = useCallback(async (user: User) => {
-    // For technicians, we need to get their assigned services from their branch
-    if (!user.shopId || !user.branchId) {
-      throw new Error('Technician missing shopId or branchId');
-    }
-
-    const servicesQuery = query(
-      collection(db, "shops", user.shopId, "branches", user.branchId, "services"),
-      where("assignedTechnicianId", "==", user.uid),
-      orderBy("createdAt", "desc"),
-      limit(10)
-    );
-    
-    const servicesSnapshot = await getDocs(servicesQuery);
-    return servicesSnapshot.docs.map(doc => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        name: data.name || data.serviceName || "Unknown Service",
-        status: data.status || "To Do",
-        price: data.price || data.total || 0,
-        createdAt: data.createdAt,
-        customer: data.customer || null,
-        device: data.device || null,
-        technician: data.technician || null,
-        branch: data.branch || null,
-        estimatedDuration: data.estimatedDuration || 0
-      };
-    });
-  }, []);
-
-  const fetchShopAdminData = useCallback(async (user: User) => {
-    if (!user.shopId) {
-      throw new Error('Shop admin missing shopId');
-    }
-
-    // Get all branches for the shop
-    const branchesQuery = query(
-      collection(db, "shops", user.shopId, "branches"),
-      orderBy("createdAt", "desc")
-    );
-    const branchesSnapshot = await getDocs(branchesQuery);
-            const branches = branchesSnapshot.docs.map(doc => ({ 
-          id: doc.id, 
-          name: doc.data().name || "Unknown Branch",
-          ...doc.data() 
-        }));
-
-    // Aggregate services and invoices from all branches
-            const allServices: any[] = [];
-        const allInvoices: any[] = [];
-
-    for (const branch of branches) {
-      try {
-        const [servicesSnapshot, invoicesSnapshot] = await Promise.all([
-          getDocs(query(collection(db, "shops", user.shopId, "branches", branch.id, "services"), orderBy("createdAt", "desc"))),
-          getDocs(query(collection(db, "shops", user.shopId, "branches", branch.id, "invoices"), orderBy("createdAt", "desc")))
-        ]);
-
-        const branchServices = servicesSnapshot.docs.map(doc => {
-          const data = doc.data();
-          return {
-            id: doc.id,
-            name: data.name || data.serviceName || "Unknown Service",
-            status: data.status || "To Do",
-            price: data.price || data.total || 0,
-            createdAt: data.createdAt,
-            customer: data.customer || null,
-            device: data.device || null,
-            technician: data.technician || null,
-            branch: { id: branch.id, name: branch.name || "Unknown Branch" },
-            estimatedDuration: data.estimatedDuration || 0
-          };
-        });
-
-        const branchInvoices = invoicesSnapshot.docs.map(doc => {
-          const data = doc.data();
-          return {
-            id: doc.id,
-            total: data.total || 0,
-            status: data.status || "pending"
-          };
-        });
-
-        allServices.push(...branchServices);
-        allInvoices.push(...branchInvoices);
-      } catch (error) {
-        logger.warn(`Error fetching data for branch ${branch.id}:`, { error: String(error) });
-        // Continue with other branches even if one fails
-      }
-    }
-
-    return { services: allServices, invoices: allInvoices };
-  }, []);
-
-  const fetchBranchAdminData = useCallback(async (user: User) => {
-    if (!user.shopId || !user.branchId) {
-      throw new Error('Branch admin missing shopId or branchId');
-    }
-
-    const [servicesSnapshot, invoicesSnapshot] = await Promise.all([
-      getDocs(query(collection(db, "shops", user.shopId, "branches", user.branchId, "services"), orderBy("createdAt", "desc"))),
-      getDocs(query(collection(db, "shops", user.shopId, "branches", user.branchId, "invoices"), orderBy("createdAt", "desc")))
-    ]);
-
-    const services = servicesSnapshot.docs.map(doc => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        name: data.name || data.serviceName || "Unknown Service",
-        status: data.status || "To Do",
-        price: data.price || data.total || 0,
-        createdAt: data.createdAt,
-        customer: data.customer || null,
-        device: data.device || null,
-        technician: data.technician || null,
-        branch: { id: user.branchId!, name: "Current Branch" },
-        estimatedDuration: data.estimatedDuration || 0
-      };
-    });
-
-    const invoices = invoicesSnapshot.docs.map(doc => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        total: data.total || 0,
-        status: data.status || "pending"
-      };
-    });
-
-    return { services, invoices };
-  }, []);
-
-  // Memoized data fetching effect
-  useEffect(() => {
-    const fetchDashboardData = async () => {
-      if (!user) return;
-
-      // Early validation
-      if (user.role === "shop_admin" && !user.shopId) {
-        logger.warn('Shop admin missing shopId', { userId: user.uid });
-        setLoading(false);
-        return;
-      }
-      
-      if (user.role === "branch_admin" && (!user.shopId || !user.branchId)) {
-        logger.warn('Branch admin missing shopId or branchId', { 
-          userId: user.uid, 
-          shopId: user.shopId, 
-          branchId: user.branchId 
-        });
-        setLoading(false);
-        return;
-      }
-      
-      if (user.role === "technician" && (!user.shopId || !user.branchId)) {
-        logger.warn('Technician missing shopId or branchId', { 
-          userId: user.uid, 
-          shopId: user.shopId, 
-          branchId: user.branchId 
-        });
-        setLoading(false);
-        return;
-      }
-
-      try {
-        setLoading(true);
-        setError(null);
-        
-        logger.info('Fetching dashboard data', { 
-          userId: user.uid, 
-          role: user.role,
-          shopId: user.shopId,
-          branchId: user.branchId,
-          onboardingCompleted: user.onboardingCompleted
-        });
-
-        let services: Service[] = [];
-        let invoices: SimpleInvoice[] = [];
-
-        if (user.role === "technician") {
-          services = await fetchTechnicianData(user);
-        } else if (user.role === "shop_admin") {
-          const data = await fetchShopAdminData(user);
-          services = data.services;
-          invoices = data.invoices;
-        } else if (user.role === "branch_admin") {
-          const data = await fetchBranchAdminData(user);
-          services = data.services;
-          invoices = data.invoices;
-        }
-
-        // Calculate stats efficiently
-        const pendingServices = services.filter((s: Service) => s.status === "To Do" || s.status === "In Progress").length;
-        const completedServices = services.filter((s: Service) => s.status === "Completed").length;
-        const totalRevenue = invoices.reduce((sum: number, inv: SimpleInvoice) => sum + (Number(inv.total) || 0), 0);
-        const monthlyRevenue = totalRevenue * (user.role === "shop_admin" ? 0.3 : 0.25);
-        const activeServices = services.filter((s: Service) => s.status === "In Progress").length;
-        const totalCustomers = new Set(services.map((s: Service) => s.customer?.email).filter(Boolean)).size;
-        const customerSatisfaction = services.length > 0 ? (user.role === "shop_admin" ? 4.5 : 4.3) : 0;
-
-        const calculatedStats: DashboardStats = {
-          branches: user.role === "branch_admin" ? 1 : branches.length,
-          services: services.length,
-          technicians: technicians.length,
-          invoices: invoices.length,
-          pendingServices,
-          completedServices,
-          totalRevenue,
-          recentServices: sortServicesByTimestamp(services),
-          activeServices,
-          totalCustomers,
-          monthlyRevenue,
-          customerSatisfaction
-        };
-
-        setStats(calculatedStats);
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Failed to fetch dashboard data";
-        setError(errorMessage);
-        logger.error('Error fetching dashboard data', { 
-          error: errorMessage,
-          userId: user.uid,
-          role: user.role,
-          shopId: user.shopId,
-          branchId: user.branchId
-        });
-        
-        // Set default stats on error
-        setStats({
-          branches: 0,
-          services: 0,
-          technicians: 0,
-          invoices: 0,
-          pendingServices: 0,
-          completedServices: 0,
-          totalRevenue: 0,
-          recentServices: [],
-          activeServices: 0,
-          totalCustomers: 0,
-          monthlyRevenue: 0,
-          customerSatisfaction: 0
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchDashboardData();
-  }, [user, sortServicesByTimestamp, branches, technicians, fetchTechnicianData, fetchShopAdminData, fetchBranchAdminData]);
-
-  // Memoized loading component
-  const LoadingSkeleton = useMemo(() => (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
-      <div className="w-full px-8 py-8">
-        <div className="animate-pulse">
-          <div className="h-8 bg-gray-200 rounded w-1/4 mb-8"></div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-            {[...Array(6)].map((_, i) => (
-              <div key={i} className="bg-white rounded-xl shadow-sm p-3 border border-gray-100">
-                <div className="h-4 bg-gray-200 rounded w-1/2 mb-2"></div>
-                <div className="h-8 bg-gray-200 rounded w-1/3"></div>
-              </div>
-            ))}
+// Dashboard Components
+const MetricCard: React.FC<DashboardMetric> = ({ 
+  label, 
+  value, 
+  change, 
+  changeType, 
+  icon: Icon, 
+  color, 
+  bgColor 
+}) => (
+  <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-sm font-medium text-gray-600">{label}</p>
+        <p className="text-2xl font-bold text-gray-900 mt-1">{value}</p>
+        {change !== undefined && (
+          <div className="flex items-center mt-2">
+            <span className={`text-sm font-medium ${
+              changeType === 'increase' ? 'text-green-600' : 'text-red-600'
+            }`}>
+              {changeType === 'increase' ? '+' : ''}{change}%
+            </span>
+            <span className="text-sm text-gray-500 ml-1">from last month</span>
           </div>
-        </div>
+        )}
+      </div>
+      <div className={`p-3 rounded-lg ${bgColor}`}>
+        <Icon className={`h-6 w-6 ${color}`} />
       </div>
     </div>
-  ), []);
+  </div>
+);
 
-  if (loading) {
-    return LoadingSkeleton;
+const RecentServicesCard: React.FC<{ services: Service[] }> = ({ services }) => (
+  <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+    <div className="px-6 py-4 border-b border-gray-200">
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold text-gray-900">Recent Services</h3>
+        <Link 
+          href="/services" 
+          className="text-sm font-medium text-blue-600 hover:text-blue-700"
+        >
+          View all
+        </Link>
+      </div>
+    </div>
+    <div className="p-6">
+      {services.length > 0 ? (
+        <div className="space-y-4">
+          {services.map((service) => {
+            const statusColors = getStatusColor(service.status);
+            return (
+              <div key={service.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                <div className="flex items-center space-x-4">
+                  <div className="flex-shrink-0">
+                    <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                      <HiClipboardList className="h-5 w-5 text-blue-600" />
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">{service.name}</p>
+                    <p className="text-sm text-gray-500">
+                      {service.customer?.name || 'Unknown Customer'} • {service.device?.type || 'Unknown Device'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-4">
+                  <span className={`px-3 py-1 text-xs font-medium rounded-full ${statusColors.bg} ${statusColors.text}`}>
+                    {service.status.replace('_', ' ')}
+                  </span>
+                  <span className="text-sm font-medium text-gray-900">
+                    {formatCurrency(service.price)}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="text-center py-12">
+          <HiClipboardList className="mx-auto h-12 w-12 text-gray-400" />
+          <h3 className="mt-4 text-lg font-medium text-gray-900">No services yet</h3>
+          <p className="mt-2 text-sm text-gray-500">Get started by creating your first service.</p>
+          <div className="mt-6">
+            <Link
+              href="/services/new"
+              className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 transition-colors"
+            >
+              Create Service
+            </Link>
+          </div>
+        </div>
+      )}
+    </div>
+  </div>
+);
+
+const QuickActionsCard: React.FC = () => (
+  <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+    <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
+    <div className="grid grid-cols-2 gap-4">
+      <Link
+        href="/services/new"
+        className="flex items-center p-4 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+      >
+        <HiClipboardList className="h-5 w-5 text-blue-600 mr-3" />
+        <span className="text-sm font-medium text-gray-900">New Service</span>
+      </Link>
+      <Link
+        href="/technicians/new"
+        className="flex items-center p-4 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors"
+      >
+        <HiUserGroup className="h-5 w-5 text-purple-600 mr-3" />
+        <span className="text-sm font-medium text-gray-900">Add Technician</span>
+      </Link>
+      <Link
+        href="/branch/new"
+        className="flex items-center p-4 bg-green-50 rounded-lg hover:bg-green-100 transition-colors"
+      >
+        <HiOfficeBuilding className="h-5 w-5 text-green-600 mr-3" />
+        <span className="text-sm font-medium text-gray-900">New Branch</span>
+      </Link>
+      <Link
+        href="/reports"
+        className="flex items-center p-4 bg-orange-50 rounded-lg hover:bg-orange-100 transition-colors"
+      >
+        <HiChartBar className="h-5 w-5 text-orange-600 mr-3" />
+        <span className="text-sm font-medium text-gray-900">View Reports</span>
+      </Link>
+    </div>
+  </div>
+);
+
+// Main Dashboard Component
+const DashboardContent: React.FC = () => {
+  const { user } = useUser();
+  const [data, setData] = useState<DashboardData>({
+    metrics: [],
+    recentServices: [],
+    loading: true,
+    error: null
+  });
+
+  // Use hooks for data
+  const { branches } = useBranches(user?.shopId);
+  const { technicians } = useTechnicians(user?.shopId, user?.role === 'branch_admin' ? user?.branchId : undefined);
+  const { services } = useServices(user?.shopId, user?.role === 'branch_admin' ? user?.branchId : undefined);
+  const { invoices } = useInvoices(user?.shopId, user?.role === 'branch_admin' ? user?.branchId : undefined);
+
+  // Fetch dashboard data
+  const fetchDashboardData = async () => {
+    if (!user) return;
+
+    try {
+      setData(prev => ({ ...prev, loading: true, error: null }));
+
+      let servicesData: Service[] = [];
+      let invoicesData: any[] = [];
+
+      // Fetch data based on user role
+      if (user.role === 'technician') {
+        const servicesQuery = query(
+          collection(db, "services"),
+          where("shopId", "==", user.shopId),
+          where("branchId", "==", user.branchId),
+          where("assignedTechnicianId", "==", user.uid),
+          orderBy("createdAt", "desc"),
+          limit(10)
+        );
+        const snapshot = await getDocs(servicesQuery);
+        servicesData = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as Service[];
+      } else {
+        // For shop_admin and branch_admin
+        const servicesQuery = query(
+          collection(db, "services"),
+          where("shopId", "==", user.shopId),
+          ...(user.role === 'branch_admin' ? [where("branchId", "==", user.branchId)] : []),
+          orderBy("createdAt", "desc")
+        );
+        const invoicesQuery = query(
+          collection(db, "invoices"),
+          where("shopId", "==", user.shopId),
+          ...(user.role === 'branch_admin' ? [where("branchId", "==", user.branchId)] : []),
+          orderBy("createdAt", "desc")
+        );
+
+        const [servicesSnapshot, invoicesSnapshot] = await Promise.all([
+          getDocs(servicesQuery),
+          getDocs(invoicesQuery)
+        ]);
+
+        servicesData = servicesSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as Service[];
+
+        invoicesData = invoicesSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+      }
+
+      // Calculate metrics
+      const totalServices = servicesData.length;
+      const pendingServices = servicesData.filter(s => s.status === 'pending' || s.status === 'in_progress').length;
+      const completedServices = servicesData.filter(s => s.status === 'completed').length;
+      const totalRevenue = invoicesData.reduce((sum, invoice) => sum + (invoice.total || 0), 0);
+      const activeServices = servicesData.filter(s => s.status === 'in_progress').length;
+      const totalCustomers = new Set(servicesData.map(s => s.customer?.name).filter(Boolean)).size;
+      const customerSatisfaction = totalServices > 0 ? Math.round((completedServices / totalServices) * 100) : 0;
+
+      // Sort recent services
+      const recentServices = servicesData
+        .sort((a, b) => getTimestampSeconds(b.createdAt) - getTimestampSeconds(a.createdAt))
+        .slice(0, 5);
+
+      // Create metrics array
+      const metrics: DashboardMetric[] = [
+        {
+          id: 'branches',
+          label: 'Branches',
+          value: branches?.length || 0,
+          icon: HiOfficeBuilding,
+          color: 'text-blue-600',
+          bgColor: 'bg-blue-100'
+        },
+        {
+          id: 'services',
+          label: 'Total Services',
+          value: totalServices,
+          icon: HiClipboardList,
+          color: 'text-green-600',
+          bgColor: 'bg-green-100'
+        },
+        {
+          id: 'technicians',
+          label: 'Technicians',
+          value: technicians?.length || 0,
+          icon: HiUserGroup,
+          color: 'text-purple-600',
+          bgColor: 'bg-purple-100'
+        },
+        {
+          id: 'revenue',
+          label: 'Total Revenue',
+          value: formatCurrency(totalRevenue),
+          icon: HiCurrencyDollar,
+          color: 'text-yellow-600',
+          bgColor: 'bg-yellow-100'
+        },
+        {
+          id: 'pending',
+          label: 'Pending Services',
+          value: pendingServices,
+          icon: HiClock,
+          color: 'text-orange-600',
+          bgColor: 'bg-orange-100'
+        },
+        {
+          id: 'completed',
+          label: 'Completed',
+          value: completedServices,
+          icon: HiCheckCircle,
+          color: 'text-green-600',
+          bgColor: 'bg-green-100'
+        },
+        {
+          id: 'active',
+          label: 'Active Services',
+          value: activeServices,
+          icon: HiTrendingUp,
+          color: 'text-blue-600',
+          bgColor: 'bg-blue-100'
+        },
+        {
+          id: 'satisfaction',
+          label: 'Customer Satisfaction',
+          value: `${customerSatisfaction}%`,
+          icon: HiStar,
+          color: 'text-indigo-600',
+          bgColor: 'bg-indigo-100'
+        }
+      ];
+
+      setData({
+        metrics,
+        recentServices,
+        loading: false,
+        error: null
+      });
+
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to fetch dashboard data";
+      
+      // Check if it's an index building error
+      const finalErrorMessage = isIndexBuildingError(errorMessage) 
+        ? getIndexBuildingMessage(errorMessage)
+        : errorMessage;
+      
+      setData(prev => ({
+        ...prev,
+        loading: false,
+        error: finalErrorMessage
+      }));
+      logger.error("Error fetching dashboard data", {
+        error: errorMessage,
+        userId: user?.uid,
+        role: user?.role
+      });
+    }
+  };
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, [user, branches, technicians, services, invoices]);
+
+  if (data.loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading dashboard...</p>
+        </div>
+      </div>
+    );
   }
 
-  if (error) {
+  if (data.error) {
+    const isIndexBuilding = isIndexBuildingError(data.error);
+    
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
-        <div className="w-full px-8 py-8">
-          <div className="bg-red-50 border border-red-200 rounded-lg p-6">
-            <h3 className="text-lg font-medium text-red-800">Error loading dashboard</h3>
-            <p className="text-red-600 mt-2">{error}</p>
-          </div>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          {isIndexBuilding ? (
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          ) : (
+            <HiExclamationTriangle className="mx-auto h-12 w-12 text-red-500" />
+          )}
+          <h2 className="mt-4 text-xl font-semibold text-gray-900">
+            {isIndexBuilding ? 'Setting Up Database' : 'Error Loading Dashboard'}
+          </h2>
+          <p className="mt-2 text-gray-600">{data.error}</p>
+          {!isIndexBuilding && (
+            <button 
+              onClick={fetchDashboardData}
+              className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 transition-colors"
+            >
+              Try Again
+            </button>
+          )}
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
-      <div className="w-full px-8 py-4">
-        {/* Header */}
-        <div className="flex flex-row justify-between mb-8">
-          <div className="flex flex-col">
-          <h1 className="text-xl font-bold text-gray-900">
-            Welcome back, {user?.name || 'User'}!
-          </h1>
-          <p className="text-xs text-gray-600">
-            Here&apos;s what&apos;s happening with your {user?.role === 'technician' ? 'tasks' : 'business'} today.
+    <div className="p-6 space-y-6">
+      {/* Header */}
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+          <p className="text-gray-600 mt-1">
+            Welcome back, {user?.name || 'User'}
           </p>
-          </div>
-          {/* add date and day */}
-          <div className="flex flex-row items-center gap-2">
-            {/* calendar icon with bg */}
-            <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
-              <HiCalendar className="h-4 w-4 text-gray-600" />
-            </div>
-            <div className="flex flex-col">
-            <p className="text-xs font-bold text-gray-900">
-              {new Date().toLocaleDateString()}
-            </p>
-            <p className="text-xs font-bold text-gray-600">
-              {new Date().toLocaleDateString('en-US', { weekday: 'long' })}
-            </p>
-            </div>
-          </div>
+        </div>
+        <div className="text-sm text-gray-500">
+          {new Date().toLocaleDateString('en-US', { 
+            weekday: 'long', 
+            year: 'numeric', 
+            month: 'long', 
+            day: 'numeric' 
+          })}
+        </div>
+      </div>
+
+      {/* Metrics Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {data.metrics.map((metric) => (
+          <MetricCard key={metric.id} {...metric} />
+        ))}
+      </div>
+
+      {/* Content Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Recent Services - Takes 2 columns */}
+        <div className="lg:col-span-2">
+          <RecentServicesCard services={data.recentServices} />
         </div>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-          {/* Role-specific stats */}
-          {user?.role === 'shop_admin' && (
-            <>
-              <div className="bg-white rounded-xl shadow-sm p-3 border border-gray-100">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Branches</p>
-                    <p className="text-2xl font-bold text-gray-900">{stats.branches}</p>
-                  </div>
-                  <div className="p-2 bg-green-100 rounded-full">
-                    <HiOfficeBuilding className="h-4 w-4 text-green-600" />
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-xl shadow-sm p-3 border border-gray-100">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Technicians</p>
-                    <p className="text-2xl font-bold text-gray-900">{stats.technicians}</p>
-                  </div>
-                  <div className="p-2 bg-purple-100 rounded-full">
-                    <HiUserGroup className="h-4 w-4 text-purple-600" />
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-xl shadow-sm p-3 border border-gray-100">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Total Customers</p>
-                    <p className="text-2xl font-bold text-gray-900">{stats.totalCustomers}</p>
-                  </div>
-                  <div className="p-2 bg-indigo-100 rounded-full">
-                    <HiUser className="h-4 w-4 text-indigo-600" />
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
-
-          {user?.role === 'branch_admin' && (
-            <>
-              <div className="bg-white rounded-xl shadow-sm p-3 border border-gray-100">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Total Services</p>
-                    <p className="text-2xl font-bold text-gray-900">{stats.services}</p>
-                  </div>
-                  <div className="p-2 bg-blue-100 rounded-full">
-                    <HiClipboardList className="h-4 w-4 text-blue-600" />
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-xl shadow-sm p-3 border border-gray-100">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Technicians</p>
-                    <p className="text-2xl font-bold text-gray-900">{stats.technicians}</p>
-                  </div>
-                  <div className="p-2 bg-purple-100 rounded-full">
-                    <HiUserGroup className="h-4 w-4 text-purple-600" />
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-xl shadow-sm p-3 border border-gray-100">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Total Customers</p>
-                    <p className="text-2xl font-bold text-gray-900">{stats.totalCustomers}</p>
-                  </div>
-                  <div className="p-2 bg-indigo-100 rounded-full">
-                    <HiUser className="h-4 w-4 text-indigo-600" />
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-xl shadow-sm p-3 border border-gray-100">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Invoices</p>
-                    <p className="text-2xl font-bold text-gray-900">{stats.invoices}</p>
-                  </div>
-                  <div className="p-2 bg-yellow-100 rounded-full">
-                    <HiDocumentText className="h-4 w-4 text-yellow-600" />
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
-
-          {user?.role === 'technician' && (
-            <>
-              <div className="bg-white rounded-xl shadow-sm p-3 border border-gray-100">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Total Tasks</p>
-                    <p className="text-2xl font-bold text-gray-900">{stats.services}</p>
-                  </div>
-                  <div className="p-2 bg-blue-100 rounded-full">
-                    <HiClipboardList className="h-4 w-4 text-blue-600" />
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-xl shadow-sm p-3 border border-gray-100">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Pending Tasks</p>
-                    <p className="text-2xl font-bold text-gray-900">{stats.pendingServices}</p>
-                  </div>
-                  <div className="p-2 bg-orange-100 rounded-full">
-                    <HiClock className="h-4 w-4 text-orange-600" />
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-xl shadow-sm p-3 border border-gray-100">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Completed Tasks</p>
-                    <p className="text-2xl font-bold text-gray-900">{stats.completedServices}</p>
-                  </div>
-                  <div className="p-2 bg-green-100 rounded-full">
-                    <HiCheckCircle className="h-4 w-4 text-green-600" />
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-xl shadow-sm p-3 border border-gray-100">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Total Revenue</p>
-                    <p className="text-2xl font-bold text-gray-900">₹{stats.totalRevenue.toLocaleString()}</p>
-                  </div>
-                  <div className="p-2 bg-green-100 rounded-full">
-                    <HiCurrencyDollar className="h-4 w-4 text-green-600" />
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
+        {/* Quick Actions - Takes 1 column */}
+        <div>
+          <QuickActionsCard />
         </div>
-
-        {/* Additional Stats for Shop Admin */}
-        {user?.role === 'shop_admin' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-            <div className="bg-white rounded-xl shadow-sm p-3 border border-gray-100">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Active Services</p>
-                  <p className="text-2xl font-bold text-gray-900">{stats.activeServices}</p>
-                </div>
-                <div className="p-2 bg-orange-100 rounded-full">
-                  <HiTrendingUp className="h-4 w-4 text-orange-600" />
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-xl shadow-sm p-3 border border-gray-100">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Monthly Revenue</p>
-                  <p className="text-2xl font-bold text-gray-900">₹{stats.monthlyRevenue?.toLocaleString()}</p>
-                </div>
-                <div className="p-2 bg-green-100 rounded-full">
-                  <HiCurrencyDollar className="h-4 w-4 text-green-600" />
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-xl shadow-sm p-3 border border-gray-100">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Customer Rating</p>
-                  <p className="text-2xl font-bold text-gray-900">{stats.customerSatisfaction}/5</p>
-                </div>
-                <div className="p-2 bg-yellow-100 rounded-full">
-                  <HiTrendingUp className="h-4 w-4 text-yellow-600" />
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Recent Services */}
-        {stats.recentServices.length > 0 && (
-          <div>
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Recent {user?.role === 'technician' ? 'Tasks' : 'Services'}</h2>
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Service
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Customer
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Status
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Price
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Date
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {stats.recentServices.map((service) => (
-                      <tr key={service.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">{service.name}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">{service.customer?.name || 'N/A'}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                            service.status === 'Completed' ? 'bg-green-100 text-green-800' :
-                            service.status === 'In Progress' ? 'bg-blue-100 text-blue-800' :
-                            'bg-yellow-100 text-yellow-800'
-                          }`}>
-                            {service.status}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          ₹{service.price.toLocaleString()}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {service.createdAt ? new Date(getTimestampSeconds(service.createdAt) * 1000).toLocaleDateString() : 'N/A'}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
-});
+};
 
-DashboardContent.displayName = 'DashboardContent';
-
+// Main Export
 export default function DashboardPage() {
-  return <DashboardContent />;
+  return (
+    <PermissionGuard permissions={['dashboard:read']}>
+      <DashboardContent />
+    </PermissionGuard>
+  );
 }

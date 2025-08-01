@@ -1,6 +1,7 @@
 import { logger } from './logger';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { isIndexBuildingError } from './logger';
 
 // Class name utility for merging Tailwind classes
 export function cn(...inputs: ClassValue[]) {
@@ -261,6 +262,54 @@ export async function retry<T>(
   }
   
   throw lastError!;
+}
+
+// Retry configuration for index building errors
+const INDEX_RETRY_CONFIG = {
+  maxRetries: 3,
+  baseDelay: 2000, // 2 seconds
+  maxDelay: 10000, // 10 seconds
+};
+
+// Exponential backoff delay
+function getRetryDelay(attempt: number): number {
+  const delay = INDEX_RETRY_CONFIG.baseDelay * Math.pow(2, attempt);
+  return Math.min(delay, INDEX_RETRY_CONFIG.maxDelay);
+}
+
+// Retry function for operations that might fail due to index building
+export async function retryOnIndexError<T>(
+  operation: () => Promise<T>,
+  maxRetries: number = INDEX_RETRY_CONFIG.maxRetries
+): Promise<T> {
+  let lastError: Error;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await operation();
+    } catch (error) {
+      lastError = error as Error;
+      const errorMessage = lastError.message;
+
+      // Only retry on index building errors
+      if (isIndexBuildingError(errorMessage) && attempt < maxRetries) {
+        const delay = getRetryDelay(attempt);
+        console.log(`Index building in progress, retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries + 1})`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+
+      // For non-index errors or max retries reached, throw the error
+      throw lastError;
+    }
+  }
+
+  throw lastError!;
+}
+
+// Utility to check if we should show a loading state for index building
+export function shouldShowIndexLoadingState(error: string | null): boolean {
+  return error ? isIndexBuildingError(error) : false;
 }
 
 // Performance utilities

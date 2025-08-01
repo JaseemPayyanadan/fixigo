@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { collection, query, where, getDocs, addDoc, updateDoc, doc, deleteDoc, orderBy } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useUser } from "./useUser";
-import { logger } from "@/lib/logger";
+import { logger, isIndexBuildingError, getIndexBuildingMessage } from "@/lib/logger";
 import type { Task } from "@/types";
 
 export function useTasks(shopId?: string, branchId?: string) {
@@ -22,13 +22,18 @@ export function useTasks(shopId?: string, branchId?: string) {
 
         let q;
         if (shopId && branchId) {
+          // New flat structure: query top-level tasks collection with filters
           q = query(
-            collection(db, "shops", shopId, "branches", branchId, "tasks"),
+            collection(db, "tasks"),
+            where("shopId", "==", shopId),
+            where("branchId", "==", branchId),
             orderBy("createdAt", "desc")
           );
         } else if (shopId) {
+          // Query all tasks for the shop
           q = query(
-            collection(db, "shops", shopId, "branches"),
+            collection(db, "tasks"),
+            where("shopId", "==", shopId),
             orderBy("createdAt", "desc")
           );
         } else {
@@ -61,7 +66,14 @@ export function useTasks(shopId?: string, branchId?: string) {
         setTasks(taskList);
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : "Failed to fetch tasks";
-        setError(errorMessage);
+        
+        // Check if it's an index building error
+        if (isIndexBuildingError(errorMessage)) {
+          setError(getIndexBuildingMessage(errorMessage));
+        } else {
+          setError(errorMessage);
+        }
+        
         logger.error("Error fetching tasks", { error: errorMessage });
       } finally {
         setLoading(false);
@@ -77,10 +89,13 @@ export function useTasks(shopId?: string, branchId?: string) {
     }
 
     try {
+      // New flat structure: add to top-level tasks collection
       const taskDocRef = await addDoc(
-        collection(db, "shops", shopId, "branches", branchId, "tasks"),
+        collection(db, "tasks"),
         {
           ...taskData,
+          shopId, // Ensure shopId is set
+          branchId, // Ensure branchId is set
           createdAt: new Date(),
           updatedAt: new Date(),
         }
@@ -89,7 +104,9 @@ export function useTasks(shopId?: string, branchId?: string) {
       // Refresh tasks list
       const updatedTasks = await getDocs(
         query(
-          collection(db, "shops", shopId, "branches", branchId, "tasks"),
+          collection(db, "tasks"),
+          where("shopId", "==", shopId),
+          where("branchId", "==", branchId),
           orderBy("createdAt", "desc")
         )
       );
@@ -128,7 +145,8 @@ export function useTasks(shopId?: string, branchId?: string) {
     }
 
     try {
-      const taskRef = doc(db, "shops", shopId, "branches", branchId, "tasks", taskId);
+      // New flat structure: update in top-level tasks collection
+      const taskRef = doc(db, "tasks", taskId);
       await updateDoc(taskRef, {
         ...updates,
         updatedAt: new Date(),
@@ -137,7 +155,9 @@ export function useTasks(shopId?: string, branchId?: string) {
       // Refresh tasks list
       const updatedTasks = await getDocs(
         query(
-          collection(db, "shops", shopId, "branches", branchId, "tasks"),
+          collection(db, "tasks"),
+          where("shopId", "==", shopId),
+          where("branchId", "==", branchId),
           orderBy("createdAt", "desc")
         )
       );
@@ -175,12 +195,15 @@ export function useTasks(shopId?: string, branchId?: string) {
     }
 
     try {
-      await deleteDoc(doc(db, "shops", shopId, "branches", branchId, "tasks", taskId));
+      // New flat structure: delete from top-level tasks collection
+      await deleteDoc(doc(db, "tasks", taskId));
       
       // Refresh tasks list
       const updatedTasks = await getDocs(
         query(
-          collection(db, "shops", shopId, "branches", branchId, "tasks"),
+          collection(db, "tasks"),
+          where("shopId", "==", shopId),
+          where("branchId", "==", branchId),
           orderBy("createdAt", "desc")
         )
       );

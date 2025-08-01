@@ -7,7 +7,13 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "deploy": "next build && firebase deploy"
+    "deploy": "next build && firebase deploy",
+    "migrate": "tsx src/scripts/migrate-database.ts",
+    "migrate:cleanup": "tsx src/scripts/migrate-database.ts cleanup",
+    "migrate:validate": "tsx src/scripts/migrate-database.ts validate",
+    "firebase:deploy:rules": "firebase deploy --only firestore:rules",
+    "firebase:deploy:indexes": "firebase deploy --only firestore:indexes",
+    "firebase:deploy:all": "firebase deploy --only firestore"
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",
@@ -32,6 +38,7 @@
     "eslint": "^9",
     "eslint-config-next": "15.4.1",
     "tailwindcss": "^4",
+    "tsx": "^4.20.3",
     "tw-animate-css": "^1.3.5",
     "typescript": "^5"
   }

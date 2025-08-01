@@ -26,7 +26,6 @@ export default function NewBranchPage() {
         ...branchData,
         status: "active" as const,
         shopId: shopId!,
-        managerId: "", // No manager creation
       });
 
       // Redirect to branches list after successful creation
