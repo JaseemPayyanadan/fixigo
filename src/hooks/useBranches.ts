@@ -123,7 +123,7 @@ export function useBranches(shopId?: string) {
           email: data.email || "",
           status: data.status || "active",
           shopId: data.shopId || "",
-          managerId: data.managerId || "",
+
           createdAt: data.createdAt?.toDate() || new Date(),
           updatedAt: data.updatedAt?.toDate() || new Date(),
         };

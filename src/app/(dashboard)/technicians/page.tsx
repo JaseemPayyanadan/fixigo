@@ -104,7 +104,7 @@ function TechniciansContent() {
   const handleDelete = async (technicianId: string) => {
     if (!canDeleteTechnician()) {
       logger.warn('User attempted to delete technician without permission', { 
-        userId: user?.uid, 
+        userId: user?.id, 
         technicianId 
       });
       return;

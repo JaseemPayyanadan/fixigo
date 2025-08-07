@@ -1,9 +1,8 @@
 "use client";
 import React, { useState, useRef, useEffect } from "react";
 import { useUser } from "@/hooks/useUser";
-import { signOut } from "firebase/auth";
+import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
-import { auth } from "@/lib/firebase";
 import { MagnifyingGlassIcon, Cog6ToothIcon, ArrowRightOnRectangleIcon, UserIcon, ShieldCheckIcon } from "@heroicons/react/24/outline";
 import { useSidebar } from "@/contexts/SidebarContext";
 import NotificationBell from "../NotificationBell";
@@ -16,6 +15,7 @@ export function AppBar() {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLDivElement>(null);
   const { user, loading } = useUser();
+  const { logout } = useAuth();
   const router = useRouter();
   const { collapsed } = useSidebar();
 
@@ -48,7 +48,7 @@ export function AppBar() {
 
   const handleSignOut = async () => {
     if (window.confirm("Are you sure you want to sign out?")) {
-      await signOut(auth);
+      await logout();
       setDropdownOpen(false);
       router.push("/login");
     }
@@ -61,6 +61,8 @@ export function AppBar() {
         return "Shop Administrator";
       case "branch_admin":
         return "Branch Administrator";
+      case "technician":
+        return "Technician";
       default:
         return "User";
     }

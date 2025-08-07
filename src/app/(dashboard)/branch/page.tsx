@@ -134,7 +134,7 @@ export default function BranchPage() {
             )}
             <div className="mt-4 p-4 bg-gray-100 rounded-lg text-left text-sm">
               <h3 className="font-semibold mb-2">Debug Info:</h3>
-              <p>User ID: {user?.uid}</p>
+              <p>User ID: {user?.id}</p>
               <p>User Role: {user?.role}</p>
               <p>User Email: {user?.email}</p>
               <p>Shop ID: {user?.shopId}</p>
@@ -195,7 +195,7 @@ export default function BranchPage() {
             <h1 className="text-2xl font-bold text-gray-900 mb-4">Error Loading Branches</h1>
             <p className="text-gray-600 mb-6">{error}</p>
             <div className="text-sm text-gray-500">
-              <p>User ID: {user?.uid}</p>
+              <p>User ID: {user?.id}</p>
               <p>Role: {user?.role}</p>
               <p>Shop ID: {shopId || 'Not set'}</p>
             </div>

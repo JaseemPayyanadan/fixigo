@@ -1,7 +1,8 @@
-import { useMemo } from "react";
+"use client";
 import { useUser } from "./useUser";
 import { 
   getUserPermissions, 
+  PermissionUtils, 
   hasPermission, 
   hasAnyPermission, 
   hasAllPermissions, 
@@ -10,356 +11,120 @@ import {
   hasRoleLevel,
   canAccessShop,
   canAccessBranch,
-  canManageResource,
   canViewResource,
+  canManageResource,
   canDeleteResource,
-  PERMISSION_ACTIONS,
   CRUD_PERMISSIONS,
-  PermissionUtils
+  PERMISSION_ACTIONS
 } from "@/lib/rbac";
+import { authUserToUser } from "@/lib/auth";
 import type { Permission, Role } from "@/types";
 
-// Resource data interface for type safety
-interface ResourceData {
-  shopId?: string;
-  branchId?: string;
-  id?: string;
-  [key: string]: unknown;
-}
-
 export function usePermissions() {
-  const { user, loading } = useUser();
+  const { user } = useUser();
 
-  // Memoized permission calculations
-  const permissions = useMemo(() => {
-    if (!user) return [];
-    return getUserPermissions(user);
-  }, [user]);
+  if (!user) {
+    return {
+      permissions: [],
+      accessibleResources: [],
+      hasElevatedPermissions: false,
+      canManageUsers: false,
+      isShopAdminOrHigher: false,
+      isBranchAdminOrHigher: false,
+      userScope: null,
+      hasPermission: () => false,
+      hasAnyPermission: () => false,
+      hasAllPermissions: () => false,
+      hasRole: () => false,
+      hasAnyRole: () => false,
+      hasRoleLevel: () => false,
+      canAccessShop: () => false,
+      canAccessBranch: () => false,
+      canViewResource: () => false,
+      canManageResource: () => false,
+      canDeleteResource: () => false,
+      canCreate: () => false,
+      canRead: () => false,
+      canUpdate: () => false,
+      canDelete: () => false,
+      canManageShop: () => false,
+      canViewShop: () => false,
+      canDeleteShop: () => false,
+      canManageBranch: () => false,
+      canViewBranch: () => false,
+      canDeleteBranch: () => false,
+      canManageTechnician: () => false,
+      canViewTechnician: () => false,
+      canDeleteTechnician: () => false,
+      canManageService: () => false,
+      canViewService: () => false,
+      canDeleteService: () => false,
+      canManageInvoice: () => false,
+      canViewInvoice: () => false,
+      canDeleteInvoice: () => false,
+      canManageTask: () => false,
+      canViewTask: () => false,
+      canDeleteTask: () => false,
+      canManageUser: () => false,
+      canViewUser: () => false,
+      canDeleteUser: () => false,
+      canManageReport: () => false,
+      canViewReport: () => false,
+      canManageSetting: () => false,
+      canViewSetting: () => false,
+    };
+  }
 
-  const rolePermissions = useMemo(() => {
-    if (!user?.role) return [];
-    return getUserPermissions(user);
-  }, [user?.role]);
-
-  const accessibleResources = useMemo(() => {
-    if (!user) return [];
-    return PermissionUtils.getAccessibleResources(user);
-  }, [user]);
-
-  const hasElevatedPermissions = useMemo(() => {
-    if (!user) return false;
-    return PermissionUtils.hasElevatedPermissions(user);
-  }, [user]);
-
-  const canManageUsers = useMemo(() => {
-    if (!user) return false;
-    return PermissionUtils.canManageUsers(user);
-  }, [user]);
-
-
-
-  const isShopAdminOrHigher = useMemo(() => {
-    if (!user) return false;
-    return PermissionUtils.isShopAdminOrHigher(user);
-  }, [user]);
-
-  const isBranchAdminOrHigher = useMemo(() => {
-    if (!user) return false;
-    return PermissionUtils.isBranchAdminOrHigher(user);
-  }, [user]);
-
-  const userScope = useMemo(() => {
-    if (!user) return "branch";
-    return PermissionUtils.getUserScope(user);
-  }, [user]);
-
-  // Permission checking functions
-  const checkPermission = (permission: Permission): boolean => {
-    if (!user) return false;
-    return hasPermission(user, permission);
-  };
-
-  const checkAnyPermission = (permissions: Permission[]): boolean => {
-    if (!user) return false;
-    return hasAnyPermission(user, permissions);
-  };
-
-  const checkAllPermissions = (permissions: Permission[]): boolean => {
-    if (!user) return false;
-    return hasAllPermissions(user, permissions);
-  };
-
-  // Role checking functions
-  const checkRole = (role: Role): boolean => {
-    if (!user) return false;
-    return hasRole(user, role);
-  };
-
-  const checkAnyRole = (roles: Role[]): boolean => {
-    if (!user) return false;
-    return hasAnyRole(user, roles);
-  };
-
-  const checkRoleLevel = (requiredRole: Role): boolean => {
-    if (!user) return false;
-    return hasRoleLevel(user, requiredRole);
-  };
-
-  // Resource access checking functions
-  const checkShopAccess = (shopId: string): boolean => {
-    if (!user) return false;
-    return canAccessShop(user, shopId);
-  };
-
-  const checkBranchAccess = (branchId: string): boolean => {
-    if (!user) return false;
-    return canAccessBranch(user, branchId);
-  };
-
-  const checkResourceAccess = (resourceType: string, resourceData?: ResourceData): boolean => {
-    if (!user) return false;
-    return canViewResource(user, resourceType, resourceData);
-  };
-
-  const checkResourceManagement = (resourceType: string, resourceData?: ResourceData): boolean => {
-    if (!user) return false;
-    return canManageResource(user, resourceType, resourceData);
-  };
-
-  const checkResourceDeletion = (resourceType: string, resourceData?: ResourceData): boolean => {
-    if (!user) return false;
-    return canDeleteResource(user, resourceType, resourceData);
-  };
-
-  // CRUD permission helpers
-  const canCreate = (resourceType: string): boolean => {
-    if (!user) return false;
-    return CRUD_PERMISSIONS.canCreate(user, resourceType);
-  };
-
-  const canRead = (resourceType: string): boolean => {
-    if (!user) return false;
-    return CRUD_PERMISSIONS.canRead(user, resourceType);
-  };
-
-  const canUpdate = (resourceType: string): boolean => {
-    if (!user) return false;
-    return CRUD_PERMISSIONS.canUpdate(user, resourceType);
-  };
-
-  const canDelete = (resourceType: string): boolean => {
-    if (!user) return false;
-    return CRUD_PERMISSIONS.canDelete(user, resourceType);
-  };
-
-  // Specific permission actions
-  const canManageShop = (): boolean => {
-    if (!user) return false;
-    return PERMISSION_ACTIONS.canManageShop(user);
-  };
-
-  const canViewShop = (): boolean => {
-    if (!user) return false;
-    return PERMISSION_ACTIONS.canViewShop(user);
-  };
-
-  const canDeleteShop = (): boolean => {
-    if (!user) return false;
-    return PERMISSION_ACTIONS.canDeleteShop(user);
-  };
-
-  const canManageBranch = (): boolean => {
-    if (!user) return false;
-    return PERMISSION_ACTIONS.canManageBranch(user);
-  };
-
-  const canViewBranch = (): boolean => {
-    if (!user) return false;
-    return PERMISSION_ACTIONS.canViewBranch(user);
-  };
-
-  const canDeleteBranch = (): boolean => {
-    if (!user) return false;
-    return PERMISSION_ACTIONS.canDeleteBranch(user);
-  };
-
-  const canManageTechnician = (): boolean => {
-    if (!user) return false;
-    return PERMISSION_ACTIONS.canManageTechnician(user);
-  };
-
-  const canViewTechnician = (): boolean => {
-    if (!user) return false;
-    return PERMISSION_ACTIONS.canViewTechnician(user);
-  };
-
-  const canDeleteTechnician = (): boolean => {
-    if (!user) return false;
-    return PERMISSION_ACTIONS.canDeleteTechnician(user);
-  };
-
-  const canManageService = (): boolean => {
-    if (!user) return false;
-    return PERMISSION_ACTIONS.canManageService(user);
-  };
-
-  const canViewService = (): boolean => {
-    if (!user) return false;
-    return PERMISSION_ACTIONS.canViewService(user);
-  };
-
-  const canDeleteService = (): boolean => {
-    if (!user) return false;
-    return PERMISSION_ACTIONS.canDeleteService(user);
-  };
-
-  const canManageInvoice = (): boolean => {
-    if (!user) return false;
-    return PERMISSION_ACTIONS.canManageInvoice(user);
-  };
-
-  const canViewInvoice = (): boolean => {
-    if (!user) return false;
-    return PERMISSION_ACTIONS.canViewInvoice(user);
-  };
-
-  const canDeleteInvoice = (): boolean => {
-    if (!user) return false;
-    return PERMISSION_ACTIONS.canDeleteInvoice(user);
-  };
-
-  const canManageTask = (): boolean => {
-    if (!user) return false;
-    return PERMISSION_ACTIONS.canManageTask(user);
-  };
-
-  const canViewTask = (): boolean => {
-    if (!user) return false;
-    return PERMISSION_ACTIONS.canViewTask(user);
-  };
-
-  const canDeleteTask = (): boolean => {
-    if (!user) return false;
-    return PERMISSION_ACTIONS.canDeleteTask(user);
-  };
-
-  const canManageUser = (): boolean => {
-    if (!user) return false;
-    return PERMISSION_ACTIONS.canManageUser(user);
-  };
-
-  const canViewUser = (): boolean => {
-    if (!user) return false;
-    return PERMISSION_ACTIONS.canViewUser(user);
-  };
-
-  const canDeleteUser = (): boolean => {
-    if (!user) return false;
-    return PERMISSION_ACTIONS.canDeleteUser(user);
-  };
-
-  // New collection permissions
-  const canManageReport = (): boolean => {
-    if (!user) return false;
-    return PERMISSION_ACTIONS.canManageReport(user);
-  };
-
-  const canViewReport = (): boolean => {
-    if (!user) return false;
-    return PERMISSION_ACTIONS.canViewReport(user);
-  };
-
-  const canManageSetting = (): boolean => {
-    if (!user) return false;
-    return PERMISSION_ACTIONS.canManageSetting(user);
-  };
-
-  const canViewSetting = (): boolean => {
-    if (!user) return false;
-    return PERMISSION_ACTIONS.canViewSetting(user);
-  };
+  // Convert AuthUser to User type for compatibility
+  const userForPermissions = authUserToUser(user);
 
   return {
-    // User state
-    user,
-    loading,
-    
-    // Permission arrays
-    permissions,
-    rolePermissions,
-    accessibleResources,
-    
-    // Permission checks
-    checkPermission,
-    checkAnyPermission,
-    checkAllPermissions,
-    
-    // Role checks
-    checkRole,
-    checkAnyRole,
-    checkRoleLevel,
-    
-    // Resource access checks
-    checkShopAccess,
-    checkBranchAccess,
-    checkResourceAccess,
-    checkResourceManagement,
-    checkResourceDeletion,
-    
-    // CRUD operations
-    canCreate,
-    canRead,
-    canUpdate,
-    canDelete,
-    
-    // Shop permissions
-    canManageShop,
-    canViewShop,
-    canDeleteShop,
-    
-    // Branch permissions
-    canManageBranch,
-    canViewBranch,
-    canDeleteBranch,
-    
-    // Technician permissions
-    canManageTechnician,
-    canViewTechnician,
-    canDeleteTechnician,
-    
-    // Service permissions
-    canManageService,
-    canViewService,
-    canDeleteService,
-    
-    // Invoice permissions
-    canManageInvoice,
-    canViewInvoice,
-    canDeleteInvoice,
-    
-    // Task permissions
-    canManageTask,
-    canViewTask,
-    canDeleteTask,
-    
-    // User permissions
-    canManageUser,
-    canViewUser,
-    canDeleteUser,
-    
-    // Report permissions
-    canManageReport,
-    canViewReport,
-    
-    // Setting permissions
-    canManageSetting,
-    canViewSetting,
-    
-    // User level checks
-    hasElevatedPermissions,
-    canManageUsers,
-    isShopAdminOrHigher,
-    isBranchAdminOrHigher,
-    userScope,
+    permissions: getUserPermissions(userForPermissions),
+    accessibleResources: PermissionUtils.getAccessibleResources(userForPermissions),
+    hasElevatedPermissions: PermissionUtils.hasElevatedPermissions(userForPermissions),
+    canManageUsers: PermissionUtils.canManageUsers(userForPermissions),
+    isShopAdminOrHigher: PermissionUtils.isShopAdminOrHigher(userForPermissions),
+    isBranchAdminOrHigher: PermissionUtils.isBranchAdminOrHigher(userForPermissions),
+    userScope: PermissionUtils.getUserScope(userForPermissions),
+    hasPermission: (permission: Permission) => hasPermission(userForPermissions, permission),
+    hasAnyPermission: (permissions: Permission[]) => hasAnyPermission(userForPermissions, permissions),
+    hasAllPermissions: (permissions: Permission[]) => hasAllPermissions(userForPermissions, permissions),
+    hasRole: (role: Role) => hasRole(userForPermissions, role),
+    hasAnyRole: (roles: Role[]) => hasAnyRole(userForPermissions, roles),
+    hasRoleLevel: (requiredRole: Role) => hasRoleLevel(userForPermissions, requiredRole),
+    canAccessShop: (shopId: string) => canAccessShop(userForPermissions, shopId),
+    canAccessBranch: (branchId: string) => canAccessBranch(userForPermissions, branchId),
+    canViewResource: (resourceType: string, resourceData: any) => canViewResource(userForPermissions, resourceType, resourceData),
+    canManageResource: (resourceType: string, resourceData: any) => canManageResource(userForPermissions, resourceType, resourceData),
+    canDeleteResource: (resourceType: string, resourceData: any) => canDeleteResource(userForPermissions, resourceType, resourceData),
+    canCreate: (resourceType: string) => CRUD_PERMISSIONS.canCreate(userForPermissions, resourceType),
+    canRead: (resourceType: string) => CRUD_PERMISSIONS.canRead(userForPermissions, resourceType),
+    canUpdate: (resourceType: string) => CRUD_PERMISSIONS.canUpdate(userForPermissions, resourceType),
+    canDelete: (resourceType: string) => CRUD_PERMISSIONS.canDelete(userForPermissions, resourceType),
+    canManageShop: () => PERMISSION_ACTIONS.canManageShop(userForPermissions),
+    canViewShop: () => PERMISSION_ACTIONS.canViewShop(userForPermissions),
+    canDeleteShop: () => PERMISSION_ACTIONS.canDeleteShop(userForPermissions),
+    canManageBranch: () => PERMISSION_ACTIONS.canManageBranch(userForPermissions),
+    canViewBranch: () => PERMISSION_ACTIONS.canViewBranch(userForPermissions),
+    canDeleteBranch: () => PERMISSION_ACTIONS.canDeleteBranch(userForPermissions),
+    canManageTechnician: () => PERMISSION_ACTIONS.canManageTechnician(userForPermissions),
+    canViewTechnician: () => PERMISSION_ACTIONS.canViewTechnician(userForPermissions),
+    canDeleteTechnician: () => PERMISSION_ACTIONS.canDeleteTechnician(userForPermissions),
+    canManageService: () => PERMISSION_ACTIONS.canManageService(userForPermissions),
+    canViewService: () => PERMISSION_ACTIONS.canViewService(userForPermissions),
+    canDeleteService: () => PERMISSION_ACTIONS.canDeleteService(userForPermissions),
+    canManageInvoice: () => PERMISSION_ACTIONS.canManageInvoice(userForPermissions),
+    canViewInvoice: () => PERMISSION_ACTIONS.canViewInvoice(userForPermissions),
+    canDeleteInvoice: () => PERMISSION_ACTIONS.canDeleteInvoice(userForPermissions),
+    canManageTask: () => PERMISSION_ACTIONS.canManageTask(userForPermissions),
+    canViewTask: () => PERMISSION_ACTIONS.canViewTask(userForPermissions),
+    canDeleteTask: () => PERMISSION_ACTIONS.canDeleteTask(userForPermissions),
+    canManageUser: () => PERMISSION_ACTIONS.canManageUser(userForPermissions),
+    canViewUser: () => PERMISSION_ACTIONS.canViewUser(userForPermissions),
+    canDeleteUser: () => PERMISSION_ACTIONS.canDeleteUser(userForPermissions),
+    canManageReport: () => PERMISSION_ACTIONS.canManageReport(userForPermissions),
+    canViewReport: () => PERMISSION_ACTIONS.canViewReport(userForPermissions),
+    canManageSetting: () => PERMISSION_ACTIONS.canManageSetting(userForPermissions),
+    canViewSetting: () => PERMISSION_ACTIONS.canViewSetting(userForPermissions),
   };
 } 

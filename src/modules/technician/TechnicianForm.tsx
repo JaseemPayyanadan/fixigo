@@ -1,17 +1,29 @@
 import React, { useState, useEffect, ChangeEvent, FormEvent } from "react";
 import TextInput from "../../components/ui/TextInput";
+import PasswordInput from "../../components/ui/PasswordInput";
 import { 
   UserIcon, 
   EnvelopeIcon, 
   PhoneIcon, 
-  CheckCircleIcon
+  CheckCircleIcon,
+  LockClosedIcon,
+  BuildingOfficeIcon
 } from "@heroicons/react/24/outline";
+
+interface Branch {
+  id: string;
+  name: string;
+  location: string;
+}
 
 interface TechnicianFormProps {
   onSubmit: (data: { 
     name: string; 
     email: string; 
     phone: string; 
+    password: string;
+    branchId: string;
+    role: "technician";
   }) => void;
   loading: boolean;
   editing: boolean;
@@ -19,19 +31,39 @@ interface TechnicianFormProps {
     name: string; 
     email: string; 
     phone: string;
+    branchId?: string;
+    role?: "technician";
   };
   onCancel: () => void;
+  branches: Branch[];
+  userRole: "shop_admin" | "branch_admin";
+  currentUserBranchId?: string;
 }
 
-export default function TechnicianForm({ onSubmit, loading, editing, initialData, onCancel }: TechnicianFormProps) {
+export default function TechnicianForm({ 
+  onSubmit, 
+  loading, 
+  editing, 
+  initialData, 
+  onCancel, 
+  branches,
+  userRole,
+  currentUserBranchId
+}: TechnicianFormProps) {
   const [form, setForm] = useState<{ 
     name: string; 
     email: string; 
     phone: string; 
+    password: string;
+    branchId: string;
+    role: "technician";
   }>({ 
     name: "", 
     email: "", 
     phone: "", 
+    password: "",
+    branchId: "",
+    role: "technician",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [success, setSuccess] = useState<string | null>(null);
@@ -41,11 +73,21 @@ export default function TechnicianForm({ onSubmit, loading, editing, initialData
     if (initialData) {
       setForm({
         ...initialData,
+        password: "",
+        branchId: initialData.branchId || "",
+        role: initialData.role || "technician",
       });
+    } else if (userRole === "branch_admin" && currentUserBranchId) {
+      // For branch_admin, pre-select their branch
+      setForm(prev => ({
+        ...prev,
+        branchId: currentUserBranchId,
+        role: "technician", // Always set role as technician
+      }));
     }
-  }, [initialData]);
+  }, [initialData, userRole, currentUserBranchId]);
 
-  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value });
     if (errors[e.target.name]) setErrors({ ...errors, [e.target.name]: "" });
   };
@@ -71,6 +113,20 @@ export default function TechnicianForm({ onSubmit, loading, editing, initialData
     } else if (!/^[\+]?[1-9][\d]{0,15}$/.test(form.phone.replace(/\s/g, ""))) {
       newErrors.phone = "Please enter a valid phone number";
     }
+
+    // Password validation (only for new technicians)
+    if (!editing) {
+      if (!form.password) {
+        newErrors.password = "Password is required";
+      } else if (form.password.length < 6) {
+        newErrors.password = "Password must be at least 6 characters";
+      }
+    }
+
+    // Branch validation (only for shop_admin)
+    if (userRole === "shop_admin" && !form.branchId) {
+      newErrors.branchId = "Branch selection is required";
+    }
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -89,6 +145,9 @@ export default function TechnicianForm({ onSubmit, loading, editing, initialData
         name: form.name.trim(),
         email: form.email.trim(),
         phone: form.phone.trim(),
+        password: form.password,
+        branchId: form.branchId,
+        role: form.role,
       });
       
       if (!editing) {
@@ -96,6 +155,9 @@ export default function TechnicianForm({ onSubmit, loading, editing, initialData
           name: "",
           email: "",
           phone: "",
+          password: "",
+          branchId: "",
+          role: "technician",
         });
       }
       setSuccess(editing ? "Technician updated successfully!" : "Technician created successfully!");
@@ -116,7 +178,7 @@ export default function TechnicianForm({ onSubmit, loading, editing, initialData
           <div>
             <h3 className="text-xl font-semibold text-gray-900">Technician Information</h3>
             <p className="text-gray-600 text-sm">
-              {editing ? "Update the technician's basic details" : "Enter the technician's basic details"}
+              {editing ? "Update the technician's details" : "Enter the technician's details"}
             </p>
           </div>
         </div>
@@ -162,6 +224,78 @@ export default function TechnicianForm({ onSubmit, loading, editing, initialData
           />
         </div>
       </div>
+
+      {/* Branch Selection Section - Only for shop_admin */}
+      {userRole === "shop_admin" && (
+        <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+              <BuildingOfficeIcon className="w-6 h-6 text-green-600" />
+            </div>
+            <div>
+              <h3 className="text-xl font-semibold text-gray-900">Branch Assignment</h3>
+              <p className="text-gray-600 text-sm">
+                Select the branch for this technician
+              </p>
+            </div>
+          </div>
+          
+          <div className="space-y-2">
+            <label htmlFor="branchId" className="block text-sm font-medium text-gray-700">
+              Branch *
+            </label>
+            <select
+              id="branchId"
+              name="branchId"
+              value={form.branchId}
+              onChange={handleChange}
+              required
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="">Select a branch</option>
+              {branches.map((branch) => (
+                <option key={branch.id} value={branch.id}>
+                  {branch.name} - {branch.location}
+                </option>
+              ))}
+            </select>
+            {errors.branchId && (
+              <p className="text-sm text-red-600">{errors.branchId}</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Account Setup Section - Only for new technicians */}
+      {!editing && (
+        <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
+              <LockClosedIcon className="w-6 h-6 text-purple-600" />
+            </div>
+            <div>
+              <h3 className="text-xl font-semibold text-gray-900">Account Setup</h3>
+              <p className="text-gray-600 text-sm">
+                Create login credentials for the technician
+              </p>
+            </div>
+          </div>
+          
+          <div className="space-y-4">
+            <PasswordInput
+              id="password"
+              name="password"
+              label="Password"
+              value={form.password}
+              onChange={handleChange}
+              required
+              placeholder="Enter password"
+              icon={<LockClosedIcon className="h-5 w-5 text-gray-400" />}
+              error={errors.password}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Error Message */}
       {errors.submit && (

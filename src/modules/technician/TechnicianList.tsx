@@ -188,7 +188,7 @@ export default function TechnicianList({ technicians, onDelete, branches }: Tech
                     <td className="px-6 py-4">
                       <div className="space-y-2">
                         <div className="flex items-center gap-1">
-                          {getRatingStars(parseFloat(metrics.rating))}
+                          {getRatingStars(parseFloat(String(metrics.rating)))}
                           <span className="text-sm text-gray-600 ml-1">({metrics.rating})</span>
                         </div>
                         <div className="flex items-center gap-4 text-xs text-gray-500">
@@ -313,7 +313,7 @@ export default function TechnicianList({ technicians, onDelete, branches }: Tech
                   {/* Rating */}
                   <div className="flex items-center gap-2 text-sm text-gray-600">
                     <div className="flex items-center gap-1">
-                      {getRatingStars(parseFloat(metrics.rating))}
+                      {getRatingStars(parseFloat(String(metrics.rating)))}
                       <span className="ml-1">({metrics.rating})</span>
                     </div>
                   </div>

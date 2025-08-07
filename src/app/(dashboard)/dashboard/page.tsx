@@ -21,7 +21,7 @@ import {
   HiChartBar,
   HiCalendar,
   HiStar,
-  HiExclamationTriangle
+  HiExclamationCircle
 } from "react-icons/hi";
 import Link from 'next/link';
 import PermissionGuard from '@/components/auth/PermissionGuard';
@@ -253,7 +253,7 @@ const DashboardContent: React.FC = () => {
           collection(db, "services"),
           where("shopId", "==", user.shopId),
           where("branchId", "==", user.branchId),
-          where("assignedTechnicianId", "==", user.uid),
+          where("assignedTechnicianId", "==", user.id),
           orderBy("createdAt", "desc"),
           limit(10)
         );
@@ -397,7 +397,7 @@ const DashboardContent: React.FC = () => {
       }));
       logger.error("Error fetching dashboard data", {
         error: errorMessage,
-        userId: user?.uid,
+        userId: user?.id,
         role: user?.role
       });
     }
@@ -427,7 +427,7 @@ const DashboardContent: React.FC = () => {
           {isIndexBuilding ? (
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
           ) : (
-            <HiExclamationTriangle className="mx-auto h-12 w-12 text-red-500" />
+            <HiExclamationCircle className="mx-auto h-12 w-12 text-red-500" />
           )}
           <h2 className="mt-4 text-xl font-semibold text-gray-900">
             {isIndexBuilding ? 'Setting Up Database' : 'Error Loading Dashboard'}

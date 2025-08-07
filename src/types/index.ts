@@ -76,6 +76,10 @@ export interface Branch {
   email: string;
   status: "active" | "inactive" | "maintenance";
   shopId: string; // Parent shop ID
+  managerId?: string; // Link to user account of branch manager
+  managerName?: string; // Name of the branch manager
+  managerEmail?: string; // Email of the branch manager
+  managerPhone?: string; // Phone of the branch manager
   createdAt: Date;
   updatedAt: Date;
 }
@@ -85,9 +89,11 @@ export interface Technician {
   name: string;
   email: string;
   phone: string;
-  role: "technician";
+  role: "technician" | "branch_admin";
   shopId: string; // Parent shop ID
   branchId: string; // Parent branch ID
+  userId?: string; // Link to user account
+  created_by?: string; // ID of the user who created this technician
   skills: string[];
   status: "active" | "inactive";
   bio?: string;

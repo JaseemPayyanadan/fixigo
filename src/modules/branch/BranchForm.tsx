@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import TextInput from "../../components/ui/TextInput";
-import { BuildingOfficeIcon, PhoneIcon, EnvelopeIcon, MapPinIcon, CheckCircleIcon } from "@heroicons/react/24/outline";
+import PasswordInput from "../../components/ui/PasswordInput";
+import { BuildingOfficeIcon, PhoneIcon, EnvelopeIcon, MapPinIcon, CheckCircleIcon, UserIcon, LockClosedIcon } from "@heroicons/react/24/outline";
 
 interface BranchFormProps {
   onSubmit: (branch: {
@@ -8,6 +9,10 @@ interface BranchFormProps {
     location: string;
     phone: string;
     email: string;
+    password: string;
+    managerName?: string;
+    managerEmail?: string;
+    managerPhone?: string;
   }) => Promise<void>;
   loading: boolean;
   initialData?: Partial<{
@@ -15,6 +20,9 @@ interface BranchFormProps {
     location: string;
     phone: string;
     email: string;
+    managerName?: string;
+    managerEmail?: string;
+    managerPhone?: string;
   }>;
   editing?: boolean;
   onCancel?: () => void;
@@ -26,6 +34,10 @@ export const BranchForm: React.FC<BranchFormProps> = ({ onSubmit, loading, initi
     location: initialData?.location || "",
     phone: initialData?.phone || "",
     email: initialData?.email || "",
+    password: "",
+    managerName: initialData?.managerName || "",
+    managerEmail: initialData?.managerEmail || "",
+    managerPhone: initialData?.managerPhone || "",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [success, setSuccess] = useState<string | null>(null);
@@ -39,6 +51,9 @@ export const BranchForm: React.FC<BranchFormProps> = ({ onSubmit, loading, initi
         location: initialData.location || "",
         phone: initialData.phone || "",
         email: initialData.email || "",
+        managerName: initialData.managerName || "",
+        managerEmail: initialData.managerEmail || "",
+        managerPhone: initialData.managerPhone || "",
       }));
     }
   }, [initialData]);
@@ -76,6 +91,15 @@ export const BranchForm: React.FC<BranchFormProps> = ({ onSubmit, loading, initi
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
       newErrors.email = "Please enter a valid email address";
     }
+
+    // Password validation (only for new branches)
+    if (!editing) {
+      if (!formData.password) {
+        newErrors.password = "Password is required";
+      } else if (formData.password.length < 6) {
+        newErrors.password = "Password must be at least 6 characters";
+      }
+    }
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -95,6 +119,10 @@ export const BranchForm: React.FC<BranchFormProps> = ({ onSubmit, loading, initi
         location: formData.location.trim(),
         phone: formData.phone.trim(),
         email: formData.email.trim(),
+        password: formData.password,
+        managerName: formData.managerName.trim() || undefined,
+        managerEmail: formData.managerEmail.trim() || undefined,
+        managerPhone: formData.managerPhone.trim() || undefined,
       });
       
       if (!editing) {
@@ -103,6 +131,10 @@ export const BranchForm: React.FC<BranchFormProps> = ({ onSubmit, loading, initi
           location: "",
           phone: "",
           email: "",
+          password: "",
+          managerName: "",
+          managerEmail: "",
+          managerPhone: "",
         });
       }
       setSuccess(editing ? "Branch updated successfully!" : "Branch created successfully!");
@@ -190,6 +222,98 @@ export const BranchForm: React.FC<BranchFormProps> = ({ onSubmit, loading, initi
           />
         </div>
       </div>
+
+      {/* Manager Information Section - Only for new branches */}
+      {!editing && (
+        <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+              <UserIcon className="w-6 h-6 text-green-600" />
+            </div>
+            <div>
+              <h3 className="text-xl font-semibold text-gray-900">Branch Manager</h3>
+              <p className="text-gray-600 text-sm">
+                Set up the branch manager account
+              </p>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <TextInput
+              type="text"
+              name="managerName"
+              id="managerName"
+              label="Manager Name (Optional)"
+              value={formData.managerName}
+              onChange={handleInputChange}
+              placeholder="Enter manager name"
+              icon={<UserIcon className="h-5 w-5 text-gray-400" />}
+              error={errors.managerName}
+              autoComplete="off"
+              aria-label="Manager Name"
+            />
+            
+            <TextInput
+              type="email"
+              name="managerEmail"
+              id="managerEmail"
+              label="Manager Email (Optional)"
+              value={formData.managerEmail}
+              onChange={handleInputChange}
+              placeholder="Enter manager email"
+              icon={<EnvelopeIcon className="h-5 w-5 text-gray-400" />}
+              error={errors.managerEmail}
+              autoComplete="off"
+              aria-label="Manager Email"
+            />
+            
+            <TextInput
+              type="tel"
+              name="managerPhone"
+              id="managerPhone"
+              label="Manager Phone (Optional)"
+              value={formData.managerPhone}
+              onChange={handleInputChange}
+              placeholder="Enter manager phone"
+              icon={<PhoneIcon className="h-5 w-5 text-gray-400" />}
+              error={errors.managerPhone}
+              autoComplete="off"
+              aria-label="Manager Phone"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Account Setup Section - Only for new branches */}
+      {!editing && (
+        <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
+              <LockClosedIcon className="w-6 h-6 text-purple-600" />
+            </div>
+            <div>
+              <h3 className="text-xl font-semibold text-gray-900">Account Setup</h3>
+              <p className="text-gray-600 text-sm">
+                Create login credentials for the branch manager
+              </p>
+            </div>
+          </div>
+          
+          <div className="space-y-4">
+            <PasswordInput
+              id="password"
+              name="password"
+              label="Password"
+              value={formData.password}
+              onChange={handleInputChange}
+              required
+              placeholder="Enter password"
+              icon={<LockClosedIcon className="h-5 w-5 text-gray-400" />}
+              error={errors.password}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Error Message */}
       {errors.submit && (

@@ -1,114 +1,98 @@
-"use client"
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+"use client";
+import React, { createContext, useContext, ReactNode } from "react";
 import { useUser } from "@/hooks/useUser";
-import { hasPermission, hasAnyPermission, hasAllPermissions, canAccessResource, type PermissionContext, type ResourceAccess } from "@/lib/rbac";
-import type { Permission } from "@/types";
+import { hasPermission, hasAllPermissions, hasAnyPermission } from "@/lib/rbac";
+import { authUserToUser } from "@/lib/auth";
+import type { User, Permission } from "@/types";
+
+interface PermissionContext {
+  user: User;
+  resource?: string;
+}
+
+const PermissionContext = createContext<PermissionContext | null>(null);
 
 interface PermissionGuardProps {
   children: React.ReactNode;
-  permissions?: Permission[];
-  requireAll?: boolean; // If true, user must have ALL permissions. If false, user must have ANY permission.
-  resource?: ResourceAccess;
-  redirectTo?: string;
+  permissions: Permission[];
+  resource?: string;
+  requireAll?: boolean;
   fallback?: React.ReactNode;
 }
 
 export default function PermissionGuard({ 
   children, 
   permissions, 
-  requireAll = false,
-  resource,
-  redirectTo = "/unauthorized",
-  fallback
+  resource = "default", 
+  requireAll = true,
+  fallback = null 
 }: PermissionGuardProps) {
-  const { user, loading } = useUser();
-  const router = useRouter();
-  const [isRedirecting, setIsRedirecting] = useState(false);
-
-  useEffect(() => {
-    if (!loading && user && !isRedirecting) {
-      let hasAccess = false;
-      
-      // If no permissions are required, allow access
-      if (!permissions || permissions.length === 0) {
-        hasAccess = true;
-      } else if (resource) {
-        // Check permissions with resource context
-        const context: PermissionContext = { user, resource };
-        hasAccess = requireAll 
-          ? permissions.every(permission => hasPermission(user, permission))
-          : permissions.some(permission => hasPermission(user, permission));
-        
-        // Additional resource access check
-        if (hasAccess) {
-          hasAccess = canAccessResource(context);
-        }
-      } else {
-        // Check permissions without resource context
-        hasAccess = requireAll 
-          ? hasAllPermissions(user, permissions)
-          : hasAnyPermission(user, permissions);
-      }
-
-      if (!hasAccess) {
-        setIsRedirecting(true);
-        router.push(redirectTo);
-      }
-    }
-  }, [user, loading, permissions, requireAll, resource, redirectTo, router, isRedirecting]);
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (isRedirecting) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Redirecting...</p>
-        </div>
-      </div>
-    );
-  }
+  const { user } = useUser();
 
   if (!user) {
-    return fallback || null;
+    return fallback;
   }
 
-  // Check permissions
-  let hasAccess = false;
-  
-  // If no permissions are required, allow access
-  if (!permissions || permissions.length === 0) {
-    hasAccess = true;
-  } else if (resource) {
-    const context: PermissionContext = { user, resource };
-    hasAccess = requireAll 
-      ? permissions.every(permission => hasPermission(user, permission))
-      : permissions.some(permission => hasPermission(user, permission));
-    
-    // Additional resource access check
-    if (hasAccess) {
-      hasAccess = canAccessResource(context);
-    }
-  } else {
-    hasAccess = requireAll 
-      ? hasAllPermissions(user, permissions)
-      : hasAnyPermission(user, permissions);
-  }
+  // Convert AuthUser to User type for compatibility
+  const userForPermissions = authUserToUser(user);
+
+  const context: PermissionContext = { user: userForPermissions, resource };
+
+  const hasAccess = requireAll
+    ? permissions.every(permission => hasPermission(userForPermissions, permission))
+    : permissions.some(permission => hasPermission(userForPermissions, permission));
 
   if (!hasAccess) {
-    return fallback || null;
+    return fallback;
   }
 
-  return <>{children}</>;
+  return (
+    <PermissionContext.Provider value={context}>
+      {children}
+    </PermissionContext.Provider>
+  );
+}
+
+// Hook to use permission context
+export function usePermissionContext() {
+  const context = useContext(PermissionContext);
+  if (!context) {
+    throw new Error("usePermissionContext must be used within a PermissionGuard");
+  }
+  return context;
+}
+
+// Higher-order component for permission-based rendering
+export function withPermission<P extends object>(
+  WrappedComponent: React.ComponentType<P>,
+  permissions: Permission[],
+  resource: string = "default",
+  requireAll: boolean = true
+) {
+  return function PermissionWrappedComponent(props: P) {
+    const { user } = useUser();
+
+    if (!user) {
+      return null;
+    }
+
+    // Convert AuthUser to User type for compatibility
+    const userForPermissions = authUserToUser(user);
+
+    const context: PermissionContext = { user: userForPermissions, resource };
+
+    const hasAccess = requireAll
+      ? permissions.every(permission => hasPermission(userForPermissions, permission))
+      : permissions.some(permission => hasPermission(userForPermissions, permission));
+
+    if (!hasAccess) {
+      return null;
+    }
+
+    return (
+      <PermissionContext.Provider value={context}>
+        <WrappedComponent {...props} />
+      </PermissionContext.Provider>
+    );
+  };
 } 

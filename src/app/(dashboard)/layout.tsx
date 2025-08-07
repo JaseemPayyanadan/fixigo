@@ -10,7 +10,7 @@ import AuthGuard from "@/components/auth/AuthGuard";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 
 
-const hideNavRoutes = ["/login", "/register", "/shop-onboarding"];
+const hideNavRoutes = ["/login", "/register", "/onboarding"];
 
 export default function DashboardLayout({
   children,
@@ -27,7 +27,7 @@ export default function DashboardLayout({
     return <LoadingSpinner />;
   }
 
-  if (!user && !hideNav) {
+  if (!user) {
     return <AuthGuard>{null}</AuthGuard>;
   }
 
