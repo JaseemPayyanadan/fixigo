@@ -21,28 +21,54 @@ export function useInvoices(shopId?: string, branchId?: string) {
         setError(null);
 
         let q;
-        if (shopId && branchId) {
-          // New flat structure: query top-level invoices collection with filters
-          q = query(
-            collection(db, "invoices"),
-            where("shopId", "==", shopId),
-            where("branchId", "==", branchId),
-            orderBy("createdAt", "desc")
-          );
-        } else if (shopId) {
-          // Query all invoices for the shop
-          q = query(
-            collection(db, "invoices"),
-            where("shopId", "==", shopId),
-            orderBy("createdAt", "desc")
-          );
-        } else {
-          setInvoices([]);
-          setLoading(false);
-          return;
-        }
+        let querySnapshot;
+        
+        try {
+          if (shopId && branchId) {
+            // New flat structure: query top-level invoices collection with filters
+            q = query(
+              collection(db, "invoices"),
+              where("shopId", "==", shopId),
+              where("branchId", "==", branchId),
+              orderBy("createdAt", "desc")
+            );
+          } else if (shopId) {
+            // Query all invoices for the shop
+            q = query(
+              collection(db, "invoices"),
+              where("shopId", "==", shopId),
+              orderBy("createdAt", "desc")
+            );
+          } else {
+            setInvoices([]);
+            setLoading(false);
+            return;
+          }
 
-        const querySnapshot = await getDocs(q);
+          querySnapshot = await getDocs(q);
+        } catch (indexError) {
+          // If index is building, try without ordering
+          logger.warn("Index building in progress for invoices, using fallback query", { error: String(indexError) });
+          
+          if (shopId && branchId) {
+            q = query(
+              collection(db, "invoices"),
+              where("shopId", "==", shopId),
+              where("branchId", "==", branchId)
+            );
+          } else if (shopId) {
+            q = query(
+              collection(db, "invoices"),
+              where("shopId", "==", shopId)
+            );
+          } else {
+            setInvoices([]);
+            setLoading(false);
+            return;
+          }
+          
+          querySnapshot = await getDocs(q);
+        }
         const invoiceList: Invoice[] = [];
 
         for (const docSnapshot of querySnapshot.docs) {
@@ -66,6 +92,11 @@ export function useInvoices(shopId?: string, branchId?: string) {
             updatedAt: data.updatedAt?.toDate() || new Date(),
           };
           invoiceList.push(invoice);
+        }
+
+        // Sort manually if we couldn't use orderBy
+        if (!q || !q._query.orderBy || q._query.orderBy.length === 0) {
+          invoiceList.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
         }
 
         setInvoices(invoiceList);
@@ -107,14 +138,28 @@ export function useInvoices(shopId?: string, branchId?: string) {
       );
 
       // Refresh invoices list
-      const updatedInvoices = await getDocs(
-        query(
-          collection(db, "invoices"),
-          where("shopId", "==", shopId),
-          where("branchId", "==", branchId),
-          orderBy("createdAt", "desc")
-        )
-      );
+      let updatedInvoices;
+      try {
+        updatedInvoices = await getDocs(
+          query(
+            collection(db, "invoices"),
+            where("shopId", "==", shopId),
+            where("branchId", "==", branchId),
+            orderBy("createdAt", "desc")
+          )
+        );
+      } catch (indexError) {
+        // If index is building, try without ordering
+        logger.warn("Index building in progress for invoices refresh, using fallback query", { error: String(indexError) });
+        
+        updatedInvoices = await getDocs(
+          query(
+            collection(db, "invoices"),
+            where("shopId", "==", shopId),
+            where("branchId", "==", branchId)
+          )
+        );
+      }
 
       const invoiceList: Invoice[] = [];
       for (const docSnapshot of updatedInvoices.docs) {
@@ -139,6 +184,9 @@ export function useInvoices(shopId?: string, branchId?: string) {
         };
         invoiceList.push(invoice);
       }
+
+      // Sort manually if we couldn't use orderBy
+      invoiceList.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
       setInvoices(invoiceList);
       return invoiceDocRef.id;
@@ -163,14 +211,28 @@ export function useInvoices(shopId?: string, branchId?: string) {
       });
 
       // Refresh invoices list
-      const updatedInvoices = await getDocs(
-        query(
-          collection(db, "invoices"),
-          where("shopId", "==", shopId),
-          where("branchId", "==", branchId),
-          orderBy("createdAt", "desc")
-        )
-      );
+      let updatedInvoices;
+      try {
+        updatedInvoices = await getDocs(
+          query(
+            collection(db, "invoices"),
+            where("shopId", "==", shopId),
+            where("branchId", "==", branchId),
+            orderBy("createdAt", "desc")
+          )
+        );
+      } catch (indexError) {
+        // If index is building, try without ordering
+        logger.warn("Index building in progress for invoices update refresh, using fallback query", { error: String(indexError) });
+        
+        updatedInvoices = await getDocs(
+          query(
+            collection(db, "invoices"),
+            where("shopId", "==", shopId),
+            where("branchId", "==", branchId)
+          )
+        );
+      }
 
       const invoiceList: Invoice[] = [];
       for (const docSnapshot of updatedInvoices.docs) {
@@ -195,6 +257,9 @@ export function useInvoices(shopId?: string, branchId?: string) {
         };
         invoiceList.push(invoice);
       }
+
+      // Sort manually if we couldn't use orderBy
+      invoiceList.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
       setInvoices(invoiceList);
     } catch (err) {
@@ -214,14 +279,28 @@ export function useInvoices(shopId?: string, branchId?: string) {
       await deleteDoc(doc(db, "invoices", invoiceId));
       
       // Refresh invoices list
-      const updatedInvoices = await getDocs(
-        query(
-          collection(db, "invoices"),
-          where("shopId", "==", shopId),
-          where("branchId", "==", branchId),
-          orderBy("createdAt", "desc")
-        )
-      );
+      let updatedInvoices;
+      try {
+        updatedInvoices = await getDocs(
+          query(
+            collection(db, "invoices"),
+            where("shopId", "==", shopId),
+            where("branchId", "==", branchId),
+            orderBy("createdAt", "desc")
+          )
+        );
+      } catch (indexError) {
+        // If index is building, try without ordering
+        logger.warn("Index building in progress for invoices delete refresh, using fallback query", { error: String(indexError) });
+        
+        updatedInvoices = await getDocs(
+          query(
+            collection(db, "invoices"),
+            where("shopId", "==", shopId),
+            where("branchId", "==", branchId)
+          )
+        );
+      }
 
       const invoiceList: Invoice[] = [];
       for (const docSnapshot of updatedInvoices.docs) {
@@ -246,6 +325,9 @@ export function useInvoices(shopId?: string, branchId?: string) {
         };
         invoiceList.push(invoice);
       }
+
+      // Sort manually if we couldn't use orderBy
+      invoiceList.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
       setInvoices(invoiceList);
     } catch (err) {

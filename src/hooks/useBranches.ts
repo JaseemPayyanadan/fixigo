@@ -34,12 +34,28 @@ export function useBranches(shopId?: string) {
         }
 
         // New flat structure: query top-level branches collection with shopId filter
-        const q = query(
-          collection(db, "branches"),
-          where("shopId", "==", shopId),
-          orderBy("createdAt", "desc")
-        );
-        const querySnapshot = await getDocs(q);
+        let q;
+        let querySnapshot;
+        
+        try {
+          // Try with ordering first
+          q = query(
+            collection(db, "branches"),
+            where("shopId", "==", shopId),
+            orderBy("createdAt", "desc")
+          );
+          querySnapshot = await getDocs(q);
+        } catch (indexError) {
+          // If index is building, try without ordering
+          logger.warn("Index building in progress for branches, using fallback query", { error: String(indexError) });
+          
+          q = query(
+            collection(db, "branches"),
+            where("shopId", "==", shopId)
+          );
+          querySnapshot = await getDocs(q);
+        }
+        
         const branchList: Branch[] = [];
 
         for (const docSnapshot of querySnapshot.docs) {
@@ -56,6 +72,11 @@ export function useBranches(shopId?: string) {
             updatedAt: data.updatedAt?.toDate() || new Date(),
           };
           branchList.push(branch);
+        }
+
+        // Sort manually if we couldn't use orderBy
+        if (!q || !q._query.orderBy || q._query.orderBy.length === 0) {
+          branchList.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
         }
 
         setBranches(branchList);
@@ -104,13 +125,26 @@ export function useBranches(shopId?: string) {
       );
 
       // Step 3: Refresh branches list
-      const updatedBranches = await getDocs(
-        query(
-          collection(db, "branches"),
-          where("shopId", "==", shopId),
-          orderBy("createdAt", "desc")
-        )
-      );
+      let updatedBranches;
+      try {
+        updatedBranches = await getDocs(
+          query(
+            collection(db, "branches"),
+            where("shopId", "==", shopId),
+            orderBy("createdAt", "desc")
+          )
+        );
+      } catch (indexError) {
+        // If index is building, try without ordering
+        logger.warn("Index building in progress for branches refresh, using fallback query", { error: String(indexError) });
+        
+        updatedBranches = await getDocs(
+          query(
+            collection(db, "branches"),
+            where("shopId", "==", shopId)
+          )
+        );
+      }
 
       const branchList: Branch[] = [];
       for (const docSnapshot of updatedBranches.docs) {
@@ -157,13 +191,26 @@ export function useBranches(shopId?: string) {
       });
 
       // Refresh branches list
-      const updatedBranches = await getDocs(
-        query(
-          collection(db, "branches"),
-          where("shopId", "==", shopId),
-          orderBy("createdAt", "desc")
-        )
-      );
+      let updatedBranches;
+      try {
+        updatedBranches = await getDocs(
+          query(
+            collection(db, "branches"),
+            where("shopId", "==", shopId),
+            orderBy("createdAt", "desc")
+          )
+        );
+      } catch (indexError) {
+        // If index is building, try without ordering
+        logger.warn("Index building in progress for branches update refresh, using fallback query", { error: String(indexError) });
+        
+        updatedBranches = await getDocs(
+          query(
+            collection(db, "branches"),
+            where("shopId", "==", shopId)
+          )
+        );
+      }
 
       const branchList: Branch[] = [];
       for (const docSnapshot of updatedBranches.docs) {
@@ -181,6 +228,9 @@ export function useBranches(shopId?: string) {
         };
         branchList.push(branch);
       }
+
+      // Sort manually if we couldn't use orderBy
+      branchList.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
       setBranches(branchList);
     } catch (err) {
@@ -200,13 +250,26 @@ export function useBranches(shopId?: string) {
       await deleteDoc(doc(db, "branches", branchId));
       
       // Refresh branches list
-      const updatedBranches = await getDocs(
-        query(
-          collection(db, "branches"),
-          where("shopId", "==", shopId),
-          orderBy("createdAt", "desc")
-        )
-      );
+      let updatedBranches;
+      try {
+        updatedBranches = await getDocs(
+          query(
+            collection(db, "branches"),
+            where("shopId", "==", shopId),
+            orderBy("createdAt", "desc")
+          )
+        );
+      } catch (indexError) {
+        // If index is building, try without ordering
+        logger.warn("Index building in progress for branches delete refresh, using fallback query", { error: String(indexError) });
+        
+        updatedBranches = await getDocs(
+          query(
+            collection(db, "branches"),
+            where("shopId", "==", shopId)
+          )
+        );
+      }
 
       const branchList: Branch[] = [];
       for (const docSnapshot of updatedBranches.docs) {
@@ -224,6 +287,9 @@ export function useBranches(shopId?: string) {
         };
         branchList.push(branch);
       }
+
+      // Sort manually if we couldn't use orderBy
+      branchList.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
       setBranches(branchList);
     } catch (err) {

@@ -48,7 +48,7 @@ export const metadata = {
     userScalable: false,
     viewportFit: "cover",
   },
-  themeColor: "#2563eb",
+  // themeColor: "#2563eb",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",

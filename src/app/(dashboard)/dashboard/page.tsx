@@ -264,33 +264,92 @@ const DashboardContent: React.FC = () => {
         })) as Service[];
       } else {
         // For shop_admin and branch_admin
-        const servicesQuery = query(
-          collection(db, "services"),
-          where("shopId", "==", user.shopId),
-          ...(user.role === 'branch_admin' ? [where("branchId", "==", user.branchId)] : []),
-          orderBy("createdAt", "desc")
-        );
-        const invoicesQuery = query(
-          collection(db, "invoices"),
-          where("shopId", "==", user.shopId),
-          ...(user.role === 'branch_admin' ? [where("branchId", "==", user.branchId)] : []),
-          orderBy("createdAt", "desc")
-        );
+        let servicesQuery;
+        let invoicesQuery;
+        
+        try {
+          if (user.role === 'branch_admin') {
+            // For branch_admin: filter by shopId, branchId, and order by createdAt
+            servicesQuery = query(
+              collection(db, "services"),
+              where("shopId", "==", user.shopId),
+              where("branchId", "==", user.branchId),
+              orderBy("createdAt", "desc")
+            );
+          } else {
+            // For shop_admin: filter by shopId and order by createdAt
+            servicesQuery = query(
+              collection(db, "services"),
+              where("shopId", "==", user.shopId),
+              orderBy("createdAt", "desc")
+            );
+          }
+          
+          invoicesQuery = query(
+            collection(db, "invoices"),
+            where("shopId", "==", user.shopId),
+            ...(user.role === 'branch_admin' ? [where("branchId", "==", user.branchId)] : []),
+            orderBy("createdAt", "desc")
+          );
 
-        const [servicesSnapshot, invoicesSnapshot] = await Promise.all([
-          getDocs(servicesQuery),
-          getDocs(invoicesQuery)
-        ]);
+          const [servicesSnapshot, invoicesSnapshot] = await Promise.all([
+            getDocs(servicesQuery),
+            getDocs(invoicesQuery)
+          ]);
 
-        servicesData = servicesSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })) as Service[];
+          servicesData = servicesSnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          })) as Service[];
 
-        invoicesData = invoicesSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
+          invoicesData = invoicesSnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }));
+          
+                 } catch (indexError) {
+           // If index is building, try a simpler query without ordering
+           logger.warn("Index building in progress, using fallback query", { error: String(indexError) });
+           
+           if (user.role === 'branch_admin') {
+             servicesQuery = query(
+               collection(db, "services"),
+               where("shopId", "==", user.shopId),
+               where("branchId", "==", user.branchId)
+             );
+           } else {
+             servicesQuery = query(
+               collection(db, "services"),
+               where("shopId", "==", user.shopId)
+             );
+           }
+           
+           const servicesSnapshot = await getDocs(servicesQuery);
+           servicesData = servicesSnapshot.docs.map(doc => ({
+             id: doc.id,
+             ...doc.data()
+           })) as Service[];
+           
+           // Sort manually since we can't use orderBy
+           servicesData.sort((a, b) => getTimestampSeconds(b.createdAt) - getTimestampSeconds(a.createdAt));
+           
+           // For invoices, try without ordering as well
+           try {
+             invoicesQuery = query(
+               collection(db, "invoices"),
+               where("shopId", "==", user.shopId),
+               ...(user.role === 'branch_admin' ? [where("branchId", "==", user.branchId)] : [])
+             );
+             const invoicesSnapshot = await getDocs(invoicesQuery);
+             invoicesData = invoicesSnapshot.docs.map(doc => ({
+               id: doc.id,
+               ...doc.data()
+             }));
+           } catch (invoiceError) {
+             logger.warn("Invoice query failed, continuing without invoice data", { error: String(invoiceError) });
+             invoicesData = [];
+           }
+         }
       }
 
       // Calculate metrics
