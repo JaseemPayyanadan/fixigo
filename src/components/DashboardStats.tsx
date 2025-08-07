@@ -1,9 +1,6 @@
 import React from 'react';
 import { 
-  BuildingOfficeIcon, 
-  UserGroupIcon, 
   ClipboardDocumentListIcon, 
-  DocumentTextIcon, 
   CurrencyDollarIcon, 
   ChartBarIcon, 
   ClockIcon, 

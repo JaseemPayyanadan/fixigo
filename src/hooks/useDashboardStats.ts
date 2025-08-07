@@ -174,7 +174,7 @@ export function useDashboardStats(shopId?: string, branchId?: string) {
         setError(errorMessage);
         logger.error("Error fetching dashboard data", {
           error: errorMessage,
-          userId: user.uid,
+          userId: user.id,
           role: user.role,
           shopId: user.shopId,
           ...(user.branchId && { branchId: user.branchId })

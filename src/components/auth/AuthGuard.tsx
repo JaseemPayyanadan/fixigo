@@ -27,18 +27,18 @@ export default function AuthGuard({
       } else if (!requireAuth && user) {
         // If user is authenticated and we don't require auth (e.g., login page)
         // Check if shop_admin needs to complete onboarding
-        if (user.role === "shop_admin" && (!user.shopId || !user.onboardingCompleted) && pathname !== "/shop-onboarding") {
+        if (user.role === "shop_admin" && !user.onboardingCompleted && pathname !== "/onboarding") {
           setIsRedirecting(true);
-          router.push("/shop-onboarding");
+          router.push("/onboarding");
         } else if (pathname !== "/dashboard") {
           setIsRedirecting(true);
           router.push("/dashboard");
         }
       } else if (requireAuth && user) {
-        // For authenticated users, only redirect if they need onboarding and are not already on the onboarding page
-        if (user.role === "shop_admin" && (!user.shopId || !user.onboardingCompleted) && pathname !== "/shop-onboarding") {
+        // For authenticated users, check if they need onboarding
+        if (user.role === "shop_admin" && !user.onboardingCompleted && pathname !== "/onboarding") {
           setIsRedirecting(true);
-          router.push("/shop-onboarding");
+          router.push("/onboarding");
         }
       }
     }
@@ -75,7 +75,7 @@ export default function AuthGuard({
   }
 
   // Don't render if shop_admin needs onboarding, unless we're on the onboarding page
-  if (requireAuth && user && user.role === "shop_admin" && (!user.shopId || !user.onboardingCompleted) && pathname !== "/shop-onboarding") {
+  if (requireAuth && user && user.role === "shop_admin" && !user.onboardingCompleted && pathname !== "/onboarding") {
     return null;
   }
 

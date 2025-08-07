@@ -1,8 +1,8 @@
 import { addDoc, collection, doc, getDoc, updateDoc, arrayUnion } from "firebase/firestore";
-import { createUserWithEmailAndPassword } from "firebase/auth";
-import { db, auth } from "./firebase";
+import { db } from "./firebase";
 import { logger } from "./logger";
 import type { User, Role } from "@/types";
+import { registerUser } from "./auth";
 
 export interface CreateUserOptions {
   name: string;
@@ -79,26 +79,23 @@ export class UserManagementService {
         userPassword = tempPassword;
       }
 
-      // Step 5: Create Firebase Auth user
-      const userCredential = await createUserWithEmailAndPassword(
-        auth,
-        email,
-        userPassword
-      );
-
-      const uid = userCredential.user.uid;
-
-      // Step 6: Create user document
-      const userDocRef = await addDoc(collection(db, "users"), {
-        uid,
+      // Step 5: Create user using custom authentication
+      const user = await registerUser({
         name: name.trim(),
         email: email.trim(),
+        password: userPassword,
         role,
+      });
+
+      const uid = user.id;
+
+      // Step 6: Update user document with additional fields
+      const userDocRef = doc(db, "users", uid);
+      await updateDoc(userDocRef, {
         shopId,
         branchId: branchId || null,
         status: "active",
-        onboardingCompleted: false,
-        createdAt: new Date(),
+        phone: phone || "",
         updatedAt: new Date(),
       });
 
@@ -129,7 +126,7 @@ export class UserManagementService {
       }
 
       logger.info("User created successfully", {
-        userId: userDocRef.id,
+        userId: uid,
         uid,
         email,
         role,
@@ -138,7 +135,7 @@ export class UserManagementService {
       });
 
       return {
-        userId: userDocRef.id,
+        userId: uid,
         uid,
         tempPassword,
         email,

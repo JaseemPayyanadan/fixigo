@@ -8,7 +8,7 @@ import { BranchForm } from "@/modules/branch/BranchForm";
 export default function NewBranchPage() {
   const { user } = useUser();
   const shopId = user?.shopId || "";
-  const { createBranch } = useBranches(shopId);
+  const { } = useBranches(shopId);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
@@ -18,16 +18,34 @@ export default function NewBranchPage() {
     location: string;
     phone: string;
     email: string;
+    password: string;
+    managerName?: string;
+    managerEmail?: string;
+    managerPhone?: string;
   }) => {
     setLoading(true);
     setError(null);
     try {
-      await createBranch({
-        ...branchData,
-        status: "active" as const,
-        shopId: shopId!,
+      // Create branch using the new API endpoint
+      const response = await fetch("/api/branches/create", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          ...branchData,
+          shopId: shopId!,
+        }),
       });
 
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to create branch");
+      }
+
+      const result = await response.json();
+      console.log("Branch created successfully:", result);
+      
       // Redirect to branches list after successful creation
       router.push("/branch");
     } catch (err: unknown) {

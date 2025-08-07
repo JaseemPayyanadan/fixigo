@@ -1,5 +1,4 @@
 import { initializeApp, getApps } from "firebase/app";
-import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
 // Check if we're in the browser and environment variables are available
@@ -16,5 +15,4 @@ const firebaseConfig = {
 };
 
 const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
-export const auth = getAuth(app);
 export const db = getFirestore(app); 

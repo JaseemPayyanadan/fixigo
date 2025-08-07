@@ -21,28 +21,54 @@ export function useServices(shopId?: string, branchId?: string) {
         setError(null);
 
         let q;
-        if (shopId && branchId) {
-          // New flat structure: query top-level services collection with filters
-          q = query(
-            collection(db, "services"),
-            where("shopId", "==", shopId),
-            where("branchId", "==", branchId),
-            orderBy("createdAt", "desc")
-          );
-        } else if (shopId) {
-          // Query all services for the shop
-          q = query(
-            collection(db, "services"),
-            where("shopId", "==", shopId),
-            orderBy("createdAt", "desc")
-          );
-        } else {
-          setServices([]);
-          setLoading(false);
-          return;
-        }
+        let querySnapshot;
+        
+        try {
+          if (shopId && branchId) {
+            // Query services for specific branch
+            q = query(
+              collection(db, "services"),
+              where("shopId", "==", shopId),
+              where("branchId", "==", branchId),
+              orderBy("createdAt", "desc")
+            );
+          } else if (shopId) {
+            // Query all services for the shop (shop admin only)
+            q = query(
+              collection(db, "services"),
+              where("shopId", "==", shopId),
+              orderBy("createdAt", "desc")
+            );
+          } else {
+            setServices([]);
+            setLoading(false);
+            return;
+          }
 
-        const querySnapshot = await getDocs(q);
+          querySnapshot = await getDocs(q);
+        } catch (indexError) {
+          // If index is building, try without ordering
+          logger.warn("Index building in progress for services, using fallback query", { error: String(indexError) });
+          
+          if (shopId && branchId) {
+            q = query(
+              collection(db, "services"),
+              where("shopId", "==", shopId),
+              where("branchId", "==", branchId)
+            );
+          } else if (shopId) {
+            q = query(
+              collection(db, "services"),
+              where("shopId", "==", shopId)
+            );
+          } else {
+            setServices([]);
+            setLoading(false);
+            return;
+          }
+          
+          querySnapshot = await getDocs(q);
+        }
         const serviceList: Service[] = [];
 
         for (const docSnapshot of querySnapshot.docs) {
@@ -71,6 +97,11 @@ export function useServices(shopId?: string, branchId?: string) {
             updatedAt: data.updatedAt?.toDate() || new Date(),
           };
           serviceList.push(service);
+        }
+
+        // Sort manually if we couldn't use orderBy
+        if (!q || !q._query.orderBy || q._query.orderBy.length === 0) {
+          serviceList.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
         }
 
         setServices(serviceList);
@@ -112,14 +143,28 @@ export function useServices(shopId?: string, branchId?: string) {
       );
 
       // Refresh services list
-      const updatedServices = await getDocs(
-        query(
-          collection(db, "services"),
-          where("shopId", "==", shopId),
-          where("branchId", "==", branchId),
-          orderBy("createdAt", "desc")
-        )
-      );
+      let updatedServices;
+      try {
+        updatedServices = await getDocs(
+          query(
+            collection(db, "services"),
+            where("shopId", "==", shopId),
+            where("branchId", "==", branchId),
+            orderBy("createdAt", "desc")
+          )
+        );
+      } catch (indexError) {
+        // If index is building, try without ordering
+        logger.warn("Index building in progress for services refresh, using fallback query", { error: String(indexError) });
+        
+        updatedServices = await getDocs(
+          query(
+            collection(db, "services"),
+            where("shopId", "==", shopId),
+            where("branchId", "==", branchId)
+          )
+        );
+      }
 
       const serviceList: Service[] = [];
       for (const docSnapshot of updatedServices.docs) {
@@ -149,6 +194,9 @@ export function useServices(shopId?: string, branchId?: string) {
         };
         serviceList.push(service);
       }
+
+      // Sort manually if we couldn't use orderBy
+      serviceList.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
       setServices(serviceList);
       return serviceDocRef.id;

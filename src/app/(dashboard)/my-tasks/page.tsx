@@ -40,7 +40,7 @@ export default function MyTasksPage() {
       setLoading(true);
       try {
         // First, get the technician document to find the correct ID
-        const technicianQuery = query(collection(db, "technicians"), where("created_by", "==", user.uid));
+        const technicianQuery = query(collection(db, "technicians"), where("created_by", "==", user.id));
         const technicianSnapshot = await getDocs(technicianQuery);
         const technicianDoc = technicianSnapshot.docs[0];
         
@@ -67,7 +67,7 @@ export default function MyTasksPage() {
 
           return () => unsubscribe();
         } else {
-          console.log('My Tasks - No technician document found for UID:', user.uid);
+          console.log('My Tasks - No technician document found for UID:', user.id);
           setTasks([]);
           setLoading(false);
         }

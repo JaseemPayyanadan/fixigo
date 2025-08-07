@@ -17,7 +17,7 @@ export const NAV_ITEMS = {
 export const AUTH_ROUTES = {
   LOGIN: "/login",
   REGISTER: "/register",
-  SHOP_ONBOARDING: "/shop-onboarding",
+  ONBOARDING: "/onboarding",
   UNAUTHORIZED: "/unauthorized",
 } as const;
 
@@ -57,7 +57,6 @@ export const USER_ROLES = {
 
 // API constants
 export const API_ENDPOINTS = {
-  USERS: "/api/users",
   SHOPS: "/api/shops",
   BRANCHES: "/api/branches",
   TECHNICIANS: "/api/technicians",

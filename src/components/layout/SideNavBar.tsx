@@ -13,7 +13,6 @@ import {
   UserIcon,
   ChartBarIcon,
   Cog6ToothIcon,
-  UsersIcon,
   DocumentChartBarIcon,
   CurrencyDollarIcon
 } from "@heroicons/react/24/outline";
@@ -77,13 +76,6 @@ const navItems = [
   //   description: "Business analytics",
   //   roles: ["shop_admin"]
   // },
-  { 
-    label: "Users", 
-    href: "/users", 
-    icon: UsersIcon,
-    description: "Manage user accounts",
-    roles: ["shop_admin"]
-  },
   { 
     label: "Settings", 
     href: "/settings", 

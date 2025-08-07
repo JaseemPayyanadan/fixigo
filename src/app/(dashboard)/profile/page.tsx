@@ -58,7 +58,7 @@ export default function ProfilePage() {
       setLoading(true);
       try {
         // Get technician profile from technicians collection
-        const technicianDoc = await getDoc(doc(db, "technicians", user.uid));
+        const technicianDoc = await getDoc(doc(db, "technicians", user.id));
         if (technicianDoc.exists()) {
           const data = technicianDoc.data();
           const profileData: TechnicianProfile = {
@@ -80,7 +80,7 @@ export default function ProfilePage() {
           });
 
           // Get the technician document ID for services lookup
-          const technicianQuery = query(collection(db, "technicians"), where("created_by", "==", user.uid));
+          const technicianQuery = query(collection(db, "technicians"), where("created_by", "==", user.id));
           const technicianSnapshot = await getDocs(technicianQuery);
           const technicianDocForServices = technicianSnapshot.docs[0];
           

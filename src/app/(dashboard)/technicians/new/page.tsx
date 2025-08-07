@@ -21,9 +21,9 @@ function NewTechnicianContent() {
   const { user } = useUser();
   const shopId = user?.shopId || "";
   const branchId = user?.branchId || "";
-  const isShopAdmin = user?.role === "shop_admin";
+  const userRole = user?.role as "shop_admin" | "branch_admin";
   const { branches } = useBranches(shopId);
-  const { createTechnician } = useTechnicians(shopId, branchId);
+  const { } = useTechnicians(shopId, branchId);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
@@ -32,28 +32,48 @@ function NewTechnicianContent() {
     name: string; 
     email: string; 
     phone: string; 
+    password: string;
+    branchId: string;
+    role: "technician";
   }) => {
     setError(null);
-    if (!data.name.trim() || !data.email.trim() || !data.phone.trim()) {
-      setError("Name, email, and phone are required.");
+    if (!data.name.trim() || !data.email.trim() || !data.phone.trim() || !data.password) {
+      setError("Name, email, phone, and password are required.");
       return;
     }
-    const targetBranchId = branchId;
+
+    // For branch_admin, use their branch ID
+    const targetBranchId = userRole === "branch_admin" ? branchId : data.branchId;
     
     setLoading(true);
     try {
-      await createTechnician({
-        name: data.name,
-        email: data.email,
-        phone: data.phone,
-        shopId: user?.shopId || "",
-        branchId: targetBranchId,
-        role: "technician",
-        skills: [],
-        status: "active",
-        bio: "",
-        specializations: []
+      // Create technician using the new API endpoint
+      const response = await fetch("/api/technicians/create", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: data.name,
+          email: data.email,
+          phone: data.phone,
+          password: data.password,
+          role: data.role,
+          shopId: user?.shopId || "",
+          branchId: targetBranchId,
+          skills: [],
+          bio: "",
+          specializations: []
+        }),
       });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to create technician");
+      }
+
+      const result = await response.json();
+      console.log("Technician created successfully:", result);
       
       // Redirect to technicians list after successful creation
       router.push("/technicians");
@@ -95,6 +115,9 @@ function NewTechnicianContent() {
             loading={loading}
             editing={false}
             onCancel={() => router.push("/technicians")}
+            branches={branches}
+            userRole={userRole}
+            currentUserBranchId={branchId}
           />
         </div>
 

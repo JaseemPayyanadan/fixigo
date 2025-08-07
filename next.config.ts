@@ -1,14 +1,13 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  output: 'export',
   trailingSlash: true,
   images: {
     unoptimized: true
   },
-
 };
 
+// Use require for next-pwa since it doesn't have proper TypeScript declarations
 const withPWA = require('next-pwa')({
   dest: 'public',
   register: true,
@@ -16,6 +15,4 @@ const withPWA = require('next-pwa')({
   disable: process.env.NODE_ENV === 'development',
 });
 
-module.exports = withPWA(nextConfig);
-
-export default nextConfig;
+export default withPWA(nextConfig);

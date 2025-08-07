@@ -83,3 +83,27 @@ ui-debug.log
 # Temporary files
 *.tmp
 *.temp
+
+# Test files
+test-*.js
+test-*.ts
+test-*.tsx
+
+# Cookies and session files
+cookies.txt
+*.cookies
+
+# Database debug files
+pglite-debug.log
+*.db
+*.sqlite
+
+# Build artifacts
+.next/
+dist/
+build/
+
+# Cache directories
+.cache/
+.parcel-cache/
+.eslintcache

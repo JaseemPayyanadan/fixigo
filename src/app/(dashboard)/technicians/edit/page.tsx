@@ -1,17 +1,13 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
+import Link from "next/link";
 import { useUser } from "@/hooks";
 import { useBranches } from "@/hooks/useBranches";
-
+import { useTechnicians } from "@/hooks/useTechnicians";
 import { RoleGuard, PermissionGuard } from "@/components";
 import TechnicianForm from "@/modules/technician/TechnicianForm";
-import { LoadingSpinner } from "@/components/ui";
-import { db } from "@/lib/firebase";
-import { doc, getDoc, updateDoc } from "firebase/firestore";
-
-import Link from "next/link";
-import { logger } from "@/lib/logger";
+import type { Technician } from "@/types";
 
 interface TechnicianData {
   name: string;
@@ -33,135 +29,93 @@ export default function TechnicianEditPage() {
 }
 
 function TechnicianEditContent() {
+  const params = useParams();
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const id = searchParams.get("id");
   const { user } = useUser();
-  const { branches } = useBranches(user?.shopId);
-
-  const [technician, setTechnician] = useState<TechnicianData | null>(null);
-  const [techUserId, setTechUserId] = useState<string | null>(null);
+  const shopId = user?.shopId || "";
+  const branchId = user?.branchId || "";
+  const userRole = user?.role as "shop_admin" | "branch_admin";
+  const { branches } = useBranches(shopId);
+  const { updateTechnician } = useTechnicians(shopId, branchId);
+  
+  const [technician, setTechnician] = useState<Technician | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [formLoading, setFormLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const technicianId = params.id as string;
 
   useEffect(() => {
     const fetchTechnician = async () => {
-      if (!id) {
-        setError("No technician ID provided");
-        setLoading(false);
-        return;
-      }
+      if (!technicianId) return;
 
       try {
-        logger.info('Fetching technician data', { technicianId: id });
+        setLoading(true);
+        setError(null);
+
+        // Fetch technician data from Firestore
+        const { doc, getDoc } = await import("firebase/firestore");
+        const { db } = await import("@/lib/firebase");
         
-        // Fetch technician document
-        const techDoc = await getDoc(doc(db, "technicians", id));
-        if (!techDoc.exists()) {
+        const technicianDoc = await getDoc(doc(db, "technicians", technicianId));
+        
+        if (technicianDoc.exists()) {
+          const data = technicianDoc.data();
+          const technicianData: Technician = {
+            id: technicianDoc.id,
+            name: data.name || "",
+            email: data.email || "",
+            phone: data.phone || "",
+            role: data.role || "technician",
+            shopId: data.shopId || "",
+            branchId: data.branchId || "",
+            userId: data.userId || "",
+            skills: data.skills || [],
+            status: data.status || "active",
+            bio: data.bio || "",
+            specializations: data.specializations || [],
+            experience: data.experience || 0,
+            rating: data.rating || 0,
+            totalServices: data.totalServices || 0,
+            completedServices: data.completedServices || 0,
+            availability: data.availability || {},
+            createdAt: data.createdAt?.toDate() || new Date(),
+            updatedAt: data.updatedAt?.toDate() || new Date(),
+          };
+          setTechnician(technicianData);
+        } else {
           setError("Technician not found");
-          setLoading(false);
-          return;
         }
-
-        const techData = techDoc.data() as TechnicianData;
-        logger.debug('Technician data retrieved', { technicianId: id, technicianName: techData.name });
-        setTechnician(techData);
-
-        // Try to find the corresponding user document
-        try {
-          const userQuery = await getDoc(doc(db, "users", id));
-          if (userQuery.exists()) {
-            setTechUserId(id);
-            logger.debug('Found user document for technician', { userId: id, technicianId: id });
-          } else {
-            logger.debug('No user document found for technician', { technicianId: id });
-          }
-        } catch (userErr) {
-          logger.warn('Error fetching user document', { technicianId: id, error: String(userErr) });
-        }
-
-      } catch (err: unknown) {
-        logger.error('Error fetching technician', { technicianId: id, error: err as Error });
-        setError(err instanceof Error ? err.message : "Failed to load technician");
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to fetch technician");
       } finally {
         setLoading(false);
       }
     };
 
     fetchTechnician();
-  }, [id]);
+  }, [technicianId]);
 
   const handleEdit = async (data: { 
     name: string; 
     email: string; 
     phone: string; 
   }) => {
-    if (!id) {
-      setError("No technician ID available");
-      return;
-    }
-    
+    if (!technician) return;
+
     setFormLoading(true);
     setError(null);
-    
+
     try {
-              logger.info('Updating technician', { 
-          technicianId: id, 
-          userId: user?.uid,
-          shopId: user?.shopId,
-          userRole: user?.role
-        });
-      
-      // Update technician document
-      const technicianUpdateData = {
-        name: data.name.trim(),
-        email: data.email.trim(),
-        phone: data.phone.trim(),
-        branch_id: technician?.branch_id || "",
-        updatedAt: new Date(),
-      };
-      
-      logger.debug('Updating technician document', { technicianId: id });
-      await updateDoc(doc(db, "technicians", id), technicianUpdateData);
-      logger.info('Technician document updated successfully', { technicianId: id });
-      
-      // Update user document if found
-      if (techUserId) {
-        const userUpdateData = {
-          name: data.name.trim(),
-          email: data.email.trim(),
-          branch_id: technician?.branch_id || "",
-          updatedAt: new Date(),
-        };
-        logger.debug('Updating user document', { userId: techUserId });
-        await updateDoc(doc(db, "users", techUserId), userUpdateData);
-        logger.info('User document updated successfully', { userId: techUserId });
-      } else {
-        logger.debug('No user document found for technician', { technicianId: id });
-      }
-      
-      logger.info('Technician updated successfully', { technicianId: id });
+      await updateTechnician(technician.id, {
+        name: data.name,
+        email: data.email,
+        phone: data.phone,
+      });
+
       router.push("/technicians");
-    } catch (err: unknown) {
-      logger.error('Error updating technician', { technicianId: id, error: err as Error });
-      
-      // Handle specific Firebase errors
-      if (err instanceof Error) {
-        if (err.message.includes('permission-denied')) {
-          setError('You do not have permission to update this technician. Please check your role and shop assignment.');
-        } else if (err.message.includes('not-found')) {
-          setError('Technician not found. It may have been deleted.');
-        } else if (err.message.includes('unavailable')) {
-          setError('Service temporarily unavailable. Please try again.');
-        } else if (err.message.includes('insufficient')) {
-          setError('Insufficient permissions. Please contact your administrator.');
-        } else {
-          setError(err.message);
-        }
-      } else {
-        setError('An unexpected error occurred. Please try again.');
-      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update technician");
     } finally {
       setFormLoading(false);
     }
@@ -173,9 +127,14 @@ function TechnicianEditContent() {
         <div className="max-w-2xl mx-auto px-4 py-8">
           <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
             <div className="text-center">
-              <LoadingSpinner />
-              <h2 className="text-xl font-semibold text-gray-900 mt-4">Loading Technician</h2>
-              <p className="text-gray-600 mt-2">Please wait while we fetch the technician details...</p>
+              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                <svg className="animate-spin h-8 w-8 text-blue-600" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+              </div>
+              <h2 className="text-xl font-semibold text-gray-900 mb-4">Loading Technician</h2>
+              <p className="text-gray-600">Please wait while we fetch the technician details...</p>
             </div>
           </div>
         </div>
@@ -183,7 +142,7 @@ function TechnicianEditContent() {
     );
   }
 
-  if (error) {
+  if (error && !technician) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
         <div className="max-w-2xl mx-auto px-4 py-8">
@@ -289,8 +248,13 @@ function TechnicianEditContent() {
               name: technician.name,
               email: technician.email,
               phone: technician.phone,
+              branchId: technician.branchId,
+              role: "technician", // Always set as technician
             }}
             onCancel={() => router.push("/technicians")}
+            branches={branches}
+            userRole={userRole}
+            currentUserBranchId={branchId}
           />
         </div>
       </div>

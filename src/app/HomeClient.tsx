@@ -13,10 +13,10 @@ export function HomeClient() {
   useEffect(() => {
     if (!loading) {
       if (user) {
-        // Check if user has completed onboarding (has shopId)
-        if (user.role === "shop_admin" && !user.shopId) {
-          // Shop admin without shopId needs to complete onboarding
-          router.push("/shop-onboarding");
+        // Check if user has completed onboarding
+        if (user.role === "shop_admin" && !user.onboardingCompleted) {
+          // Shop admin needs to complete onboarding
+          router.push("/onboarding");
         } else {
           // User has completed onboarding or is branch admin, go to dashboard
           router.push("/dashboard");
