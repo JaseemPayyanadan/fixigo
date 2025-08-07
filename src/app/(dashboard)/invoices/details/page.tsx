@@ -51,8 +51,8 @@ function InvoiceDetailsContent() {
           const serviceData = { id: docSnap.id, ...docSnap.data() } as Service;
           setService(serviceData);
           // Fetch branch info
-          if (serviceData.shop_id && serviceData.branch_id) {
-            const branchSnap = await getDoc(doc(db, `shops/${serviceData.shop_id}/branches/${serviceData.branch_id}`));
+                if (serviceData.shop_id && serviceData.branch_id) {
+        const branchSnap = await getDoc(doc(db, `shops/${serviceData.shop_id}/branches/${serviceData.branch_id}`));
             if (branchSnap.exists()) {
               setBranch({ id: branchSnap.id, ...branchSnap.data() });
             }

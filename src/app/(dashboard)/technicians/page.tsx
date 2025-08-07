@@ -1,131 +1,311 @@
 "use client";
-import React, { useState, useEffect } from "react";
-import { db } from "@/lib/firebase";
-import { collection, getDocs, deleteDoc, doc, query, where, DocumentData, Query, CollectionReference } from "firebase/firestore";
+import React, { useState, useEffect, useMemo } from "react";
 import { useUser } from "@/hooks";
-// import { useBranches } from "@/hooks/useBranches";
-import TechnicianList, { Technician } from "@/modules/technician/TechnicianList";
+import { useBranches } from "@/hooks/useBranches";
+import { useTechnicians } from "@/hooks/useTechnicians";
+import { usePermissions } from "@/hooks/usePermissions";
+import { RoleGuard, PermissionGuard } from "@/components";
+import TechnicianList from "@/modules/technician/TechnicianList";
+import { Technician, Branch } from "@/types";
 import Link from "next/link";
+import { logger, isIndexBuildingError, getIndexBuildingMessage } from "@/lib/logger";
+import { 
+  UserGroupIcon, 
+  StarIcon, 
+  CheckCircleIcon,
+  PlusIcon,
+  ChartBarIcon,
+  ClockIcon,
+  WrenchScrewdriverIcon,
+  MapPinIcon,
+  FunnelIcon,
+  MagnifyingGlassIcon
+} from "@heroicons/react/24/outline";
 
 export default function TechniciansPage() {
+  return (
+    <RoleGuard allowedRoles={["shop_admin", "branch_admin"]}>
+      <PermissionGuard permissions={["technician:read"]}>
+        <TechniciansContent />
+      </PermissionGuard>
+    </RoleGuard>
+  );
+}
+
+function TechniciansContent() {
   const { user } = useUser();
-  // const { branches } = useBranches(user?.shopId);
-  const [technicians, setTechnicians] = useState<Technician[]>([]);
+  const { branches } = useBranches(user?.shopId);
+  const { technicians, loading, error, deleteTechnician } = useTechnicians(
+    user?.shopId, 
+    user?.role === 'branch_admin' ? user?.branchId : undefined
+  );
+  const { canDeleteTechnician } = usePermissions();
+  
+  // State for filtering and search
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [branchFilter, setBranchFilter] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<string>("name");
 
-  useEffect(() => {
-    if (!user) return;
-    let q: Query<DocumentData> | CollectionReference<DocumentData> = collection(db, "technicians");
-    if (user.role === "shop_admin") {
-      if (!user.shopId) return;
-      q = query(q, where("shop_id", "==", user.shopId));
-    } else if (user.role === "branch_admin") {
-      if (!user.branch_id) return;
-      q = query(q, where("branch_id", "==", user.branch_id));
-    }
-    getDocs(q).then(snapshot => {
-      setTechnicians(snapshot.docs.map((doc: DocumentData) => ({ id: doc.id, ...doc.data() } as Technician)));
+  // Calculate stats from actual data
+  const stats = useMemo(() => {
+    const total = technicians.length;
+    const active = technicians.filter(t => t.status === 'active').length;
+    const online = Math.floor(total * 0.7); // Mock online count
+    const averageRating = technicians.length > 0 
+      ? technicians.reduce((sum, t) => sum + (t.rating || 0), 0) / technicians.length
+      : 0;
+    const totalCompleted = technicians.reduce((sum, t) => sum + (t.completedServices || 0), 0);
+    const totalCurrent = technicians.reduce((sum, t) => sum + (t.totalServices || 0), 0);
+
+    return {
+      total,
+      active,
+      online,
+      averageRating: parseFloat(averageRating.toFixed(1)),
+      totalCompleted,
+      totalCurrent
+    };
+  }, [technicians]);
+
+  // Filter and sort technicians
+  const filteredTechnicians = useMemo(() => {
+    let filtered = technicians.filter(tech => {
+      const matchesSearch = tech.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           tech.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           tech.phone.includes(searchTerm);
+      
+      const matchesStatus = statusFilter === "all" || tech.status === statusFilter;
+      const matchesBranch = branchFilter === "all" || tech.branchId === branchFilter;
+      
+      return matchesSearch && matchesStatus && matchesBranch;
     });
-  }, [user]);
 
-  const handleDelete = async (id: string) => {
-    await deleteDoc(doc(db, "technicians", id));
-    setTechnicians(techs => techs.filter(t => t.id !== id));
+    // Sort technicians
+    filtered.sort((a, b) => {
+      switch (sortBy) {
+        case "name":
+          return a.name.localeCompare(b.name);
+        case "status":
+          return a.status.localeCompare(b.status);
+        case "rating":
+          return (b.rating || 0) - (a.rating || 0);
+        case "completed":
+          return (b.completedServices || 0) - (a.completedServices || 0);
+        default:
+          return a.name.localeCompare(b.name);
+      }
+    });
+
+    return filtered;
+  }, [technicians, searchTerm, statusFilter, branchFilter, sortBy]);
+
+  // Handle delete technician
+  const handleDelete = async (technicianId: string) => {
+    if (!canDeleteTechnician()) {
+      logger.warn('User attempted to delete technician without permission', { 
+        userId: user?.uid, 
+        technicianId 
+      });
+      return;
+    }
+    
+    try {
+      await deleteTechnician(technicianId);
+      logger.info('Technician deleted successfully', { technicianId });
+    } catch (error) {
+      logger.error('Error deleting technician', { technicianId, error: error as Error });
+    }
   };
+
+  // Handle error states
+  if (error) {
+    const isIndexBuilding = isIndexBuildingError(error);
+    
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-center">
+            {isIndexBuilding ? (
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+            ) : (
+              <div className="w-24 h-24 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                <UserGroupIcon className="h-12 w-12 text-red-600" />
+              </div>
+            )}
+            <h2 className="mt-4 text-xl font-semibold text-gray-900">
+              {isIndexBuilding ? 'Setting Up Database' : 'Error Loading Technicians'}
+            </h2>
+            <p className="mt-2 text-gray-600">{error}</p>
+            {!isIndexBuilding && (
+              <button 
+                onClick={() => window.location.reload()}
+                className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 transition-colors"
+              >
+                Try Again
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="w-full flex flex-col px-4 py-8">
         {/* Header */}
-        <div className="mb-8">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div>
-              <h1 className="text-xl font-bold text-gray-900 mb-q">Technician Management</h1>
-              <p className="text-gray-600 text-sm">Manage your technical staff and their assignments</p>
-            </div>
-            <div className="flex items-center gap-4">
-              <Link
-                href="/technicians/new"
-                className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 font-semibold shadow-lg transition-all duration-200 transform hover:scale-105 flex items-center gap-2"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                </svg>
-                Add Technician
-              </Link>
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Technicians</h1>
+            <p className="text-gray-600">
+              {user?.role === "shop_admin" 
+                ? "Manage all technicians across your business" 
+                : "Manage your team of skilled technicians"
+              }
+            </p>
+          </div>
+          <PermissionGuard permissions={["technician:write"]} fallback={null}>
+            <Link
+              href="/technicians/new"
+              className="mt-4 sm:mt-0 inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 font-semibold shadow-lg transition-all duration-200 transform hover:scale-105"
+            >
+              <PlusIcon className="w-5 h-5" />
+              Add Technician
+            </Link>
+          </PermissionGuard>
+        </div>
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Total Technicians</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
+                <p className="text-xs text-gray-500 mt-1">{stats.active} active</p>
+              </div>
+              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                <UserGroupIcon className="w-6 h-6 text-blue-600" />
+              </div>
             </div>
           </div>
-          
-          {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-8">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-              <div className="flex items-center">
-                <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                  <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                  </svg>
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Total Technicians</p>
-                  <p className="text-2xl font-bold text-gray-900">{technicians.length}</p>
-                </div>
+
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Online Now</p>
+                <p className="text-2xl font-bold text-green-600">{stats.online}</p>
+                <p className="text-xs text-gray-500 mt-1">Available for work</p>
+              </div>
+              <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                <CheckCircleIcon className="w-6 h-6 text-green-600" />
               </div>
             </div>
-            
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-              <div className="flex items-center">
-                <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                  <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Available</p>
-                  <p className="text-2xl font-bold text-gray-900">
-                    {technicians.length}
-                  </p>
-                </div>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Avg Rating</p>
+                <p className="text-2xl font-bold text-yellow-600">{stats.averageRating}/5.0</p>
+                <p className="text-xs text-gray-500 mt-1">Customer satisfaction</p>
+              </div>
+              <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
+                <StarIcon className="w-6 h-6 text-yellow-600" />
               </div>
             </div>
-            
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-              <div className="flex items-center">
-                <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
-                  <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Assigned</p>
-                  <p className="text-2xl font-bold text-gray-900">
-                    {technicians.filter(t => t.branch_id).length}
-                  </p>
-                </div>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Completed Services</p>
+                <p className="text-2xl font-bold text-indigo-600">{stats.totalCompleted}</p>
+                <p className="text-xs text-gray-500 mt-1">This month</p>
               </div>
-            </div>
-            
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-              <div className="flex items-center">
-                <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-                  <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                  </svg>
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Branches</p>
-                  <p className="text-2xl font-bold text-gray-900">
-                    {new Set(technicians.map(t => t.branch_id)).size}
-                  </p>
-                </div>
+              <div className="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center">
+                <WrenchScrewdriverIcon className="w-6 h-6 text-indigo-600" />
               </div>
             </div>
           </div>
         </div>
 
+        {/* Filters and Search */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8">
+          <div className="flex flex-col lg:flex-row gap-4">
+            {/* Search */}
+            <div className="flex-1">
+              <div className="relative">
+                <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search technicians..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+            </div>
 
+            {/* Status Filter */}
+            <div className="flex gap-4">
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="all">All Status</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+                <option value="busy">Busy</option>
+              </select>
 
-        {/* Technician List */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-          <TechnicianList technicians={technicians} onDelete={handleDelete} />
+              {/* Branch Filter */}
+              <select
+                value={branchFilter}
+                onChange={(e) => setBranchFilter(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="all">All Branches</option>
+                {branches?.map((branch) => (
+                  <option key={branch.id} value={branch.id}>
+                    {branch.name}
+                  </option>
+                ))}
+              </select>
+
+              {/* Sort */}
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="name">Sort by Name</option>
+                <option value="status">Sort by Status</option>
+                <option value="rating">Sort by Rating</option>
+                <option value="completed">Sort by Completed</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Technicians List */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100">
+          {loading ? (
+            <div className="p-12 text-center">
+              <div className="inline-flex items-center gap-3">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                <span className="text-gray-600 font-medium">Loading technicians...</span>
+              </div>
+            </div>
+          ) : (
+                         <TechnicianList
+               technicians={filteredTechnicians}
+               branches={branches || []}
+               onDelete={handleDelete}
+             />
+          )}
         </div>
       </div>
     </div>

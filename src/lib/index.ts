@@ -1,1 +1,2 @@
-export { auth, db } from './firebase'; 
+export { logger } from "./logger";
+export { Validator, patterns, rules, validateEmail, validatePhone, validatePassword, validateStrongPassword } from "./validation"; 

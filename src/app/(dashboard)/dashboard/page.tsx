@@ -1,577 +1,499 @@
-"use client"
-import React, { useEffect, useState } from "react";
-import { AuthGuard, RoleGuard, WelcomeModal, OnboardingGuide } from "@/components";
-import { useUser } from "@/hooks";
-import { useRouter } from "next/navigation";
-import { db } from "@/lib/firebase";
-import { collection, getCountFromServer, where, query, getDocs } from "firebase/firestore";
-import Link from "next/link";
+"use client";
+
+import React, { useState, useEffect, useMemo } from 'react';
+import { useUser } from '@/hooks/useUser';
+import { useBranches } from '@/hooks/useBranches';
+import { useTechnicians } from '@/hooks/useTechnicians';
+import { useServices } from '@/hooks/useServices';
+import { useInvoices } from '@/hooks/useInvoices';
+import { collection, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { logger, isIndexBuildingError, getIndexBuildingMessage } from '@/lib/logger';
+import { 
+  HiOfficeBuilding, 
+  HiUserGroup, 
+  HiClipboardList, 
+  HiCurrencyDollar, 
+  HiTrendingUp, 
+  HiClock, 
+  HiCheckCircle, 
+  HiUser,
+  HiChartBar,
+  HiCalendar,
+  HiStar,
+  HiExclamationTriangle
+} from "react-icons/hi";
+import Link from 'next/link';
+import PermissionGuard from '@/components/auth/PermissionGuard';
+import type { User } from "@/types";
+
+// Types
+interface DashboardMetric {
+  id: string;
+  label: string;
+  value: number | string;
+  change?: number;
+  changeType?: 'increase' | 'decrease';
+  icon: React.ComponentType<{ className?: string }>;
+  color: string;
+  bgColor: string;
+}
 
 interface Service {
   id: string;
   name: string;
-  price: number;
   status: string;
-  customer?: { name: string };
-  createdAt: unknown; // Firestore timestamp
+  price: number;
+  createdAt: unknown;
+  customer?: { name: string; phone: string; email: string };
+  device?: { type: string; brand: string; model: string };
+  technician?: { name: string; id: string };
+  branch?: { name: string; id: string };
+  estimatedDuration?: number;
 }
 
-interface DashboardStats {
-  branches: number;
-  services: number;
-  technicians: number;
-  invoices: number;
-  pendingServices: number;
-  completedServices: number;
-  totalRevenue: number;
+interface DashboardData {
+  metrics: DashboardMetric[];
   recentServices: Service[];
+  loading: boolean;
+  error: string | null;
 }
 
-export default function DashboardPage() {
-  return (
-    <AuthGuard>
-      <RoleGuard allowedRoles={["shop_admin", "branch_admin", "technician"]}>
-        <DashboardContent />
-      </RoleGuard>
-    </AuthGuard>
-  );
-}
+// Utility functions
+const getTimestampSeconds = (timestamp: unknown): number => {
+  if (!timestamp) return 0;
+  if (typeof timestamp === 'object' && timestamp && 'seconds' in timestamp) {
+    return (timestamp as { seconds: number }).seconds;
+  }
+  return 0;
+};
 
-function DashboardContent() {
+const formatCurrency = (amount: number): string => {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+  }).format(amount);
+};
+
+const getStatusColor = (status: string): { bg: string; text: string } => {
+  switch (status.toLowerCase()) {
+    case 'completed':
+      return { bg: 'bg-green-100', text: 'text-green-800' };
+    case 'in_progress':
+      return { bg: 'bg-blue-100', text: 'text-blue-800' };
+    case 'pending':
+      return { bg: 'bg-yellow-100', text: 'text-yellow-800' };
+    default:
+      return { bg: 'bg-gray-100', text: 'text-gray-800' };
+  }
+};
+
+// Dashboard Components
+const MetricCard: React.FC<DashboardMetric> = ({ 
+  label, 
+  value, 
+  change, 
+  changeType, 
+  icon: Icon, 
+  color, 
+  bgColor 
+}) => (
+  <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-sm font-medium text-gray-600">{label}</p>
+        <p className="text-2xl font-bold text-gray-900 mt-1">{value}</p>
+        {change !== undefined && (
+          <div className="flex items-center mt-2">
+            <span className={`text-sm font-medium ${
+              changeType === 'increase' ? 'text-green-600' : 'text-red-600'
+            }`}>
+              {changeType === 'increase' ? '+' : ''}{change}%
+            </span>
+            <span className="text-sm text-gray-500 ml-1">from last month</span>
+          </div>
+        )}
+      </div>
+      <div className={`p-3 rounded-lg ${bgColor}`}>
+        <Icon className={`h-6 w-6 ${color}`} />
+      </div>
+    </div>
+  </div>
+);
+
+const RecentServicesCard: React.FC<{ services: Service[] }> = ({ services }) => (
+  <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+    <div className="px-6 py-4 border-b border-gray-200">
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold text-gray-900">Recent Services</h3>
+        <Link 
+          href="/services" 
+          className="text-sm font-medium text-blue-600 hover:text-blue-700"
+        >
+          View all
+        </Link>
+      </div>
+    </div>
+    <div className="p-6">
+      {services.length > 0 ? (
+        <div className="space-y-4">
+          {services.map((service) => {
+            const statusColors = getStatusColor(service.status);
+            return (
+              <div key={service.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                <div className="flex items-center space-x-4">
+                  <div className="flex-shrink-0">
+                    <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                      <HiClipboardList className="h-5 w-5 text-blue-600" />
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">{service.name}</p>
+                    <p className="text-sm text-gray-500">
+                      {service.customer?.name || 'Unknown Customer'} • {service.device?.type || 'Unknown Device'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-4">
+                  <span className={`px-3 py-1 text-xs font-medium rounded-full ${statusColors.bg} ${statusColors.text}`}>
+                    {service.status.replace('_', ' ')}
+                  </span>
+                  <span className="text-sm font-medium text-gray-900">
+                    {formatCurrency(service.price)}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="text-center py-12">
+          <HiClipboardList className="mx-auto h-12 w-12 text-gray-400" />
+          <h3 className="mt-4 text-lg font-medium text-gray-900">No services yet</h3>
+          <p className="mt-2 text-sm text-gray-500">Get started by creating your first service.</p>
+          <div className="mt-6">
+            <Link
+              href="/services/new"
+              className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 transition-colors"
+            >
+              Create Service
+            </Link>
+          </div>
+        </div>
+      )}
+    </div>
+  </div>
+);
+
+const QuickActionsCard: React.FC = () => (
+  <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+    <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
+    <div className="grid grid-cols-2 gap-4">
+      <Link
+        href="/services/new"
+        className="flex items-center p-4 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+      >
+        <HiClipboardList className="h-5 w-5 text-blue-600 mr-3" />
+        <span className="text-sm font-medium text-gray-900">New Service</span>
+      </Link>
+      <Link
+        href="/technicians/new"
+        className="flex items-center p-4 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors"
+      >
+        <HiUserGroup className="h-5 w-5 text-purple-600 mr-3" />
+        <span className="text-sm font-medium text-gray-900">Add Technician</span>
+      </Link>
+      <Link
+        href="/branch/new"
+        className="flex items-center p-4 bg-green-50 rounded-lg hover:bg-green-100 transition-colors"
+      >
+        <HiOfficeBuilding className="h-5 w-5 text-green-600 mr-3" />
+        <span className="text-sm font-medium text-gray-900">New Branch</span>
+      </Link>
+      <Link
+        href="/reports"
+        className="flex items-center p-4 bg-orange-50 rounded-lg hover:bg-orange-100 transition-colors"
+      >
+        <HiChartBar className="h-5 w-5 text-orange-600 mr-3" />
+        <span className="text-sm font-medium text-gray-900">View Reports</span>
+      </Link>
+    </div>
+  </div>
+);
+
+// Main Dashboard Component
+const DashboardContent: React.FC = () => {
   const { user } = useUser();
-  const router = useRouter();
-  const [stats, setStats] = useState<DashboardStats>({
-    branches: 0,
-    services: 0,
-    technicians: 0,
-    invoices: 0,
-    pendingServices: 0,
-    completedServices: 0,
-    totalRevenue: 0,
-    recentServices: []
+  const [data, setData] = useState<DashboardData>({
+    metrics: [],
+    recentServices: [],
+    loading: true,
+    error: null
   });
-  const [loading, setLoading] = useState(true);
-  const [branchName, setBranchName] = useState<string | null>(null);
-  const [showWelcomeModal, setShowWelcomeModal] = useState(false);
-  const [showOnboardingGuide, setShowOnboardingGuide] = useState(false);
 
-  // Helper function to safely get timestamp seconds
-  const getTimestampSeconds = (timestamp: unknown): number => {
-    if (!timestamp) return 0;
-    if (typeof timestamp === 'object' && timestamp && 'seconds' in timestamp) {
-      return (timestamp as { seconds: number }).seconds;
+  // Use hooks for data
+  const { branches } = useBranches(user?.shopId);
+  const { technicians } = useTechnicians(user?.shopId, user?.role === 'branch_admin' ? user?.branchId : undefined);
+  const { services } = useServices(user?.shopId, user?.role === 'branch_admin' ? user?.branchId : undefined);
+  const { invoices } = useInvoices(user?.shopId, user?.role === 'branch_admin' ? user?.branchId : undefined);
+
+  // Fetch dashboard data
+  const fetchDashboardData = async () => {
+    if (!user) return;
+
+    try {
+      setData(prev => ({ ...prev, loading: true, error: null }));
+
+      let servicesData: Service[] = [];
+      let invoicesData: any[] = [];
+
+      // Fetch data based on user role
+      if (user.role === 'technician') {
+        const servicesQuery = query(
+          collection(db, "services"),
+          where("shopId", "==", user.shopId),
+          where("branchId", "==", user.branchId),
+          where("assignedTechnicianId", "==", user.uid),
+          orderBy("createdAt", "desc"),
+          limit(10)
+        );
+        const snapshot = await getDocs(servicesQuery);
+        servicesData = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as Service[];
+      } else {
+        // For shop_admin and branch_admin
+        const servicesQuery = query(
+          collection(db, "services"),
+          where("shopId", "==", user.shopId),
+          ...(user.role === 'branch_admin' ? [where("branchId", "==", user.branchId)] : []),
+          orderBy("createdAt", "desc")
+        );
+        const invoicesQuery = query(
+          collection(db, "invoices"),
+          where("shopId", "==", user.shopId),
+          ...(user.role === 'branch_admin' ? [where("branchId", "==", user.branchId)] : []),
+          orderBy("createdAt", "desc")
+        );
+
+        const [servicesSnapshot, invoicesSnapshot] = await Promise.all([
+          getDocs(servicesQuery),
+          getDocs(invoicesQuery)
+        ]);
+
+        servicesData = servicesSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as Service[];
+
+        invoicesData = invoicesSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+      }
+
+      // Calculate metrics
+      const totalServices = servicesData.length;
+      const pendingServices = servicesData.filter(s => s.status === 'pending' || s.status === 'in_progress').length;
+      const completedServices = servicesData.filter(s => s.status === 'completed').length;
+      const totalRevenue = invoicesData.reduce((sum, invoice) => sum + (invoice.total || 0), 0);
+      const activeServices = servicesData.filter(s => s.status === 'in_progress').length;
+      const totalCustomers = new Set(servicesData.map(s => s.customer?.name).filter(Boolean)).size;
+      const customerSatisfaction = totalServices > 0 ? Math.round((completedServices / totalServices) * 100) : 0;
+
+      // Sort recent services
+      const recentServices = servicesData
+        .sort((a, b) => getTimestampSeconds(b.createdAt) - getTimestampSeconds(a.createdAt))
+        .slice(0, 5);
+
+      // Create metrics array
+      const metrics: DashboardMetric[] = [
+        {
+          id: 'branches',
+          label: 'Branches',
+          value: branches?.length || 0,
+          icon: HiOfficeBuilding,
+          color: 'text-blue-600',
+          bgColor: 'bg-blue-100'
+        },
+        {
+          id: 'services',
+          label: 'Total Services',
+          value: totalServices,
+          icon: HiClipboardList,
+          color: 'text-green-600',
+          bgColor: 'bg-green-100'
+        },
+        {
+          id: 'technicians',
+          label: 'Technicians',
+          value: technicians?.length || 0,
+          icon: HiUserGroup,
+          color: 'text-purple-600',
+          bgColor: 'bg-purple-100'
+        },
+        {
+          id: 'revenue',
+          label: 'Total Revenue',
+          value: formatCurrency(totalRevenue),
+          icon: HiCurrencyDollar,
+          color: 'text-yellow-600',
+          bgColor: 'bg-yellow-100'
+        },
+        {
+          id: 'pending',
+          label: 'Pending Services',
+          value: pendingServices,
+          icon: HiClock,
+          color: 'text-orange-600',
+          bgColor: 'bg-orange-100'
+        },
+        {
+          id: 'completed',
+          label: 'Completed',
+          value: completedServices,
+          icon: HiCheckCircle,
+          color: 'text-green-600',
+          bgColor: 'bg-green-100'
+        },
+        {
+          id: 'active',
+          label: 'Active Services',
+          value: activeServices,
+          icon: HiTrendingUp,
+          color: 'text-blue-600',
+          bgColor: 'bg-blue-100'
+        },
+        {
+          id: 'satisfaction',
+          label: 'Customer Satisfaction',
+          value: `${customerSatisfaction}%`,
+          icon: HiStar,
+          color: 'text-indigo-600',
+          bgColor: 'bg-indigo-100'
+        }
+      ];
+
+      setData({
+        metrics,
+        recentServices,
+        loading: false,
+        error: null
+      });
+
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to fetch dashboard data";
+      
+      // Check if it's an index building error
+      const finalErrorMessage = isIndexBuildingError(errorMessage) 
+        ? getIndexBuildingMessage(errorMessage)
+        : errorMessage;
+      
+      setData(prev => ({
+        ...prev,
+        loading: false,
+        error: finalErrorMessage
+      }));
+      logger.error("Error fetching dashboard data", {
+        error: errorMessage,
+        userId: user?.uid,
+        role: user?.role
+      });
     }
-    return 0;
   };
 
-  // Helper function to sort services by timestamp
-  const sortServicesByTimestamp = React.useCallback((services: Service[]) => {
-    return services.sort((a, b) => {
-      const aTime = getTimestampSeconds(a.createdAt);
-      const bTime = getTimestampSeconds(b.createdAt);
-      return bTime - aTime; // Descending order
-    }).slice(0, 5);
-  }, []);
-
-  // Check if shop_admin needs to complete onboarding
   useEffect(() => {
-    if (user && user.role === "shop_admin" && !user.shopId) {
-      router.push("/shop-onboarding");
-    }
-  }, [user, router]);
-
-  // Show welcome modal for new users who just completed onboarding
-  useEffect(() => {
-    if (user && user.role === "shop_admin" && user.shopId) {
-      // Check if this is the first time the user is seeing the dashboard after onboarding
-      const hasSeenWelcome = localStorage.getItem('hasSeenWelcome');
-      if (!hasSeenWelcome) {
-        setShowWelcomeModal(true);
-        localStorage.setItem('hasSeenWelcome', 'true');
-      } else {
-        // Show onboarding guide for users who have completed onboarding but might need guidance
-        const hasSeenGuide = localStorage.getItem('hasSeenOnboardingGuide');
-        if (!hasSeenGuide && stats.branches === 0 && stats.technicians === 0) {
-          setShowOnboardingGuide(true);
-        }
-      }
-    }
-  }, [user, stats.branches, stats.technicians]);
-
-    useEffect(() => {
-    const fetchDashboardData = async () => {
-      if (!user) return;
-      setLoading(true);
-
-      try {
-        if (user.role === "shop_admin" && user.shopId) {
-          // Shop admin: all branches and all services for the shop
-          const branchSnap = await getCountFromServer(collection(db, `shops/${user.shopId}/branches`));
-          const serviceQ = query(collection(db, "services"), where("shop_id", "==", user.shopId));
-          const serviceSnap = await getCountFromServer(serviceQ);
-          const technicianQ = query(collection(db, "technicians"), where("shop_id", "==", user.shopId));
-          const technicianSnap = await getCountFromServer(technicianQ);
-          const invoiceQ = query(collection(db, "invoices"), where("shopId", "==", user.shopId));
-          const invoiceSnap = await getCountFromServer(invoiceQ);
-
-          // Get services data using simple getDocs to avoid index issues
-          const servicesQuery = query(
-            collection(db, "services"), 
-            where("shop_id", "==", user.shopId)
-          );
-
-          const servicesSnapshot = await getDocs(servicesQuery);
-          const services = servicesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Service[];
-          
-          // Sort by createdAt in memory to avoid index requirement
-          const sortedServices = sortServicesByTimestamp(services);
-          
-          const pendingServices = sortedServices.filter(s => s.status === "To Do").length;
-          const completedServices = sortedServices.filter(s => s.status === "Completed").length;
-          const totalRevenue = sortedServices.reduce((sum, s) => sum + (s.price || 0), 0);
-
-          setStats({
-            branches: branchSnap.data().count,
-            services: serviceSnap.data().count,
-            technicians: technicianSnap.data().count,
-            invoices: invoiceSnap.data().count,
-            pendingServices,
-            completedServices,
-            totalRevenue,
-            recentServices: sortedServices
-          });
-          setLoading(false);
-        } else if (user.role === "branch_admin" && user.branch_id && user.shopId) {
-          // Branch admin: only their branch and its services
-          const branchDocRef = collection(db, `shops/${user.shopId}/branches`);
-          const branchDocs = await getDocs(branchDocRef);
-          const branch = branchDocs.docs.find(doc => doc.id === user.branch_id);
-          setBranchName(branch ? branch.data().name : "Branch");
-
-          const serviceQ = query(collection(db, "services"), where("branch_id", "==", user.branch_id));
-          const serviceSnap = await getCountFromServer(serviceQ);
-          const technicianQ = query(collection(db, "technicians"), where("branch_id", "==", user.branch_id));
-          const technicianSnap = await getCountFromServer(technicianQ);
-          const invoiceQ = query(collection(db, "invoices"), where("branchId", "==", user.branch_id));
-          const invoiceSnap = await getCountFromServer(invoiceQ);
-
-          // Get services data using simple getDocs to avoid index issues
-          const servicesQuery = query(
-            collection(db, "services"), 
-            where("branch_id", "==", user.branch_id)
-          );
-
-          const servicesSnapshot = await getDocs(servicesQuery);
-          const services = servicesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Service[];
-          
-          // Sort by createdAt in memory to avoid index requirement
-          const sortedServices = sortServicesByTimestamp(services);
-          
-          const pendingServices = sortedServices.filter(s => s.status === "To Do").length;
-          const completedServices = sortedServices.filter(s => s.status === "Completed").length;
-          const totalRevenue = sortedServices.reduce((sum, s) => sum + (s.price || 0), 0);
-
-          setStats({
-            branches: 1, // Branch admin only sees their branch
-            services: serviceSnap.data().count,
-            technicians: technicianSnap.data().count,
-            invoices: invoiceSnap.data().count,
-            pendingServices,
-            completedServices,
-            totalRevenue,
-            recentServices: sortedServices
-          });
-          setLoading(false);
-        } else if (user.role === "technician" && user.branch_id && user.shopId) {
-          // Technician: only their assigned services
-          const serviceQ = query(collection(db, "services"), where("technician_id", "==", user.uid));
-          const serviceSnap = await getCountFromServer(serviceQ);
-
-          // Get services data using simple getDocs to avoid index issues
-          const servicesQuery = query(
-            collection(db, "services"), 
-            where("technician_id", "==", user.uid)
-          );
-
-          const servicesSnapshot = await getDocs(servicesQuery);
-          const services = servicesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Service[];
-          
-          // Sort by createdAt in memory to avoid index requirement
-          const sortedServices = sortServicesByTimestamp(services);
-          
-          const pendingServices = sortedServices.filter(s => s.status === "To Do").length;
-          const completedServices = sortedServices.filter(s => s.status === "Completed").length;
-          const totalRevenue = sortedServices.reduce((sum, s) => sum + (s.price || 0), 0);
-
-          setStats({
-            branches: 0, // Technicians don't see branch stats
-            services: serviceSnap.data().count,
-            technicians: 0, // Technicians don't see technician stats
-            invoices: 0, // Technicians don't see invoice stats
-            pendingServices,
-            completedServices,
-            totalRevenue,
-            recentServices: sortedServices
-          });
-          setLoading(false);
-        }
-      } catch (error) {
-        console.error("Error fetching dashboard data:", error);
-        // Set default stats on error
-        setStats({
-          branches: 0,
-          services: 0,
-          technicians: 0,
-          invoices: 0,
-          pendingServices: 0,
-          completedServices: 0,
-          totalRevenue: 0,
-          recentServices: []
-        });
-        setLoading(false);
-      }
-    };
-
     fetchDashboardData();
-  }, [user, sortServicesByTimestamp]);
+  }, [user, branches, technicians, services, invoices]);
 
-  if (!user) return null;
-
-  // Don't render if shop_admin needs onboarding
-  if (user.role === "shop_admin" && !user.shopId) {
-    return null;
+  if (data.loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading dashboard...</p>
+        </div>
+      </div>
+    );
   }
 
-  if (loading) {
+  if (data.error) {
+    const isIndexBuilding = isIndexBuildingError(data.error);
+    
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 flex items-center justify-center">
+      <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading dashboard...</p>
+          {isIndexBuilding ? (
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          ) : (
+            <HiExclamationTriangle className="mx-auto h-12 w-12 text-red-500" />
+          )}
+          <h2 className="mt-4 text-xl font-semibold text-gray-900">
+            {isIndexBuilding ? 'Setting Up Database' : 'Error Loading Dashboard'}
+          </h2>
+          <p className="mt-2 text-gray-600">{data.error}</p>
+          {!isIndexBuilding && (
+            <button 
+              onClick={fetchDashboardData}
+              className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 transition-colors"
+            >
+              Try Again
+            </button>
+          )}
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
-      <WelcomeModal 
-        isOpen={showWelcomeModal} 
-        onClose={() => setShowWelcomeModal(false)} 
-        user={user} 
-      />
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Onboarding Guide */}
-        {showOnboardingGuide && (
-          <OnboardingGuide 
-            user={user} 
-            onDismiss={() => {
-              setShowOnboardingGuide(false);
-              localStorage.setItem('hasSeenOnboardingGuide', 'true');
-            }} 
-          />
-        )}
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div>
-              <h1 className="text-xl font-bold text-gray-900 mb-q">
-                Welcome back, {user.name || user.email}!
-              </h1>
-              <p className="text-gray-600 text-sm">
-                {user.role === "shop_admin" 
-                  ? "Here's an overview of your business performance" 
-                  : user.role === "branch_admin"
-                  ? `Here&apos;s what&apos;s happening at ${branchName || "your branch"}`
-                  : "Here&apos;s an overview of your assigned tasks and performance"
-                }
-              </p>
-            </div>
-            <div className="flex items-center gap-4">
-              {user.role !== "technician" && (
-                <Link
-                  href="/services/new"
-                  className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 font-semibold shadow-lg transition-all duration-200 transform hover:scale-105 flex items-center gap-2"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                  </svg>
-                  Create Service
-                </Link>
-              )}
-              {user.role === "technician" && (
-                <Link
-                  href="/my-tasks"
-                  className="px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:from-green-700 hover:to-emerald-700 font-semibold shadow-lg transition-all duration-200 transform hover:scale-105 flex items-center gap-2"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                  </svg>
-                  View My Tasks
-                </Link>
-              )}
-            </div>
-          </div>
+    <div className="p-6 space-y-6">
+      {/* Header */}
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+          <p className="text-gray-600 mt-1">
+            Welcome back, {user?.name || 'User'}
+          </p>
+        </div>
+        <div className="text-sm text-gray-500">
+          {new Date().toLocaleDateString('en-US', { 
+            weekday: 'long', 
+            year: 'numeric', 
+            month: 'long', 
+            day: 'numeric' 
+          })}
+        </div>
+      </div>
+
+      {/* Metrics Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {data.metrics.map((metric) => (
+          <MetricCard key={metric.id} {...metric} />
+        ))}
+      </div>
+
+      {/* Content Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Recent Services - Takes 2 columns */}
+        <div className="lg:col-span-2">
+          <RecentServicesCard services={data.recentServices} />
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
-          {/* Total Services/Tasks */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 hover:shadow-md transition-shadow">
-            <div className="flex items-center">
-              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">
-                  {user.role === "technician" ? "Total Tasks" : "Total Services"}
-                </p>
-                <p className="text-2xl font-bold text-gray-900">{stats.services}</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Pending Services/Tasks */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 hover:shadow-md transition-shadow">
-            <div className="flex items-center">
-              <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
-                <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Pending</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.pendingServices}</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Completed Services/Tasks */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 hover:shadow-md transition-shadow">
-            <div className="flex items-center">
-              <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Completed</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.completedServices}</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Total Revenue/Earnings */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 hover:shadow-md transition-shadow">
-            <div className="flex items-center">
-              <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-                <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
-                </svg>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">
-                  {user.role === "technician" ? "Total Earnings" : "Total Revenue"}
-                </p>
-                <p className="text-2xl font-bold text-gray-900">₹{stats.totalRevenue.toLocaleString()}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Additional Stats for Shop Admin */}
-        {user.role === "shop_admin" && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            {/* Branches */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 hover:shadow-md transition-shadow">
-              <div className="flex items-center">
-                <div className="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center">
-                  <svg className="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                  </svg>
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Total Branches</p>
-                  <p className="text-2xl font-bold text-gray-900">{stats.branches}</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Technicians */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 hover:shadow-md transition-shadow">
-              <div className="flex items-center">
-                <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
-                  <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                  </svg>
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Total Technicians</p>
-                  <p className="text-2xl font-bold text-gray-900">{stats.technicians}</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Invoices */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 hover:shadow-md transition-shadow">
-              <div className="flex items-center">
-                <div className="w-12 h-12 bg-teal-100 rounded-lg flex items-center justify-center">
-                  <svg className="w-6 h-6 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Total Invoices</p>
-                  <p className="text-2xl font-bold text-gray-900">{stats.invoices}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Recent Activity and Quick Actions */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Recent Services */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-            <div className="p-6 border-b border-gray-200">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-gray-900">Recent Services</h3>
-                <Link
-                  href="/services"
-                  className="text-blue-600 hover:text-blue-700 text-sm font-medium"
-                >
-                  View All
-                </Link>
-              </div>
-            </div>
-            <div className="p-6">
-              {stats.recentServices.length === 0 ? (
-                <div className="text-center py-8">
-                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                  </div>
-                  <p className="text-gray-500">No recent services</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {stats.recentServices.map((service) => (
-                    <div key={service.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                      <div className="flex items-center space-x-3">
-                        <div className={`w-3 h-3 rounded-full ${
-                          service.status === "Completed" ? "bg-green-500" :
-                          service.status === "To Do" ? "bg-yellow-500" :
-                          "bg-blue-500"
-                        }`}></div>
-                        <div>
-                          <p className="font-medium text-gray-900">{service.name}</p>
-                          <p className="text-sm text-gray-500">{service.customer?.name || "N/A"}</p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-semibold text-gray-900">₹{service.price || 0}</p>
-                        <p className="text-xs text-gray-500">{service.status}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Quick Actions */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-            <div className="p-6 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900">Quick Actions</h3>
-            </div>
-            <div className="p-6">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Link
-                  href="/services/new"
-                  className="flex items-center p-4 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors group"
-                >
-                  <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center mr-3 group-hover:bg-blue-700 transition-colors">
-                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="font-medium text-gray-900">Create Service</p>
-                    <p className="text-sm text-gray-500">Add new service request</p>
-                  </div>
-                </Link>
-
-                <Link
-                  href="/services"
-                  className="flex items-center p-4 bg-green-50 rounded-lg hover:bg-green-100 transition-colors group"
-                >
-                  <div className="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center mr-3 group-hover:bg-green-700 transition-colors">
-                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="font-medium text-gray-900">View Services</p>
-                    <p className="text-sm text-gray-500">Manage all services</p>
-                  </div>
-                </Link>
-
-                {user.role === "shop_admin" && (
-                  <>
-                    <Link
-                      href="/branch"
-                      className="flex items-center p-4 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors group"
-                    >
-                      <div className="w-10 h-10 bg-purple-600 rounded-lg flex items-center justify-center mr-3 group-hover:bg-purple-700 transition-colors">
-                        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                        </svg>
-                      </div>
-                      <div>
-                        <p className="font-medium text-gray-900">Manage Branches</p>
-                        <p className="text-sm text-gray-500">Add or edit branches</p>
-                      </div>
-                    </Link>
-
-                    <Link
-                      href="/technicians"
-                      className="flex items-center p-4 bg-orange-50 rounded-lg hover:bg-orange-100 transition-colors group"
-                    >
-                      <div className="w-10 h-10 bg-orange-600 rounded-lg flex items-center justify-center mr-3 group-hover:bg-orange-700 transition-colors">
-                        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                        </svg>
-                      </div>
-                      <div>
-                        <p className="font-medium text-gray-900">Manage Technicians</p>
-                        <p className="text-sm text-gray-500">Add or edit technicians</p>
-                      </div>
-                    </Link>
-                  </>
-                )}
-
-                <Link
-                  href="/invoices"
-                  className="flex items-center p-4 bg-teal-50 rounded-lg hover:bg-teal-100 transition-colors group"
-                >
-                  <div className="w-10 h-10 bg-teal-600 rounded-lg flex items-center justify-center mr-3 group-hover:bg-teal-700 transition-colors">
-                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="font-medium text-gray-900">View Invoices</p>
-                    <p className="text-sm text-gray-500">Manage invoices</p>
-                  </div>
-                </Link>
-              </div>
-            </div>
-          </div>
+        {/* Quick Actions - Takes 1 column */}
+        <div>
+          <QuickActionsCard />
         </div>
       </div>
     </div>
+  );
+};
+
+// Main Export
+export default function DashboardPage() {
+  return (
+    <PermissionGuard permissions={['dashboard:read']}>
+      <DashboardContent />
+    </PermissionGuard>
   );
 }

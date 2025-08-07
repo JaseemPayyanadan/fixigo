@@ -1,40 +1,41 @@
-import { useEffect, useState } from "react";
-import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
+"use client";
+import { useState, useEffect } from "react";
+import { User } from "@/types";
+import { auth, db } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
-import { auth, db } from "../lib/firebase";
-import type { User } from "../types";
+import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
 
 export function useUser() {
   const [user, setUser] = useState<User | null>(null);
-  const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
-      try {
-        setFirebaseUser(fbUser);
-        if (fbUser) {
+    const unsubscribe = onAuthStateChanged(auth, async (fbUser: FirebaseUser | null) => {
+      if (fbUser) {
+        try {
           const userDoc = await getDoc(doc(db, "users", fbUser.uid));
           if (userDoc.exists()) {
-            setUser({ uid: fbUser.uid, ...userDoc.data() } as User);
+            const userData = userDoc.data();
+            const userWithUid: User = {
+              ...userData,
+              uid: fbUser.uid,
+            } as User;
+            setUser(userWithUid);
           } else {
-            console.warn("User document not found for:", fbUser.uid);
             setUser(null);
           }
-        } else {
-          setUser(null);
+        } catch (err) {
+          setError(err instanceof Error ? err.message : "Failed to fetch user data");
         }
-      } catch (err) {
-        console.error("Error fetching user data:", err);
-        setError(err instanceof Error ? err.message : "Failed to fetch user data");
+      } else {
         setUser(null);
-      } finally {
-        setLoading(false);
       }
+      setLoading(false);
     });
+
     return () => unsubscribe();
   }, []);
 
-  return { user, firebaseUser, loading, error };
+  return { user, loading, error };
 } 

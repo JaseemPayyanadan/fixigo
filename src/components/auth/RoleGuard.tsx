@@ -8,12 +8,16 @@ interface RoleGuardProps {
   children: React.ReactNode;
   allowedRoles: Role[];
   redirectTo?: string;
+  fallback?: React.ReactNode;
+  requireAll?: boolean; // If true, user must have ALL roles. If false, user must have ANY role.
 }
 
 export default function RoleGuard({ 
   children, 
   allowedRoles, 
-  redirectTo = "/unauthorized" 
+  redirectTo = "/unauthorized",
+  fallback,
+  requireAll = false
 }: RoleGuardProps) {
   const { user, loading } = useUser();
   const router = useRouter();
@@ -21,12 +25,16 @@ export default function RoleGuard({
 
   useEffect(() => {
     if (!loading && user && !isRedirecting) {
-      if (!allowedRoles.includes(user.role)) {
+      const hasAccess = requireAll 
+        ? allowedRoles.every(role => user.role === role)
+        : allowedRoles.includes(user.role);
+
+      if (!hasAccess) {
         setIsRedirecting(true);
         router.push(redirectTo);
       }
     }
-  }, [user, loading, allowedRoles, redirectTo, router, isRedirecting]);
+  }, [user, loading, allowedRoles, redirectTo, router, isRedirecting, requireAll]);
 
   if (loading) {
     return (
@@ -50,8 +58,16 @@ export default function RoleGuard({
     );
   }
 
-  if (!user || !allowedRoles.includes(user.role)) {
-    return null; // Don't render anything while redirecting
+  if (!user) {
+    return fallback || null;
+  }
+
+  const hasAccess = requireAll 
+    ? allowedRoles.every(role => user.role === role)
+    : allowedRoles.includes(user.role);
+
+  if (!hasAccess) {
+    return fallback || null;
   }
 
   return <>{children}</>;

@@ -30,7 +30,6 @@ export function HomeClient() {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50">
-        <Image src="/next.svg" alt="App Logo" width={64} height={64} className="mb-4" />
         <h1 className="text-2xl font-bold mb-2 text-blue-700">Fixigo</h1>
         <div className="flex items-center gap-2 mb-2">
           <span className="sr-only" role="status">Checking your session…</span>

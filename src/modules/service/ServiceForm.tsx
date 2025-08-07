@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import type { Branch } from "../../types";
 import TextInput from "../../components/ui/TextInput";
-import { MdColorLens, MdPerson, MdPhone, MdEmail, MdDevices, MdBusiness, MdLabel, MdConfirmationNumber, MdBuild, MdAttachMoney, MdEngineering } from "react-icons/md";
+import { UserIcon, PhoneIcon, EnvelopeIcon, DevicePhoneMobileIcon, BuildingOfficeIcon } from "@heroicons/react/24/outline";
 import { useTechnicians } from "../../hooks/useTechnicians";
 
 interface ServiceFormProps {
@@ -93,7 +93,7 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
         <div className="px-8 py-8">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-              <MdPerson className="w-6 h-6 text-blue-600" />
+              <UserIcon className="w-6 h-6 text-blue-600" />
             </div>
             <div>
               <h3 className="text-xl font-semibold text-gray-900">Customer Information</h3>
@@ -109,7 +109,7 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
               onChange={handleCustomerChange}
               placeholder="Enter customer name"
               required
-              icon={<MdPerson className="h-5 w-5 text-gray-400" />}
+              icon={<UserIcon className="h-5 w-5 text-gray-400" />}
             />
             <TextInput
               type="tel"
@@ -119,7 +119,7 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
               onChange={handleCustomerChange}
               placeholder="Enter phone number"
               required
-              icon={<MdPhone className="h-5 w-5 text-gray-400" />}
+              icon={<PhoneIcon className="h-5 w-5 text-gray-400" />}
             />
             <TextInput
               type="email"
@@ -129,7 +129,7 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
               onChange={handleCustomerChange}
               placeholder="Enter email address"
               required
-              icon={<MdEmail className="h-5 w-5 text-gray-400" />}
+              icon={<EnvelopeIcon className="h-5 w-5 text-gray-400" />}
             />
           </div>
         </div>
@@ -140,7 +140,7 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
         <div className="px-8 py-8">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center">
-              <MdDevices className="w-6 h-6 text-indigo-600" />
+              <DevicePhoneMobileIcon className="w-6 h-6 text-indigo-600" />
             </div>
             <div>
               <h3 className="text-xl font-semibold text-gray-900">Device Details</h3>
@@ -156,7 +156,7 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
               onChange={handleDeviceChange}
               placeholder="Phone, Laptop, etc."
               required
-              icon={<MdDevices className="h-5 w-5 text-gray-400" />}
+              icon={<DevicePhoneMobileIcon className="h-5 w-5 text-gray-400" />}
             />
             <TextInput
               type="text"
@@ -166,7 +166,7 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
               onChange={handleDeviceChange}
               placeholder="Apple, Samsung, etc."
               required
-              icon={<MdBusiness className="h-5 w-5 text-gray-400" />}
+              icon={<BuildingOfficeIcon className="h-5 w-5 text-gray-400" />}
             />
             <TextInput
               type="text"
@@ -176,7 +176,7 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
               onChange={handleDeviceChange}
               placeholder="iPhone 14, Galaxy S23"
               required
-              icon={<MdLabel className="h-5 w-5 text-gray-400" />}
+              icon={<BuildingOfficeIcon className="h-5 w-5 text-gray-400" />}
             />
             <TextInput
               type="text"
@@ -186,7 +186,7 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
               onChange={handleDeviceChange}
               placeholder="Device serial number"
               required
-              icon={<MdConfirmationNumber className="h-5 w-5 text-gray-400" />}
+              icon={<BuildingOfficeIcon className="h-5 w-5 text-gray-400" />}
             />
             <TextInput
               type="text"
@@ -196,7 +196,7 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
               onChange={handleDeviceChange}
               placeholder="Black, Silver, etc."
               required
-              icon={<MdColorLens className="h-5 w-5 text-gray-400" />}
+              icon={<BuildingOfficeIcon className="h-5 w-5 text-gray-400" />}
             />
           </div>
         </div>
@@ -206,7 +206,7 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
       <div className="px-8 py-8">
         <div className="flex items-center gap-3 mb-6">
           <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-            <MdBuild className="w-6 h-6 text-green-600" />
+            <BuildingOfficeIcon className="w-6 h-6 text-green-600" />
           </div>
           <div>
             <h3 className="text-xl font-semibold text-gray-900">Service Details</h3>
@@ -223,7 +223,7 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
             onChange={handleServiceChange}
             placeholder="Screen repair, Battery replacement"
             required
-            icon={<MdBuild className="h-5 w-5 text-gray-400" />}
+            icon={<BuildingOfficeIcon className="h-5 w-5 text-gray-400" />}
           />
           <TextInput
             type="number"
@@ -233,7 +233,7 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
             onChange={handleServiceChange}
             placeholder="Enter price"
             required
-            icon={<MdAttachMoney className="h-5 w-5 text-gray-400" />}
+            icon={<BuildingOfficeIcon className="h-5 w-5 text-gray-400" />}
           />
         </div>
         
@@ -292,7 +292,7 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
           </label>
           <div className="relative">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <MdEngineering className="h-5 w-5 text-gray-400" />
+              <BuildingOfficeIcon className="h-5 w-5 text-gray-400" />
             </div>
             <select
               id="technician_id"
@@ -364,7 +364,7 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
               </div>
             ) : (
               <div className="flex items-center gap-2">
-                <MdBuild className="w-5 h-5" />
+                <BuildingOfficeIcon className="w-5 h-5" />
                 {editing ? "Update Service" : "Create Service"}
               </div>
             )}

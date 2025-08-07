@@ -1,7 +1,7 @@
 "use client";
 import React, { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { HiHome, HiBriefcase, HiOfficeBuilding, HiUserGroup, HiUser, HiClipboardList, HiMenu, HiX } from "react-icons/hi";
+import { HomeIcon, BriefcaseIcon, BuildingOfficeIcon, UserGroupIcon, UserIcon, ClipboardDocumentListIcon, Bars3Icon, XMarkIcon } from "@heroicons/react/24/outline";
 import { useUser } from "@/hooks/useUser";
 // import { useSidebar } from "@/contexts/SidebarContext";
 
@@ -9,37 +9,37 @@ const navItems = [
   { 
     label: "Dashboard", 
     href: "/dashboard", 
-    icon: HiHome,
+    icon: HomeIcon,
     roles: ["shop_admin", "branch_admin", "technician"]
   },
   { 
     label: "Services", 
     href: "/services", 
-    icon: HiBriefcase,
+    icon: BriefcaseIcon,
     roles: ["shop_admin", "branch_admin", "technician"]
   },
   { 
     label: "My Tasks", 
     href: "/my-tasks", 
-    icon: HiClipboardList,
+    icon: ClipboardDocumentListIcon,
     roles: ["technician"]
   },
   { 
     label: "My Profile", 
     href: "/profile", 
-    icon: HiUser,
+    icon: UserIcon,
     roles: ["technician"]
   },
   { 
     label: "Branches", 
     href: "/branch", 
-    icon: HiOfficeBuilding,
+    icon: BuildingOfficeIcon,
     roles: ["shop_admin"]
   },
   { 
     label: "Technicians", 
     href: "/technicians", 
-    icon: HiUserGroup,
+    icon: UserGroupIcon,
     roles: ["shop_admin", "branch_admin"]
   },
 ];
@@ -85,9 +85,9 @@ export function BottomNavBar() {
             >
               <div className="relative">
                 {isMenuOpen ? (
-                  <HiX className="text-xl mb-1 transition-transform duration-200 scale-110" />
+                  <XMarkIcon className="text-xl mb-1 transition-transform duration-200 scale-110" />
                 ) : (
-                  <HiMenu className="text-xl mb-1 transition-transform duration-200" />
+                  <Bars3Icon className="text-xl mb-1 transition-transform duration-200" />
                 )}
                 {isMenuOpen && (
                   <div className="absolute -top-1 -right-1 w-2 h-2 bg-blue-600 rounded-full animate-pulse"></div>
@@ -157,7 +157,7 @@ export function BottomNavBar() {
                   onClick={() => setIsMenuOpen(false)}
                   className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
                 >
-                  <HiX className="w-5 h-5" />
+                  <XMarkIcon className="w-5 h-5" />
                 </button>
               </div>
               
@@ -188,9 +188,6 @@ export function BottomNavBar() {
           </div>
         </div>
       )}
-
-      {/* Safe Area Spacing for iOS and Android */}
-      <div className="safe-area-bottom h-4 md:hidden"></div>
     </>
   );
 } 

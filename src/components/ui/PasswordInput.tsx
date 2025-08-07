@@ -1,5 +1,7 @@
+"use client";
+
 import React, { useState } from "react";
-import { HiEye, HiEyeOff } from "react-icons/hi";
+import { EyeIcon, EyeSlashIcon } from "@heroicons/react/24/outline";
 
 interface PasswordInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
@@ -35,7 +37,7 @@ const PasswordInput = React.forwardRef<HTMLInputElement, PasswordInputProps>(
             onClick={() => setShowPassword(!showPassword)}
             className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 transition-colors"
           >
-            {showPassword ? <HiEyeOff className="h-5 w-5" /> : <HiEye className="h-5 w-5" />}
+            {showPassword ? <EyeSlashIcon className="h-5 w-5" /> : <EyeIcon className="h-5 w-5" />}
           </button>
         </div>
         {error && <div className="text-red-600 text-xs mt-1">{error}</div>}

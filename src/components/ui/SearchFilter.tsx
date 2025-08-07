@@ -1,5 +1,5 @@
 import React from "react";
-import { HiSearch, HiRefresh } from "react-icons/hi";
+import { MagnifyingGlassIcon, ArrowPathIcon } from "@heroicons/react/24/outline";
 
 interface SearchFilterProps {
   search: string;
@@ -34,7 +34,7 @@ const SearchFilter: React.FC<SearchFilterProps> = ({
         {/* Search */}
         <div className="flex-1 relative min-w-0">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <HiSearch className="h-5 w-5 text-gray-400" />
+            <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" />
           </div>
           <input
             type="text"
@@ -67,7 +67,7 @@ const SearchFilter: React.FC<SearchFilterProps> = ({
             onClick={onClear}
             className="flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-lg bg-white hover:bg-gray-50 transition-colors text-sm"
           >
-            <HiRefresh className="w-4 h-4" />
+            <ArrowPathIcon className="w-4 h-4" />
             Clear
           </button>
         )}

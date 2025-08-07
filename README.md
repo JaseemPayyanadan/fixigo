@@ -1,97 +1,78 @@
-# Fixigo - Service Management Platform
+# Fixigo - Professional Service Management System
 
-A modern, full-stack service management application built with Next.js 15, TypeScript, and Firebase.
+A comprehensive service management system built with Next.js 14, TypeScript, Tailwind CSS, and Firebase, designed for service businesses with multiple branches and technicians.
 
 ## 🚀 Features
 
-- **Multi-role Authentication**: Shop admins, branch admins, and technicians
-- **Service Management**: Create, track, and manage service requests
-- **Technician Management**: Assign and manage technical staff
-- **Branch Management**: Manage multiple business locations
-- **Invoice Generation**: Create and track invoices
-- **Task Management**: Assign and track tasks for technicians
-- **Real-time Updates**: Live updates using Firebase
-- **PWA Support**: Progressive Web App capabilities
-- **Responsive Design**: Mobile-first responsive design
+### **Role-Based Access Control (RBAC)**
+- **Shop Admin**: Full access to shop and all branches
+- **Branch Admin**: Access only to assigned branch
+- **Technician**: Access only to assigned branch
+
+### **Core Modules**
+- **Branch Management**: Create and manage business locations
+- **Technician Management**: Manage technicians with skills and availability
+- **Service Management**: Track service requests and progress
+- **Invoice Management**: Generate and manage invoices
+- **Task Management**: Assign and track tasks
+- **Dashboard Analytics**: Real-time statistics and reports
+
+### **Professional Architecture**
+- Hierarchical data structure with subcollections
+- Comprehensive security rules
+- Type-safe development with TypeScript
+- Modern UI with Tailwind CSS
+- Real-time data synchronization
 
 ## 🏗️ Project Structure
 
 ```
 src/
-├── app/                          # Next.js App Router
-│   ├── (auth)/                   # Authentication route group
-│   │   ├── login/               # Login page
-│   │   ├── register/            # Registration page
-│   │   └── shop-onboarding/     # Shop onboarding
-│   ├── (dashboard)/             # Dashboard route group
-│   │   ├── dashboard/           # Main dashboard
-│   │   ├── services/            # Service management
-│   │   ├── technicians/         # Technician management
-│   │   ├── branch/              # Branch management
-│   │   ├── invoices/            # Invoice management
-│   │   ├── my-tasks/            # Task management
-│   │   └── profile/             # User profile
-│   ├── globals.css              # Global styles
-│   ├── layout.tsx               # Root layout
-│   └── page.tsx                 # Home page
-├── components/                   # Reusable components
-│   ├── auth/                    # Authentication components
-│   │   ├── AuthGuard.tsx       # Route protection
-│   │   └── RoleGuard.tsx       # Role-based access
-│   ├── layout/                  # Layout components
-│   │   ├── AppBar.tsx          # Top navigation bar
-│   │   ├── SideNavBar.tsx      # Side navigation
-│   │   └── BottomNavBar.tsx    # Mobile navigation
-│   ├── ui/                      # UI components
-│   │   ├── Button.tsx          # Button component
-│   │   ├── TextInput.tsx       # Input component
-│   │   ├── LoadingSpinner.tsx  # Loading component
-│   │   └── table.tsx           # Table components
-│   └── providers.tsx            # Context providers
-├── contexts/                    # React contexts
-│   ├── AuthContext.tsx         # Authentication state
-│   └── SidebarContext.tsx      # Sidebar state
-├── hooks/                       # Custom React hooks
-│   ├── useAuth.ts              # Authentication hook
-│   ├── useUser.ts              # User data hook
-│   ├── useBranches.ts          # Branch data hook
-│   ├── useTechnicians.ts       # Technician data hook
-│   ├── useFirestore.ts         # Firestore hook
-│   ├── useLocalStorage.ts      # Local storage hook
-│   ├── useDebounce.ts          # Debounce hook
-│   └── useClickOutside.ts      # Click outside hook
-├── lib/                         # Utility libraries
-│   ├── firebase.ts             # Firebase configuration
-│   ├── utils.ts                # Utility functions
-│   └── constants.ts            # Application constants
-├── modules/                     # Feature modules
-│   ├── branch/                 # Branch management
-│   ├── service/                # Service management
-│   └── technician/             # Technician management
-└── types/                       # TypeScript types
-    └── index.ts                # Type definitions
+├── app/                    # Next.js app router pages
+│   ├── (auth)/            # Authentication pages
+│   └── (dashboard)/       # Dashboard pages
+├── components/             # Reusable React components
+│   ├── auth/              # Authentication components
+│   ├── layout/            # Layout components
+│   └── ui/                # UI components
+├── contexts/              # React contexts
+├── hooks/                 # Custom React hooks
+├── lib/                   # Utility libraries
+├── modules/               # Feature-specific modules
+└── types/                 # TypeScript type definitions
+```
+
+## 📊 Data Structure
+
+### **Collections**
+```
+/users/{userId} - User profiles and authentication
+/shops/{shopId} - Shop information
+/shops/{shopId}/branches/{branchId} - Branches under shops
+/shops/{shopId}/branches/{branchId}/technicians/{technicianId} - Technicians under branches
+/shops/{shopId}/branches/{branchId}/services/{serviceId} - Services under branches
+/shops/{shopId}/branches/{branchId}/invoices/{invoiceId} - Invoices under branches
+/shops/{shopId}/branches/{branchId}/tasks/{taskId} - Tasks under branches
 ```
 
 ## 🛠️ Technology Stack
 
-- **Framework**: Next.js 15 (App Router)
-- **Language**: TypeScript
+- **Frontend**: Next.js 14 (App Router), React 18, TypeScript
 - **Styling**: Tailwind CSS
-- **Database**: Firebase Firestore
-- **Authentication**: Firebase Auth
-- **PWA**: next-pwa
-- **Icons**: React Icons
-- **State Management**: React Context + Custom Hooks
+- **Backend**: Firebase Firestore, Firebase Auth
+- **Deployment**: Vercel, Firebase Hosting
+- **State Management**: React Context, Custom Hooks
+- **Form Handling**: React Hook Form
+- **Validation**: Custom validation with TypeScript
 
 ## 🚀 Getting Started
 
-### Prerequisites
-
+### **Prerequisites**
 - Node.js 18+ 
 - npm or yarn
 - Firebase project
 
-### Installation
+### **Installation**
 
 1. **Clone the repository**
    ```bash
@@ -104,13 +85,17 @@ src/
    npm install
    ```
 
-3. **Set up environment variables**
+3. **Set up Firebase**
+   - Create a Firebase project
+   - Enable Firestore and Authentication
+   - Copy your Firebase config to `src/lib/firebase.ts`
+
+4. **Configure environment variables**
    ```bash
    cp .env.example .env.local
    ```
-   
-   Fill in your Firebase configuration:
-   ```env
+   Add your Firebase configuration:
+   ```
    NEXT_PUBLIC_FIREBASE_API_KEY=your_api_key
    NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_auth_domain
    NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
@@ -119,100 +104,151 @@ src/
    NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
    ```
 
-4. **Run the development server**
+5. **Deploy Firestore rules**
+   ```bash
+   firebase deploy --only firestore:rules
+   ```
+
+6. **Run the development server**
    ```bash
    npm run dev
    ```
 
-5. **Open your browser**
-   Navigate to [http://localhost:3000](http://localhost:3000)
+## 🔐 Security
 
-## 📱 Features by Role
+### **Firestore Security Rules**
+- Role-based access control
+- Data validation and sanitization
+- Rate limiting to prevent abuse
+- Hierarchical permissions
 
-### Shop Administrator
-- Manage multiple branches
-- Create and manage technicians
-- View all services and invoices
-- Access to all features
+### **Authentication**
+- Firebase Authentication
+- Email/password authentication
+- Role-based user management
+- Secure session handling
 
-### Branch Administrator
-- Manage technicians in their branch
-- Create and manage services
+## 📱 Features Overview
+
+### **Dashboard**
+- Real-time statistics
+- Recent activities
+- Performance metrics
+- Quick actions
+
+### **Branch Management**
+- Create and manage branches
+- Assign branch managers
+- Track branch performance
+- Branch-specific settings
+
+### **Technician Management**
+- Technician profiles with skills
+- Availability tracking
+- Performance metrics
+- Service history
+
+### **Service Management**
+- Service request tracking
+- Status updates
+- Customer information
+- Service history
+
+### **Invoice Management**
 - Generate invoices
-- Limited to their branch
+- Payment tracking
+- Tax calculations
+- Payment methods
 
-### Technician
-- View assigned tasks
-- Update service status
-- Access to personal profile
-- Limited to assigned services
+### **Task Management**
+- Task assignment
+- Priority levels
+- Due date tracking
+- Progress monitoring
+
+## 🎨 UI Components
+
+### **Built-in Components**
+- Responsive layout components
+- Form components with validation
+- Data tables with sorting/filtering
+- Loading states and error handling
+- Modal dialogs and notifications
+
+### **Design System**
+- Consistent color scheme
+- Typography hierarchy
+- Component variants
+- Responsive design
 
 ## 🔧 Development
 
-### Available Scripts
+### **Available Scripts**
+```bash
+npm run dev          # Start development server
+npm run build        # Build for production
+npm run start        # Start production server
+npm run lint         # Run ESLint
+npm run type-check   # Run TypeScript check
+```
 
-- `npm run dev` - Start development server
-- `npm run build` - Build for production
-- `npm run start` - Start production server
-- `npm run lint` - Run ESLint
-- `npm run deploy` - Deploy to Firebase
+### **Code Quality**
+- TypeScript for type safety
+- ESLint for code linting
+- Prettier for code formatting
+- Husky for git hooks
 
-### Code Style
+## 📈 Performance
 
-- **TypeScript**: Strict mode enabled
-- **ESLint**: Next.js recommended rules
-- **Prettier**: Automatic code formatting
-- **Conventional Commits**: For commit messages
+### **Optimizations**
+- Next.js App Router for better performance
+- Image optimization
+- Code splitting
+- Lazy loading
+- Firebase offline support
 
-### File Naming Conventions
-
-- **Components**: PascalCase (e.g., `UserProfile.tsx`)
-- **Hooks**: camelCase with `use` prefix (e.g., `useAuth.ts`)
-- **Utilities**: camelCase (e.g., `utils.ts`)
-- **Types**: PascalCase (e.g., `User.ts`)
-- **Constants**: UPPER_SNAKE_CASE (e.g., `API_ENDPOINTS`)
+### **Monitoring**
+- Error tracking
+- Performance monitoring
+- User analytics
+- Real-time logging
 
 ## 🚀 Deployment
 
-### Firebase Hosting
+### **Vercel Deployment**
+1. Connect your GitHub repository to Vercel
+2. Configure environment variables
+3. Deploy automatically on push
 
-1. **Build the application**
-   ```bash
-   npm run build
-   ```
-
-2. **Deploy to Firebase**
-   ```bash
-   npm run deploy
-   ```
-
-### Environment Variables
-
-Make sure to set up the following environment variables in your deployment platform:
-
-- `NEXT_PUBLIC_FIREBASE_API_KEY`
-- `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`
-- `NEXT_PUBLIC_FIREBASE_PROJECT_ID`
-- `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET`
-- `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`
-- `NEXT_PUBLIC_FIREBASE_APP_ID`
+### **Firebase Deployment**
+```bash
+firebase deploy
+```
 
 ## 🤝 Contributing
 
 1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License.
 
 ## 🆘 Support
 
-For support, email support@fixigo.com or create an issue in the repository.
+For support and questions:
+- Check the documentation in `PROFESSIONAL_STRUCTURE.md`
+- Review the code examples
+- Open an issue on GitHub
+
+## 🔄 Version History
+
+- **v2.0.0**: Professional structure with RBAC
+- **v1.0.0**: Initial release
 
 ---
 
-Built with ❤️ using Next.js and Firebase
+Built with ❤️ using Next.js, TypeScript, and Firebase

@@ -1,0 +1,7 @@
+# Rules used by the migration agent
+- Use Next 14 App Router + strict TypeScript
+- Keep Tailwind classes unchanged unless obsolete
+- No `any`; add explicit types
+- Reusable markup must live in /src/components
+- <img> → <Image>, inline <script> → hooks/client components
+- Pass `pnpm lint && pnpm build` before finishing a phase

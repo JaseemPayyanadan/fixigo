@@ -2,7 +2,7 @@ import React from "react";
 import type { Branch } from "../../types";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { HiEye, HiPencil, HiTrash, HiCurrencyRupee, HiCube } from "react-icons/hi";
+import { EyeIcon, PencilIcon, TrashIcon, CurrencyDollarIcon, CubeIcon } from "@heroicons/react/24/outline";
 
 interface Service {
   id: string;
@@ -148,7 +148,7 @@ const ServiceList: React.FC<ServiceListProps> = ({ services, loading, search, on
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center gap-2">
                       <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                        <HiCube className="w-4 h-4 text-blue-600" />
+                        <CubeIcon className="w-4 h-4 text-blue-600" />
                       </div>
                       <div>
                         <div className="text-xs text-gray-500">ID Service</div>
@@ -190,7 +190,7 @@ const ServiceList: React.FC<ServiceListProps> = ({ services, loading, search, on
                       {date ? date.toLocaleDateString(undefined, { day: "numeric", month: "short" }) : "-"}
                     </div>
                     <div className="flex items-center gap-1 font-semibold text-gray-900">
-                      <HiCurrencyRupee className="w-3 h-3" />
+                                              <CurrencyDollarIcon className="w-3 h-3" />
                       {service.price?.toLocaleString()}
                     </div>
                   </div>
@@ -212,7 +212,7 @@ const ServiceList: React.FC<ServiceListProps> = ({ services, loading, search, on
                       title="View Details"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <HiEye className="w-3 h-3 text-gray-600" />
+                                              <EyeIcon className="w-3 h-3 text-gray-600" />
                     </Link>
                     {onEdit && (
                       <button
@@ -223,7 +223,7 @@ const ServiceList: React.FC<ServiceListProps> = ({ services, loading, search, on
                         className="action-button p-1.5 bg-white rounded shadow-sm hover:bg-gray-50 transition-colors border border-gray-200"
                         title="Edit Service"
                       >
-                        <HiPencil className="w-3 h-3 text-blue-600" />
+                        <PencilIcon className="w-3 h-3 text-blue-600" />
                       </button>
                     )}
                     {onDelete && (
@@ -237,7 +237,7 @@ const ServiceList: React.FC<ServiceListProps> = ({ services, loading, search, on
                         className="action-button p-1.5 bg-white rounded shadow-sm hover:bg-gray-50 transition-colors border border-gray-200"
                         title="Delete Service"
                       >
-                        <HiTrash className="w-3 h-3 text-red-600" />
+                        <TrashIcon className="w-3 h-3 text-red-600" />
                       </button>
                     )}
                   </div>

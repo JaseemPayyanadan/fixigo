@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 import { useUser } from "@/hooks/useUser";
 import { useRouter } from "next/navigation";
 import { db } from "@/lib/firebase";
-import { collection, query, where, updateDoc, doc, onSnapshot } from "firebase/firestore";
+import { collection, query, where, updateDoc, doc, onSnapshot, getDocs } from "firebase/firestore";
 import { HiClipboardList, HiClock, HiCheckCircle, HiXCircle, HiEye, HiUser, HiDeviceMobile, HiCurrencyDollar, HiCalendar } from "react-icons/hi";
 
 interface Service {
@@ -39,24 +39,38 @@ export default function MyTasksPage() {
     const fetchTasks = async () => {
       setLoading(true);
       try {
-        // Fetch services assigned to this technician
-        const servicesQuery = query(
-          collection(db, "services"),
-          where("technician_id", "==", user.uid)
-        );
+        // First, get the technician document to find the correct ID
+        const technicianQuery = query(collection(db, "technicians"), where("created_by", "==", user.uid));
+        const technicianSnapshot = await getDocs(technicianQuery);
+        const technicianDoc = technicianSnapshot.docs[0];
         
-        // Set up real-time listener for updates
-        const unsubscribe = onSnapshot(servicesQuery, (snapshot) => {
-          const services = snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-          })) as Service[];
+        if (technicianDoc) {
+          const technicianId = technicianDoc.id;
+          console.log('My Tasks - Found technician document ID:', technicianId);
           
-          setTasks(services);
-          setLoading(false);
-        });
+          // Fetch services assigned to this technician
+          const servicesQuery = query(
+            collection(db, "services"),
+            where("technician_id", "==", technicianId)
+          );
+          
+          // Set up real-time listener for updates
+          const unsubscribe = onSnapshot(servicesQuery, (snapshot) => {
+            const services = snapshot.docs.map(doc => ({
+              id: doc.id,
+              ...doc.data()
+            })) as Service[];
+            
+            setTasks(services);
+            setLoading(false);
+          });
 
-        return () => unsubscribe();
+          return () => unsubscribe();
+        } else {
+          console.log('My Tasks - No technician document found for UID:', user.uid);
+          setTasks([]);
+          setLoading(false);
+        }
       } catch (error) {
         console.error("Error fetching tasks:", error);
         setLoading(false);

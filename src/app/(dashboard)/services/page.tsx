@@ -2,11 +2,12 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { collection, getDocs, query, where, orderBy } from "firebase/firestore";
 import { db } from "../../../lib/firebase";
-import { useUser } from "../../../hooks/useUser";
+import { useUser } from "../../../hooks";
 import { useBranches } from "../../../hooks/useBranches";
+import { RoleGuard, PermissionGuard } from "../../../components";
 import ServiceList from "../../../modules/service/ServiceList";
 import { SearchFilter } from "../../../components/ui";
-import { HiPlus, HiClock, HiCheckCircle, HiCurrencyRupee, HiDeviceMobile } from "react-icons/hi";
+import { PlusIcon, ClockIcon, CheckCircleIcon, CurrencyDollarIcon, DevicePhoneMobileIcon } from "@heroicons/react/24/outline";
 import Link from "next/link";
 
 interface Service {
@@ -37,8 +38,19 @@ interface Service {
 const STATUS_OPTIONS = ["All", "To Do", "In Progress", "Awaiting Parts", "On Hold", "Ready for Pickup", "Completed", "Cancelled", "Pending"];
 
 export default function ServicesPage() {
+  return (
+    <RoleGuard allowedRoles={["shop_admin", "branch_admin", "technician"]}>
+      <PermissionGuard permissions={["service:read"]}>
+        <ServicesContent />
+      </PermissionGuard>
+    </RoleGuard>
+  );
+}
+
+function ServicesContent() {
   const { user } = useUser();
   const { branches } = useBranches(user?.shopId);
+
   
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
@@ -52,22 +64,47 @@ export default function ServicesPage() {
       
       try {
         setLoading(true);
-        const servicesRef = collection(db, "services");
-        const q = query(
-          servicesRef,
-          where("shop_id", "==", user.shopId),
-          orderBy("createdAt", "desc")
-        );
+        let allServices: Service[] = [];
+
+        if (user.role === "branch_admin" && user.branchId) {
+          // For branch admins, only fetch services from their branch
+          const servicesRef = collection(db, "shops", user.shopId, "branches", user.branchId, "services");
+          const q = query(servicesRef, orderBy("createdAt", "desc"));
+          
+          const querySnapshot = await getDocs(q);
+          allServices = querySnapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+            createdAt: doc.data().createdAt?.toDate() || new Date(),
+            updatedAt: doc.data().updatedAt?.toDate() || new Date(),
+          })) as Service[];
+        } else {
+          // For shop admins, fetch services from all branches
+          const branchesRef = collection(db, "shops", user.shopId, "branches");
+          const branchesSnapshot = await getDocs(branchesRef);
+          
+          for (const branchDoc of branchesSnapshot.docs) {
+            try {
+              const servicesRef = collection(db, "shops", user.shopId, "branches", branchDoc.id, "services");
+              const q = query(servicesRef, orderBy("createdAt", "desc"));
+              
+              const querySnapshot = await getDocs(q);
+              const branchServices = querySnapshot.docs.map((doc) => ({
+                id: doc.id,
+                ...doc.data(),
+                createdAt: doc.data().createdAt?.toDate() || new Date(),
+                updatedAt: doc.data().updatedAt?.toDate() || new Date(),
+              })) as Service[];
+              
+              allServices.push(...branchServices);
+            } catch (error) {
+              console.warn(`Error fetching services for branch ${branchDoc.id}:`, error);
+              // Continue with other branches even if one fails
+            }
+          }
+        }
         
-        const querySnapshot = await getDocs(q);
-        const servicesData = querySnapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-          createdAt: doc.data().createdAt?.toDate() || new Date(),
-          updatedAt: doc.data().updatedAt?.toDate() || new Date(),
-        })) as Service[];
-        
-        setServices(servicesData);
+        setServices(allServices);
       } catch (error) {
         console.error("Error fetching services:", error);
       } finally {
@@ -76,7 +113,7 @@ export default function ServicesPage() {
     };
 
     fetchServices();
-  }, [user?.shopId]);
+  }, [user?.shopId, user?.branchId, user?.role]);
 
   // Filtered services
   const filteredServices = useMemo(() => {
@@ -137,13 +174,15 @@ export default function ServicesPage() {
           <h1 className="text-2xl font-bold text-gray-900">Services</h1>
           <p className="text-gray-600 mt-1">Manage and track your service requests</p>
         </div>
-        <Link
-          href="/services/new"
-          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          <HiPlus className="w-4 h-4" />
-          New Service
-        </Link>
+        <PermissionGuard permissions={["service:write"]} fallback={null}>
+          <Link
+            href="/services/new"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+                            <PlusIcon className="w-4 h-4" />
+            New Service
+          </Link>
+        </PermissionGuard>
       </div>
 
       {/* Stats Cards */}
@@ -155,7 +194,7 @@ export default function ServicesPage() {
               <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
             </div>
             <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-              <HiDeviceMobile className="w-6 h-6 text-blue-600" />
+                              <DevicePhoneMobileIcon className="w-6 h-6 text-blue-600" />
             </div>
           </div>
         </div>
@@ -167,7 +206,7 @@ export default function ServicesPage() {
               <p className="text-2xl font-bold text-green-600">{stats.completed}</p>
             </div>
             <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-              <HiCheckCircle className="w-6 h-6 text-green-600" />
+                              <CheckCircleIcon className="w-6 h-6 text-green-600" />
             </div>
           </div>
         </div>
@@ -179,7 +218,7 @@ export default function ServicesPage() {
               <p className="text-2xl font-bold text-yellow-600">{stats.inProgress}</p>
             </div>
             <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
-              <HiClock className="w-6 h-6 text-yellow-600" />
+                              <ClockIcon className="w-6 h-6 text-yellow-600" />
             </div>
           </div>
         </div>
@@ -191,7 +230,7 @@ export default function ServicesPage() {
               <p className="text-2xl font-bold text-gray-600">{stats.pending}</p>
             </div>
             <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
-              <HiClock className="w-6 h-6 text-gray-600" />
+                              <ClockIcon className="w-6 h-6 text-gray-600" />
             </div>
           </div>
         </div>
@@ -203,7 +242,7 @@ export default function ServicesPage() {
               <p className="text-2xl font-bold text-green-600">₹{stats.totalRevenue.toLocaleString()}</p>
             </div>
             <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-              <HiCurrencyRupee className="w-6 h-6 text-green-600" />
+                              <CurrencyDollarIcon className="w-6 h-6 text-green-600" />
             </div>
           </div>
         </div>

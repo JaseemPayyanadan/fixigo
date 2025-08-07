@@ -1,7 +1,22 @@
 "use client";
 import React, { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { HiHome, HiBriefcase, HiOfficeBuilding, HiUserGroup, HiDocumentText, HiX, HiChevronRight, HiClipboardList, HiUser } from "react-icons/hi";
+import { 
+  HomeIcon, 
+  BriefcaseIcon, 
+  BuildingOfficeIcon, 
+  UserGroupIcon, 
+  DocumentTextIcon, 
+  XMarkIcon, 
+  ChevronRightIcon, 
+  ClipboardDocumentListIcon, 
+  UserIcon,
+  ChartBarIcon,
+  Cog6ToothIcon,
+  UsersIcon,
+  DocumentChartBarIcon,
+  CurrencyDollarIcon
+} from "@heroicons/react/24/outline";
 import { useUser } from "@/hooks/useUser";
 import { useSidebar } from "@/contexts/SidebarContext";
 
@@ -9,44 +24,72 @@ const navItems = [
   { 
     label: "Dashboard", 
     href: "/dashboard", 
-    icon: HiHome,
+    icon: HomeIcon,
     description: "Overview and analytics",
     roles: ["shop_admin", "branch_admin", "technician"]
   },
   { 
     label: "Services", 
     href: "/services", 
-    icon: HiBriefcase,
+    icon: BriefcaseIcon,
     description: "Manage service requests",
     roles: ["shop_admin", "branch_admin", "technician"]
   },
   { 
     label: "My Tasks", 
     href: "/my-tasks", 
-    icon: HiClipboardList,
+    icon: ClipboardDocumentListIcon,
     description: "View assigned tasks",
     roles: ["technician"]
   },
   { 
     label: "My Profile", 
     href: "/profile", 
-    icon: HiUser,
+    icon: UserIcon,
     description: "Manage your profile",
     roles: ["technician"]
   },
   { 
     label: "Branches", 
     href: "/branch", 
-    icon: HiOfficeBuilding,
+    icon: BuildingOfficeIcon,
     description: "Manage business locations",
     roles: ["shop_admin"]
   },
   { 
     label: "Technicians", 
     href: "/technicians", 
-    icon: HiUserGroup,
+    icon: UserGroupIcon,
     description: "Manage technical staff",
     roles: ["shop_admin", "branch_admin"]
+  },
+  // { 
+  //   label: "Reports", 
+  //   href: "/reports", 
+  //   icon: DocumentChartBarIcon,
+  //   description: "View business reports",
+  //   roles: ["shop_admin"]
+  // },
+  // { 
+  //   label: "Analytics", 
+  //   href: "/analytics", 
+  //   icon: ChartBarIcon,
+  //   description: "Business analytics",
+  //   roles: ["shop_admin"]
+  // },
+  { 
+    label: "Users", 
+    href: "/users", 
+    icon: UsersIcon,
+    description: "Manage user accounts",
+    roles: ["shop_admin"]
+  },
+  { 
+    label: "Settings", 
+    href: "/settings", 
+    icon: Cog6ToothIcon,
+    description: "System settings",
+    roles: ["shop_admin"]
   },
 ];
 
@@ -79,7 +122,7 @@ export function SideNavBar() {
           onClick={() => setCollapsed(!collapsed)}
           className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors duration-200"
         >
-          {collapsed ? <HiChevronRight className="h-5 w-5" /> : <HiX className="h-5 w-5" />}
+          {collapsed ? <ChevronRightIcon className="h-5 w-5" /> : <XMarkIcon className="h-5 w-5" />}
         </button>
       </div>
 
@@ -105,7 +148,7 @@ export function SideNavBar() {
                       : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
                   }`}
                 >
-                  <Icon className={`text-xl transition-colors duration-200 ${
+                  <Icon className={`h-5 w-5 transition-colors duration-200 ${
                     isActive ? "text-blue-600" : "text-gray-400 group-hover:text-gray-600"
                   }`} />
                   {!collapsed && <span>{item.label}</span>}
@@ -135,7 +178,7 @@ export function SideNavBar() {
                     : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
                 }`}
               >
-                <HiDocumentText className={`text-xl transition-colors duration-200 ${
+                <DocumentTextIcon className={`h-5 w-5 transition-colors duration-200 ${
                   pathname.startsWith("/invoices") ? "text-blue-600" : "text-gray-400 group-hover:text-gray-600"
                 }`} />
                 {!collapsed && <span>Invoices</span>}
@@ -164,7 +207,7 @@ export function SideNavBar() {
                     : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
                 }`}
               >
-                <HiUser className={`text-xl transition-colors duration-200 ${
+                <UserIcon className={`h-5 w-5 transition-colors duration-200 ${
                   pathname.startsWith("/profile") ? "text-blue-600" : "text-gray-400 group-hover:text-gray-600"
                 }`} />
                 {!collapsed && <span>My Profile</span>}

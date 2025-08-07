@@ -79,28 +79,47 @@ export default function ProfilePage() {
             phone: profileData.phone
           });
 
-          // Fetch work statistics
-          const servicesQuery = query(
-            collection(db, "services"),
-            where("technician_id", "==", user.uid)
-          );
-          const servicesSnapshot = await getDocs(servicesQuery);
-          const services = servicesSnapshot.docs.map(doc => doc.data());
+          // Get the technician document ID for services lookup
+          const technicianQuery = query(collection(db, "technicians"), where("created_by", "==", user.uid));
+          const technicianSnapshot = await getDocs(technicianQuery);
+          const technicianDocForServices = technicianSnapshot.docs[0];
+          
+          if (technicianDocForServices) {
+            const technicianId = technicianDocForServices.id;
+    
+            
+            // Fetch work statistics
+            const servicesQuery = query(
+              collection(db, "services"),
+              where("technician_id", "==", technicianId)
+            );
+            const servicesSnapshot = await getDocs(servicesQuery);
+            const services = servicesSnapshot.docs.map(doc => doc.data());
 
-          const stats: WorkStats = {
-            totalTasks: services.length,
-            completedTasks: services.filter(s => s.status === "Completed").length,
-            inProgressTasks: services.filter(s => s.status === "In Progress").length,
-            pendingTasks: services.filter(s => s.status === "To Do").length,
-            totalEarnings: services
-              .filter(s => s.status === "Completed")
-              .reduce((sum, s) => sum + (s.price || 0), 0),
-          };
+            const stats: WorkStats = {
+              totalTasks: services.length,
+                          completedTasks: services.filter((s) => (s as Record<string, unknown>).status === "Completed").length,
+            inProgressTasks: services.filter((s) => (s as Record<string, unknown>).status === "In Progress").length,
+            pendingTasks: services.filter((s) => (s as Record<string, unknown>).status === "To Do").length,
+                          totalEarnings: services
+              .filter((s) => (s as Record<string, unknown>).status === "Completed")
+              .reduce((sum: number, s) => sum + (Number((s as Record<string, unknown>).price) || 0), 0),
+            };
 
-          setWorkStats(stats);
+            setWorkStats(stats);
+          } else {
+    
+            setWorkStats({
+              totalTasks: 0,
+              completedTasks: 0,
+              inProgressTasks: 0,
+              pendingTasks: 0,
+              totalEarnings: 0,
+            });
+          }
         }
       } catch (error) {
-        console.error("Error fetching profile:", error);
+
         setError("Failed to load profile");
       } finally {
         setLoading(false);
@@ -157,7 +176,7 @@ export default function ProfilePage() {
 
       setEditing(false);
     } catch (error) {
-      console.error("Error updating profile:", error);
+      
       setError("Failed to update profile");
     } finally {
       setSaving(false);
