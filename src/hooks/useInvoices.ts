@@ -94,10 +94,8 @@ export function useInvoices(shopId?: string, branchId?: string) {
           invoiceList.push(invoice);
         }
 
-        // Sort manually if we couldn't use orderBy
-        if (!q || !q._query.orderBy || q._query.orderBy.length === 0) {
-          invoiceList.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-        }
+        // Sort manually since we're not using orderBy in the query
+        invoiceList.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
         setInvoices(invoiceList);
       } catch (err) {

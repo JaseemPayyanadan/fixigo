@@ -99,10 +99,8 @@ export function useServices(shopId?: string, branchId?: string) {
           serviceList.push(service);
         }
 
-        // Sort manually if we couldn't use orderBy
-        if (!q || !q._query.orderBy || q._query.orderBy.length === 0) {
-          serviceList.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-        }
+        // Sort manually since we're not using orderBy in the query
+        serviceList.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
         setServices(serviceList);
       } catch (err) {
