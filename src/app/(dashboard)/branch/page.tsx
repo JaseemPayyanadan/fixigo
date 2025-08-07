@@ -5,7 +5,7 @@ import { useBranches } from "@/hooks/useBranches";
 import { useUser } from "@/hooks";
 import { SearchFilter } from "@/components/ui";
 import { db } from "@/lib/firebase";
-import { collection, getDocs, query, orderBy, getDoc, doc, where } from "firebase/firestore";
+import { collection, getDocs, query, getDoc, doc, where } from "firebase/firestore";
 import Link from "next/link";
 import { logger } from "@/lib/logger";
 

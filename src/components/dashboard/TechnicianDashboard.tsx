@@ -10,7 +10,7 @@ import {
   HiStar,
   HiUser,
   HiCalendar,
-  HiExclamationTriangle
+  HiExclamation
 } from "react-icons/hi";
 import Link from 'next/link';
 
@@ -132,7 +132,7 @@ const MyServicesCard: React.FC<{ services: Service[] }> = ({ services }) => (
         <div className="text-center py-12">
           <HiClipboardList className="mx-auto h-12 w-12 text-gray-400" />
           <h3 className="mt-4 text-lg font-medium text-gray-900">No services assigned</h3>
-          <p className="mt-2 text-sm text-gray-500">You don't have any services assigned yet.</p>
+          <p className="mt-2 text-sm text-gray-500">You don&apos;t have any services assigned yet.</p>
         </div>
       )}
     </div>
@@ -226,7 +226,7 @@ export default function TechnicianDashboard() {
       id: 'urgent',
       label: 'Urgent',
       value: urgentServices,
-      icon: HiExclamationTriangle,
+      icon: HiExclamation,
       color: 'text-red-600',
       bgColor: 'bg-red-100'
     },
