@@ -1,6 +1,6 @@
 "use client";
-import React, { useState, useEffect } from "react";
-import { useUser } from "@/hooks/useUser";
+import React, { useState } from "react";
+import { useNotifications } from "@/hooks/useNotifications";
 import { BellIcon } from "@heroicons/react/24/outline";
 
 interface NotificationBellProps {
@@ -8,47 +8,8 @@ interface NotificationBellProps {
 }
 
 export default function NotificationBell({ className = "" }: NotificationBellProps) {
-  const { user } = useUser();
-  const [notifications, setNotifications] = useState<any[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
+  const { notifications, unreadCount, markAllAsRead } = useNotifications();
   const [isOpen, setIsOpen] = useState(false);
-
-  useEffect(() => {
-    if (!user?.id) return;
-
-    // Fetch notifications for the user
-    const fetchNotifications = async () => {
-      try {
-        const response = await fetch(`/api/notifications?userId=${user.id}`);
-        if (response.ok) {
-          const data = await response.json();
-          setNotifications(data.notifications || []);
-          setUnreadCount(data.unreadCount || 0);
-        }
-      } catch (error) {
-        console.error("Failed to fetch notifications:", error);
-      }
-    };
-
-    fetchNotifications();
-  }, [user?.id]);
-
-  const markAllAsRead = async () => {
-    if (!user?.id) return;
-
-    try {
-      await fetch(`/api/notifications/mark-read`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ userId: user.id }),
-      });
-      setUnreadCount(0);
-    } catch (error) {
-      console.error("Failed to mark notifications as read:", error);
-    }
-  };
 
   return (
     <div className={`relative ${className}`}>
