@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect, useMemo } from "react";
-import { collection, getDocs, query, orderBy } from "firebase/firestore";
+import { collection, getDocs, query, orderBy, where } from "firebase/firestore";
 import { db } from "../../../lib/firebase";
 import { useUser } from "../../../hooks";
 import { useBranches } from "../../../hooks/useBranches";
@@ -22,16 +22,21 @@ interface Service {
   updatedAt: Date;
   paymentStatus?: string;
   status?: string;
+  technician_id?: string; // Add this field from the database
   device?: {
     brand: string;
     model: string;
     serial: string;
     color: string;
+    // Legacy field - will be ignored in UI
+    type?: string;
   };
   customer?: {
     name: string;
     phone?: string;
     place?: string;
+    // Legacy field - will be mapped to place
+    email?: string;
   };
 }
 
@@ -57,52 +62,122 @@ function ServicesContent() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
 
+  // Transform legacy data to match current schema
+  const transformServiceData = (data: any): Service => {
+    return {
+      id: data.id,
+      name: data.name || "",
+      description: data.description || "",
+      price: data.price || 0,
+      shop_id: data.shop_id,
+      branch_id: data.branch_id,
+      created_by: data.created_by,
+      createdAt: data.createdAt?.toDate() || new Date(),
+      updatedAt: data.updatedAt?.toDate() || new Date(),
+      paymentStatus: data.paymentStatus,
+      status: data.status || "To Do",
+      technician_id: data.technician_id,
+      device: data.device ? {
+        brand: data.device.brand || "",
+        model: data.device.model || "",
+        serial: data.device.serial || "",
+        color: data.device.color || ""
+      } : undefined,
+      customer: data.customer ? {
+        name: data.customer.name || "",
+        phone: data.customer.phone || "",
+        // Handle legacy email field and map to place if needed
+        place: data.customer.place || data.customer.email || ""
+      } : undefined
+    };
+  };
+
   // Fetch services
   useEffect(() => {
     const fetchServices = async () => {
-      if (!user?.shopId) return;
+      if (!user?.shopId) {
+        return;
+      }
       
       try {
         setLoading(true);
         let allServices: Service[] = [];
 
-        if (user.role === "branch_admin" && user.branchId) {
-          // For branch admins, only fetch services from their branch
-          const servicesRef = collection(db, "shops", user.shopId, "branches", user.branchId, "services");
-          const q = query(servicesRef, orderBy("createdAt", "desc"));
+        // Try different approaches to fetch services
+        
+        try {
+          // First, try the main services collection
+          const servicesRef = collection(db, "services");
+          let q;
+          
+          if (user.role === "branch_admin" && user.branchId) {
+            // For branch admins, filter by their branch
+            q = query(
+              servicesRef, 
+              where("shop_id", "==", user.shopId),
+              where("branch_id", "==", user.branchId),
+              orderBy("createdAt", "desc")
+            );
+          } else {
+            // For shop admins and technicians, fetch all services for the shop
+            q = query(
+              servicesRef, 
+              where("shop_id", "==", user.shopId),
+              orderBy("createdAt", "desc")
+            );
+          }
           
           const querySnapshot = await getDocs(q);
-          allServices = querySnapshot.docs.map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-            createdAt: doc.data().createdAt?.toDate() || new Date(),
-            updatedAt: doc.data().updatedAt?.toDate() || new Date(),
-          })) as Service[];
-        } else {
-          // For shop admins, fetch services from all branches
-          const branchesRef = collection(db, "shops", user.shopId, "branches");
-          const branchesSnapshot = await getDocs(branchesRef);
+          allServices = querySnapshot.docs.map((doc) => {
+            const data = { id: doc.id, ...doc.data() };
+            return transformServiceData(data);
+          });
           
-          for (const branchDoc of branchesSnapshot.docs) {
-            try {
-              const servicesRef = collection(db, "shops", user.shopId, "branches", branchDoc.id, "services");
-              const q = query(servicesRef, orderBy("createdAt", "desc"));
-              
-              const querySnapshot = await getDocs(q);
-              const branchServices = querySnapshot.docs.map((doc) => ({
-                id: doc.id,
-                ...doc.data(),
-                createdAt: doc.data().createdAt?.toDate() || new Date(),
-                updatedAt: doc.data().updatedAt?.toDate() || new Date(),
-              })) as Service[];
-              
-              allServices.push(...branchServices);
-            } catch (error) {
-              console.warn(`Error fetching services for branch ${branchDoc.id}:`, error);
-              // Continue with other branches even if one fails
-            }
+          console.log("Method 1 - Fetched services count:", allServices.length);
+          
+          // If no services found, try without shop_id filter
+          if (allServices.length === 0) {
+            console.log("No services found with shop_id filter, trying without filter...");
+            const allServicesQuery = query(servicesRef, orderBy("createdAt", "desc"));
+            const allServicesSnapshot = await getDocs(allServicesQuery);
+            const allServicesData = allServicesSnapshot.docs.map((doc) => {
+              const data = { id: doc.id, ...doc.data() };
+              return transformServiceData(data);
+            });
+            
+            console.log("Total services in collection:", allServicesData.length);
+            console.log("Sample service data:", allServicesData.slice(0, 2));
+            
+            // Filter by shop_id in memory
+            allServices = allServicesData.filter(service => service.shop_id === user.shopId);
+            console.log("Filtered services count:", allServices.length);
+          }
+          
+        } catch (error) {
+          console.error("Error fetching services:", error);
+          
+          // Fallback: try to get all services
+          try {
+            const servicesRef = collection(db, "services");
+            const allServicesQuery = query(servicesRef);
+            const allServicesSnapshot = await getDocs(allServicesQuery);
+            const allServicesData = allServicesSnapshot.docs.map((doc) => {
+              const data = { id: doc.id, ...doc.data() };
+              return transformServiceData(data);
+            });
+            
+            console.log("Fallback - Total services:", allServicesData.length);
+            allServices = allServicesData.filter(service => service.shop_id === user.shopId);
+            console.log("Fallback - Filtered services:", allServices.length);
+          } catch (fallbackError) {
+            console.error("Fallback error:", fallbackError);
           }
         }
+        
+        console.log("Final services count:", allServices.length);
+        console.log("User shopId:", user.shopId);
+        console.log("User role:", user.role);
+        console.log("User branchId:", user.branchId);
         
         setServices(allServices);
       } catch (error) {
@@ -154,6 +229,8 @@ function ServicesContent() {
     setSearch("");
     setStatusFilter("All");
   };
+
+
 
   if (!user) {
     return (
@@ -267,6 +344,20 @@ function ServicesContent() {
         className="mb-6"
       />
 
+      {/* Debug Info - Always show for troubleshooting */}
+      <div className="mb-4 p-4 bg-blue-50 rounded-lg">
+        <h3 className="text-sm font-medium text-blue-900 mb-2">Debug Information</h3>
+        <div className="text-xs text-blue-700 space-y-1">
+          <p>User Role: {user?.role || "undefined"}</p>
+          <p>User ShopId: {user?.shopId || "undefined"}</p>
+          <p>User BranchId: {user?.branchId || "undefined"}</p>
+          <p>Services Count: {filteredServices.length}</p>
+          <p>Loading: {loading ? "true" : "false"}</p>
+          <p>Search: &quot;{search}&quot;</p>
+          <p>Status Filter: &quot;{statusFilter}&quot;</p>
+        </div>
+      </div>
+
       {/* Services List */}
       {user?.role === "shop_admin" && (
         <ShopAdminServiceList
@@ -291,6 +382,26 @@ function ServicesContent() {
           loading={loading}
           search={search}
         />
+      )}
+      {/* Fallback for unknown roles or debugging */}
+      {!user?.role || (user?.role !== "shop_admin" && user?.role !== "branch_admin" && user?.role !== "technician") && (
+        <div className="p-8 text-center">
+          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+          </div>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">Debug Info</h3>
+          <p className="text-gray-500 mb-4">
+            User Role: {user?.role || "undefined"}
+          </p>
+          <p className="text-gray-500 mb-4">
+            Services Count: {filteredServices.length}
+          </p>
+          <p className="text-gray-500 mb-4">
+            Loading: {loading ? "true" : "false"}
+          </p>
+        </div>
       )}
     </div>
   );

@@ -39,8 +39,20 @@ interface Service {
   updatedAt: Date;
   paymentStatus?: string;
   status?: string;
-  device?: { model: string; brand: string; serial?: string };
-      customer?: { name: string; phone?: string; place?: string };
+  technician_id?: string;
+  device?: { 
+    model: string; 
+    brand: string; 
+    serial: string; 
+    color?: string;
+    type?: string; // Legacy field
+  };
+  customer?: { 
+    name: string; 
+    phone?: string; 
+    place?: string;
+    email?: string; // Legacy field
+  };
 }
 
 const STATUS_OPTIONS = ["To Do", "In Progress", "Completed", "Pending", "Cancelled", "Awaiting Parts", "On Hold", "Ready for Pickup"];

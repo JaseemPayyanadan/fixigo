@@ -1,8 +1,22 @@
+"use client";
 import React from "react";
-import type { Branch } from "../../types";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { EyeIcon, PencilIcon, CurrencyDollarIcon, CubeIcon, ClockIcon, CheckCircleIcon } from "@heroicons/react/24/outline";
+import { 
+  CubeIcon, 
+  BuildingOfficeIcon, 
+  CurrencyDollarIcon, 
+  EyeIcon, 
+  PencilIcon, 
+  TrashIcon,
+  UserIcon,
+  DevicePhoneMobileIcon,
+  MapPinIcon,
+  ClockIcon,
+  PhoneIcon,
+  CheckCircleIcon,
+  ExclamationTriangleIcon
+} from "@heroicons/react/24/outline";
 
 interface Service {
   id: string;
@@ -16,17 +30,30 @@ interface Service {
   updatedAt: Date;
   paymentStatus?: string;
   status?: string;
+  technician_id?: string;
   device?: {
     brand: string;
     model: string;
     serial: string;
     color: string;
+    // Legacy field - will be ignored in UI
+    type?: string;
   };
   customer?: {
     name: string;
     phone?: string;
     place?: string;
+    // Legacy field - will be mapped to place
+    email?: string;
   };
+}
+
+interface Branch {
+  id: string;
+  name: string;
+  address?: string;
+  phone?: string;
+  manager_id?: string;
 }
 
 interface TechnicianServiceListProps {
@@ -38,15 +65,15 @@ interface TechnicianServiceListProps {
   onDelete?: (id: string) => void;
 }
 
-const statusConfig: Record<string, { label: string; color: string }> = {
-  "To Do": { label: "To Do", color: "bg-gray-100 text-gray-700" },
-  "In Progress": { label: "In Progress", color: "bg-yellow-100 text-yellow-700" },
-  "Awaiting Parts": { label: "Awaiting Parts", color: "bg-blue-100 text-blue-700" },
-  "On Hold": { label: "On Hold", color: "bg-orange-100 text-orange-700" },
-  "Ready for Pickup": { label: "Ready for Pickup", color: "bg-purple-100 text-purple-700" },
-  Completed: { label: "Completed", color: "bg-green-100 text-green-700" },
-  Cancelled: { label: "Cancelled", color: "bg-red-100 text-red-700" },
-  Pending: { label: "Pending", color: "bg-gray-100 text-gray-700" },
+const statusConfig: Record<string, { label: string; color: string; priority: string }> = {
+  "To Do": { label: "To Do", color: "bg-gray-100 text-gray-800", priority: "low" },
+  "In Progress": { label: "In Progress", color: "bg-blue-100 text-blue-800", priority: "high" },
+  "Awaiting Parts": { label: "Awaiting Parts", color: "bg-yellow-100 text-yellow-800", priority: "medium" },
+  "On Hold": { label: "On Hold", color: "bg-orange-100 text-orange-800", priority: "medium" },
+  "Ready for Pickup": { label: "Ready for Pickup", color: "bg-purple-100 text-purple-800", priority: "low" },
+  "Completed": { label: "Completed", color: "bg-green-100 text-green-800", priority: "completed" },
+  "Cancelled": { label: "Cancelled", color: "bg-red-100 text-red-800", priority: "cancelled" },
+  "Pending": { label: "Pending", color: "bg-gray-100 text-gray-800", priority: "low" }
 };
 
 const TechnicianServiceList: React.FC<TechnicianServiceListProps> = ({ 
@@ -68,7 +95,9 @@ const TechnicianServiceList: React.FC<TechnicianServiceListProps> = ({
           s.description?.toLowerCase().includes(q) ||
           s.device?.model?.toLowerCase().includes(q) ||
           s.device?.brand?.toLowerCase().includes(q) ||
-          s.customer?.name?.toLowerCase().includes(q)
+          s.customer?.name?.toLowerCase().includes(q) ||
+          s.customer?.phone?.toLowerCase().includes(q) ||
+          s.customer?.place?.toLowerCase().includes(q)
         );
       })
     : services;
@@ -80,7 +109,7 @@ const TechnicianServiceList: React.FC<TechnicianServiceListProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {[...Array(6)].map((_, i) => (
             <div key={i} className="animate-pulse">
-              <div className="bg-gray-200 rounded-lg h-40"></div>
+              <div className="bg-gray-200 rounded-lg h-48"></div>
             </div>
           ))}
         </div>
@@ -96,13 +125,13 @@ const TechnicianServiceList: React.FC<TechnicianServiceListProps> = ({
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
           </svg>
         </div>
-        <h3 className="text-lg font-medium text-gray-900 mb-2">No services found</h3>
+        <h3 className="text-lg font-medium text-gray-900 mb-2">No services assigned</h3>
         <p className="text-gray-500 mb-4">
-          {search ? `No services match "${search}"` : "No services assigned to you yet"}
+          {search ? `No services match "${search}"` : "You don't have any services assigned to you yet"}
         </p>
         {!search && (
           <div className="text-sm text-gray-400">
-            Contact your branch admin to get assigned services
+            Contact your branch admin to get assigned to services
           </div>
         )}
       </div>
@@ -120,7 +149,9 @@ const TechnicianServiceList: React.FC<TechnicianServiceListProps> = ({
           return (
             <div key={service.id} className="group relative">
               <div 
-                className="bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md hover:border-blue-300 hover:bg-blue-50 transition-all duration-200 overflow-hidden cursor-pointer select-none"
+                className={`bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md hover:border-blue-300 hover:bg-blue-50 transition-all duration-200 overflow-hidden cursor-pointer select-none ${
+                  statusInfo.priority === "high" ? "ring-2 ring-blue-200" : ""
+                }`}
                 onClick={(e) => {
                   // Don't navigate if clicking on action buttons
                   if ((e.target as HTMLElement).closest('.action-button')) {
@@ -144,15 +175,25 @@ const TechnicianServiceList: React.FC<TechnicianServiceListProps> = ({
                 role="button"
                 aria-label={`View details for service ${service.name}`}
               >
+                {/* Priority Indicator */}
+                {statusInfo.priority === "high" && (
+                  <div className="absolute top-2 left-2 z-10">
+                    <div className="bg-red-500 text-white text-xs px-2 py-1 rounded-full flex items-center gap-1">
+                      <ExclamationTriangleIcon className="w-3 h-3" />
+                      Priority
+                    </div>
+                  </div>
+                )}
+
                 {/* Header */}
                 <div className="p-4">
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                        <CubeIcon className="w-4 h-4 text-blue-600" />
+                      <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                        <CubeIcon className="w-4 h-4 text-purple-600" />
                       </div>
                       <div>
-                        <div className="text-xs text-gray-500">ID Service</div>
+                        <div className="text-xs text-gray-500">Service ID</div>
                         <div className="font-bold text-gray-900">#{service.id.slice(-8)}</div>
                       </div>
                     </div>
@@ -162,48 +203,99 @@ const TechnicianServiceList: React.FC<TechnicianServiceListProps> = ({
                   </div>
 
                   {/* Service Details */}
-                  <div className="space-y-2">
+                  <div className="space-y-3">
+                    {/* Service Name & Description */}
                     <div>
-                      <div className="font-medium text-gray-900 truncate">{service.name}</div>
-                      <div className="font-normal text-sm text-gray-600 truncate">{service.description}</div>
+                      <div className="font-semibold text-gray-900 truncate">{service.name}</div>
+                      <div className="text-sm text-gray-600 line-clamp-2">{service.description}</div>
                     </div>
 
+                    {/* Device Information - Technician Focus */}
                     {service.device && (
-                      <div>
-                        <div className="font-medium text-gray-900 truncate">{service.device.brand} {service.device.model}</div>
+                      <div className="flex items-center gap-2 text-sm">
+                        <DevicePhoneMobileIcon className="w-4 h-4 text-gray-500" />
+                        <div>
+                          <div className="font-medium text-gray-900">{service.device.brand} {service.device.model}</div>
+                          <div className="text-xs text-gray-500">IMEI: {service.device.serial}</div>
+                          {service.device.color && (
+                            <div className="text-xs text-gray-500">Color: {service.device.color}</div>
+                          )}
+                        </div>
                       </div>
                     )}
                     
+                    {/* Customer Information - Technician Focus */}
                     {service.customer && (
-                      <div>
-                        <div className="font-medium text-gray-900 truncate">{service.customer.name}</div>
-                        {service.customer.phone && (
-                          <div className="text-xs text-gray-500">{service.customer.phone}</div>
-                        )}
+                      <div className="flex items-center gap-2 text-sm">
+                        <UserIcon className="w-4 h-4 text-gray-500" />
+                        <div>
+                          <div className="font-medium text-gray-900">{service.customer.name}</div>
+                          {service.customer.phone && (
+                            <div className="text-xs text-gray-500 flex items-center gap-1">
+                              <PhoneIcon className="w-3 h-3" />
+                              {service.customer.phone}
+                            </div>
+                          )}
+                          {service.customer.place && (
+                            <div className="text-xs text-gray-500 flex items-center gap-1">
+                              <MapPinIcon className="w-3 h-3" />
+                              {service.customer.place}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     )}
 
-                    {/* Priority Indicator - Technician specific */}
-                    <div className="flex items-center gap-1 text-xs text-gray-500">
-                      {status === "In Progress" ? (
-                        <ClockIcon className="w-3 h-3 text-yellow-600" />
-                      ) : status === "Completed" ? (
-                        <CheckCircleIcon className="w-3 h-3 text-green-600" />
+                    {/* Status Priority - Technician specific */}
+                    <div className="flex items-center gap-2 text-sm">
+                      {statusInfo.priority === "high" ? (
+                        <ExclamationTriangleIcon className="w-4 h-4 text-red-500" />
+                      ) : statusInfo.priority === "completed" ? (
+                        <CheckCircleIcon className="w-4 h-4 text-green-500" />
                       ) : (
-                        <ClockIcon className="w-3 h-3 text-gray-400" />
+                        <ClockIcon className="w-4 h-4 text-gray-500" />
                       )}
-                      <span>{status}</span>
+                      <div>
+                        <div className="text-xs text-gray-500">Status Priority</div>
+                        <div className={`font-medium capitalize ${
+                          statusInfo.priority === "high" ? "text-red-600" :
+                          statusInfo.priority === "completed" ? "text-green-600" :
+                          "text-gray-900"
+                        }`}>
+                          {statusInfo.priority === "high" ? "High Priority" :
+                           statusInfo.priority === "completed" ? "Completed" :
+                           statusInfo.priority === "medium" ? "Medium Priority" :
+                           "Low Priority"}
+                        </div>
+                      </div>
                     </div>
+
+                    {/* Created By Information */}
+                    {service.created_by && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <UserIcon className="w-4 h-4 text-gray-500" />
+                        <div>
+                          <div className="text-xs text-gray-500">Created by</div>
+                          <div className="font-medium text-gray-900">{service.created_by.name}</div>
+                          <div className="text-xs text-gray-500 capitalize">{service.created_by.role}</div>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Footer */}
                   <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between">
-                    <div className="text-xs text-gray-500">
-                      {date ? date.toLocaleDateString(undefined, { day: "numeric", month: "short" }) : "-"}
+                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                      <ClockIcon className="w-3 h-3" />
+                      {date ? date.toLocaleDateString(undefined, { 
+                        day: "numeric", 
+                        month: "short",
+                        year: "numeric"
+                      }) : "-"}
                     </div>
                     <div className="flex items-center gap-1 font-semibold text-gray-900">
                       <CurrencyDollarIcon className="w-3 h-3" />
-                      {service.price?.toLocaleString()}
+                      ₹{service.price?.toLocaleString()}
                     </div>
                   </div>
                   
