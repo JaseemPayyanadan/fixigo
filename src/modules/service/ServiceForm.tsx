@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from "react";
 import type { Branch } from "../../types";
 import TextInput from "../../components/ui/TextInput";
-import { UserIcon, PhoneIcon, EnvelopeIcon, DevicePhoneMobileIcon, BuildingOfficeIcon } from "@heroicons/react/24/outline";
+import { UserIcon, PhoneIcon, DevicePhoneMobileIcon, BuildingOfficeIcon, MapPinIcon } from "@heroicons/react/24/outline";
 import { useTechnicians } from "../../hooks/useTechnicians";
 
 interface ServiceFormProps {
   onSubmit: (data: {
-    customer: { name: string; phone: string; email: string };
-    device: { type: string; brand: string; model: string; serial: string; color: string };
+    customer: { name: string; phone: string; place?: string };
+    device: { brand: string; model: string; serial: string; color: string };
     service: { name: string; description: string; price: string; branch_id: string; technician_id?: string };
   }) => void;
   loading: boolean;
@@ -21,8 +21,8 @@ interface ServiceFormProps {
   userBranchId?: string;
   shopId?: string;
   initialData?: {
-    customer?: { name: string; phone: string; email: string };
-    device?: { type: string; brand: string; model: string; serial: string; color: string };
+    customer?: { name: string; phone: string; place?: string };
+    device?: { brand: string; model: string; serial: string; color: string };
     service?: { name: string; description: string; price: string; technician_id?: string };
   };
   onCancelEdit?: () => void;
@@ -43,8 +43,8 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
   initialData,
   onCancelEdit,
 }) => {
-  const [customer, setCustomer] = useState({ name: "", phone: "", email: "" });
-  const [device, setDevice] = useState({ type: "", brand: "", model: "", serial: "", color: "" });
+  const [customer, setCustomer] = useState({ name: "", phone: "", place: "" });
+  const [device, setDevice] = useState({ brand: "", model: "", serial: "", color: "" });
   const [service, setService] = useState({ name: "", description: "", price: "", technician_id: "" });
   
   // Fetch technicians for the selected branch
@@ -52,8 +52,17 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
 
   useEffect(() => {
     if (initialData) {
-      if (initialData.customer) setCustomer(initialData.customer);
-      if (initialData.device) setDevice({ ...initialData.device, color: initialData.device.color || "" });
+      if (initialData.customer) setCustomer({ 
+        name: initialData.customer.name || "", 
+        phone: initialData.customer.phone || "", 
+        place: initialData.customer.place || "" 
+      });
+      if (initialData.device) setDevice({ 
+        brand: initialData.device.brand || "", 
+        model: initialData.device.model || "", 
+        serial: initialData.device.serial || "", 
+        color: initialData.device.color || "" 
+      });
       if (initialData.service) setService({ 
         ...initialData.service, 
         technician_id: initialData.service.technician_id || "" 
@@ -122,14 +131,13 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
               icon={<PhoneIcon className="h-5 w-5 text-gray-400" />}
             />
             <TextInput
-              type="email"
-              name="email"
-              label="Email Address"
-              value={customer.email}
+              type="text"
+              name="place"
+              label="Place (Optional)"
+              value={customer.place}
               onChange={handleCustomerChange}
-              placeholder="Enter email address"
-              required
-              icon={<EnvelopeIcon className="h-5 w-5 text-gray-400" />}
+              placeholder="Enter place/location"
+              icon={<MapPinIcon className="h-5 w-5 text-gray-400" />}
             />
           </div>
         </div>
@@ -147,17 +155,7 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
               <p className="text-gray-600 text-sm">Information about the device to be serviced</p>
             </div>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
-            <TextInput
-              type="text"
-              name="type"
-              label="Device Type"
-              value={device.type}
-              onChange={handleDeviceChange}
-              placeholder="Phone, Laptop, etc."
-              required
-              icon={<DevicePhoneMobileIcon className="h-5 w-5 text-gray-400" />}
-            />
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             <TextInput
               type="text"
               name="brand"
@@ -181,10 +179,10 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
             <TextInput
               type="text"
               name="serial"
-              label="Serial Number"
+              label="IMEI"
               value={device.serial}
               onChange={handleDeviceChange}
-              placeholder="Device serial number"
+              placeholder="Device IMEI number"
               required
               icon={<BuildingOfficeIcon className="h-5 w-5 text-gray-400" />}
             />
@@ -292,7 +290,7 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
           </label>
           <div className="relative">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <BuildingOfficeIcon className="h-5 w-5 text-gray-400" />
+              <UserIcon className="h-5 w-5 text-gray-400" />
             </div>
             <select
               id="technician_id"

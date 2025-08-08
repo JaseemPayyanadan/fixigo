@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { BranchList } from "@/modules/branch/BranchList";
+import { ShopAdminBranchList, BranchAdminBranchList, TechnicianBranchList } from "@/components/branch";
 import { useBranches } from "@/hooks/useBranches";
 import { useUser } from "@/hooks";
 import { SearchFilter } from "@/components/ui";
@@ -280,45 +280,32 @@ export default function BranchPage() {
 
         {/* Branches List */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-          <BranchList
-            branches={filteredBranches}
-            loading={loading}
-            error={error}
-            shopId={shopId}
-            onDeleteBranch={(branch) => branch.id && deleteBranch(branch.id)}
-          />
+          {user?.role === "shop_admin" && (
+            <ShopAdminBranchList
+              branches={filteredBranches}
+              loading={loading}
+              error={error}
+              shopId={shopId}
+              onDeleteBranch={(branch) => branch.id && deleteBranch(branch.id)}
+            />
+          )}
+          {user?.role === "branch_admin" && (
+            <BranchAdminBranchList
+              branches={filteredBranches}
+              loading={loading}
+              error={error}
+              shopId={shopId}
+            />
+          )}
+          {user?.role === "technician" && (
+            <TechnicianBranchList
+              branches={filteredBranches}
+              loading={loading}
+              error={error}
+              shopId={shopId}
+            />
+          )}
         </div>
-
-        {/* Empty State */}
-        {!loading && filteredBranches.length === 0 && (
-          <div className="text-center py-12">
-            <div className="mx-auto h-12 w-12 text-gray-400">
-              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-              </svg>
-            </div>
-            <h3 className="mt-2 text-sm font-medium text-gray-900">No branches found</h3>
-            <p className="mt-1 text-sm text-gray-500">
-              {search || statusFilter !== "All" 
-                ? "Try adjusting your search or filter criteria."
-                : "Get started by creating your first branch."
-              }
-            </p>
-            {!search && statusFilter === "All" && (
-              <div className="mt-6">
-                <Link
-                  href="/branch/new"
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                  </svg>
-                  Add Your First Branch
-                </Link>
-              </div>
-            )}
-          </div>
-        )}
       </div>
     </div>
   );

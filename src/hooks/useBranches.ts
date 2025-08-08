@@ -74,10 +74,8 @@ export function useBranches(shopId?: string) {
           branchList.push(branch);
         }
 
-        // Sort manually if we couldn't use orderBy
-        if (!q || !q._query.orderBy || q._query.orderBy.length === 0) {
-          branchList.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-        }
+        // Sort manually since we're not using orderBy in the query
+        branchList.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
         setBranches(branchList);
       } catch (err) {

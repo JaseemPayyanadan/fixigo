@@ -2,7 +2,7 @@ import React from "react";
 import type { Branch } from "../../types";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { EyeIcon, PencilIcon, TrashIcon, CurrencyDollarIcon, CubeIcon } from "@heroicons/react/24/outline";
+import { EyeIcon, PencilIcon, TrashIcon, CurrencyDollarIcon, CubeIcon, BuildingOfficeIcon } from "@heroicons/react/24/outline";
 
 interface Service {
   id: string;
@@ -17,19 +17,19 @@ interface Service {
   paymentStatus?: string;
   status?: string;
   device?: {
-    type: string;
     brand: string;
     model: string;
     serial: string;
+    color: string;
   };
   customer?: {
     name: string;
     phone?: string;
-    email?: string;
+    place?: string;
   };
 }
 
-interface ServiceListProps {
+interface ShopAdminServiceListProps {
   services: Service[];
   branches: Branch[];
   loading: boolean;
@@ -49,7 +49,14 @@ const statusConfig: Record<string, { label: string; color: string }> = {
   Pending: { label: "Pending", color: "bg-gray-100 text-gray-700" },
 };
 
-const ServiceList: React.FC<ServiceListProps> = ({ services, loading, search, onEdit, onDelete }) => {
+const ShopAdminServiceList: React.FC<ShopAdminServiceListProps> = ({ 
+  services, 
+  branches, 
+  loading, 
+  search, 
+  onEdit, 
+  onDelete 
+}) => {
   const router = useRouter();
   
   // Filter services by search
@@ -65,6 +72,12 @@ const ServiceList: React.FC<ServiceListProps> = ({ services, loading, search, on
         );
       })
     : services;
+
+  // Get branch name for a service
+  const getBranchName = (branchId: string) => {
+    const branch = branches.find(b => b.id === branchId);
+    return branch?.name || branchId;
+  };
 
   // Loading skeleton
   if (loading) {
@@ -115,6 +128,7 @@ const ServiceList: React.FC<ServiceListProps> = ({ services, loading, search, on
           const date = service.createdAt ? new Date(service.createdAt) : null;
           const status = service.status || "To Do";
           const statusInfo = statusConfig[status] || statusConfig["To Do"];
+          const branchName = getBranchName(service.branch_id);
           
           return (
             <div key={service.id} className="group relative">
@@ -163,25 +177,27 @@ const ServiceList: React.FC<ServiceListProps> = ({ services, loading, search, on
                   {/* Service Details */}
                   <div className="space-y-2">
                     <div>
-                      {/* <div className="text-xs text-gray-500">Service</div> */}
                       <div className="font-medium text-gray-900 truncate">{service.name}</div>
                       <div className="font-normal text-sm text-gray-600 truncate">{service.description}</div>
                     </div>
 
-                    
                     {service.device && (
                       <div>
-                        {/* <div className="text-xs text-gray-500">Device</div> */}
                         <div className="font-medium text-gray-900 truncate">{service.device.brand} {service.device.model}</div>
                       </div>
                     )}
                     
                     {service.customer && (
                       <div>
-                        {/* <div className="text-xs text-gray-500">Customer</div> */}
                         <div className="font-medium text-gray-900 truncate">{service.customer.name}</div>
                       </div>
                     )}
+
+                    {/* Branch Information - Shop Admin specific */}
+                    <div className="flex items-center gap-1 text-xs text-gray-500">
+                      <BuildingOfficeIcon className="w-3 h-3" />
+                      <span>{branchName}</span>
+                    </div>
                   </div>
 
                   {/* Footer */}
@@ -190,7 +206,7 @@ const ServiceList: React.FC<ServiceListProps> = ({ services, loading, search, on
                       {date ? date.toLocaleDateString(undefined, { day: "numeric", month: "short" }) : "-"}
                     </div>
                     <div className="flex items-center gap-1 font-semibold text-gray-900">
-                                              <CurrencyDollarIcon className="w-3 h-3" />
+                      <CurrencyDollarIcon className="w-3 h-3" />
                       {service.price?.toLocaleString()}
                     </div>
                   </div>
@@ -212,7 +228,7 @@ const ServiceList: React.FC<ServiceListProps> = ({ services, loading, search, on
                       title="View Details"
                       onClick={(e) => e.stopPropagation()}
                     >
-                                              <EyeIcon className="w-3 h-3 text-gray-600" />
+                      <EyeIcon className="w-3 h-3 text-gray-600" />
                     </Link>
                     {onEdit && (
                       <button
@@ -251,4 +267,4 @@ const ServiceList: React.FC<ServiceListProps> = ({ services, loading, search, on
   );
 };
 
-export default ServiceList; 
+export default ShopAdminServiceList;

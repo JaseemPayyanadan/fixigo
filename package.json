@@ -7,7 +7,14 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "deploy": "next build && firebase deploy",
+    "deploy": "next build && vercel --prod",
+    "deploy:preview": "next build && vercel",
+    "deploy:firebase": "next build && firebase deploy",
+    "vercel:deploy": "vercel --prod",
+    "vercel:preview": "vercel",
+    "vercel:dev": "vercel dev",
+    "vercel:link": "vercel link",
+    "vercel:env": "vercel env pull .env.local",
     "migrate": "tsx src/scripts/migrate-database.ts",
     "migrate:cleanup": "tsx src/scripts/migrate-database.ts cleanup",
     "migrate:validate": "tsx src/scripts/migrate-database.ts validate",
@@ -45,5 +52,8 @@
     "tsx": "^4.20.3",
     "tw-animate-css": "^1.3.5",
     "typescript": "^5"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }
