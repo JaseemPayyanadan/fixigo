@@ -1,15 +1,36 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import type { Branch } from "../../types";
 import TextInput from "../../components/ui/TextInput";
 import { UserIcon, PhoneIcon, DevicePhoneMobileIcon, BuildingOfficeIcon, MapPinIcon } from "@heroicons/react/24/outline";
 import { useTechnicians } from "../../hooks/useTechnicians";
 
+interface ServiceFormData {
+  customer: { 
+    name: string; 
+    phone: string; 
+    place?: string;
+    email?: string;
+  };
+  device: { 
+    brand: string; 
+    model: string; 
+    serial: string; 
+    color: string;
+    type?: string;
+  };
+  service: { 
+    name: string; 
+    description: string; 
+    price: string; 
+    branch_id: string; 
+    technician_id?: string;
+    priority?: string;
+    estimatedDuration?: number;
+  };
+}
+
 interface ServiceFormProps {
-  onSubmit: (data: {
-    customer: { name: string; phone: string; place?: string };
-    device: { brand: string; model: string; serial: string; color: string };
-    service: { name: string; description: string; price: string; branch_id: string; technician_id?: string };
-  }) => void;
+  onSubmit: (data: ServiceFormData) => void;
   loading: boolean;
   editing?: boolean;
   error?: string | null;
@@ -21,9 +42,9 @@ interface ServiceFormProps {
   userBranchId?: string;
   shopId?: string;
   initialData?: {
-    customer?: { name: string; phone: string; place?: string };
-    device?: { brand: string; model: string; serial: string; color: string };
-    service?: { name: string; description: string; price: string; technician_id?: string };
+    customer?: { name: string; phone: string; place?: string; email?: string };
+    device?: { brand: string; model: string; serial: string; color: string; type?: string };
+    service?: { name: string; description: string; price: string; technician_id?: string; priority?: string; estimatedDuration?: number };
   };
   onCancelEdit?: () => void;
 }
@@ -43,65 +64,180 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
   initialData,
   onCancelEdit,
 }) => {
-  const [customer, setCustomer] = useState({ name: "", phone: "", place: "" });
-  const [device, setDevice] = useState({ brand: "", model: "", serial: "", color: "" });
-  const [service, setService] = useState({ name: "", description: "", price: "", technician_id: "" });
+  const [customer, setCustomer] = useState({ name: "", phone: "", place: "", email: "" });
+  const [device, setDevice] = useState({ brand: "", model: "", serial: "", color: "", type: "" });
+  const [service, setService] = useState({ 
+    name: "", 
+    description: "", 
+    price: "", 
+    technician_id: "",
+    priority: "medium",
+    estimatedDuration: 60
+  });
+  
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Fetch technicians for the selected branch
-  const { technicians } = useTechnicians(shopId, branchId || userBranchId);
+  const { technicians, loading: techniciansLoading, error: techniciansError } = useTechnicians(shopId, branchId || userBranchId);
 
+  // Memoized form validation
+  const validateForm = useCallback(() => {
+    const errors: Record<string, string> = {};
+
+    // Customer validation
+    if (!customer.name.trim()) {
+      errors.customerName = "Customer name is required";
+    }
+    if (!customer.phone.trim()) {
+      errors.customerPhone = "Phone number is required";
+    } else if (!/^[\+]?[1-9][\d]{0,15}$/.test(customer.phone.replace(/\s/g, ''))) {
+      errors.customerPhone = "Please enter a valid phone number";
+    }
+
+    // Device validation
+    if (!device.brand.trim()) {
+      errors.deviceBrand = "Device brand is required";
+    }
+    if (!device.model.trim()) {
+      errors.deviceModel = "Device model is required";
+    }
+    if (!device.serial.trim()) {
+      errors.deviceSerial = "Device IMEI is required";
+    } else if (!/^\d{15}$/.test(device.serial.replace(/\s/g, ''))) {
+      errors.deviceSerial = "IMEI must be 15 digits";
+    }
+    if (!device.color.trim()) {
+      errors.deviceColor = "Device color is required";
+    }
+
+    // Service validation
+    if (!service.name.trim()) {
+      errors.serviceName = "Service name is required";
+    }
+    if (!service.description.trim()) {
+      errors.serviceDescription = "Service description is required";
+    }
+    if (!service.price.trim()) {
+      errors.servicePrice = "Service price is required";
+    } else if (isNaN(Number(service.price)) || Number(service.price) <= 0) {
+      errors.servicePrice = "Please enter a valid price";
+    }
+    if (!branchId) {
+      errors.branchId = "Please select a branch";
+    }
+
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  }, [customer, device, service, branchId]);
+
+  // Initialize form with initial data
   useEffect(() => {
     if (initialData) {
-      if (initialData.customer) setCustomer({ 
-        name: initialData.customer.name || "", 
-        phone: initialData.customer.phone || "", 
-        place: initialData.customer.place || "" 
-      });
-      if (initialData.device) setDevice({ 
-        brand: initialData.device.brand || "", 
-        model: initialData.device.model || "", 
-        serial: initialData.device.serial || "", 
-        color: initialData.device.color || "" 
-      });
-      if (initialData.service) setService({ 
-        ...initialData.service, 
-        technician_id: initialData.service.technician_id || "" 
-      });
+      if (initialData.customer) {
+        setCustomer({ 
+          name: initialData.customer.name || "", 
+          phone: initialData.customer.phone || "", 
+          place: initialData.customer.place || "",
+          email: initialData.customer.email || ""
+        });
+      }
+      if (initialData.device) {
+        setDevice({ 
+          brand: initialData.device.brand || "", 
+          model: initialData.device.model || "", 
+          serial: initialData.device.serial || "", 
+          color: initialData.device.color || "",
+          type: initialData.device.type || ""
+        });
+      }
+      if (initialData.service) {
+        setService({ 
+          ...service,
+          ...initialData.service,
+          technician_id: initialData.service.technician_id || ""
+        });
+      }
     }
-  }, [initialData]);
+  }, [initialData, service]);
 
+  // Set branch ID for branch admins
   useEffect(() => {
     if (isBranchAdmin && userBranchId) {
       setBranchId(userBranchId);
     }
   }, [isBranchAdmin, userBranchId, setBranchId]);
 
-  const handleCustomerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setCustomer({ ...customer, [e.target.name]: e.target.value });
-  };
-  const handleDeviceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setDevice({ ...device, [e.target.name]: e.target.value });
-  };
-  const handleServiceChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    setService({ ...service, [e.target.name]: e.target.value });
-  };
+  // Memoized change handlers
+  const handleCustomerChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setCustomer(prev => ({ ...prev, [name]: value }));
+    
+    // Clear error when user starts typing
+    if (formErrors[`customer${name.charAt(0).toUpperCase() + name.slice(1)}`]) {
+      setFormErrors(prev => ({ ...prev, [`customer${name.charAt(0).toUpperCase() + name.slice(1)}`]: "" }));
+    }
+  }, [formErrors]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleDeviceChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setDevice(prev => ({ ...prev, [name]: value }));
+    
+    // Clear error when user starts typing
+    if (formErrors[`device${name.charAt(0).toUpperCase() + name.slice(1)}`]) {
+      setFormErrors(prev => ({ ...prev, [`device${name.charAt(0).toUpperCase() + name.slice(1)}`]: "" }));
+    }
+  }, [formErrors]);
+
+  const handleServiceChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setService(prev => ({ ...prev, [name]: value }));
+    
+    // Clear error when user starts typing
+    if (formErrors[`service${name.charAt(0).toUpperCase() + name.slice(1)}`]) {
+      setFormErrors(prev => ({ ...prev, [`service${name.charAt(0).toUpperCase() + name.slice(1)}`]: "" }));
+    }
+  }, [formErrors]);
+
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit({
-      customer,
-      device,
-      service: { ...service, branch_id: branchId },
-    });
-  };
+    
+    if (!validateForm()) {
+      return;
+    }
+
+    setIsSubmitting(true);
+    
+    try {
+      await onSubmit({
+        customer,
+        device,
+        service: { ...service, branch_id: branchId },
+      });
+    } catch (err) {
+      console.error('Form submission error:', err);
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [customer, device, service, branchId, validateForm, onSubmit]);
+
+  // Memoized priority options
+  const priorityOptions = useMemo(() => [
+    { value: "low", label: "Low Priority" },
+    { value: "medium", label: "Medium Priority" },
+    { value: "high", label: "High Priority" },
+    { value: "urgent", label: "Urgent" }
+  ], []);
+
+  const isFormDisabled = loading || isSubmitting;
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-0">
+    <form onSubmit={handleSubmit} className="space-y-0" noValidate>
       {/* Customer Information */}
       <div className="border-b border-gray-200">
         <div className="px-8 py-8">
           <div className="flex items-center gap-3 mb-6">
-            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center" aria-hidden="true">
               <UserIcon className="w-6 h-6 text-blue-600" />
             </div>
             <div>
@@ -118,7 +254,10 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
               onChange={handleCustomerChange}
               placeholder="Enter customer name"
               required
+              error={formErrors.customerName}
+              disabled={isFormDisabled}
               icon={<UserIcon className="h-5 w-5 text-gray-400" />}
+              aria-describedby={formErrors.customerName ? "customer-name-error" : undefined}
             />
             <TextInput
               type="tel"
@@ -128,7 +267,10 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
               onChange={handleCustomerChange}
               placeholder="Enter phone number"
               required
+              error={formErrors.customerPhone}
+              disabled={isFormDisabled}
               icon={<PhoneIcon className="h-5 w-5 text-gray-400" />}
+              aria-describedby={formErrors.customerPhone ? "customer-phone-error" : undefined}
             />
             <TextInput
               type="text"
@@ -137,6 +279,7 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
               value={customer.place}
               onChange={handleCustomerChange}
               placeholder="Enter place/location"
+              disabled={isFormDisabled}
               icon={<MapPinIcon className="h-5 w-5 text-gray-400" />}
             />
           </div>
@@ -147,7 +290,7 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
       <div className="border-b border-gray-200">
         <div className="px-8 py-8">
           <div className="flex items-center gap-3 mb-6">
-            <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center">
+            <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center" aria-hidden="true">
               <DevicePhoneMobileIcon className="w-6 h-6 text-indigo-600" />
             </div>
             <div>
@@ -164,7 +307,10 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
               onChange={handleDeviceChange}
               placeholder="Apple, Samsung, etc."
               required
+              error={formErrors.deviceBrand}
+              disabled={isFormDisabled}
               icon={<BuildingOfficeIcon className="h-5 w-5 text-gray-400" />}
+              aria-describedby={formErrors.deviceBrand ? "device-brand-error" : undefined}
             />
             <TextInput
               type="text"
@@ -174,7 +320,10 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
               onChange={handleDeviceChange}
               placeholder="iPhone 14, Galaxy S23"
               required
+              error={formErrors.deviceModel}
+              disabled={isFormDisabled}
               icon={<BuildingOfficeIcon className="h-5 w-5 text-gray-400" />}
+              aria-describedby={formErrors.deviceModel ? "device-model-error" : undefined}
             />
             <TextInput
               type="text"
@@ -184,7 +333,10 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
               onChange={handleDeviceChange}
               placeholder="Device IMEI number"
               required
+              error={formErrors.deviceSerial}
+              disabled={isFormDisabled}
               icon={<BuildingOfficeIcon className="h-5 w-5 text-gray-400" />}
+              aria-describedby={formErrors.deviceSerial ? "device-serial-error" : undefined}
             />
             <TextInput
               type="text"
@@ -194,7 +346,10 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
               onChange={handleDeviceChange}
               placeholder="Black, Silver, etc."
               required
+              error={formErrors.deviceColor}
+              disabled={isFormDisabled}
               icon={<BuildingOfficeIcon className="h-5 w-5 text-gray-400" />}
+              aria-describedby={formErrors.deviceColor ? "device-color-error" : undefined}
             />
           </div>
         </div>
@@ -203,7 +358,7 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
       {/* Service Details */}
       <div className="px-8 py-8">
         <div className="flex items-center gap-3 mb-6">
-          <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+          <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center" aria-hidden="true">
             <BuildingOfficeIcon className="w-6 h-6 text-green-600" />
           </div>
           <div>
@@ -221,7 +376,10 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
             onChange={handleServiceChange}
             placeholder="Screen repair, Battery replacement"
             required
+            error={formErrors.serviceName}
+            disabled={isFormDisabled}
             icon={<BuildingOfficeIcon className="h-5 w-5 text-gray-400" />}
+            aria-describedby={formErrors.serviceName ? "service-name-error" : undefined}
           />
           <TextInput
             type="number"
@@ -231,7 +389,10 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
             onChange={handleServiceChange}
             placeholder="Enter price"
             required
+            error={formErrors.servicePrice}
+            disabled={isFormDisabled}
             icon={<BuildingOfficeIcon className="h-5 w-5 text-gray-400" />}
+            aria-describedby={formErrors.servicePrice ? "service-price-error" : undefined}
           />
         </div>
         
@@ -244,10 +405,43 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
             name="description"
             value={service.description}
             onChange={handleServiceChange}
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200 resize-none"
+            className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200 resize-none ${
+              formErrors.serviceDescription ? 'border-red-300' : 'border-gray-300'
+            } ${isFormDisabled ? 'bg-gray-50 cursor-not-allowed' : ''}`}
             placeholder="Describe the service requirements..."
             rows={3}
+            required
+            disabled={isFormDisabled}
+            aria-describedby={formErrors.serviceDescription ? "service-description-error" : undefined}
           />
+          {formErrors.serviceDescription && (
+            <p id="service-description-error" className="mt-1 text-sm text-red-600">
+              {formErrors.serviceDescription}
+            </p>
+          )}
+        </div>
+
+        {/* Priority Selection */}
+        <div className="mb-6">
+          <label htmlFor="priority" className="block text-sm font-semibold text-gray-700 mb-2">
+            Priority Level
+          </label>
+          <select
+            id="priority"
+            name="priority"
+            value={service.priority}
+            onChange={handleServiceChange}
+            className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200 ${
+              isFormDisabled ? 'bg-gray-50 cursor-not-allowed' : ''
+            }`}
+            disabled={isFormDisabled}
+          >
+            {priorityOptions.map(option => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
         </div>
         
         {/* Branch Selection */}
@@ -261,14 +455,23 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
               name="branch_id"
               value={branchId}
               onChange={e => setBranchId(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
+              className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200 ${
+                formErrors.branchId ? 'border-red-300' : 'border-gray-300'
+              } ${isFormDisabled ? 'bg-gray-50 cursor-not-allowed' : ''}`}
               required
+              disabled={isFormDisabled}
+              aria-describedby={formErrors.branchId ? "branch-id-error" : undefined}
             >
               <option value="">Choose a branch</option>
               {branches.map(branch => (
                 <option key={branch.id} value={branch.id}>{branch.name}</option>
               ))}
             </select>
+            {formErrors.branchId && (
+              <p id="branch-id-error" className="mt-1 text-sm text-red-600">
+                {formErrors.branchId}
+              </p>
+            )}
           </div>
         )}
         
@@ -296,8 +499,11 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
               id="technician_id"
               name="technician_id"
               value={service.technician_id}
-              onChange={(e) => setService({ ...service, technician_id: e.target.value })}
-              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
+              onChange={handleServiceChange}
+              className={`w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200 ${
+                isFormDisabled ? 'bg-gray-50 cursor-not-allowed' : ''
+              }`}
+              disabled={isFormDisabled}
             >
               <option value="">Select a technician</option>
               {technicians.map((technician) => (
@@ -307,7 +513,13 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
               ))}
             </select>
           </div>
-          {technicians.length === 0 && (
+          {techniciansLoading && (
+            <p className="mt-2 text-sm text-blue-600">Loading technicians...</p>
+          )}
+          {techniciansError && (
+            <p className="mt-2 text-sm text-red-600">Error loading technicians: {techniciansError}</p>
+          )}
+          {!techniciansLoading && technicians.length === 0 && (
             <p className="mt-2 text-sm text-amber-600 bg-amber-50 px-3 py-2 rounded-lg">
               ⚠️ No technicians available for this branch. Please add technicians first.
             </p>
@@ -318,7 +530,7 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
       {/* Error Message */}
       {error && (
         <div className="px-8 pb-6">
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4" role="alert">
             <div className="flex">
               <div className="flex-shrink-0">
                 <svg className="h-5 w-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -341,7 +553,8 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
               <button
                 type="button"
                 onClick={onCancelEdit}
-                className="px-6 py-3 text-gray-600 hover:text-gray-800 font-medium transition-colors"
+                className="px-6 py-3 text-gray-600 hover:text-gray-800 font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 rounded"
+                disabled={isFormDisabled}
               >
                 Cancel
               </button>
@@ -349,10 +562,10 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
           </div>
           <button
             type="submit"
-            disabled={loading}
+            disabled={isFormDisabled}
             className="px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-lg hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
           >
-            {loading ? (
+            {isFormDisabled ? (
               <div className="flex items-center gap-2">
                 <svg className="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>

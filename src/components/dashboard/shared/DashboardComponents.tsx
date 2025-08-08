@@ -15,6 +15,7 @@ export interface DashboardMetric {
   icon: React.ComponentType<{ className?: string }>;
   color: string;
   bgColor: string;
+  description?: string;
 }
 
 export const MetricCard: React.FC<DashboardMetric> = React.memo(({ 
@@ -24,13 +25,25 @@ export const MetricCard: React.FC<DashboardMetric> = React.memo(({
   changeType, 
   icon: Icon, 
   color, 
-  bgColor 
+  bgColor,
+  description 
 }) => (
-  <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
+  <div 
+    className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-offset-2"
+    role="region"
+    aria-label={`${label}: ${value}`}
+  >
     <div className="flex items-center justify-between">
-      <div>
-        <p className="text-sm font-medium text-gray-600">{label}</p>
-        <p className="text-2xl font-bold text-gray-900 mt-1">{value}</p>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium text-gray-600" id={`metric-${label.toLowerCase().replace(/\s+/g, '-')}`}>
+          {label}
+        </p>
+        <p className="text-2xl font-bold text-gray-900 mt-1" aria-describedby={`metric-${label.toLowerCase().replace(/\s+/g, '-')}`}>
+          {value}
+        </p>
+        {description && (
+          <p className="text-xs text-gray-500 mt-1">{description}</p>
+        )}
         {change !== undefined && (
           <div className="flex items-center mt-2">
             <span className={`text-sm font-medium ${
@@ -42,7 +55,7 @@ export const MetricCard: React.FC<DashboardMetric> = React.memo(({
           </div>
         )}
       </div>
-      <div className={`p-3 rounded-lg ${bgColor}`}>
+      <div className={`p-3 rounded-lg ${bgColor} flex-shrink-0`} aria-hidden="true">
         <Icon className={`h-6 w-6 ${color}`} />
       </div>
     </div>
@@ -56,25 +69,32 @@ export const ServiceCard: React.FC<{ service: Service }> = React.memo(({ service
   const statusColors = getStatusColor(service.status);
   
   return (
-    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-      <div className="flex items-center space-x-4">
+    <div 
+      className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-offset-2"
+      role="article"
+      aria-label={`Service: ${service.name} - Status: ${service.status}`}
+    >
+      <div className="flex items-center space-x-4 flex-1 min-w-0">
         <div className="flex-shrink-0">
-          <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+          <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center" aria-hidden="true">
             <HiClipboardList className="h-5 w-5 text-blue-600" />
           </div>
         </div>
-        <div>
-          <p className="text-sm font-medium text-gray-900">{service.name}</p>
-          <p className="text-sm text-gray-500">
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium text-gray-900 truncate">{service.name}</p>
+          <p className="text-sm text-gray-500 truncate">
             {service.customer?.name || 'Unknown Customer'} • {service.device?.type || 'Unknown Device'}
           </p>
-          {service.branch?.name && (
-            <p className="text-xs text-gray-400">{service.branch.name}</p>
+          {service.branchId && (
+            <p className="text-xs text-gray-400 truncate">Branch ID: {service.branchId}</p>
           )}
         </div>
       </div>
-      <div className="flex items-center space-x-4">
-        <span className={`px-3 py-1 text-xs font-medium rounded-full ${statusColors.bg} ${statusColors.text}`}>
+      <div className="flex items-center space-x-4 flex-shrink-0">
+        <span 
+          className={`px-3 py-1 text-xs font-medium rounded-full ${statusColors.bg} ${statusColors.text}`}
+          aria-label={`Status: ${service.status}`}
+        >
           {service.status.replace('_', ' ')}
         </span>
         <span className="text-sm font-medium text-gray-900">
@@ -91,49 +111,57 @@ ServiceCard.displayName = 'ServiceCard';
 export const RecentServicesCard: React.FC<{ 
   services: Service[]; 
   loading: boolean;
+  error?: string | null;
   title?: string;
   viewAllLink?: string;
   emptyMessage?: string;
   createLink?: string;
+  onRetry?: () => void;
 }> = React.memo(({ 
   services, 
   loading, 
+  error,
   title = "Recent Services",
   viewAllLink = "/services",
   emptyMessage = "No services yet",
-  createLink = "/services/new"
+  createLink = "/services/new",
+  onRetry
 }) => (
   <div className="bg-white rounded-xl shadow-sm border border-gray-200">
     <div className="px-6 py-4 border-b border-gray-200">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
-        <Link 
-          href={viewAllLink} 
-          className="text-sm font-medium text-blue-600 hover:text-blue-700"
-        >
-          View all
-        </Link>
+        {viewAllLink && (
+          <Link 
+            href={viewAllLink} 
+            className="text-sm font-medium text-blue-600 hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded"
+          >
+            View all
+          </Link>
+        )}
       </div>
     </div>
     <div className="p-6">
-      {loading ? (
+      {error ? (
+        <ErrorState message={error} retry={onRetry} />
+      ) : loading ? (
         <LoadingSpinner text="Loading services..." />
       ) : services.length > 0 ? (
-        <div className="space-y-4">
+        <div className="space-y-4" role="list" aria-label="Recent services">
           {services.map((service) => (
             <ServiceCard key={service.id} service={service} />
           ))}
         </div>
       ) : (
         <div className="text-center py-12">
-          <HiClipboardList className="mx-auto h-12 w-12 text-gray-400" />
+          <HiClipboardList className="mx-auto h-12 w-12 text-gray-400" aria-hidden="true" />
           <h3 className="mt-4 text-lg font-medium text-gray-900">{emptyMessage}</h3>
           <p className="mt-2 text-sm text-gray-500">Get started by creating your first service.</p>
           {createLink && (
             <div className="mt-6">
               <Link
                 href={createLink}
-                className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 transition-colors"
+                className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
               >
                 Create Service
               </Link>
@@ -153,9 +181,9 @@ export const DashboardHeader: React.FC<{
   subtitle?: string;
   user?: { name?: string };
 }> = React.memo(({ title, subtitle, user }) => (
-  <div className="flex justify-between items-center">
+  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center space-y-4 sm:space-y-0">
     <div>
-      <h1 className="text-3xl font-bold text-gray-900">{title}</h1>
+      <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">{title}</h1>
       {subtitle && (
         <p className="text-gray-600 mt-1">
           {subtitle.replace('{name}', user?.name || 'User')}
@@ -179,9 +207,9 @@ DashboardHeader.displayName = 'DashboardHeader';
 export const DashboardLoadingState: React.FC<{ message?: string }> = React.memo(({ 
   message = "Loading dashboard data... This may take a moment if you have a large number of services."
 }) => (
-  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6" role="status" aria-live="polite">
     <div className="flex items-center">
-      <svg className="h-5 w-5 text-blue-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <svg className="h-5 w-5 text-blue-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
       </svg>
       <p className="text-blue-800 text-sm">{message}</p>
@@ -191,9 +219,9 @@ export const DashboardLoadingState: React.FC<{ message?: string }> = React.memo(
 
 DashboardLoadingState.displayName = 'DashboardLoadingState';
 
-// Metrics Grid Component
+// Metrics Grid Component with improved responsiveness
 export const MetricsGrid: React.FC<{ metrics: DashboardMetric[] }> = React.memo(({ metrics }) => (
-  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6" role="grid" aria-label="Dashboard metrics">
     {metrics.map((metric) => (
       <MetricCard key={metric.id} {...metric} />
     ))}
@@ -201,3 +229,45 @@ export const MetricsGrid: React.FC<{ metrics: DashboardMetric[] }> = React.memo(
 ));
 
 MetricsGrid.displayName = 'MetricsGrid';
+
+// Error Boundary Component for Dashboard
+export const DashboardErrorBoundary: React.FC<{ 
+  children: React.ReactNode;
+  fallback?: React.ReactNode;
+}> = React.memo(({ children, fallback }) => {
+  const [hasError, setHasError] = React.useState(false);
+
+  React.useEffect(() => {
+    const handleError = (error: ErrorEvent) => {
+      console.error('Dashboard error:', error);
+      setHasError(true);
+    };
+
+    window.addEventListener('error', handleError);
+    return () => window.removeEventListener('error', handleError);
+  }, []);
+
+  if (hasError) {
+    return fallback || (
+      <div className="text-center py-12">
+        <div className="text-red-500 mb-4">
+          <svg className="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+          </svg>
+        </div>
+        <h3 className="text-lg font-medium text-gray-900 mb-2">Something went wrong</h3>
+        <p className="text-sm text-gray-500 mb-4">There was an error loading the dashboard.</p>
+        <button
+          onClick={() => window.location.reload()}
+          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+        >
+          Reload Page
+        </button>
+      </div>
+    );
+  }
+
+  return <>{children}</>;
+});
+
+DashboardErrorBoundary.displayName = 'DashboardErrorBoundary';

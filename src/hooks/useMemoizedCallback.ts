@@ -13,7 +13,7 @@ export function useMemoizedCallback<T extends (...args: any[]) => any>(
     deps: React.DependencyList;
     callback: T;
     memoizedCallback: T;
-  }>();
+  } | null>(null);
 
   if (!ref.current || !depsAreEqual(ref.current.deps, deps)) {
     ref.current = {
@@ -36,7 +36,7 @@ export function useMemoizedValue<T>(
   const ref = useRef<{
     deps: React.DependencyList;
     value: T;
-  }>();
+  } | null>(null);
 
   if (!ref.current || !depsAreEqual(ref.current.deps, deps)) {
     ref.current = {

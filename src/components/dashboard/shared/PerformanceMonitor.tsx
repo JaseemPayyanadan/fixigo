@@ -69,10 +69,10 @@ export const withPerformanceMonitoring = <P extends object>(
   Component: React.ComponentType<P>,
   componentName: string
 ) => {
-  const WrappedComponent = React.forwardRef<any, P>((props, ref) => {
+  const WrappedComponent = React.memo((props: P) => {
     return (
       <PerformanceMonitor componentName={componentName}>
-        <Component {...props} ref={ref} />
+        <Component {...props} />
       </PerformanceMonitor>
     );
   });

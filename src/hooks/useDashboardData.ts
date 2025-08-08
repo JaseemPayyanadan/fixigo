@@ -5,7 +5,18 @@ import { useBranches } from './useBranches';
 import { useTechnicians } from './useTechnicians';
 import { useServices } from './useServices';
 import { useInvoices } from './useInvoices';
+import { Service, Branch, Technician, Invoice } from '@/types';
+import { AuthUser } from '@/lib/auth';
 import { calculateDashboardMetrics, getRecentServices } from '@/components/dashboard/shared/DashboardUtils';
+
+export interface DashboardMetrics {
+  totalServices: number;
+  pendingServices: number;
+  completedServices: number;
+  activeServices: number;
+  totalCustomers: number;
+  customerSatisfaction: number;
+}
 
 export interface DashboardData {
   // Loading states
@@ -15,38 +26,37 @@ export interface DashboardData {
   techniciansLoading: boolean;
   invoicesLoading: boolean;
   
+  // Error states
+  servicesError: string | null;
+  branchesError: string | null;
+  techniciansError: string | null;
+  invoicesError: string | null;
+  
   // Data
-  services: any[];
-  branches: any[];
-  technicians: any[];
-  invoices: any[];
+  services: Service[];
+  branches: Branch[];
+  technicians: Technician[];
+  invoices: Invoice[];
   
   // Calculated metrics
-  metrics: {
-    totalServices: number;
-    pendingServices: number;
-    completedServices: number;
-    activeServices: number;
-    totalCustomers: number;
-    customerSatisfaction: number;
-  };
+  metrics: DashboardMetrics;
   
   // Recent data
-  recentServices: any[];
+  recentServices: Service[];
   
   // Revenue
   totalRevenue: number;
   
   // User info
-  user: any;
+  user: AuthUser | null;
 }
 
 export const useDashboardData = (shopId?: string, branchId?: string): DashboardData => {
   const { user } = useUser();
-  const { branches, loading: branchesLoading } = useBranches(shopId);
-  const { technicians, loading: techniciansLoading } = useTechnicians(shopId, branchId);
-  const { services, loading: servicesLoading } = useServices(shopId, branchId);
-  const { invoices, loading: invoicesLoading } = useInvoices(shopId, branchId);
+  const { branches, loading: branchesLoading, error: branchesError } = useBranches(shopId);
+  const { technicians, loading: techniciansLoading, error: techniciansError } = useTechnicians(shopId, branchId);
+  const { services, loading: servicesLoading, error: servicesError } = useServices(shopId, branchId);
+  const { invoices, loading: invoicesLoading, error: invoicesError } = useInvoices(shopId, branchId);
 
   // Check if any data is still loading
   const isLoading = useMemo(() => 
@@ -54,21 +64,21 @@ export const useDashboardData = (shopId?: string, branchId?: string): DashboardD
     [branchesLoading, techniciansLoading, servicesLoading, invoicesLoading]
   );
 
-  // Calculate metrics
+  // Calculate metrics with memoization
   const metrics = useMemo(() => 
-    calculateDashboardMetrics(services),
+    calculateDashboardMetrics(services || []),
     [services]
   );
 
-  // Get recent services
+  // Get recent services with memoization
   const recentServices = useMemo(() => 
-    getRecentServices(services, 5),
+    getRecentServices(services || [], 5),
     [services]
   );
 
-  // Calculate total revenue
+  // Calculate total revenue with memoization
   const totalRevenue = useMemo(() => 
-    invoices?.reduce((sum, invoice) => sum + (invoice.total || 0), 0) || 0,
+    (invoices || []).reduce((sum, invoice) => sum + (invoice.total || 0), 0),
     [invoices]
   );
 
@@ -79,6 +89,12 @@ export const useDashboardData = (shopId?: string, branchId?: string): DashboardD
     branchesLoading,
     techniciansLoading,
     invoicesLoading,
+    
+    // Error states
+    servicesError: servicesError || null,
+    branchesError: branchesError || null,
+    techniciansError: techniciansError || null,
+    invoicesError: invoicesError || null,
     
     // Data
     services: services || [],

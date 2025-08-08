@@ -17,13 +17,22 @@ import {
   DashboardLoadingState, 
   MetricsGrid, 
   RecentServicesCard,
-  DashboardMetric 
+  DashboardMetric,
+  DashboardErrorBoundary
 } from './shared/DashboardComponents';
 import { formatCurrency } from './shared/DashboardUtils';
 
 export default function TechnicianDashboard() {
   const { user } = useUser();
-  const { services, isLoading, metrics, totalRevenue, recentServices, servicesLoading } = useDashboardData(user?.shopId, user?.branchId);
+  const { 
+    services, 
+    isLoading, 
+    metrics, 
+    totalRevenue, 
+    recentServices, 
+    servicesLoading,
+    servicesError
+  } = useDashboardData(user?.shopId, user?.branchId);
 
   // Filter services assigned to this technician
   const myServices = React.useMemo(() => 
@@ -66,7 +75,8 @@ export default function TechnicianDashboard() {
       value: technicianMetrics.totalServices,
       icon: HiClipboardList,
       color: 'text-blue-600',
-      bgColor: 'bg-blue-100'
+      bgColor: 'bg-blue-100',
+      description: 'Your assigned services'
     },
     {
       id: 'pending',
@@ -74,7 +84,8 @@ export default function TechnicianDashboard() {
       value: technicianMetrics.pendingServices,
       icon: HiClock,
       color: 'text-orange-600',
-      bgColor: 'bg-orange-100'
+      bgColor: 'bg-orange-100',
+      description: 'Awaiting your attention'
     },
     {
       id: 'in_progress',
@@ -82,7 +93,8 @@ export default function TechnicianDashboard() {
       value: technicianMetrics.inProgressServices,
       icon: HiTrendingUp,
       color: 'text-blue-600',
-      bgColor: 'bg-blue-100'
+      bgColor: 'bg-blue-100',
+      description: 'Currently working on'
     },
     {
       id: 'completed',
@@ -90,7 +102,8 @@ export default function TechnicianDashboard() {
       value: technicianMetrics.completedServices,
       icon: HiCheckCircle,
       color: 'text-green-600',
-      bgColor: 'bg-green-100'
+      bgColor: 'bg-green-100',
+      description: 'Successfully finished'
     },
     {
       id: 'urgent',
@@ -98,7 +111,8 @@ export default function TechnicianDashboard() {
       value: technicianMetrics.urgentServices,
       icon: HiExclamation,
       color: 'text-red-600',
-      bgColor: 'bg-red-100'
+      bgColor: 'bg-red-100',
+      description: 'Requires immediate attention'
     },
     {
       id: 'revenue',
@@ -106,7 +120,8 @@ export default function TechnicianDashboard() {
       value: formatCurrency(technicianMetrics.myRevenue),
       icon: HiStar,
       color: 'text-yellow-600',
-      bgColor: 'bg-yellow-100'
+      bgColor: 'bg-yellow-100',
+      description: 'Revenue from your services'
     },
     {
       id: 'satisfaction',
@@ -114,7 +129,8 @@ export default function TechnicianDashboard() {
       value: `${technicianMetrics.customerSatisfaction}%`,
       icon: HiUser,
       color: 'text-indigo-600',
-      bgColor: 'bg-indigo-100'
+      bgColor: 'bg-indigo-100',
+      description: 'Customer satisfaction rate'
     },
     {
       id: 'efficiency',
@@ -124,9 +140,16 @@ export default function TechnicianDashboard() {
         : '0%',
       icon: HiCalendar,
       color: 'text-purple-600',
-      bgColor: 'bg-purple-100'
+      bgColor: 'bg-purple-100',
+      description: 'Completion rate'
     }
   ], [technicianMetrics]);
+
+  // Handle retry for services
+  const handleServicesRetry = React.useCallback(() => {
+    // This would typically trigger a refetch
+    window.location.reload();
+  }, []);
 
   if (!user) {
     return (
@@ -140,29 +163,45 @@ export default function TechnicianDashboard() {
   }
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <DashboardHeader 
-        title="My Dashboard" 
-        subtitle="Welcome back, {name}"
-        user={user}
-      />
+    <DashboardErrorBoundary>
+      <div className="p-6 space-y-6">
+        {/* Header */}
+        <DashboardHeader 
+          title="My Dashboard" 
+          subtitle="Welcome back, {name}"
+          user={user}
+        />
 
-      {/* Loading State */}
-      {isLoading && <DashboardLoadingState message="Loading your services... This may take a moment." />}
+        {/* Loading State */}
+        {isLoading && <DashboardLoadingState message="Loading your services... This may take a moment." />}
 
-      {/* Metrics Grid */}
-      <MetricsGrid metrics={dashboardMetrics} />
+        {/* Error States */}
+        {servicesError && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+            <div className="flex items-center">
+              <svg className="h-5 w-5 text-red-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+              <p className="text-red-800 text-sm">Services: {servicesError}</p>
+            </div>
+          </div>
+        )}
 
-      {/* My Services */}
-      <RecentServicesCard 
-        services={myRecentServices} 
-        loading={servicesLoading}
-        title="My Services"
-        viewAllLink="/services"
-        emptyMessage="No services assigned"
-        createLink={null}
-      />
-    </div>
+        {/* Metrics Grid */}
+        <MetricsGrid metrics={dashboardMetrics} />
+
+        {/* My Services */}
+        <RecentServicesCard 
+          services={myRecentServices} 
+          loading={servicesLoading}
+          error={servicesError}
+          title="My Services"
+          viewAllLink="/services"
+          emptyMessage="No services assigned"
+          createLink={undefined}
+          onRetry={handleServicesRetry}
+        />
+      </div>
+    </DashboardErrorBoundary>
   );
 }

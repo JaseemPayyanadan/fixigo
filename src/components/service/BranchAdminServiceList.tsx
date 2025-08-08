@@ -15,6 +15,8 @@ import {
   ClockIcon,
   PhoneIcon
 } from "@heroicons/react/24/outline";
+import { getTechnicianDisplayInfo } from "./shared/ServiceUtils";
+import type { Technician } from "@/types";
 
 interface Service {
   id: string;
@@ -57,6 +59,7 @@ interface Branch {
 interface BranchAdminServiceListProps {
   services: Service[];
   branches: Branch[];
+  technicians: Technician[];
   loading: boolean;
   search?: string;
   onEdit?: (service: Service) => void;
@@ -77,6 +80,7 @@ const statusConfig: Record<string, { label: string; color: string }> = {
 const BranchAdminServiceList: React.FC<BranchAdminServiceListProps> = ({ 
   services, 
   branches, 
+  technicians,
   loading, 
   search, 
   onEdit, 
@@ -125,7 +129,7 @@ const BranchAdminServiceList: React.FC<BranchAdminServiceListProps> = ({
         </div>
         <h3 className="text-lg font-medium text-gray-900 mb-2">No services found</h3>
         <p className="text-gray-500 mb-4">
-          {search ? `No services match "${search}"` : "No services in your branch yet"}
+          {search ? `No services match "${search}"` : "Get started by creating your first service"}
         </p>
         {!search && (
           <Link
@@ -135,7 +139,7 @@ const BranchAdminServiceList: React.FC<BranchAdminServiceListProps> = ({
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
             </svg>
-            Create New Service
+            Create First Service
           </Link>
         )}
       </div>
@@ -149,6 +153,7 @@ const BranchAdminServiceList: React.FC<BranchAdminServiceListProps> = ({
           const date = service.createdAt ? new Date(service.createdAt) : null;
           const status = service.status || "To Do";
           const statusInfo = statusConfig[status] || statusConfig["To Do"];
+          const technicianInfo = service.technician_id ? getTechnicianDisplayInfo(service.technician_id, technicians) : null;
           
           return (
             <div key={service.id} className="group relative">
@@ -181,8 +186,8 @@ const BranchAdminServiceList: React.FC<BranchAdminServiceListProps> = ({
                 <div className="p-4">
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
-                        <CubeIcon className="w-4 h-4 text-green-600" />
+                      <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                        <CubeIcon className="w-4 h-4 text-blue-600" />
                       </div>
                       <div>
                         <div className="text-xs text-gray-500">Service ID</div>
@@ -251,12 +256,15 @@ const BranchAdminServiceList: React.FC<BranchAdminServiceListProps> = ({
                     )}
 
                     {/* Technician Assignment - Branch Admin Focus */}
-                    {service.technician_id && (
+                    {technicianInfo && (
                       <div className="flex items-center gap-2 text-sm">
                         <UserIcon className="w-4 h-4 text-gray-500" />
                         <div>
                           <div className="text-xs text-gray-500">Assigned to</div>
-                          <div className="font-medium text-gray-900">Tech #{service.technician_id.slice(-8)}</div>
+                          <div className="font-medium text-gray-900">{technicianInfo.name}</div>
+                          {technicianInfo.phone && (
+                            <div className="text-xs text-gray-500">📞 {technicianInfo.phone}</div>
+                          )}
                         </div>
                       </div>
                     )}
