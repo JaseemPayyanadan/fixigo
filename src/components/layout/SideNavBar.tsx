@@ -186,34 +186,7 @@ export function SideNavBar() {
             </div>
           )}
 
-          {/* Profile menu for technicians */}
-          {isTechnician && (
-            <div className="relative">
-              <button
-                onClick={() => router.push("/profile")}
-                onMouseEnter={() => setHoveredItem("/profile")}
-                onMouseLeave={() => setHoveredItem(null)}
-                className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg text-base font-medium transition-all duration-200 focus:outline-none group ${
-                  pathname.startsWith("/profile")
-                    ? "bg-blue-50 text-blue-700 border-r-2 border-blue-600"
-                    : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-                }`}
-              >
-                <UserIcon className={`h-5 w-5 transition-colors duration-200 ${
-                  pathname.startsWith("/profile") ? "text-blue-600" : "text-gray-400 group-hover:text-gray-600"
-                }`} />
-                {!collapsed && <span>My Profile</span>}
-              </button>
 
-              {/* Tooltip for collapsed state */}
-              {collapsed && hoveredItem === "/profile" && (
-                <div className="absolute left-full ml-2 px-3 py-2 bg-gray-900 text-white text-sm rounded-lg shadow-lg z-50 whitespace-nowrap">
-                  <div className="font-medium">My Profile</div>
-                  <div className="text-gray-300 text-xs">View and edit profile</div>
-                </div>
-              )}
-            </div>
-          )}
         </nav>
 
       </div>

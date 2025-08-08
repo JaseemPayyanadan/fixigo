@@ -27,11 +27,32 @@ const DashboardContent: React.FC = () => {
   // Render role-specific dashboard
   switch (user.role) {
     case 'shop_admin':
-      return <ShopAdminDashboard />;
+      return (
+        <div>
+          <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
+            ✅ Dashboard improvements loaded successfully! (Shop Admin)
+          </div>
+          <ShopAdminDashboard />
+        </div>
+      );
     case 'branch_admin':
-      return <BranchAdminDashboard />;
+      return (
+        <div>
+          <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
+            ✅ Dashboard improvements loaded successfully! (Branch Admin)
+          </div>
+          <BranchAdminDashboard />
+        </div>
+      );
     case 'technician':
-      return <TechnicianDashboard />;
+      return (
+        <div>
+          <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
+            ✅ Dashboard improvements loaded successfully! (Technician)
+          </div>
+          <TechnicianDashboard />
+        </div>
+      );
     default:
       return (
         <div className="flex items-center justify-center min-h-screen">
