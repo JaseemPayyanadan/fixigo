@@ -20,12 +20,21 @@ export function useServices(shopId?: string, branchId?: string) {
         setLoading(true);
         setError(null);
 
+        console.log('useServices Debug:', {
+          shopId,
+          branchId,
+          userShopId: user.shopId,
+          userRole: user.role,
+          userId: user.id
+        });
+
         let q;
         let querySnapshot;
         
         try {
           if (shopId && branchId) {
             // Query services for specific branch
+            console.log('Querying services for branch:', { shopId, branchId });
             q = query(
               collection(db, "services"),
               where("shopId", "==", shopId),
@@ -34,20 +43,57 @@ export function useServices(shopId?: string, branchId?: string) {
             );
           } else if (shopId) {
             // Query all services for the shop (shop admin only)
+            console.log('Querying services for shop:', { shopId });
             q = query(
               collection(db, "services"),
               where("shopId", "==", shopId),
               orderBy("createdAt", "desc")
             );
           } else {
+            console.log('No shopId provided, returning empty services');
             setServices([]);
             setLoading(false);
             return;
           }
 
           querySnapshot = await getDocs(q);
+          console.log('Services query result:', {
+            totalDocs: querySnapshot.docs.length,
+            firstDoc: querySnapshot.docs[0]?.data()
+          });
+
+          // If no results, try with legacy field names
+          if (querySnapshot.docs.length === 0) {
+            console.log('No services found with new field names, trying legacy field names');
+            
+            if (shopId && branchId) {
+              q = query(
+                collection(db, "services"),
+                where("shop_id", "==", shopId),
+                where("branch_id", "==", branchId),
+                orderBy("createdAt", "desc")
+              );
+            } else if (shopId) {
+              q = query(
+                collection(db, "services"),
+                where("shop_id", "==", shopId),
+                orderBy("createdAt", "desc")
+              );
+            }
+            
+            try {
+              querySnapshot = await getDocs(q);
+              console.log('Legacy field query result:', {
+                totalDocs: querySnapshot.docs.length,
+                firstDoc: querySnapshot.docs[0]?.data()
+              });
+            } catch (legacyError) {
+              console.log('Legacy field query failed:', legacyError);
+            }
+          }
         } catch (indexError) {
           // If index is building, try without ordering
+          console.log('Index building error, using fallback query:', indexError);
           logger.warn("Index building in progress for services, using fallback query", { error: String(indexError) });
           
           if (shopId && branchId) {
@@ -68,6 +114,36 @@ export function useServices(shopId?: string, branchId?: string) {
           }
           
           querySnapshot = await getDocs(q);
+          console.log('Fallback services query result:', {
+            totalDocs: querySnapshot.docs.length
+          });
+
+          // If no results, try with legacy field names
+          if (querySnapshot.docs.length === 0) {
+            console.log('No services found with new field names in fallback, trying legacy field names');
+            
+            if (shopId && branchId) {
+              q = query(
+                collection(db, "services"),
+                where("shop_id", "==", shopId),
+                where("branch_id", "==", branchId)
+              );
+            } else if (shopId) {
+              q = query(
+                collection(db, "services"),
+                where("shop_id", "==", shopId)
+              );
+            }
+            
+            try {
+              querySnapshot = await getDocs(q);
+              console.log('Legacy field fallback query result:', {
+                totalDocs: querySnapshot.docs.length
+              });
+            } catch (legacyError) {
+              console.log('Legacy field fallback query failed:', legacyError);
+            }
+          }
         }
         const serviceList: Service[] = [];
 
@@ -81,12 +157,12 @@ export function useServices(shopId?: string, branchId?: string) {
             device: data.device || {},
             status: data.status || "pending",
             priority: data.priority || "medium",
-            shopId: data.shopId || "",
-            branchId: data.branchId || "",
+            shopId: data.shopId || data.shop_id || "", // Handle both field names
+            branchId: data.branchId || data.branch_id || "", // Handle both field names
             price: data.price || 0,
             estimatedDuration: data.estimatedDuration || 0,
             actualDuration: data.actualDuration || 0,
-            assignedTechnicianId: data.assignedTechnicianId || "",
+            assignedTechnicianId: data.assignedTechnicianId || data.technician_id || "", // Handle both field names
             estimatedCompletion: data.estimatedCompletion?.toDate() || new Date(),
             actualCompletion: data.actualCompletion?.toDate() || new Date(),
             workNotes: data.workNotes || "",
@@ -102,9 +178,15 @@ export function useServices(shopId?: string, branchId?: string) {
         // Sort manually since we're not using orderBy in the query
         serviceList.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
+        console.log('Final services list:', {
+          count: serviceList.length,
+          services: serviceList.slice(0, 3) // First 3 for debugging
+        });
+
         setServices(serviceList);
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : "Failed to fetch services";
+        console.error('Error fetching services:', err);
         
         // Check if it's an index building error
         if (isIndexBuildingError(errorMessage)) {

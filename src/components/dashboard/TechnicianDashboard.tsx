@@ -71,7 +71,7 @@ const MetricCard: React.FC<DashboardMetric> = ({
   </div>
 );
 
-const MyServicesCard: React.FC<{ services: Service[] }> = ({ services }) => (
+const MyServicesCard: React.FC<{ services: Service[]; loading: boolean }> = ({ services, loading }) => (
   <div className="bg-white rounded-xl shadow-sm border border-gray-200">
     <div className="px-6 py-4 border-b border-gray-200">
       <div className="flex items-center justify-between">
@@ -85,7 +85,12 @@ const MyServicesCard: React.FC<{ services: Service[] }> = ({ services }) => (
       </div>
     </div>
     <div className="p-6">
-      {services.length > 0 ? (
+      {loading ? (
+        <div className="text-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading services...</p>
+        </div>
+      ) : services.length > 0 ? (
         <div className="space-y-4">
           {services.map((service) => {
             const statusColors = getStatusColor(service.status);
@@ -169,7 +174,7 @@ const getTimestampSeconds = (timestamp: unknown): number => {
 
 export default function TechnicianDashboard() {
   const { user } = useUser();
-  const { services } = useServices(user?.shopId, user?.branchId);
+  const { services, loading: servicesLoading } = useServices(user?.shopId, user?.branchId);
 
   // Filter services assigned to this technician
   const myServices = services?.filter(s => s.assignedTechnicianId === user?.id) || [];
@@ -256,6 +261,17 @@ export default function TechnicianDashboard() {
     }
   ];
 
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading user data...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
@@ -276,6 +292,18 @@ export default function TechnicianDashboard() {
         </div>
       </div>
 
+      {/* Loading State */}
+      {servicesLoading && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+          <div className="flex items-center">
+            <HiExclamation className="h-5 w-5 text-blue-600 mr-2" />
+            <p className="text-blue-800 text-sm">
+              Loading your services... This may take a moment.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Metrics Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {metrics.map((metric) => (
@@ -285,7 +313,7 @@ export default function TechnicianDashboard() {
 
       {/* My Services */}
       <div>
-        <MyServicesCard services={recentServices} />
+        <MyServicesCard services={recentServices} loading={servicesLoading} />
       </div>
     </div>
   );

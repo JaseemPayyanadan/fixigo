@@ -13,7 +13,8 @@ import {
   HiTrendingUp, 
   HiClock, 
   HiCheckCircle, 
-  HiStar
+  HiStar,
+  HiExclamation
 } from "react-icons/hi";
 import Link from 'next/link';
 
@@ -73,7 +74,7 @@ const MetricCard: React.FC<DashboardMetric> = ({
   </div>
 );
 
-const RecentServicesCard: React.FC<{ services: Service[] }> = ({ services }) => (
+const RecentServicesCard: React.FC<{ services: Service[]; loading: boolean }> = ({ services, loading }) => (
   <div className="bg-white rounded-xl shadow-sm border border-gray-200">
     <div className="px-6 py-4 border-b border-gray-200">
       <div className="flex items-center justify-between">
@@ -87,7 +88,12 @@ const RecentServicesCard: React.FC<{ services: Service[] }> = ({ services }) => 
       </div>
     </div>
     <div className="p-6">
-      {services.length > 0 ? (
+      {loading ? (
+        <div className="text-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading services...</p>
+        </div>
+      ) : services.length > 0 ? (
         <div className="space-y-4">
           {services.map((service) => {
             const statusColors = getStatusColor(service.status);
@@ -170,10 +176,25 @@ const getTimestampSeconds = (timestamp: unknown): number => {
 
 export default function ShopAdminDashboard() {
   const { user } = useUser();
-  const { branches } = useBranches(user?.shopId);
-  const { technicians } = useTechnicians(user?.shopId);
-  const { services } = useServices(user?.shopId);
-  const { invoices } = useInvoices(user?.shopId);
+  const { branches, loading: branchesLoading } = useBranches(user?.shopId);
+  const { technicians, loading: techniciansLoading } = useTechnicians(user?.shopId);
+  const { services, loading: servicesLoading } = useServices(user?.shopId);
+  const { invoices, loading: invoicesLoading } = useInvoices(user?.shopId);
+
+  // Check if any data is still loading
+  const isLoading = branchesLoading || techniciansLoading || servicesLoading || invoicesLoading;
+
+  // Debug logging
+  console.log('ShopAdminDashboard Debug:', {
+    user: user?.id,
+    shopId: user?.shopId,
+    servicesCount: services?.length || 0,
+    servicesLoading,
+    services: services?.slice(0, 3), // First 3 services for debugging
+    branchesCount: branches?.length || 0,
+    techniciansCount: technicians?.length || 0,
+    invoicesCount: invoices?.length || 0
+  });
 
   // Calculate metrics
   const totalServices = services?.length || 0;
@@ -184,10 +205,25 @@ export default function ShopAdminDashboard() {
   const totalCustomers = new Set(services?.map(s => s.customer?.name).filter(Boolean) || []).size;
   const customerSatisfaction = totalServices > 0 ? Math.round((completedServices / totalServices) * 100) : 0;
 
-  // Get recent services
-  const recentServices = services
-    ?.sort((a, b) => getTimestampSeconds(b.createdAt) - getTimestampSeconds(a.createdAt))
-    .slice(0, 5) || [];
+  // Get recent services with better error handling
+  const recentServices = React.useMemo(() => {
+    if (!services || services.length === 0) {
+      console.log('No services available for recent services');
+      return [];
+    }
+    
+    try {
+      const sorted = services.sort((a, b) => {
+        const aTime = getTimestampSeconds(a.createdAt);
+        const bTime = getTimestampSeconds(b.createdAt);
+        return bTime - aTime;
+      });
+      return sorted.slice(0, 5);
+    } catch (error) {
+      console.error('Error sorting recent services:', error);
+      return services.slice(0, 5);
+    }
+  }, [services]);
 
   // Build metrics array
   const metrics: DashboardMetric[] = [
@@ -257,6 +293,17 @@ export default function ShopAdminDashboard() {
     }
   ];
 
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading user data...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
@@ -277,6 +324,32 @@ export default function ShopAdminDashboard() {
         </div>
       </div>
 
+      {/* Debug Information */}
+      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+        <h3 className="text-sm font-medium text-yellow-800 mb-2">Debug Information:</h3>
+        <div className="text-xs text-yellow-700 space-y-1">
+          <p>User ID: {user?.id}</p>
+          <p>Shop ID: {user?.shopId}</p>
+          <p>Services Count: {totalServices}</p>
+          <p>Services Loading: {servicesLoading ? 'Yes' : 'No'}</p>
+          <p>Recent Services Count: {recentServices.length}</p>
+          <p>Branches Count: {branches?.length || 0}</p>
+          <p>Technicians Count: {technicians?.length || 0}</p>
+        </div>
+      </div>
+
+      {/* Loading State */}
+      {isLoading && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+          <div className="flex items-center">
+            <HiExclamation className="h-5 w-5 text-blue-600 mr-2" />
+            <p className="text-blue-800 text-sm">
+              Loading dashboard data... This may take a moment if you have a large number of services.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Metrics Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {metrics.map((metric) => (
@@ -286,7 +359,7 @@ export default function ShopAdminDashboard() {
 
       {/* Recent Services */}
       <div>
-        <RecentServicesCard services={recentServices} />
+        <RecentServicesCard services={recentServices} loading={servicesLoading} />
       </div>
     </div>
   );
