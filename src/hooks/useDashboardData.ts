@@ -5,8 +5,9 @@ import { useBranches } from './useBranches';
 import { useTechnicians } from './useTechnicians';
 import { useServices } from './useServices';
 import { useInvoices } from './useInvoices';
+import { Service, Branch, Technician, Invoice } from '@/types';
+import { AuthUser } from '@/lib/auth';
 import { calculateDashboardMetrics, getRecentServices } from '@/components/dashboard/shared/DashboardUtils';
-import type { Service, Branch, Technician, Invoice, User } from '@/types';
 
 export interface DashboardMetrics {
   totalServices: number;
@@ -47,7 +48,7 @@ export interface DashboardData {
   totalRevenue: number;
   
   // User info
-  user: User | null;
+  user: AuthUser | null;
 }
 
 export const useDashboardData = (shopId?: string, branchId?: string): DashboardData => {

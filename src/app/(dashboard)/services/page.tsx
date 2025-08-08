@@ -4,6 +4,7 @@ import { collection, getDocs, query, orderBy, where } from "firebase/firestore";
 import { db } from "../../../lib/firebase";
 import { useUser } from "../../../hooks";
 import { useBranches } from "../../../hooks/useBranches";
+import { useTechnicians } from "../../../hooks/useTechnicians";
 import { RoleGuard, PermissionGuard } from "../../../components";
 import { ShopAdminServiceList, BranchAdminServiceList, TechnicianServiceList } from "../../../components/service";
 import { SearchFilter } from "../../../components/ui";
@@ -55,6 +56,7 @@ export default function ServicesPage() {
 function ServicesContent() {
   const { user } = useUser();
   const { branches } = useBranches(user?.shopId);
+  const { technicians } = useTechnicians(user?.shopId, user?.branchId);
 
   
   const [services, setServices] = useState<Service[]>([]);
@@ -432,6 +434,7 @@ function ServicesContent() {
         <ShopAdminServiceList
           services={filteredServices.map(transformToServiceListItem)}
           branches={branches}
+          technicians={technicians}
           loading={loading}
           search={search}
         />
@@ -440,6 +443,7 @@ function ServicesContent() {
         <BranchAdminServiceList
           services={filteredServices.map(transformToServiceListItem)}
           branches={branches}
+          technicians={technicians}
           loading={loading}
           search={search}
         />
@@ -448,6 +452,7 @@ function ServicesContent() {
         <TechnicianServiceList
           services={filteredServices.map(transformToServiceListItem)}
           branches={branches}
+          technicians={technicians}
           loading={loading}
           search={search}
         />

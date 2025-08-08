@@ -14,6 +14,8 @@ import {
   MapPinIcon,
   ClockIcon
 } from "@heroicons/react/24/outline";
+import { getTechnicianDisplayInfo } from "./shared/ServiceUtils";
+import type { Technician } from "@/types";
 
 interface Service {
   id: string;
@@ -56,6 +58,7 @@ interface Branch {
 interface ShopAdminServiceListProps {
   services: Service[];
   branches: Branch[];
+  technicians: Technician[];
   loading: boolean;
   search?: string;
   onEdit?: (service: Service) => void;
@@ -76,6 +79,7 @@ const statusConfig: Record<string, { label: string; color: string }> = {
 const ShopAdminServiceList: React.FC<ShopAdminServiceListProps> = ({ 
   services, 
   branches, 
+  technicians,
   loading, 
   search, 
   onEdit, 
@@ -155,6 +159,7 @@ const ShopAdminServiceList: React.FC<ShopAdminServiceListProps> = ({
           const status = service.status || "To Do";
           const statusInfo = statusConfig[status] || statusConfig["To Do"];
           const branchName = getBranchName(service.branch_id);
+          const technicianInfo = service.technician_id ? getTechnicianDisplayInfo(service.technician_id, technicians) : null;
           
           return (
             <div key={service.id} className="group relative">
@@ -263,12 +268,15 @@ const ShopAdminServiceList: React.FC<ShopAdminServiceListProps> = ({
                     )}
 
                     {/* Technician Assignment */}
-                    {service.technician_id && (
+                    {technicianInfo && (
                       <div className="flex items-center gap-2 text-sm">
                         <UserIcon className="w-4 h-4 text-gray-500" />
                         <div>
                           <div className="text-xs text-gray-500">Assigned to</div>
-                          <div className="font-medium text-gray-900">Tech #{service.technician_id.slice(-8)}</div>
+                          <div className="font-medium text-gray-900">{technicianInfo.name}</div>
+                          {technicianInfo.phone && (
+                            <div className="text-xs text-gray-500">📞 {technicianInfo.phone}</div>
+                          )}
                         </div>
                       </div>
                     )}

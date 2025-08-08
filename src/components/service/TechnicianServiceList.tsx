@@ -14,9 +14,11 @@ import {
   MapPinIcon,
   ClockIcon,
   PhoneIcon,
-  CheckCircleIcon,
-  ExclamationTriangleIcon
+  ExclamationTriangleIcon,
+  CheckCircleIcon
 } from "@heroicons/react/24/outline";
+import { getTechnicianDisplayInfo } from "./shared/ServiceUtils";
+import type { Technician } from "@/types";
 
 interface Service {
   id: string;
@@ -59,6 +61,7 @@ interface Branch {
 interface TechnicianServiceListProps {
   services: Service[];
   branches: Branch[];
+  technicians: Technician[];
   loading: boolean;
   search?: string;
   onEdit?: (service: Service) => void;
@@ -67,18 +70,19 @@ interface TechnicianServiceListProps {
 
 const statusConfig: Record<string, { label: string; color: string; priority: string }> = {
   "To Do": { label: "To Do", color: "bg-gray-100 text-gray-800", priority: "low" },
-  "In Progress": { label: "In Progress", color: "bg-blue-100 text-blue-800", priority: "high" },
+  "In Progress": { label: "In Progress", color: "bg-blue-100 text-blue-800", priority: "medium" },
   "Awaiting Parts": { label: "Awaiting Parts", color: "bg-yellow-100 text-yellow-800", priority: "medium" },
-  "On Hold": { label: "On Hold", color: "bg-orange-100 text-orange-800", priority: "medium" },
+  "On Hold": { label: "On Hold", color: "bg-orange-100 text-orange-800", priority: "high" },
   "Ready for Pickup": { label: "Ready for Pickup", color: "bg-purple-100 text-purple-800", priority: "low" },
   "Completed": { label: "Completed", color: "bg-green-100 text-green-800", priority: "completed" },
-  "Cancelled": { label: "Cancelled", color: "bg-red-100 text-red-800", priority: "cancelled" },
+  "Cancelled": { label: "Cancelled", color: "bg-red-100 text-red-800", priority: "low" },
   "Pending": { label: "Pending", color: "bg-gray-100 text-gray-800", priority: "low" }
 };
 
 const TechnicianServiceList: React.FC<TechnicianServiceListProps> = ({ 
   services, 
   branches, 
+  technicians,
   loading, 
   search, 
   onEdit, 
@@ -125,15 +129,10 @@ const TechnicianServiceList: React.FC<TechnicianServiceListProps> = ({
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
           </svg>
         </div>
-        <h3 className="text-lg font-medium text-gray-900 mb-2">No services assigned</h3>
+        <h3 className="text-lg font-medium text-gray-900 mb-2">No services found</h3>
         <p className="text-gray-500 mb-4">
-          {search ? `No services match "${search}"` : "You don't have any services assigned to you yet"}
+          {search ? `No services match "${search}"` : "No services assigned to you yet"}
         </p>
-        {!search && (
-          <div className="text-sm text-gray-400">
-            Contact your branch admin to get assigned to services
-          </div>
-        )}
       </div>
     );
   }
@@ -145,13 +144,12 @@ const TechnicianServiceList: React.FC<TechnicianServiceListProps> = ({
           const date = service.createdAt ? new Date(service.createdAt) : null;
           const status = service.status || "To Do";
           const statusInfo = statusConfig[status] || statusConfig["To Do"];
+          const technicianInfo = service.technician_id ? getTechnicianDisplayInfo(service.technician_id, technicians) : null;
           
           return (
             <div key={service.id} className="group relative">
               <div 
-                className={`bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md hover:border-blue-300 hover:bg-blue-50 transition-all duration-200 overflow-hidden cursor-pointer select-none ${
-                  statusInfo.priority === "high" ? "ring-2 ring-blue-200" : ""
-                }`}
+                className="bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md hover:border-blue-300 hover:bg-blue-50 transition-all duration-200 overflow-hidden cursor-pointer select-none"
                 onClick={(e) => {
                   // Don't navigate if clicking on action buttons
                   if ((e.target as HTMLElement).closest('.action-button')) {
@@ -175,22 +173,12 @@ const TechnicianServiceList: React.FC<TechnicianServiceListProps> = ({
                 role="button"
                 aria-label={`View details for service ${service.name}`}
               >
-                {/* Priority Indicator */}
-                {statusInfo.priority === "high" && (
-                  <div className="absolute top-2 left-2 z-10">
-                    <div className="bg-red-500 text-white text-xs px-2 py-1 rounded-full flex items-center gap-1">
-                      <ExclamationTriangleIcon className="w-3 h-3" />
-                      Priority
-                    </div>
-                  </div>
-                )}
-
                 {/* Header */}
                 <div className="p-4">
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
-                        <CubeIcon className="w-4 h-4 text-purple-600" />
+                      <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                        <CubeIcon className="w-4 h-4 text-blue-600" />
                       </div>
                       <div>
                         <div className="text-xs text-gray-500">Service ID</div>
@@ -281,6 +269,20 @@ const TechnicianServiceList: React.FC<TechnicianServiceListProps> = ({
                         </div>
                       </div>
                     )}
+
+                    {/* Technician Assignment - Show assigned technician name */}
+                    {technicianInfo && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <UserIcon className="w-4 h-4 text-gray-500" />
+                        <div>
+                          <div className="text-xs text-gray-500">Assigned to</div>
+                          <div className="font-medium text-gray-900">{technicianInfo.name}</div>
+                          {technicianInfo.phone && (
+                            <div className="text-xs text-gray-500">📞 {technicianInfo.phone}</div>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Footer */}
@@ -328,6 +330,20 @@ const TechnicianServiceList: React.FC<TechnicianServiceListProps> = ({
                         title="Edit Service"
                       >
                         <PencilIcon className="w-3 h-3 text-blue-600" />
+                      </button>
+                    )}
+                    {onDelete && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (window.confirm("Are you sure you want to delete this service?")) {
+                            onDelete(service.id);
+                          }
+                        }}
+                        className="action-button p-1.5 bg-white rounded shadow-sm hover:bg-gray-50 transition-colors border border-gray-200"
+                        title="Delete Service"
+                      >
+                        <TrashIcon className="w-3 h-3 text-red-600" />
                       </button>
                     )}
                   </div>

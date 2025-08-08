@@ -1,144 +1,120 @@
-import React from "react";
-import type { Branch } from "../../types";
+import React, { useMemo, useCallback } from "react";
+import type { Branch, Service, Technician } from "../../types";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { EyeIcon, PencilIcon, TrashIcon, CurrencyDollarIcon, CubeIcon } from "@heroicons/react/24/outline";
-
-interface Service {
-  id: string;
-  name: string;
-  description: string;
-  price: number;
-  shop_id: string;
-  branch_id: string;
-  created_by?: { role: string; name: string };
-  createdAt: Date;
-  updatedAt: Date;
-  paymentStatus?: string;
-  status?: string;
-  device?: {
-    type: string;
-    brand: string;
-    model: string;
-    serial: string;
-  };
-  customer?: {
-    name: string;
-    phone?: string;
-    email?: string;
-  };
-}
+import { 
+  filterServicesBySearch, 
+  getServiceStatusConfig, 
+  formatServicePrice, 
+  getServiceAge,
+  getTechnicianDisplayInfo,
+  ServiceLoadingState,
+  ServiceErrorState,
+  ServiceEmptyState,
+  ServiceListSkeleton
+} from "../../components/service/shared/ServiceUtils";
 
 interface ServiceListProps {
   services: Service[];
   branches: Branch[];
+  technicians: Technician[];
   loading: boolean;
+  error?: string | null;
   search?: string;
   onEdit?: (service: Service) => void;
   onDelete?: (id: string) => void;
+  onRetry?: () => void;
 }
 
-const statusConfig: Record<string, { label: string; color: string }> = {
-  "To Do": { label: "To Do", color: "bg-gray-100 text-gray-700" },
-  "In Progress": { label: "In Progress", color: "bg-yellow-100 text-yellow-700" },
-  "Awaiting Parts": { label: "Awaiting Parts", color: "bg-blue-100 text-blue-700" },
-  "On Hold": { label: "On Hold", color: "bg-orange-100 text-orange-700" },
-  "Ready for Pickup": { label: "Ready for Pickup", color: "bg-purple-100 text-purple-700" },
-  Completed: { label: "Completed", color: "bg-green-100 text-green-700" },
-  Cancelled: { label: "Cancelled", color: "bg-red-100 text-red-700" },
-  Pending: { label: "Pending", color: "bg-gray-100 text-gray-700" },
-};
-
-const ServiceList: React.FC<ServiceListProps> = ({ services, loading, search, onEdit, onDelete }) => {
+const ServiceList: React.FC<ServiceListProps> = ({ 
+  services, 
+  loading, 
+  error,
+  search, 
+  technicians,
+  onEdit, 
+  onDelete,
+  onRetry
+}) => {
   const router = useRouter();
   
-  // Filter services by search
-  const filtered = search
-    ? services.filter(s => {
-        const q = search.toLowerCase();
-        return (
-          s.name?.toLowerCase().includes(q) ||
-          s.description?.toLowerCase().includes(q) ||
-          s.device?.model?.toLowerCase().includes(q) ||
-          s.device?.brand?.toLowerCase().includes(q) ||
-          s.customer?.name?.toLowerCase().includes(q)
-        );
-      })
-    : services;
+  // Memoized filtered services
+  const filteredServices = useMemo(() => 
+    filterServicesBySearch(services, search || ''),
+    [services, search]
+  );
 
-  // Loading skeleton
+  // Memoized navigation handler
+  const handleServiceClick = useCallback((serviceId: string) => {
+    router.push(`/services/details?id=${serviceId}`);
+  }, [router]);
+
+  // Memoized edit handler
+  const handleEdit = useCallback((service: Service, e: React.MouseEvent) => {
+    e.stopPropagation();
+    onEdit?.(service);
+  }, [onEdit]);
+
+  // Memoized delete handler
+  const handleDelete = useCallback((serviceId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (window.confirm("Are you sure you want to delete this service?")) {
+      onDelete?.(serviceId);
+    }
+  }, [onDelete]);
+
+  // Memoized keyboard navigation
+  const handleKeyDown = useCallback((serviceId: string, e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      handleServiceClick(serviceId);
+    }
+  }, [handleServiceClick]);
+
+  // Loading state
   if (loading) {
+    return <ServiceListSkeleton count={6} />;
+  }
+
+  // Error state
+  if (error) {
     return (
-      <div className="p-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[...Array(6)].map((_, i) => (
-            <div key={i} className="animate-pulse">
-              <div className="bg-gray-200 rounded-lg h-40"></div>
-            </div>
-          ))}
-        </div>
-      </div>
+      <ServiceErrorState 
+        message={error} 
+        onRetry={onRetry}
+        className="p-4"
+      />
     );
   }
 
-  if (filtered.length === 0) {
+  // Empty state
+  if (filteredServices.length === 0) {
     return (
-      <div className="p-8 text-center">
-        <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-          <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-          </svg>
-        </div>
-        <h3 className="text-lg font-medium text-gray-900 mb-2">No services found</h3>
-        <p className="text-gray-500 mb-4">
-          {search ? `No services match "${search}"` : "Get started by creating your first service"}
-        </p>
-        {!search && (
-          <Link
-            href="/services/new"
-            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-            </svg>
-            Create First Service
-          </Link>
-        )}
-      </div>
+      <ServiceEmptyState 
+        search={search}
+        onCreateNew={() => router.push('/services/new')}
+        className="p-4"
+      />
     );
   }
 
   return (
-    <div className="p-4">
+    <div className="p-4" role="region" aria-label="Services list">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filtered.map((service) => {
+        {filteredServices.map((service) => {
           const date = service.createdAt ? new Date(service.createdAt) : null;
-          const status = service.status || "To Do";
-          const statusInfo = statusConfig[status] || statusConfig["To Do"];
+          const status = service.status || "pending";
+          const statusInfo = getServiceStatusConfig(status);
+          const serviceAge = date ? getServiceAge(date) : null;
+          const technicianInfo = service.assignedTechnicianId ? getTechnicianDisplayInfo(service.assignedTechnicianId, technicians) : null;
           
           return (
             <div key={service.id} className="group relative">
               <div 
-                className="bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md hover:border-blue-300 hover:bg-blue-50 transition-all duration-200 overflow-hidden cursor-pointer select-none"
-                onClick={(e) => {
-                  // Don't navigate if clicking on action buttons
-                  if ((e.target as HTMLElement).closest('.action-button')) {
-                    return;
-                  }
-                  router.push(`/services/details?id=${service.id}`);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    router.push(`/services/details?id=${service.id}`);
-                  }
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = 'translateY(-2px)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = 'translateY(0)';
-                }}
+                className="bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md hover:border-blue-300 hover:bg-blue-50 transition-all duration-200 overflow-hidden cursor-pointer select-none focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-offset-2"
+                onClick={() => handleServiceClick(service.id)}
+                onKeyDown={(e) => handleKeyDown(service.id, e)}
                 tabIndex={0}
                 role="button"
                 aria-label={`View details for service ${service.name}`}
@@ -147,7 +123,7 @@ const ServiceList: React.FC<ServiceListProps> = ({ services, loading, search, on
                 <div className="p-4">
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                      <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center" aria-hidden="true">
                         <CubeIcon className="w-4 h-4 text-blue-600" />
                       </div>
                       <div>
@@ -155,7 +131,10 @@ const ServiceList: React.FC<ServiceListProps> = ({ services, loading, search, on
                         <div className="font-bold text-gray-900">#{service.id.slice(-8)}</div>
                       </div>
                     </div>
-                    <div className={`px-3 py-1 rounded-full text-xs font-medium ${statusInfo.color}`}>
+                    <div 
+                      className={`px-3 py-1 rounded-full text-xs font-medium ${statusInfo.color}`}
+                      title={statusInfo.description}
+                    >
                       {statusInfo.label}
                     </div>
                   </div>
@@ -163,23 +142,40 @@ const ServiceList: React.FC<ServiceListProps> = ({ services, loading, search, on
                   {/* Service Details */}
                   <div className="space-y-2">
                     <div>
-                      {/* <div className="text-xs text-gray-500">Service</div> */}
-                      <div className="font-medium text-gray-900 truncate">{service.name}</div>
-                      <div className="font-normal text-sm text-gray-600 truncate">{service.description}</div>
+                      <div className="font-medium text-gray-900 truncate" title={service.name}>
+                        {service.name}
+                      </div>
+                      <div className="font-normal text-sm text-gray-600 truncate" title={service.description}>
+                        {service.description}
+                      </div>
                     </div>
 
-                    
                     {service.device && (
                       <div>
-                        {/* <div className="text-xs text-gray-500">Device</div> */}
-                        <div className="font-medium text-gray-900 truncate">{service.device.brand} {service.device.model}</div>
+                        <div className="font-medium text-gray-900 truncate" title={`${service.device.brand} ${service.device.model}`}>
+                          {service.device.brand} {service.device.model}
+                        </div>
                       </div>
                     )}
                     
                     {service.customer && (
                       <div>
-                        {/* <div className="text-xs text-gray-500">Customer</div> */}
-                        <div className="font-medium text-gray-900 truncate">{service.customer.name}</div>
+                        <div className="font-medium text-gray-900 truncate" title={service.customer.name}>
+                          {service.customer.name}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Technician Assignment */}
+                    {technicianInfo && (
+                      <div>
+                        <div className="text-xs text-gray-500">Assigned to</div>
+                        <div className="font-medium text-gray-900 truncate" title={technicianInfo.name}>
+                          {technicianInfo.name}
+                        </div>
+                        {technicianInfo.phone && (
+                          <div className="text-xs text-gray-500">📞 {technicianInfo.phone}</div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -187,11 +183,11 @@ const ServiceList: React.FC<ServiceListProps> = ({ services, loading, search, on
                   {/* Footer */}
                   <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between">
                     <div className="text-xs text-gray-500">
-                      {date ? date.toLocaleDateString(undefined, { day: "numeric", month: "short" }) : "-"}
+                      {serviceAge || "-"}
                     </div>
                     <div className="flex items-center gap-1 font-semibold text-gray-900">
-                                              <CurrencyDollarIcon className="w-3 h-3" />
-                      {service.price?.toLocaleString()}
+                      <CurrencyDollarIcon className="w-3 h-3" aria-hidden="true" />
+                      {formatServicePrice(service.price)}
                     </div>
                   </div>
                   
@@ -208,34 +204,29 @@ const ServiceList: React.FC<ServiceListProps> = ({ services, loading, search, on
                   <div className="flex gap-1">
                     <Link
                       href={`/services/details?id=${service.id}`}
-                      className="action-button p-1.5 bg-white rounded shadow-sm hover:bg-gray-50 transition-colors border border-gray-200"
+                      className="action-button p-1.5 bg-white rounded shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors border border-gray-200"
                       title="View Details"
                       onClick={(e) => e.stopPropagation()}
+                      aria-label={`View details for ${service.name}`}
                     >
-                                              <EyeIcon className="w-3 h-3 text-gray-600" />
+                      <EyeIcon className="w-3 h-3 text-gray-600" />
                     </Link>
                     {onEdit && (
                       <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onEdit(service);
-                        }}
-                        className="action-button p-1.5 bg-white rounded shadow-sm hover:bg-gray-50 transition-colors border border-gray-200"
+                        onClick={(e) => handleEdit(service, e)}
+                        className="action-button p-1.5 bg-white rounded shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors border border-gray-200"
                         title="Edit Service"
+                        aria-label={`Edit ${service.name}`}
                       >
                         <PencilIcon className="w-3 h-3 text-blue-600" />
                       </button>
                     )}
                     {onDelete && (
                       <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (window.confirm("Are you sure you want to delete this service?")) {
-                            onDelete(service.id);
-                          }
-                        }}
-                        className="action-button p-1.5 bg-white rounded shadow-sm hover:bg-gray-50 transition-colors border border-gray-200"
+                        onClick={(e) => handleDelete(service.id, e)}
+                        className="action-button p-1.5 bg-white rounded shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors border border-gray-200"
                         title="Delete Service"
+                        aria-label={`Delete ${service.name}`}
                       >
                         <TrashIcon className="w-3 h-3 text-red-600" />
                       </button>
