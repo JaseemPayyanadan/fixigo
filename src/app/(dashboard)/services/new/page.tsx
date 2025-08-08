@@ -25,8 +25,8 @@ export default function NewServicePage() {
       }, [isBranchAdmin, user?.branchId]);
 
   const handleAdd = async (data: {
-    customer: { name: string; phone: string; email: string };
-    device: { type: string; brand: string; model: string; serial: string; color: string };
+    customer: { name: string; phone: string; place?: string };
+    device: { brand: string; model: string; serial: string; color: string };
     service: { name: string; description: string; price: string; branch_id: string; technician_id?: string };
   }) => {
     setError(null);
@@ -83,25 +83,7 @@ export default function NewServicePage() {
             </button>
           </div>
           
-          {/* Progress Indicator */}
-          <div className="flex items-center justify-center mb-8">
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center">
-                <div className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-semibold">1</div>
-                <span className="ml-2 text-sm font-medium text-gray-700">Customer Info</span>
-              </div>
-              <div className="w-12 h-0.5 bg-gray-300"></div>
-              <div className="flex items-center">
-                <div className="w-8 h-8 bg-gray-300 text-gray-600 rounded-full flex items-center justify-center text-sm font-semibold">2</div>
-                <span className="ml-2 text-sm font-medium text-gray-500">Device Details</span>
-              </div>
-              <div className="w-12 h-0.5 bg-gray-300"></div>
-              <div className="flex items-center">
-                <div className="w-8 h-8 bg-gray-300 text-gray-600 rounded-full flex items-center justify-center text-sm font-semibold">3</div>
-                <span className="ml-2 text-sm font-medium text-gray-500">Service Details</span>
-              </div>
-            </div>
-          </div>
+
         </div>
 
         {/* Form Container */}

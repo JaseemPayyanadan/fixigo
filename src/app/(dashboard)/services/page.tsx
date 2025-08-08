@@ -5,7 +5,7 @@ import { db } from "../../../lib/firebase";
 import { useUser } from "../../../hooks";
 import { useBranches } from "../../../hooks/useBranches";
 import { RoleGuard, PermissionGuard } from "../../../components";
-import ServiceList from "../../../modules/service/ServiceList";
+import { ShopAdminServiceList, BranchAdminServiceList, TechnicianServiceList } from "../../../components/service";
 import { SearchFilter } from "../../../components/ui";
 import { PlusIcon, ClockIcon, CheckCircleIcon, CurrencyDollarIcon, DevicePhoneMobileIcon } from "@heroicons/react/24/outline";
 import Link from "next/link";
@@ -23,15 +23,15 @@ interface Service {
   paymentStatus?: string;
   status?: string;
   device?: {
-    type: string;
     brand: string;
     model: string;
     serial: string;
+    color: string;
   };
   customer?: {
     name: string;
     phone?: string;
-    email?: string;
+    place?: string;
   };
 }
 
@@ -268,12 +268,30 @@ function ServicesContent() {
       />
 
       {/* Services List */}
-      <ServiceList
-        services={filteredServices}
-        branches={branches}
-        loading={loading}
-        search={search}
-      />
+      {user?.role === "shop_admin" && (
+        <ShopAdminServiceList
+          services={filteredServices}
+          branches={branches}
+          loading={loading}
+          search={search}
+        />
+      )}
+      {user?.role === "branch_admin" && (
+        <BranchAdminServiceList
+          services={filteredServices}
+          branches={branches}
+          loading={loading}
+          search={search}
+        />
+      )}
+      {user?.role === "technician" && (
+        <TechnicianServiceList
+          services={filteredServices}
+          branches={branches}
+          loading={loading}
+          search={search}
+        />
+      )}
     </div>
   );
 } 

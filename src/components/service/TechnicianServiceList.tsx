@@ -2,7 +2,7 @@ import React from "react";
 import type { Branch } from "../../types";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { EyeIcon, PencilIcon, TrashIcon, CurrencyDollarIcon, CubeIcon } from "@heroicons/react/24/outline";
+import { EyeIcon, PencilIcon, CurrencyDollarIcon, CubeIcon, ClockIcon, CheckCircleIcon } from "@heroicons/react/24/outline";
 
 interface Service {
   id: string;
@@ -17,19 +17,19 @@ interface Service {
   paymentStatus?: string;
   status?: string;
   device?: {
-    type: string;
     brand: string;
     model: string;
     serial: string;
+    color: string;
   };
   customer?: {
     name: string;
     phone?: string;
-    email?: string;
+    place?: string;
   };
 }
 
-interface ServiceListProps {
+interface TechnicianServiceListProps {
   services: Service[];
   branches: Branch[];
   loading: boolean;
@@ -49,7 +49,14 @@ const statusConfig: Record<string, { label: string; color: string }> = {
   Pending: { label: "Pending", color: "bg-gray-100 text-gray-700" },
 };
 
-const ServiceList: React.FC<ServiceListProps> = ({ services, loading, search, onEdit, onDelete }) => {
+const TechnicianServiceList: React.FC<TechnicianServiceListProps> = ({ 
+  services, 
+  branches, 
+  loading, 
+  search, 
+  onEdit, 
+  onDelete 
+}) => {
   const router = useRouter();
   
   // Filter services by search
@@ -91,18 +98,12 @@ const ServiceList: React.FC<ServiceListProps> = ({ services, loading, search, on
         </div>
         <h3 className="text-lg font-medium text-gray-900 mb-2">No services found</h3>
         <p className="text-gray-500 mb-4">
-          {search ? `No services match "${search}"` : "Get started by creating your first service"}
+          {search ? `No services match "${search}"` : "No services assigned to you yet"}
         </p>
         {!search && (
-          <Link
-            href="/services/new"
-            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-            </svg>
-            Create First Service
-          </Link>
+          <div className="text-sm text-gray-400">
+            Contact your branch admin to get assigned services
+          </div>
         )}
       </div>
     );
@@ -163,25 +164,36 @@ const ServiceList: React.FC<ServiceListProps> = ({ services, loading, search, on
                   {/* Service Details */}
                   <div className="space-y-2">
                     <div>
-                      {/* <div className="text-xs text-gray-500">Service</div> */}
                       <div className="font-medium text-gray-900 truncate">{service.name}</div>
                       <div className="font-normal text-sm text-gray-600 truncate">{service.description}</div>
                     </div>
 
-                    
                     {service.device && (
                       <div>
-                        {/* <div className="text-xs text-gray-500">Device</div> */}
                         <div className="font-medium text-gray-900 truncate">{service.device.brand} {service.device.model}</div>
                       </div>
                     )}
                     
                     {service.customer && (
                       <div>
-                        {/* <div className="text-xs text-gray-500">Customer</div> */}
                         <div className="font-medium text-gray-900 truncate">{service.customer.name}</div>
+                        {service.customer.phone && (
+                          <div className="text-xs text-gray-500">{service.customer.phone}</div>
+                        )}
                       </div>
                     )}
+
+                    {/* Priority Indicator - Technician specific */}
+                    <div className="flex items-center gap-1 text-xs text-gray-500">
+                      {status === "In Progress" ? (
+                        <ClockIcon className="w-3 h-3 text-yellow-600" />
+                      ) : status === "Completed" ? (
+                        <CheckCircleIcon className="w-3 h-3 text-green-600" />
+                      ) : (
+                        <ClockIcon className="w-3 h-3 text-gray-400" />
+                      )}
+                      <span>{status}</span>
+                    </div>
                   </div>
 
                   {/* Footer */}
@@ -190,7 +202,7 @@ const ServiceList: React.FC<ServiceListProps> = ({ services, loading, search, on
                       {date ? date.toLocaleDateString(undefined, { day: "numeric", month: "short" }) : "-"}
                     </div>
                     <div className="flex items-center gap-1 font-semibold text-gray-900">
-                                              <CurrencyDollarIcon className="w-3 h-3" />
+                      <CurrencyDollarIcon className="w-3 h-3" />
                       {service.price?.toLocaleString()}
                     </div>
                   </div>
@@ -212,7 +224,7 @@ const ServiceList: React.FC<ServiceListProps> = ({ services, loading, search, on
                       title="View Details"
                       onClick={(e) => e.stopPropagation()}
                     >
-                                              <EyeIcon className="w-3 h-3 text-gray-600" />
+                      <EyeIcon className="w-3 h-3 text-gray-600" />
                     </Link>
                     {onEdit && (
                       <button
@@ -226,20 +238,6 @@ const ServiceList: React.FC<ServiceListProps> = ({ services, loading, search, on
                         <PencilIcon className="w-3 h-3 text-blue-600" />
                       </button>
                     )}
-                    {onDelete && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (window.confirm("Are you sure you want to delete this service?")) {
-                            onDelete(service.id);
-                          }
-                        }}
-                        className="action-button p-1.5 bg-white rounded shadow-sm hover:bg-gray-50 transition-colors border border-gray-200"
-                        title="Delete Service"
-                      >
-                        <TrashIcon className="w-3 h-3 text-red-600" />
-                      </button>
-                    )}
                   </div>
                 </div>
               </div>
@@ -251,4 +249,4 @@ const ServiceList: React.FC<ServiceListProps> = ({ services, loading, search, on
   );
 };
 
-export default ServiceList; 
+export default TechnicianServiceList;

@@ -10,7 +10,6 @@ import type { Branch } from "@/types";
 import {  
   MdPerson, 
   MdPhone, 
-  MdEmail, 
   MdDevices, 
   MdBusiness, 
   MdLabel, 
@@ -24,7 +23,8 @@ import {
   MdSchedule,
   MdCheckCircle,
   MdWarning,
-  MdInfo
+  MdInfo,
+  MdLocationOn
 } from "react-icons/md";
 
 interface Service {
@@ -40,7 +40,7 @@ interface Service {
   paymentStatus?: string;
   status?: string;
   device?: { model: string; brand: string; serial?: string };
-  customer?: { name: string; phone?: string; email?: string };
+      customer?: { name: string; phone?: string; place?: string };
 }
 
 const STATUS_OPTIONS = ["To Do", "In Progress", "Completed", "Pending", "Cancelled", "Awaiting Parts", "On Hold", "Ready for Pickup"];
@@ -120,8 +120,8 @@ function ServiceDetailsPage() {
 
   const handleEdit = async (data: {
     service: { name: string; description: string; price: string; branch_id: string };
-    customer: { name: string; phone?: string; email?: string };
-    device: { type: string; brand: string; model: string; serial: string };
+    customer: { name: string; phone?: string; place?: string };
+    device: { brand: string; model: string; serial: string; color: string };
   }) => {
     setError(null);
     setLoading(true);
@@ -240,10 +240,9 @@ function ServiceDetailsPage() {
               customer: {
                 name: service.customer?.name || "",
                 phone: service.customer?.phone || "",
-                email: service.customer?.email || "",
+                place: service.customer?.place || "",
               },
               device: {
-                type: typeof service.device === "object" && service.device && "type" in service.device && typeof service.device.type === "string" ? service.device.type : "",
                 brand: typeof service.device?.brand === "string" ? service.device.brand : "",
                 model: typeof service.device?.model === "string" ? service.device.model : "",
                 serial: typeof service.device?.serial === "string" ? service.device.serial : "",
@@ -388,7 +387,7 @@ function ServiceDetailsPage() {
               <div>
                 <div className="flex items-center gap-1 text-gray-500 text-sm mb-1">
                   <MdConfirmationNumber className="w-4 h-4" />
-                  Serial
+                  IMEI
                 </div>
                 <div className="font-medium text-gray-900">
                   {service.device && typeof service.device === "object" && "serial" in service.device 
@@ -455,10 +454,10 @@ function ServiceDetailsPage() {
             </div>
             <div>
               <div className="flex items-center gap-1 text-gray-500 text-sm mb-1">
-                <MdEmail className="w-4 h-4" />
-                Email
+                <MdLocationOn className="w-4 h-4" />
+                Place
               </div>
-              <div className="font-medium text-gray-900">{service.customer?.email || "Not specified"}</div>
+              <div className="font-medium text-gray-900">{service.customer?.place || "Not specified"}</div>
             </div>
           </div>
         </div>
