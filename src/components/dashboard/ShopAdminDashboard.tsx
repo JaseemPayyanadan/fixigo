@@ -17,13 +17,25 @@ import {
   DashboardLoadingState, 
   MetricsGrid, 
   RecentServicesCard,
-  DashboardMetric 
+  DashboardMetric,
+  DashboardErrorBoundary
 } from './shared/DashboardComponents';
 import { formatCurrency } from './shared/DashboardUtils';
 
 export default function ShopAdminDashboard() {
   const { user } = useUser();
-  const { isLoading, metrics, totalRevenue, branches, technicians, recentServices, servicesLoading } = useDashboardData(user?.shopId);
+  const { 
+    isLoading, 
+    metrics, 
+    totalRevenue, 
+    branches, 
+    technicians, 
+    recentServices, 
+    servicesLoading,
+    servicesError,
+    branchesError,
+    techniciansError
+  } = useDashboardData(user?.shopId);
 
   // Build metrics array
   const dashboardMetrics: DashboardMetric[] = React.useMemo(() => [
@@ -33,7 +45,8 @@ export default function ShopAdminDashboard() {
       value: branches.length,
       icon: HiOfficeBuilding,
       color: 'text-blue-600',
-      bgColor: 'bg-blue-100'
+      bgColor: 'bg-blue-100',
+      description: 'Total active branches'
     },
     {
       id: 'services',
@@ -41,7 +54,8 @@ export default function ShopAdminDashboard() {
       value: metrics.totalServices,
       icon: HiClipboardList,
       color: 'text-green-600',
-      bgColor: 'bg-green-100'
+      bgColor: 'bg-green-100',
+      description: 'All services across branches'
     },
     {
       id: 'technicians',
@@ -49,7 +63,8 @@ export default function ShopAdminDashboard() {
       value: technicians.length,
       icon: HiUserGroup,
       color: 'text-purple-600',
-      bgColor: 'bg-purple-100'
+      bgColor: 'bg-purple-100',
+      description: 'Active technicians'
     },
     {
       id: 'revenue',
@@ -57,7 +72,8 @@ export default function ShopAdminDashboard() {
       value: formatCurrency(totalRevenue),
       icon: HiCurrencyDollar,
       color: 'text-yellow-600',
-      bgColor: 'bg-yellow-100'
+      bgColor: 'bg-yellow-100',
+      description: 'Total revenue across all branches'
     },
     {
       id: 'pending',
@@ -65,7 +81,8 @@ export default function ShopAdminDashboard() {
       value: metrics.pendingServices,
       icon: HiClock,
       color: 'text-orange-600',
-      bgColor: 'bg-orange-100'
+      bgColor: 'bg-orange-100',
+      description: 'Services awaiting attention'
     },
     {
       id: 'completed',
@@ -73,7 +90,8 @@ export default function ShopAdminDashboard() {
       value: metrics.completedServices,
       icon: HiCheckCircle,
       color: 'text-green-600',
-      bgColor: 'bg-green-100'
+      bgColor: 'bg-green-100',
+      description: 'Successfully completed services'
     },
     {
       id: 'active',
@@ -81,7 +99,8 @@ export default function ShopAdminDashboard() {
       value: metrics.activeServices,
       icon: HiTrendingUp,
       color: 'text-blue-600',
-      bgColor: 'bg-blue-100'
+      bgColor: 'bg-blue-100',
+      description: 'Currently in progress'
     },
     {
       id: 'satisfaction',
@@ -89,9 +108,16 @@ export default function ShopAdminDashboard() {
       value: `${metrics.customerSatisfaction}%`,
       icon: HiStar,
       color: 'text-indigo-600',
-      bgColor: 'bg-indigo-100'
+      bgColor: 'bg-indigo-100',
+      description: 'Overall satisfaction rate'
     }
   ], [branches.length, technicians.length, metrics, totalRevenue]);
+
+  // Handle retry for services
+  const handleServicesRetry = React.useCallback(() => {
+    // This would typically trigger a refetch
+    window.location.reload();
+  }, []);
 
   if (!user) {
     return (
@@ -105,29 +131,49 @@ export default function ShopAdminDashboard() {
   }
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <DashboardHeader 
-        title="Shop Dashboard" 
-        subtitle="Welcome back, {name}"
-        user={user}
-      />
+    <DashboardErrorBoundary>
+      <div className="p-6 space-y-6">
+        {/* Header */}
+        <DashboardHeader 
+          title="Shop Dashboard" 
+          subtitle="Welcome back, {name}"
+          user={user}
+        />
 
-      {/* Loading State */}
-      {isLoading && <DashboardLoadingState />}
+        {/* Loading State */}
+        {isLoading && <DashboardLoadingState />}
 
-      {/* Metrics Grid */}
-      <MetricsGrid metrics={dashboardMetrics} />
+        {/* Error States */}
+        {(servicesError || branchesError || techniciansError) && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+            <div className="flex items-center">
+              <svg className="h-5 w-5 text-red-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+              <p className="text-red-800 text-sm">
+                {servicesError && `Services: ${servicesError}`}
+                {branchesError && `Branches: ${branchesError}`}
+                {techniciansError && `Technicians: ${techniciansError}`}
+              </p>
+            </div>
+          </div>
+        )}
 
-      {/* Recent Services */}
-      <RecentServicesCard 
-        services={recentServices} 
-        loading={servicesLoading}
-        title="Recent Services"
-        viewAllLink="/services"
-        emptyMessage="No services yet"
-        createLink="/services/new"
-      />
-    </div>
+        {/* Metrics Grid */}
+        <MetricsGrid metrics={dashboardMetrics} />
+
+        {/* Recent Services */}
+        <RecentServicesCard 
+          services={recentServices} 
+          loading={servicesLoading}
+          error={servicesError}
+          title="Recent Services"
+          viewAllLink="/services"
+          emptyMessage="No services yet"
+          createLink="/services/new"
+          onRetry={handleServicesRetry}
+        />
+      </div>
+    </DashboardErrorBoundary>
   );
 }

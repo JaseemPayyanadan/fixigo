@@ -29,27 +29,18 @@ const DashboardContent: React.FC = () => {
     case 'shop_admin':
       return (
         <div>
-          <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
-            ✅ Dashboard improvements loaded successfully! (Shop Admin)
-          </div>
           <ShopAdminDashboard />
         </div>
       );
     case 'branch_admin':
       return (
         <div>
-          <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
-            ✅ Dashboard improvements loaded successfully! (Branch Admin)
-          </div>
           <BranchAdminDashboard />
         </div>
       );
     case 'technician':
       return (
         <div>
-          <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
-            ✅ Dashboard improvements loaded successfully! (Technician)
-          </div>
           <TechnicianDashboard />
         </div>
       );
