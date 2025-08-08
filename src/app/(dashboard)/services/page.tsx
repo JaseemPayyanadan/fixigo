@@ -133,11 +133,8 @@ function ServicesContent() {
             return transformServiceData(data);
           });
           
-          console.log("Method 1 - Fetched services count:", allServices.length);
-          
           // If no services found, try without shop_id filter
           if (allServices.length === 0) {
-            console.log("No services found with shop_id filter, trying without filter...");
             const allServicesQuery = query(servicesRef, orderBy("createdAt", "desc"));
             const allServicesSnapshot = await getDocs(allServicesQuery);
             const allServicesData = allServicesSnapshot.docs.map((doc) => {
@@ -145,12 +142,8 @@ function ServicesContent() {
               return transformServiceData(data);
             });
             
-            console.log("Total services in collection:", allServicesData.length);
-            console.log("Sample service data:", allServicesData.slice(0, 2));
-            
             // Filter by shop_id in memory
             allServices = allServicesData.filter(service => service.shop_id === user.shopId);
-            console.log("Filtered services count:", allServices.length);
           }
           
         } catch (error) {
@@ -173,11 +166,6 @@ function ServicesContent() {
             console.error("Fallback error:", fallbackError);
           }
         }
-        
-        console.log("Final services count:", allServices.length);
-        console.log("User shopId:", user.shopId);
-        console.log("User role:", user.role);
-        console.log("User branchId:", user.branchId);
         
         setServices(allServices);
       } catch (error) {
@@ -344,19 +332,7 @@ function ServicesContent() {
         className="mb-6"
       />
 
-      {/* Debug Info - Always show for troubleshooting */}
-      <div className="mb-4 p-4 bg-blue-50 rounded-lg">
-        <h3 className="text-sm font-medium text-blue-900 mb-2">Debug Information</h3>
-        <div className="text-xs text-blue-700 space-y-1">
-          <p>User Role: {user?.role || "undefined"}</p>
-          <p>User ShopId: {user?.shopId || "undefined"}</p>
-          <p>User BranchId: {user?.branchId || "undefined"}</p>
-          <p>Services Count: {filteredServices.length}</p>
-          <p>Loading: {loading ? "true" : "false"}</p>
-          <p>Search: &quot;{search}&quot;</p>
-          <p>Status Filter: &quot;{statusFilter}&quot;</p>
-        </div>
-      </div>
+
 
       {/* Services List */}
       {user?.role === "shop_admin" && (
@@ -383,26 +359,7 @@ function ServicesContent() {
           search={search}
         />
       )}
-      {/* Fallback for unknown roles or debugging */}
-      {!user?.role || (user?.role !== "shop_admin" && user?.role !== "branch_admin" && user?.role !== "technician") && (
-        <div className="p-8 text-center">
-          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-          </div>
-          <h3 className="text-lg font-medium text-gray-900 mb-2">Debug Info</h3>
-          <p className="text-gray-500 mb-4">
-            User Role: {user?.role || "undefined"}
-          </p>
-          <p className="text-gray-500 mb-4">
-            Services Count: {filteredServices.length}
-          </p>
-          <p className="text-gray-500 mb-4">
-            Loading: {loading ? "true" : "false"}
-          </p>
-        </div>
-      )}
+
     </div>
   );
 } 
