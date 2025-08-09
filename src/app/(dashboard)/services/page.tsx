@@ -128,72 +128,72 @@ function ServicesContent() {
   // Fetch services
   useEffect(() => {
     const fetchServices = async () => {
-      if (!user?.shopId) {
-        setServices([]);
-        setLoading(false);
-        return;
-      }
-      
+      if (!user?.shopId) return;
+
+      setLoading(true);
       try {
-        setLoading(true);
+        console.log("Fetching services for:", { shopId: user.shopId, branchId: user.branchId, role: user.role });
+
         let allServices: Service[] = [];
 
-        // Try different approaches to fetch services
-        
         try {
-          // Fetch services using standardized field names (shopId, branchId)
-          const servicesRef = collection(db, "services");
-          let q;
+          // Build query based on user role and access level
+          let servicesQuery;
           
-          if (user.role === "branch_admin" && user.branchId) {
-            // For branch admins, filter by their branch
-            q = query(
-              servicesRef, 
+          if (user.branchId) {
+            // Branch admin or technician - only show services for their branch
+            servicesQuery = query(
+              collection(db, "services"),
               where("shopId", "==", user.shopId),
               where("branchId", "==", user.branchId),
               orderBy("createdAt", "desc")
             );
-          } else if (user.role === "technician") {
-            // For technicians, we need to fetch services they're assigned to OR created by them
-            // Since Firestore doesn't support OR queries easily, we'll fetch all shop services and filter in memory
-            q = query(
-              servicesRef, 
-              where("shopId", "==", user.shopId),
-              orderBy("createdAt", "desc")
-            );
           } else {
-            // For shop admins, fetch all services for the shop
-            q = query(
-              servicesRef, 
+            // Shop admin - show all services for the shop
+            servicesQuery = query(
+              collection(db, "services"),
               where("shopId", "==", user.shopId),
               orderBy("createdAt", "desc")
             );
           }
-          
-          const querySnapshot = await getDocs(q);
-          
+
+          const querySnapshot = await getDocs(servicesQuery);
           const allServicesData = querySnapshot.docs.map((doc) => {
-            const data = { id: doc.id, ...doc.data() } as any;
+            const data = { id: doc.id, ...doc.data() };
             return transformServiceData(data);
           });
 
+          console.log("Total services fetched:", allServicesData.length);
+
           // For technicians, filter to show only assigned services or services they created
           if (user.role === "technician") {
+            // First, get the technician document to find the correct ID
+            const technicianQuery = query(collection(db, "technicians"), where("created_by", "==", user.id));
+            const technicianSnapshot = await getDocs(technicianQuery);
+            const technicianDoc = technicianSnapshot.docs[0];
             
-            allServices = allServicesData.filter(service => {
-              // Check for assignment - look for technician_id in the raw data
-              const rawData = querySnapshot.docs.find(doc => doc.id === service.id)?.data() as any;
-              const isAssigned = rawData?.technician_id === user.id || rawData?.technician_id === user.uid;
+            if (technicianDoc) {
+              const technicianId = technicianDoc.id;
+              console.log('Services page - Found technician document ID:', technicianId);
               
-              // Check for creation - look for created_by in the raw data
-              const isCreated = 
-                rawData?.created_by?.id === user.id || 
-                rawData?.created_by?.id === user.uid ||
-                rawData?.created_by?.uid === user.uid ||
-                rawData?.created_by?.uid === user.id;
-              
-              return isAssigned || isCreated;
-            });
+              allServices = allServicesData.filter(service => {
+                // Check for assignment - look for technician_id in the raw data
+                const rawData = querySnapshot.docs.find(doc => doc.id === service.id)?.data() as any;
+                const isAssigned = rawData?.technician_id === technicianId || service.assignedTechnicianId === technicianId;
+                
+                // Check for creation - look for created_by in the raw data
+                const isCreated = 
+                  rawData?.created_by?.id === user.id || 
+                  rawData?.created_by?.id === user.uid ||
+                  rawData?.created_by?.uid === user.uid ||
+                  rawData?.created_by?.uid === user.id;
+                
+                return isAssigned || isCreated;
+              });
+            } else {
+              console.log('Services page - No technician document found for UID:', user.id);
+              allServices = [];
+            }
           } else {
             allServices = allServicesData;
           }

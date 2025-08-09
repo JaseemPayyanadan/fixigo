@@ -21,6 +21,9 @@ import {
   DashboardErrorBoundary
 } from './shared/DashboardComponents';
 import { formatCurrency } from './shared/DashboardUtils';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import type { Service } from '@/types';
 
 export default function TechnicianDashboard() {
   const { user } = useUser();
@@ -31,11 +34,52 @@ export default function TechnicianDashboard() {
     servicesError
   } = useDashboardData(user?.shopId, user?.branchId);
 
-  // Filter services assigned to this technician
-  const myServices = React.useMemo(() => 
-    services.filter(s => s.assignedTechnicianId === user?.id),
-    [services, user?.id]
-  );
+  // State for technician's services
+  const [myServices, setMyServices] = React.useState<Service[]>([]);
+  const [technicianServicesLoading, setTechnicianServicesLoading] = React.useState(true);
+
+  // Fetch technician's services
+  React.useEffect(() => {
+    const fetchTechnicianServices = async () => {
+      if (!user || user.role !== "technician") {
+        setMyServices([]);
+        setTechnicianServicesLoading(false);
+        return;
+      }
+
+      try {
+        setTechnicianServicesLoading(true);
+        
+        // First, get the technician document to find the correct ID
+        const technicianQuery = query(collection(db, "technicians"), where("created_by", "==", user.id));
+        const technicianSnapshot = await getDocs(technicianQuery);
+        const technicianDoc = technicianSnapshot.docs[0];
+        
+        if (technicianDoc) {
+          const technicianId = technicianDoc.id;
+          console.log('TechnicianDashboard - Found technician document ID:', technicianId);
+          
+          // Filter services assigned to this technician
+          const technicianServices = services.filter(service => 
+            service.assignedTechnicianId === technicianId || 
+            (service as any).technician_id === technicianId
+          );
+          
+          setMyServices(technicianServices);
+        } else {
+          console.log('TechnicianDashboard - No technician document found for UID:', user.id);
+          setMyServices([]);
+        }
+      } catch (error) {
+        console.error("Error fetching technician services:", error);
+        setMyServices([]);
+      } finally {
+        setTechnicianServicesLoading(false);
+      }
+    };
+
+    fetchTechnicianServices();
+  }, [user, services]);
 
   // Calculate technician-specific metrics
   const technicianMetrics = React.useMemo(() => {
@@ -159,6 +203,23 @@ export default function TechnicianDashboard() {
     );
   }
 
+  // Check if user is a technician
+  if (user.role !== "technician") {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center max-w-sm mx-auto px-4">
+          <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
+            <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+          </div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-3">Access Restricted</h2>
+          <p className="text-sm text-gray-600">This dashboard is only available for technicians.</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <DashboardErrorBoundary>
       <div className="min-h-screen bg-white">
@@ -176,7 +237,7 @@ export default function TechnicianDashboard() {
         {/* Content */}
         <div className="p-6 space-y-6">
           {/* Loading State */}
-          {isLoading && <DashboardLoadingState message="Loading your services..." />}
+          {(isLoading || technicianServicesLoading) && <DashboardLoadingState message="Loading your services..." />}
 
           {/* Error States */}
           {servicesError && (
@@ -196,7 +257,7 @@ export default function TechnicianDashboard() {
           {/* My Services */}
           <RecentServicesCard 
             services={myRecentServices} 
-            loading={servicesLoading}
+            loading={servicesLoading || technicianServicesLoading}
             error={servicesError}
             title="My Services"
             viewAllLink="/services"
