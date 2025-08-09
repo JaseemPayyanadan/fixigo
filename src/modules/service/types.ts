@@ -34,7 +34,7 @@ export interface ServiceFormProps {
   branches: Branch[];
   branchId: string;
   setBranchId: (id: string) => void;
-  user: User;
+  user: User | null;
   shopId?: string;
   initialData?: {
     customer?: { name: string; phone: string; place?: string; email?: string };
@@ -52,7 +52,7 @@ export interface ServiceListProps {
   loading: boolean;
   error?: string | null;
   search?: string;
-  user: User;
+  user: User | null;
   onEdit?: (service: Service) => void;
   onDelete?: (id: string) => void;
   onRetry?: () => void;
