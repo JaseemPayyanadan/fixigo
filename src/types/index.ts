@@ -125,14 +125,7 @@ export interface Service {
     email: string;
     address?: string;
   };
-  device: {
-    type: string;
-    brand: string;
-    model: string;
-    serial?: string;
-    color?: string;
-    issue?: string;
-  };
+  device: Device;
   status: "pending" | "in_progress" | "completed" | "cancelled" | "on_hold" | "awaiting_parts" | "ready_for_pickup" | "quality_check";
   priority: "low" | "medium" | "high" | "urgent";
   assignedTechnicianId?: string;
@@ -315,3 +308,11 @@ export type UserStatus = "active" | "inactive" | "suspended";
 
 // Branch status
 export type BranchStatus = "active" | "inactive" | "maintenance"; 
+
+export interface Device {
+  brand: string;
+  model: string;
+  imei: string;
+  color?: string;
+  type?: string;
+} 

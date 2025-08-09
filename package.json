@@ -18,6 +18,9 @@
     "migrate": "tsx src/scripts/migrate-database.ts",
     "migrate:cleanup": "tsx src/scripts/migrate-database.ts cleanup",
     "migrate:validate": "tsx src/scripts/migrate-database.ts validate",
+    "migrate:serial-to-imei": "tsx src/scripts/migrate-serial-to-imei.ts",
+    "cleanup:remove-serial": "tsx src/scripts/remove-serial-field.ts",
+    "migrate:standardize-fields": "tsx src/scripts/migrate-shop-id-field.ts",
     "firebase:deploy:rules": "firebase deploy --only firestore:rules",
     "firebase:deploy:indexes": "firebase deploy --only firestore:indexes",
     "firebase:deploy:all": "firebase deploy --only firestore"

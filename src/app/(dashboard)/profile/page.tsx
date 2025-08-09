@@ -11,8 +11,8 @@ interface TechnicianProfile {
   name: string;
   email: string;
   phone: string;
-  shop_id: string;
-  branch_id: string;
+  shopId: string;
+  branchId: string;
   created_by?: { role: string; name: string };
   createdAt: Date;
   updatedAt: Date;
@@ -66,8 +66,8 @@ export default function ProfilePage() {
             name: data.name,
             email: data.email,
             phone: data.phone,
-            shop_id: data.shop_id,
-            branch_id: data.branch_id,
+            shopId: data.shopId,
+            branchId: data.branchId,
             created_by: data.created_by,
             createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(),
             updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : new Date(),
@@ -332,7 +332,7 @@ export default function ProfilePage() {
                         Assigned Branch
                       </div>
                     </label>
-                    <p className="text-gray-600">Branch ID: {profile.branch_id}</p>
+                    <p className="text-gray-600">Branch ID: {profile.branchId}</p>
                   </div>
 
                   {/* Created Info */}

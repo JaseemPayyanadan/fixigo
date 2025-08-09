@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import React, { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { db } from "@/lib/firebase";
-import { doc, getDoc, updateDoc, deleteDoc, collection, getDocs } from "firebase/firestore";
+import { doc, getDoc, updateDoc, deleteDoc, collection, getDocs, query, where } from "firebase/firestore";
 import { useUser } from "@/hooks";
 import ServiceForm from "@/modules/service/ServiceForm";
 import type { Branch } from "@/types";
@@ -32,8 +32,8 @@ interface Service {
   name: string;
   description: string;
   price: number;
-  shop_id: string;
-  branch_id: string;
+  shopId: string;
+  branchId: string;
   created_by?: { role: string; name: string };
   createdAt: Date;
   updatedAt: Date;
@@ -43,7 +43,7 @@ interface Service {
   device?: { 
     model: string; 
     brand: string; 
-    serial: string; 
+    imei: string; 
     color?: string;
     type?: string; // Legacy field
   };
@@ -106,7 +106,9 @@ function ServiceDetailsPage() {
             createdAt: data.createdAt && typeof data.createdAt.toDate === 'function' ? data.createdAt.toDate() : undefined,
             updatedAt: data.updatedAt && typeof data.updatedAt.toDate === 'function' ? data.updatedAt.toDate() : undefined,
           } as Service);
-          setBranchId(data.branchId || "");
+
+          const finalBranchId = data.branchId || "";
+          setBranchId(finalBranchId);
           setStatus(data.status || "To Do");
         } else {
           setError("Service not found");
@@ -123,32 +125,74 @@ function ServiceDetailsPage() {
   useEffect(() => {
     // Fetch all branches for branch name display
     const fetchBranches = async () => {
-      if (!user?.shopId) return;
-      const querySnapshot = await getDocs(collection(db, `shops/${user.shopId}/branches`));
-      setBranches(querySnapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as Branch)));
+      if (!user?.shopId) {
+        return;
+      }
+      
+      try {
+        // Use the correct collection path: main "branches" collection with shopId filter
+        const querySnapshot = await getDocs(
+          query(
+            collection(db, "branches"),
+            where("shopId", "==", user.shopId)
+          )
+        );
+        const branchesData = querySnapshot.docs.map(docSnap => ({ 
+          id: docSnap.id, 
+          ...docSnap.data() 
+        } as Branch));
+        setBranches(branchesData);
+      } catch (error) {
+        console.error('Error fetching branches:', error);
+      }
     };
     fetchBranches();
   }, [user?.shopId]);
 
+  // Ensure branchId is set when service changes
+  useEffect(() => {
+    if (service) {
+              const serviceBranchId = service.branchId || "";
+      if (serviceBranchId && serviceBranchId !== branchId) {
+        setBranchId(serviceBranchId);
+      }
+    }
+  }, [service, branchId]);
+
   const handleEdit = async (data: {
-    service: { name: string; description: string; price: string; branch_id: string };
+    service: { name: string; description: string; price: string; branchId: string; technician_id?: string };
     customer: { name: string; phone?: string; place?: string };
-    device: { brand: string; model: string; serial: string; color: string };
+    device: { brand: string; model: string; imei: string; color: string };
   }) => {
     setError(null);
     setLoading(true);
     try {
-      await updateDoc(doc(db, "services", serviceId!), {
+      const updateData = {
         name: data.service.name,
         description: data.service.description,
         price: Number(data.service.price),
-        branch_id: data.service.branch_id,
+        branchId: data.service.branchId,
+        technician_id: data.service.technician_id || (user?.role === "technician" ? user.id : ""),
         customer: data.customer,
         device: data.device,
         status,
         updatedAt: new Date(),
-      });
-      setService((prev) => prev ? { ...prev, ...data.service, price: Number(data.service.price), customer: data.customer, device: data.device, branch_id: data.service.branch_id, status, updatedAt: new Date(), createdAt: prev.createdAt } : null);
+      };
+      
+      await updateDoc(doc(db, "services", serviceId!), updateData);
+      
+      setService((prev) => prev ? { 
+        ...prev, 
+        ...data.service, 
+        price: Number(data.service.price), 
+        customer: data.customer, 
+        device: data.device, 
+        branchId: data.service.branchId, 
+        technician_id: data.service.technician_id || (user?.role === "technician" ? user.id : ""),
+        status, 
+        updatedAt: new Date(), 
+        createdAt: prev.createdAt 
+      } : null);
       setEditing(false);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : String(err));
@@ -237,7 +281,9 @@ function ServiceDetailsPage() {
             </button>
             <h1 className="text-2xl font-bold text-gray-900">Edit Service</h1>
           </div>
+
           <ServiceForm
+            key={`service-form-${branchId}`}
             onSubmit={handleEdit}
             loading={loading}
             editing={true}
@@ -248,6 +294,8 @@ function ServiceDetailsPage() {
             isShopAdmin={user?.role === "shop_admin"}
             isBranchAdmin={user?.role === "branch_admin"}
             userBranchId={user?.branchId}
+            shopId={user?.shopId}
+            user={user}
             initialData={{
               customer: {
                 name: service.customer?.name || "",
@@ -257,12 +305,18 @@ function ServiceDetailsPage() {
               device: {
                 brand: typeof service.device?.brand === "string" ? service.device.brand : "",
                 model: typeof service.device?.model === "string" ? service.device.model : "",
-                serial: typeof service.device?.serial === "string" ? service.device.serial : "",
+                imei: typeof service.device?.imei === "string" ? service.device.imei : "",
                 color: typeof (service.device as Record<string, unknown>)?.color === "string"
                   ? (service.device as Record<string, unknown>).color as string
                   : "",
               },
-              service: { name: service.name, description: service.description, price: String(service.price) },
+              service: { 
+                name: service.name, 
+                description: service.description, 
+                price: String(service.price),
+                technician_id: service.technician_id || "",
+                branchId: service.branchId || ""
+              },
             }}
             onCancelEdit={() => setEditing(false)}
           />
@@ -271,7 +325,7 @@ function ServiceDetailsPage() {
     );
   }
 
-  const branchName = branches.find(b => b.id === service.branch_id)?.name || service.branch_id;
+  const branchName = branches.find(b => b.id === service.branchId)?.name || service.branchId;
   const createdAt = service.createdAt ? new Date(service.createdAt) : null;
   const updatedAt = service.updatedAt ? new Date(service.updatedAt) : null;
   const statusColor = statusColors[status] || "bg-gray-100 text-gray-700 border border-gray-200";
@@ -402,8 +456,8 @@ function ServiceDetailsPage() {
                   IMEI
                 </div>
                 <div className="font-medium text-gray-900">
-                  {service.device && typeof service.device === "object" && "serial" in service.device 
-                    ? String((service.device as Record<string, unknown>).serial || "") 
+                  {service.device && typeof service.device === "object" && "imei" in service.device 
+                    ? String((service.device as Record<string, unknown>).imei || "") 
                     : "Not specified"}
                 </div>
               </div>

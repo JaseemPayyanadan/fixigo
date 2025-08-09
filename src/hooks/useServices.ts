@@ -44,8 +44,8 @@ export function useServices(shopId?: string, branchId?: string) {
       device: data.device || {},
       status: data.status || "pending",
       priority: data.priority || "medium",
-      shopId: data.shopId || data.shop_id || "",
-      branchId: data.branchId || data.branch_id || "",
+            shopId: data.shopId || "",
+      branchId: data.branchId || "",
       price: data.price || 0,
       estimatedDuration: data.estimatedDuration || 0,
       actualDuration: data.actualDuration || 0,
@@ -112,14 +112,14 @@ export function useServices(shopId?: string, branchId?: string) {
           if (shopId && branchId) {
             q = query(
               collection(db, "services"),
-              where("shop_id", "==", shopId),
-              where("branch_id", "==", branchId),
+              where("shopId", "==", shopId),
+              where("branchId", "==", branchId),
               orderBy("createdAt", "desc")
             );
           } else if (shopId) {
             q = query(
               collection(db, "services"),
-              where("shop_id", "==", shopId),
+              where("shopId", "==", shopId),
               orderBy("createdAt", "desc")
             );
           }

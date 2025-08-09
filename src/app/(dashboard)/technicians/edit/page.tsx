@@ -13,7 +13,7 @@ interface TechnicianData {
   name: string;
   email: string;
   phone: string;
-  branch_id: string;
+  branchId: string;
   skills: string[];
   status: string;
 }

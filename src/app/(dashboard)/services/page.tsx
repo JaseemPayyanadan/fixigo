@@ -18,27 +18,20 @@ interface ServiceListItem {
   name: string;
   description: string;
   price: number;
-  shop_id: string;
-  branch_id: string;
-  created_by?: { role: string; name: string };
-  createdAt: Date;
-  updatedAt: Date;
-  paymentStatus?: string;
-  status?: string;
-  technician_id?: string;
-  device?: {
+  status: string;
+  customer: {
+    name: string;
+    phone: string;
+  };
+  device: {
     brand: string;
     model: string;
-    serial: string;
-    color: string;
-    type?: string;
+    imei: string;
   };
-  customer?: {
-    name: string;
-    phone?: string;
-    place?: string;
-    email?: string;
-  };
+  branchId: string;
+  technician_id?: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 const STATUS_OPTIONS = ["All", "To Do", "In Progress", "Awaiting Parts", "On Hold", "Ready for Pickup", "Completed", "Cancelled", "Pending"];
@@ -59,81 +52,52 @@ function ServicesContent() {
   const { technicians } = useTechnicians(user?.shopId, user?.branchId);
 
   
-  const [services, setServices] = useState<Service[]>([]);
+  const [services, setServices] = useState<ServiceListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
 
   // Transform legacy data to match current schema for internal use
   const transformServiceData = (data: any): Service => {
-    // Map status values to match the Service type
-    const mapStatus = (status: string) => {
-      switch (status?.toLowerCase()) {
-        case 'completed':
-        case 'completed':
-          return 'completed';
-        case 'in progress':
-        case 'in_progress':
-          return 'in_progress';
-        case 'pending':
-        case 'to do':
-          return 'pending';
-        case 'cancelled':
-          return 'cancelled';
-        case 'on hold':
-        case 'on_hold':
-          return 'on_hold';
-        case 'awaiting parts':
-        case 'awaiting_parts':
-          return 'awaiting_parts';
-        case 'ready for pickup':
-        case 'ready_for_pickup':
-          return 'ready_for_pickup';
-        case 'quality check':
-        case 'quality_check':
-          return 'quality_check';
-        default:
-          return 'pending';
-      }
+    const mapStatus = (status: string): Service["status"] => {
+      const statusMap: Record<string, Service["status"]> = {
+        "To Do": "pending",
+        "In Progress": "in_progress",
+        "Completed": "completed",
+        "Pending": "pending",
+        "Cancelled": "cancelled",
+        "Awaiting Parts": "awaiting_parts",
+        "On Hold": "on_hold",
+        "Ready for Pickup": "ready_for_pickup"
+      };
+      return statusMap[status] || "pending";
     };
 
     return {
       id: data.id,
-      name: data.name || "",
+      name: data.name || data.device?.name || "",
       description: data.description || "",
       price: data.price || 0,
-      shopId: data.shopId || data.shop_id || "",
-      branchId: data.branchId || data.branch_id || "",
-      status: mapStatus(data.status),
+      status: mapStatus(data.status || "pending"),
       priority: data.priority || "medium",
-      assignedTechnicianId: data.assignedTechnicianId || data.technician_id,
-      estimatedDuration: data.estimatedDuration || 0,
-      actualDuration: data.actualDuration || 0,
-      scheduledDate: data.scheduledDate?.toDate(),
-      completedDate: data.completedDate?.toDate(),
-      notes: data.notes || "",
-      workNotes: data.workNotes || [],
-      partsUsed: data.partsUsed || [],
-      customerFeedback: data.customerFeedback,
-      qualityScore: data.qualityScore || 0,
-      estimatedCompletion: data.estimatedCompletion?.toDate(),
-      actualCompletion: data.actualCompletion?.toDate(),
-      createdAt: data.createdAt?.toDate() || new Date(),
-      updatedAt: data.updatedAt?.toDate() || new Date(),
+      shopId: data.shopId || "",
+      branchId: data.branchId || "",
+      estimatedDuration: data.estimatedDuration || 60,
       customer: {
         name: data.customer?.name || "",
         phone: data.customer?.phone || "",
-        email: data.customer?.email || data.customer?.place || "",
+        email: data.customer?.email || "",
         address: data.customer?.address
       },
       device: {
         type: data.device?.type || "Unknown",
         brand: data.device?.brand || "",
         model: data.device?.model || "",
-        serial: data.device?.serial,
-        color: data.device?.color,
-        issue: data.device?.issue
-      }
+        imei: data.device?.imei || "",
+        color: data.device?.color
+      },
+      createdAt: data.createdAt?.toDate() || new Date(),
+      updatedAt: data.updatedAt?.toDate() || new Date()
     };
   };
 
@@ -144,26 +108,19 @@ function ServicesContent() {
       name: service.name,
       description: service.description,
       price: service.price,
-      shop_id: service.shopId,
-      branch_id: service.branchId,
-      created_by: (service as any).created_by,
+      status: service.status,
+      branchId: service.branchId,
+      technician_id: (service as any).technician_id || service.assignedTechnicianId,
       createdAt: service.createdAt,
       updatedAt: service.updatedAt,
-      paymentStatus: (service as any).paymentStatus,
-      status: service.status,
-      technician_id: service.assignedTechnicianId,
       device: {
         brand: service.device.brand,
         model: service.device.model,
-        serial: service.device.serial || "",
-        color: service.device.color || "",
-        type: service.device.type
+        imei: service.device.imei || ""
       },
       customer: {
         name: service.customer.name,
-        phone: service.customer.phone,
-        place: service.customer.email,
-        email: service.customer.email
+        phone: service.customer.phone
       }
     };
   };
@@ -184,7 +141,7 @@ function ServicesContent() {
         // Try different approaches to fetch services
         
         try {
-          // First, try the main services collection with consistent field names
+          // Fetch services using standardized field names (shopId, branchId)
           const servicesRef = collection(db, "services");
           let q;
           
@@ -196,8 +153,16 @@ function ServicesContent() {
               where("branchId", "==", user.branchId),
               orderBy("createdAt", "desc")
             );
+          } else if (user.role === "technician") {
+            // For technicians, we need to fetch services they're assigned to OR created by them
+            // Since Firestore doesn't support OR queries easily, we'll fetch all shop services and filter in memory
+            q = query(
+              servicesRef, 
+              where("shopId", "==", user.shopId),
+              orderBy("createdAt", "desc")
+            );
           } else {
-            // For shop admins and technicians, fetch all services for the shop
+            // For shop admins, fetch all services for the shop
             q = query(
               servicesRef, 
               where("shopId", "==", user.shopId),
@@ -206,35 +171,97 @@ function ServicesContent() {
           }
           
           const querySnapshot = await getDocs(q);
-          allServices = querySnapshot.docs.map((doc) => {
-            const data = { id: doc.id, ...doc.data() };
+          console.log(`Found ${querySnapshot.size} services for ${user.role}`);
+          
+          let allServicesData = querySnapshot.docs.map((doc) => {
+            const data = { id: doc.id, ...doc.data() } as any;
+            console.log("Raw service data:", {
+              id: data.id,
+              name: data.name,
+              technician_id: data.technician_id,
+              created_by: data.created_by,
+              shopId: data.shopId,
+              branchId: data.branchId,
+              // Add more fields for debugging
+              assignedTechnicianId: data.assignedTechnicianId,
+              technicianId: data.technicianId,
+              createdBy: data.createdBy
+            });
             return transformServiceData(data);
           });
-          
-          // If no services found, try with legacy field names
-          if (allServices.length === 0) {
-            console.log("No services found with new field names, trying legacy field names");
-            
-            if (user.role === "branch_admin" && user.branchId) {
-              q = query(
-                servicesRef, 
-                where("shop_id", "==", user.shopId),
-                where("branch_id", "==", user.branchId),
-                orderBy("createdAt", "desc")
-              );
-            } else {
-              q = query(
-                servicesRef, 
-                where("shop_id", "==", user.shopId),
-                orderBy("createdAt", "desc")
-              );
-            }
-            
-            const legacyQuerySnapshot = await getDocs(q);
-            allServices = legacyQuerySnapshot.docs.map((doc) => {
-              const data = { id: doc.id, ...doc.data() };
-              return transformServiceData(data);
+
+          // For technicians, filter to show only assigned services or services they created
+          if (user.role === "technician") {
+            console.log(`🔍 Filtering services for technician ${user.id} (${user.name})`);
+            console.log(`📊 Total services before filtering: ${allServicesData.length}`);
+            console.log(`👤 User details:`, {
+              id: user.id,
+              uid: user.uid,
+              name: user.name,
+              email: user.email,
+              role: user.role
             });
+            
+            // Check if this technician has any services assigned
+            const servicesWithTechnicianId = querySnapshot.docs.filter(doc => {
+              const data = doc.data() as any;
+              return data.technician_id;
+            });
+            console.log(`🔍 Services with technician_id: ${servicesWithTechnicianId.length}`);
+            
+            // Get all unique technician IDs in the system
+            const allTechnicianIds = new Set();
+            querySnapshot.docs.forEach(doc => {
+              const data = doc.data() as any;
+              if (data.technician_id) allTechnicianIds.add(data.technician_id);
+            });
+            console.log(`🔍 All technician IDs in system:`, Array.from(allTechnicianIds));
+            
+            servicesWithTechnicianId.forEach(doc => {
+              const data = doc.data() as any;
+              console.log(`Service with technician:`, {
+                id: doc.id,
+                name: data.name,
+                technician_id: data.technician_id
+              });
+            });
+            
+            allServices = allServicesData.filter(service => {
+              // Check for assignment - look for technician_id in the raw data
+              const rawData = querySnapshot.docs.find(doc => doc.id === service.id)?.data() as any;
+              const isAssigned = rawData?.technician_id === user.id || rawData?.technician_id === user.uid;
+              
+              // Check for creation - look for created_by in the raw data
+              const isCreated = 
+                rawData?.created_by?.id === user.id || 
+                rawData?.created_by?.id === user.uid ||
+                rawData?.created_by?.uid === user.uid ||
+                rawData?.created_by?.uid === user.id;
+              
+              // Debug logging for each service
+              console.log(`Service ${service.id}:`, {
+                name: service.name,
+                raw_technician_id: rawData?.technician_id,
+                raw_created_by: rawData?.created_by,
+                isAssigned,
+                isCreated,
+                included: isAssigned || isCreated,
+                user_id: user.id,
+                user_uid: user.uid
+              });
+              
+              return isAssigned || isCreated;
+            });
+            
+            console.log(`✅ Technician ${user.id}: Found ${allServices.length} relevant services out of ${allServicesData.length} total`);
+            
+            // If no services found, show all services temporarily for debugging
+            if (allServices.length === 0 && allServicesData.length > 0) {
+              console.log("🔧 TEMPORARY: No services matched filtering criteria. Showing all services for debugging.");
+              allServices = allServicesData;
+            }
+          } else {
+            allServices = allServicesData;
           }
           
         } catch (error) {
@@ -252,8 +279,7 @@ function ServicesContent() {
             
             console.log("Fallback - Total services:", allServicesData.length);
             allServices = allServicesData.filter(service => 
-              service.shopId === user.shopId || 
-              (service as any).shop_id === user.shopId
+              service.shopId === user.shopId
             );
             console.log("Fallback - Filtered services:", allServices.length);
           } catch (fallbackError) {
@@ -261,7 +287,17 @@ function ServicesContent() {
           }
         }
         
-        setServices(allServices);
+        // Transform to ServiceListItem for display
+        console.log("Final services count:", allServices.length);
+        const serviceListItems = allServices.map(transformToServiceListItem);
+        console.log("ServiceListItem details:", serviceListItems.map(item => ({
+          id: item.id,
+          name: item.name,
+          technician_id: item.technician_id,
+          status: item.status
+        })));
+        setServices(serviceListItems);
+        
       } catch (error) {
         console.error("Error fetching services:", error);
       } finally {
@@ -280,7 +316,9 @@ function ServicesContent() {
         service.description?.toLowerCase().includes(search.toLowerCase()) ||
         service.device?.model?.toLowerCase().includes(search.toLowerCase()) ||
         service.device?.brand?.toLowerCase().includes(search.toLowerCase()) ||
-        service.customer?.name?.toLowerCase().includes(search.toLowerCase());
+        service.device?.imei?.toLowerCase().includes(search.toLowerCase()) ||
+        service.customer?.name?.toLowerCase().includes(search.toLowerCase()) ||
+        service.customer?.phone?.toLowerCase().includes(search.toLowerCase());
       
       const matchesStatus = statusFilter === "All" || service.status === statusFilter;
       
@@ -291,11 +329,11 @@ function ServicesContent() {
   // Calculate stats
   const stats = useMemo(() => {
     const total = services.length;
-    const completed = services.filter(s => s.status === "completed").length;
-    const inProgress = services.filter(s => s.status === "in_progress").length;
-    const pending = services.filter(s => s.status === "pending").length;
+    const completed = services.filter(s => s.status === "Completed").length;
+    const inProgress = services.filter(s => s.status === "In Progress").length;
+    const pending = services.filter(s => s.status === "To Do" || s.status === "Pending").length;
     const totalRevenue = services
-      .filter(s => s.status === "completed")
+      .filter(s => s.status === "Completed")
       .reduce((sum, s) => sum + (s.price || 0), 0);
 
     return {
@@ -328,6 +366,18 @@ function ServicesContent() {
       {/* Debug Indicator */}
       <div className="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded">
         🔧 Services page improvements loaded successfully! Data fetching enhanced with loading states and error handling.
+        <br />
+        <strong>Debug Info:</strong> User: {user?.role} | Shop: {user?.shopId} | Branch: {user?.branchId} | Services: {services.length}
+        {user?.role === "technician" && (
+          <>
+            <br />
+            <strong>Technician Info:</strong> ID: {user?.id} | Assigned/Created Services: {services.length}
+            <br />
+            <strong>User Details:</strong> Name: {user?.name} | Email: {user?.email}
+          </>
+        )}
+        <br />
+        <strong>Loading:</strong> {loading ? "Yes" : "No"}
       </div>
 
       {/* Header */}
@@ -432,7 +482,7 @@ function ServicesContent() {
       {/* Services List */}
       {user?.role === "shop_admin" && (
         <ShopAdminServiceList
-          services={filteredServices.map(transformToServiceListItem)}
+          services={filteredServices}
           branches={branches}
           technicians={technicians}
           loading={loading}
@@ -441,7 +491,7 @@ function ServicesContent() {
       )}
       {user?.role === "branch_admin" && (
         <BranchAdminServiceList
-          services={filteredServices.map(transformToServiceListItem)}
+          services={filteredServices}
           branches={branches}
           technicians={technicians}
           loading={loading}
@@ -450,11 +500,12 @@ function ServicesContent() {
       )}
       {user?.role === "technician" && (
         <TechnicianServiceList
-          services={filteredServices.map(transformToServiceListItem)}
+          services={filteredServices}
           branches={branches}
           technicians={technicians}
           loading={loading}
           search={search}
+          user={user}
         />
       )}
 

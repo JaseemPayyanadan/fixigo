@@ -12,9 +12,9 @@ interface Service {
   price: number;
   createdAt: { seconds: number; nanoseconds: number };
   customer?: { name: string; phone?: string; email?: string };
-  device?: { type: string; brand: string; model: string; serial: string };
-  shop_id: string;
-  branch_id: string;
+  device?: { type: string; brand: string; model: string; imei: string };
+  shopId: string;
+  branchId: string;
 }
 
 export default function InvoiceDetailsPage() {
@@ -51,8 +51,8 @@ function InvoiceDetailsContent() {
           const serviceData = { id: docSnap.id, ...docSnap.data() } as Service;
           setService(serviceData);
           // Fetch branch info
-                if (serviceData.shop_id && serviceData.branch_id) {
-        const branchSnap = await getDoc(doc(db, `shops/${serviceData.shop_id}/branches/${serviceData.branch_id}`));
+                        if (serviceData.shopId && serviceData.branchId) {
+          const branchSnap = await getDoc(doc(db, `shops/${serviceData.shopId}/branches/${serviceData.branchId}`));
             if (branchSnap.exists()) {
               setBranch({ id: branchSnap.id, ...branchSnap.data() });
             }
@@ -77,8 +77,8 @@ function InvoiceDetailsContent() {
       // Prepare invoice data
       const invoiceData = {
         serviceId: service.id,
-        branchId: service.branch_id,
-        shopId: service.shop_id,
+        branchId: service.branchId,
+        shopId: service.shopId,
         customer: service.customer || {},
         device: service.device || {},
         items: [
@@ -97,7 +97,7 @@ function InvoiceDetailsContent() {
         paymentStatus: "Pending",
         createdAt: service.createdAt || new Date(),
         branch: {
-          name: branch.name || service.branch_id,
+          name: branch.name || service.branchId,
           location: branch.location || "-",
           contactNumber: branch.contactNumber || "-",
           branchEmail: branch.branchEmail || "-",
@@ -227,7 +227,7 @@ function InvoiceDetailsContent() {
     );
 
   const { id, name, price, createdAt, customer, device } = service;
-  const branchName = branch?.name || service.branch_id;
+  const branchName = branch?.name || service.branchId;
   const branchLocation = branch?.location || "-";
   const branchContact = branch?.contactNumber || "-";
   // const branchEmail = branch?.branchEmail || "-";

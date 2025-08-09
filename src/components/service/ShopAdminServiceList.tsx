@@ -1,5 +1,5 @@
 "use client";
-import React from "react";
+import React, { useMemo, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { 
@@ -12,39 +12,32 @@ import {
   UserIcon,
   DevicePhoneMobileIcon,
   MapPinIcon,
-  ClockIcon
+  ClockIcon,
+  CheckCircleIcon,
+  ExclamationTriangleIcon
 } from "@heroicons/react/24/outline";
 import { getTechnicianDisplayInfo } from "./shared/ServiceUtils";
 import type { Technician } from "@/types";
 
-interface Service {
+interface ServiceListItem {
   id: string;
   name: string;
   description: string;
   price: number;
-  shop_id: string;
-  branch_id: string;
-  created_by?: { role: string; name: string };
-  createdAt: Date;
-  updatedAt: Date;
-  paymentStatus?: string;
-  status?: string;
-  technician_id?: string;
-  device?: {
+  status: string;
+  customer: {
+    name: string;
+    phone: string;
+  };
+  device: {
     brand: string;
     model: string;
-    serial: string;
-    color: string;
-    // Legacy field - will be ignored in UI
-    type?: string;
+    imei: string;
   };
-  customer?: {
-    name: string;
-    phone?: string;
-    place?: string;
-    // Legacy field - will be mapped to place
-    email?: string;
-  };
+  branchId: string;
+  technician_id?: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 interface Branch {
@@ -56,24 +49,56 @@ interface Branch {
 }
 
 interface ShopAdminServiceListProps {
-  services: Service[];
+  services: ServiceListItem[];
   branches: Branch[];
   technicians: Technician[];
   loading: boolean;
   search?: string;
-  onEdit?: (service: Service) => void;
+  onEdit?: (service: ServiceListItem) => void;
   onDelete?: (id: string) => void;
 }
 
-const statusConfig: Record<string, { label: string; color: string }> = {
-  "To Do": { label: "To Do", color: "bg-gray-100 text-gray-800" },
-  "In Progress": { label: "In Progress", color: "bg-blue-100 text-blue-800" },
-  "Awaiting Parts": { label: "Awaiting Parts", color: "bg-yellow-100 text-yellow-800" },
-  "On Hold": { label: "On Hold", color: "bg-orange-100 text-orange-800" },
-  "Ready for Pickup": { label: "Ready for Pickup", color: "bg-purple-100 text-purple-800" },
-  "Completed": { label: "Completed", color: "bg-green-100 text-green-800" },
-  "Cancelled": { label: "Cancelled", color: "bg-red-100 text-red-800" },
-  "Pending": { label: "Pending", color: "bg-gray-100 text-gray-800" }
+const statusConfig: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
+  "To Do": { 
+    label: "To Do", 
+    color: "bg-gray-100 text-gray-800 border-gray-200",
+    icon: <ClockIcon className="w-3 h-3" />
+  },
+  "In Progress": { 
+    label: "In Progress", 
+    color: "bg-blue-100 text-blue-800 border-blue-200",
+    icon: <ExclamationTriangleIcon className="w-3 h-3" />
+  },
+  "Awaiting Parts": { 
+    label: "Awaiting Parts", 
+    color: "bg-yellow-100 text-yellow-800 border-yellow-200",
+    icon: <CubeIcon className="w-3 h-3" />
+  },
+  "On Hold": { 
+    label: "On Hold", 
+    color: "bg-orange-100 text-orange-800 border-orange-200",
+    icon: <ExclamationTriangleIcon className="w-3 h-3" />
+  },
+  "Ready for Pickup": { 
+    label: "Ready for Pickup", 
+    color: "bg-purple-100 text-purple-800 border-purple-200",
+    icon: <CheckCircleIcon className="w-3 h-3" />
+  },
+  "Completed": { 
+    label: "Completed", 
+    color: "bg-green-100 text-green-800 border-green-200",
+    icon: <CheckCircleIcon className="w-3 h-3" />
+  },
+  "Cancelled": { 
+    label: "Cancelled", 
+    color: "bg-red-100 text-red-800 border-red-200",
+    icon: <TrashIcon className="w-3 h-3" />
+  },
+  "Pending": { 
+    label: "Pending", 
+    color: "bg-gray-100 text-gray-800 border-gray-200",
+    icon: <ClockIcon className="w-3 h-3" />
+  }
 };
 
 const ShopAdminServiceList: React.FC<ShopAdminServiceListProps> = ({ 
@@ -87,36 +112,96 @@ const ShopAdminServiceList: React.FC<ShopAdminServiceListProps> = ({
 }) => {
   const router = useRouter();
   
-  // Filter services by search
-  const filtered = search
-    ? services.filter(s => {
-        const q = search.toLowerCase();
-        return (
-          s.name?.toLowerCase().includes(q) ||
-          s.description?.toLowerCase().includes(q) ||
-          s.device?.model?.toLowerCase().includes(q) ||
-          s.device?.brand?.toLowerCase().includes(q) ||
-          s.customer?.name?.toLowerCase().includes(q) ||
-          s.customer?.phone?.toLowerCase().includes(q) ||
-          s.customer?.place?.toLowerCase().includes(q)
-        );
-      })
-    : services;
+  // Memoized filtered services for better performance
+  const filteredServices = useMemo(() => {
+    if (!search) return services;
+    
+    const searchTerm = search.toLowerCase();
+    return services.filter(service => {
+      return (
+        service.name?.toLowerCase().includes(searchTerm) ||
+        service.description?.toLowerCase().includes(searchTerm) ||
+        service.device?.model?.toLowerCase().includes(searchTerm) ||
+        service.device?.brand?.toLowerCase().includes(searchTerm) ||
+        service.device?.imei?.toLowerCase().includes(searchTerm) ||
+        service.customer?.name?.toLowerCase().includes(searchTerm) ||
+        service.customer?.phone?.toLowerCase().includes(searchTerm)
+      );
+    });
+  }, [services, search]);
 
-  // Get branch name for a service
-  const getBranchName = (branchId: string) => {
-    const branch = branches.find(b => b.id === branchId);
-    return branch?.name || branchId;
-  };
+  // Memoized branch lookup for better performance
+  const branchMap = useMemo(() => {
+    const map = new Map<string, string>();
+    branches.forEach(branch => {
+      map.set(branch.id, branch.name);
+    });
+    return map;
+  }, [branches]);
 
-  // Loading skeleton
+  // Memoized technician lookup for better performance
+  const technicianMap = useMemo(() => {
+    const map = new Map<string, { name: string; phone?: string }>();
+    technicians.forEach(tech => {
+      map.set(tech.id, { name: tech.name, phone: tech.phone });
+    });
+    return map;
+  }, [technicians]);
+
+  // Optimized branch name getter
+  const getBranchName = useCallback((branchId: string) => {
+    return branchMap.get(branchId) || branchId;
+  }, [branchMap]);
+
+  // Optimized technician info getter
+  const getTechnicianInfo = useCallback((technicianId: string) => {
+    return technicianMap.get(technicianId);
+  }, [technicianMap]);
+
+  // Optimized date formatter
+  const formatDate = useCallback((date: Date) => {
+    return date.toLocaleDateString(undefined, { 
+      day: "numeric", 
+      month: "short",
+      year: "numeric"
+    });
+  }, []);
+
+  // Optimized price formatter
+  const formatPrice = useCallback((price: number) => {
+    return `₹${price.toLocaleString()}`;
+  }, []);
+
+  // Loading skeleton with improved design
   if (loading) {
     return (
       <div className="p-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {[...Array(6)].map((_, i) => (
             <div key={i} className="animate-pulse">
-              <div className="bg-gray-200 rounded-lg h-48"></div>
+              <div className="bg-white rounded-xl border border-gray-200 shadow-sm h-64">
+                <div className="p-4 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 bg-gray-200 rounded-lg"></div>
+                      <div className="space-y-1">
+                        <div className="h-3 bg-gray-200 rounded w-16"></div>
+                        <div className="h-4 bg-gray-200 rounded w-20"></div>
+                      </div>
+                    </div>
+                    <div className="h-6 bg-gray-200 rounded-full w-20"></div>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                    <div className="h-3 bg-gray-200 rounded w-full"></div>
+                    <div className="h-3 bg-gray-200 rounded w-2/3"></div>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+                    <div className="h-3 bg-gray-200 rounded w-3/4"></div>
+                  </div>
+                </div>
+              </div>
             </div>
           ))}
         </div>
@@ -124,26 +209,23 @@ const ShopAdminServiceList: React.FC<ShopAdminServiceListProps> = ({
     );
   }
 
-  if (filtered.length === 0) {
+  // Improved empty state
+  if (filteredServices.length === 0) {
     return (
       <div className="p-8 text-center">
-        <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-          <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-          </svg>
+        <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
+          <CubeIcon className="w-10 h-10 text-gray-400" />
         </div>
-        <h3 className="text-lg font-medium text-gray-900 mb-2">No services found</h3>
-        <p className="text-gray-500 mb-4">
-          {search ? `No services match "${search}"` : "Get started by creating your first service"}
+        <h3 className="text-xl font-semibold text-gray-900 mb-3">No services found</h3>
+        <p className="text-gray-600 mb-6 max-w-md mx-auto">
+          {search ? `No services match "${search}". Try adjusting your search terms.` : "Get started by creating your first service request."}
         </p>
         {!search && (
           <Link
             href="/services/new"
-            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200 font-medium shadow-sm hover:shadow-md"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-            </svg>
+            <CubeIcon className="w-5 h-5" />
             Create First Service
           </Link>
         )}
@@ -153,20 +235,19 @@ const ShopAdminServiceList: React.FC<ShopAdminServiceListProps> = ({
 
   return (
     <div className="p-4">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filtered.map((service) => {
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {filteredServices.map((service) => {
           const date = service.createdAt ? new Date(service.createdAt) : null;
           const status = service.status || "To Do";
           const statusInfo = statusConfig[status] || statusConfig["To Do"];
-          const branchName = getBranchName(service.branch_id);
-          const technicianInfo = service.technician_id ? getTechnicianDisplayInfo(service.technician_id, technicians) : null;
+          const branchName = getBranchName(service.branchId);
+          const technicianInfo = service.technician_id ? getTechnicianInfo(service.technician_id) : null;
           
           return (
             <div key={service.id} className="group relative">
               <div 
-                className="bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md hover:border-blue-300 hover:bg-blue-50 transition-all duration-200 overflow-hidden cursor-pointer select-none"
+                className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-lg hover:border-blue-300 hover:bg-blue-50/30 transition-all duration-300 overflow-hidden cursor-pointer select-none transform hover:-translate-y-1"
                 onClick={(e) => {
-                  // Don't navigate if clicking on action buttons
                   if ((e.target as HTMLElement).closest('.action-button')) {
                     return;
                   }
@@ -178,68 +259,57 @@ const ShopAdminServiceList: React.FC<ShopAdminServiceListProps> = ({
                     router.push(`/services/details?id=${service.id}`);
                   }
                 }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = 'translateY(-2px)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = 'translateY(0)';
-                }}
                 tabIndex={0}
                 role="button"
                 aria-label={`View details for service ${service.name}`}
               >
                 {/* Header */}
-                <div className="p-4">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                        <CubeIcon className="w-4 h-4 text-blue-600" />
+                <div className="p-5">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-sm">
+                        <CubeIcon className="w-5 h-5 text-white" />
                       </div>
                       <div>
-                        <div className="text-xs text-gray-500">Service ID</div>
-                        <div className="font-bold text-gray-900">#{service.id.slice(-8)}</div>
+                        <div className="text-xs text-gray-500 font-medium">Service ID</div>
+                        <div className="font-bold text-gray-900 text-sm">#{service.id.slice(-8)}</div>
                       </div>
                     </div>
-                    <div className={`px-3 py-1 rounded-full text-xs font-medium ${statusInfo.color}`}>
+                    <div className={`px-3 py-1.5 rounded-full text-xs font-semibold border ${statusInfo.color} flex items-center gap-1`}>
+                      {statusInfo.icon}
                       {statusInfo.label}
                     </div>
                   </div>
 
                   {/* Service Details */}
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     {/* Service Name & Description */}
                     <div>
-                      <div className="font-semibold text-gray-900 truncate">{service.name}</div>
-                      <div className="text-sm text-gray-600 line-clamp-2">{service.description}</div>
+                      <div className="font-semibold text-gray-900 text-lg mb-1 line-clamp-1">{service.name}</div>
+                      <div className="text-sm text-gray-600 line-clamp-2 leading-relaxed">{service.description}</div>
                     </div>
 
                     {/* Device Information */}
                     {service.device && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <DevicePhoneMobileIcon className="w-4 h-4 text-gray-500" />
-                        <div>
-                          <div className="font-medium text-gray-900">{service.device.brand} {service.device.model}</div>
-                          <div className="text-xs text-gray-500">IMEI: {service.device.serial}</div>
-                          {service.device.color && (
-                            <div className="text-xs text-gray-500">Color: {service.device.color}</div>
-                          )}
+                      <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
+                        <DevicePhoneMobileIcon className="w-5 h-5 text-gray-500 mt-0.5" />
+                        <div className="flex-1 min-w-0">
+                          <div className="font-semibold text-gray-900 text-sm">{service.device.brand} {service.device.model}</div>
+                          <div className="text-xs text-gray-600 font-mono bg-white px-2 py-1 rounded mt-1 inline-block">IMEI: {service.device.imei}</div>
                         </div>
                       </div>
                     )}
                     
                     {/* Customer Information */}
                     {service.customer && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <UserIcon className="w-4 h-4 text-gray-500" />
-                        <div>
-                          <div className="font-medium text-gray-900">{service.customer.name}</div>
+                      <div className="flex items-start gap-3">
+                        <UserIcon className="w-5 h-5 text-gray-500 mt-0.5" />
+                        <div className="flex-1 min-w-0">
+                          <div className="font-semibold text-gray-900 text-sm">{service.customer.name}</div>
                           {service.customer.phone && (
-                            <div className="text-xs text-gray-500">📞 {service.customer.phone}</div>
-                          )}
-                          {service.customer.place && (
-                            <div className="text-xs text-gray-500 flex items-center gap-1">
-                              <MapPinIcon className="w-3 h-3" />
-                              {service.customer.place}
+                            <div className="text-xs text-gray-600 flex items-center gap-1 mt-1">
+                              <span className="text-green-600">📞</span>
+                              {service.customer.phone}
                             </div>
                           )}
                         </div>
@@ -247,35 +317,26 @@ const ShopAdminServiceList: React.FC<ShopAdminServiceListProps> = ({
                     )}
 
                     {/* Branch Information */}
-                    <div className="flex items-center gap-2 text-sm">
-                      <BuildingOfficeIcon className="w-4 h-4 text-gray-500" />
-                      <div>
-                        <div className="font-medium text-gray-900">{branchName}</div>
-                        <div className="text-xs text-gray-500">Branch ID: {service.branch_id.slice(-8)}</div>
+                    <div className="flex items-start gap-3">
+                      <BuildingOfficeIcon className="w-5 h-5 text-gray-500 mt-0.5" />
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold text-gray-900 text-sm">{branchName}</div>
+                        <div className="text-xs text-gray-500 font-mono">ID: {service.branchId.slice(-8)}</div>
                       </div>
                     </div>
 
-                    {/* Created By Information */}
-                    {service.created_by && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <UserIcon className="w-4 h-4 text-gray-500" />
-                        <div>
-                          <div className="text-xs text-gray-500">Created by</div>
-                          <div className="font-medium text-gray-900">{service.created_by.name}</div>
-                          <div className="text-xs text-gray-500 capitalize">{service.created_by.role}</div>
-                        </div>
-                      </div>
-                    )}
-
                     {/* Technician Assignment */}
                     {technicianInfo && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <UserIcon className="w-4 h-4 text-gray-500" />
-                        <div>
-                          <div className="text-xs text-gray-500">Assigned to</div>
-                          <div className="font-medium text-gray-900">{technicianInfo.name}</div>
+                      <div className="flex items-start gap-3 p-3 bg-blue-50 rounded-lg border border-blue-100">
+                        <UserIcon className="w-5 h-5 text-blue-600 mt-0.5" />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-xs text-blue-600 font-medium mb-1">Assigned Technician</div>
+                          <div className="font-semibold text-gray-900 text-sm">{technicianInfo.name}</div>
                           {technicianInfo.phone && (
-                            <div className="text-xs text-gray-500">📞 {technicianInfo.phone}</div>
+                            <div className="text-xs text-gray-600 flex items-center gap-1 mt-1">
+                              <span className="text-blue-600">📞</span>
+                              {technicianInfo.phone}
+                            </div>
                           )}
                         </div>
                       </div>
@@ -283,39 +344,35 @@ const ShopAdminServiceList: React.FC<ShopAdminServiceListProps> = ({
                   </div>
 
                   {/* Footer */}
-                  <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between">
+                  <div className="mt-5 pt-4 border-t border-gray-100 flex items-center justify-between">
                     <div className="flex items-center gap-2 text-xs text-gray-500">
                       <ClockIcon className="w-3 h-3" />
-                      {date ? date.toLocaleDateString(undefined, { 
-                        day: "numeric", 
-                        month: "short",
-                        year: "numeric"
-                      }) : "-"}
+                      {date ? formatDate(date) : "-"}
                     </div>
-                    <div className="flex items-center gap-1 font-semibold text-gray-900">
-                      <CurrencyDollarIcon className="w-3 h-3" />
-                      ₹{service.price?.toLocaleString()}
+                    <div className="flex items-center gap-1 font-bold text-gray-900 text-lg">
+                      <CurrencyDollarIcon className="w-4 h-4 text-green-600" />
+                      {formatPrice(service.price)}
                     </div>
                   </div>
                   
                   {/* Click indicator - shows on hover */}
-                  <div className="absolute bottom-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                    <div className="text-xs text-blue-600 font-medium bg-blue-50 px-2 py-1 rounded-full">
+                  <div className="absolute bottom-3 left-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    <div className="text-xs text-blue-600 font-medium bg-blue-50 px-3 py-1.5 rounded-full border border-blue-200 shadow-sm">
                       Click to view details
                     </div>
                   </div>
                 </div>
 
                 {/* Quick Actions - Hover */}
-                <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-all duration-200">
-                  <div className="flex gap-1">
+                <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-y-1 group-hover:translate-y-0">
+                  <div className="flex gap-1.5">
                     <Link
                       href={`/services/details?id=${service.id}`}
-                      className="action-button p-1.5 bg-white rounded shadow-sm hover:bg-gray-50 transition-colors border border-gray-200"
+                      className="action-button p-2 bg-white rounded-lg shadow-lg hover:bg-gray-50 transition-all duration-200 border border-gray-200 hover:shadow-xl"
                       title="View Details"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <EyeIcon className="w-3 h-3 text-gray-600" />
+                      <EyeIcon className="w-4 h-4 text-gray-600" />
                     </Link>
                     {onEdit && (
                       <button
@@ -323,10 +380,10 @@ const ShopAdminServiceList: React.FC<ShopAdminServiceListProps> = ({
                           e.stopPropagation();
                           onEdit(service);
                         }}
-                        className="action-button p-1.5 bg-white rounded shadow-sm hover:bg-gray-50 transition-colors border border-gray-200"
+                        className="action-button p-2 bg-white rounded-lg shadow-lg hover:bg-gray-50 transition-all duration-200 border border-gray-200 hover:shadow-xl"
                         title="Edit Service"
                       >
-                        <PencilIcon className="w-3 h-3 text-blue-600" />
+                        <PencilIcon className="w-4 h-4 text-blue-600" />
                       </button>
                     )}
                     {onDelete && (
@@ -337,10 +394,10 @@ const ShopAdminServiceList: React.FC<ShopAdminServiceListProps> = ({
                             onDelete(service.id);
                           }
                         }}
-                        className="action-button p-1.5 bg-white rounded shadow-sm hover:bg-gray-50 transition-colors border border-gray-200"
+                        className="action-button p-2 bg-white rounded-lg shadow-lg hover:bg-gray-50 transition-all duration-200 border border-gray-200 hover:shadow-xl"
                         title="Delete Service"
                       >
-                        <TrashIcon className="w-3 h-3 text-red-600" />
+                        <TrashIcon className="w-4 h-4 text-red-600" />
                       </button>
                     )}
                   </div>

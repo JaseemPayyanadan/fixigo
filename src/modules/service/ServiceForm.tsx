@@ -14,7 +14,7 @@ interface ServiceFormData {
   device: { 
     brand: string; 
     model: string; 
-    serial: string; 
+    imei: string; 
     color: string;
     type?: string;
   };
@@ -22,7 +22,7 @@ interface ServiceFormData {
     name: string; 
     description: string; 
     price: string; 
-    branch_id: string; 
+    branchId: string; 
     technician_id?: string;
     priority?: string;
     estimatedDuration?: number;
@@ -41,10 +41,11 @@ interface ServiceFormProps {
   isBranchAdmin?: boolean;
   userBranchId?: string;
   shopId?: string;
+  user?: any; // Add user prop for technician context
   initialData?: {
     customer?: { name: string; phone: string; place?: string; email?: string };
-    device?: { brand: string; model: string; serial: string; color: string; type?: string };
-    service?: { name: string; description: string; price: string; technician_id?: string; priority?: string; estimatedDuration?: number };
+    device?: { brand: string; model: string; imei: string; color: string; type?: string };
+    service?: { name: string; description: string; price: string; technician_id?: string; branchId?: string; priority?: string; estimatedDuration?: number };
   };
   onCancelEdit?: () => void;
 }
@@ -61,11 +62,12 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
   isBranchAdmin,
   userBranchId,
   shopId,
+  user,
   initialData,
   onCancelEdit,
 }) => {
   const [customer, setCustomer] = useState({ name: "", phone: "", place: "", email: "" });
-  const [device, setDevice] = useState({ brand: "", model: "", serial: "", color: "", type: "" });
+  const [device, setDevice] = useState({ brand: "", model: "", imei: "", color: "", type: "" });
   const [service, setService] = useState({ 
     name: "", 
     description: "", 
@@ -75,11 +77,28 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
     estimatedDuration: 60
   });
   
+  // Check if current user is a technician
+  const isTechnician = user?.role === "technician";
+  
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Fetch technicians for the selected branch
   const { technicians, loading: techniciansLoading, error: techniciansError } = useTechnicians(shopId, branchId || userBranchId);
+
+  // Auto-assign technician_id for technicians
+  useEffect(() => {
+    if (isTechnician && user?.id && !editing) {
+      setService(prev => ({
+        ...prev,
+        technician_id: user.id
+      }));
+    }
+  }, [isTechnician, user?.id, editing]);
+
+
+
+
 
   // Memoized form validation
   const validateForm = useCallback(() => {
@@ -102,10 +121,10 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
     if (!device.model.trim()) {
       errors.deviceModel = "Device model is required";
     }
-    if (!device.serial.trim()) {
-      errors.deviceSerial = "Device IMEI is required";
-    } else if (!/^\d{15}$/.test(device.serial.replace(/\s/g, ''))) {
-      errors.deviceSerial = "IMEI must be 15 digits";
+    if (!device.imei.trim()) {
+      errors.deviceImei = "Device IMEI is required";
+    } else if (!/^\d{15}$/.test(device.imei.replace(/\s/g, ''))) {
+      errors.deviceImei = "IMEI must be 15 digits";
     }
     if (!device.color.trim()) {
       errors.deviceColor = "Device color is required";
@@ -146,20 +165,28 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
         setDevice({ 
           brand: initialData.device.brand || "", 
           model: initialData.device.model || "", 
-          serial: initialData.device.serial || "", 
+          imei: initialData.device.imei || "", 
           color: initialData.device.color || "",
           type: initialData.device.type || ""
         });
       }
       if (initialData.service) {
-        setService({ 
-          ...service,
+        setService(prevService => ({ 
+          ...prevService,
           ...initialData.service,
-          technician_id: initialData.service.technician_id || ""
-        });
+          technician_id: initialData.service?.technician_id || ""
+        }));
+        
+        // Ensure branchId is set from initialData if editing
+        if (editing && initialData.service?.branchId) {
+          const serviceBranchId = initialData.service.branchId;
+          if (serviceBranchId && serviceBranchId !== branchId) {
+            setBranchId(serviceBranchId);
+          }
+        }
       }
     }
-  }, [initialData, service]);
+  }, [initialData, editing, branchId, setBranchId]);
 
   // Set branch ID for branch admins
   useEffect(() => {
@@ -167,6 +194,19 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
       setBranchId(userBranchId);
     }
   }, [isBranchAdmin, userBranchId, setBranchId]);
+
+  // Ensure branchId is set when editing and branches are loaded
+  useEffect(() => {
+    if (editing && branches.length > 0) {
+      // If we're editing and have branches, ensure branchId is set from initialData
+      const serviceBranchId = initialData?.service?.branchId || "";
+      if (serviceBranchId && branches.find(b => b.id === serviceBranchId)) {
+        if (branchId !== serviceBranchId) {
+          setBranchId(serviceBranchId);
+        }
+      }
+    }
+  }, [editing, branches, branchId, initialData, setBranchId]);
 
   // Memoized change handlers
   const handleCustomerChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -209,11 +249,13 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
     setIsSubmitting(true);
     
     try {
-      await onSubmit({
+      const submitData = {
         customer,
         device,
-        service: { ...service, branch_id: branchId },
-      });
+        service: { ...service, branchId: branchId },
+      };
+      
+      await onSubmit(submitData);
     } catch (err) {
       console.error('Form submission error:', err);
     } finally {
@@ -327,16 +369,16 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
             />
             <TextInput
               type="text"
-              name="serial"
+              name="imei"
               label="IMEI"
-              value={device.serial}
+              value={device.imei}
               onChange={handleDeviceChange}
               placeholder="Device IMEI number"
               required
-              error={formErrors.deviceSerial}
+              error={formErrors.deviceImei}
               disabled={isFormDisabled}
               icon={<BuildingOfficeIcon className="h-5 w-5 text-gray-400" />}
-              aria-describedby={formErrors.deviceSerial ? "device-serial-error" : undefined}
+              aria-describedby={formErrors.deviceImei ? "device-imei-error" : undefined}
             />
             <TextInput
               type="text"
@@ -445,28 +487,36 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
         </div>
         
         {/* Branch Selection */}
-        {isShopAdmin && (
+        {(isShopAdmin || editing) && (
           <div className="mb-6">
-            <label htmlFor="branch_id" className="block text-sm font-semibold text-gray-700 mb-2">
+            <label htmlFor="branchId" className="block text-sm font-semibold text-gray-700 mb-2">
               Select Branch
             </label>
-            <select
-              id="branch_id"
-              name="branch_id"
-              value={branchId}
-              onChange={e => setBranchId(e.target.value)}
-              className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200 ${
-                formErrors.branchId ? 'border-red-300' : 'border-gray-300'
-              } ${isFormDisabled ? 'bg-gray-50 cursor-not-allowed' : ''}`}
-              required
-              disabled={isFormDisabled}
-              aria-describedby={formErrors.branchId ? "branch-id-error" : undefined}
-            >
-              <option value="">Choose a branch</option>
-              {branches.map(branch => (
-                <option key={branch.id} value={branch.id}>{branch.name}</option>
-              ))}
-            </select>
+            {branches.length === 0 ? (
+              <div className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-500">
+                Loading branches...
+              </div>
+            ) : (
+              <select
+                id="branchId"
+                name="branchId"
+                value={branchId}
+                onChange={e => setBranchId(e.target.value)}
+                className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200 ${
+                  formErrors.branchId ? 'border-red-300' : 'border-gray-300'
+                } ${isFormDisabled ? 'bg-gray-50 cursor-not-allowed' : ''}`}
+                required
+                disabled={isFormDisabled}
+                aria-describedby={formErrors.branchId ? "branch-id-error" : undefined}
+              >
+                <option value="">Choose a branch</option>
+                {branches.map(branch => (
+                  <option key={branch.id} value={branch.id}>
+                    {branch.name} {branchId === branch.id ? '(Current)' : ''}
+                  </option>
+                ))}
+              </select>
+            )}
             {formErrors.branchId && (
               <p id="branch-id-error" className="mt-1 text-sm text-red-600">
                 {formErrors.branchId}
@@ -475,56 +525,76 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
           </div>
         )}
         
-        {isBranchAdmin && userBranchId && (
+        {isBranchAdmin && userBranchId && !editing && !isShopAdmin && (
           <div className="mb-6">
             <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Branch
+              Select Branch
             </label>
-            <div className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-700">
+            <div className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-blue-50 text-blue-700 font-medium">
               {branches.find(b => b.id === userBranchId)?.name || userBranchId}
             </div>
+            <p className="mt-1 text-sm text-gray-600">
+              You are assigned to this branch. Contact your shop administrator to change your branch assignment.
+            </p>
           </div>
         )}
         
         {/* Technician Selection */}
-        <div className="mb-6">
-          <label htmlFor="technician_id" className="block text-sm font-semibold text-gray-700 mb-2">
-            Assign Technician
-          </label>
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <UserIcon className="h-5 w-5 text-gray-400" />
+        {!isTechnician && (
+          <div className="mb-6">
+            <label htmlFor="technician_id" className="block text-sm font-semibold text-gray-700 mb-2">
+              Assign Technician
+            </label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <UserIcon className="h-5 w-5 text-gray-400" />
+              </div>
+              <select
+                id="technician_id"
+                name="technician_id"
+                value={service.technician_id}
+                onChange={handleServiceChange}
+                className={`w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200 ${
+                  isFormDisabled ? 'bg-gray-50 cursor-not-allowed' : ''
+                }`}
+                disabled={isFormDisabled}
+              >
+                <option value="">Select a technician</option>
+                {technicians.map((technician) => (
+                  <option key={technician.id} value={technician.id}>
+                    {technician.name} - {technician.phone}
+                  </option>
+                ))}
+              </select>
             </div>
-            <select
-              id="technician_id"
-              name="technician_id"
-              value={service.technician_id}
-              onChange={handleServiceChange}
-              className={`w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200 ${
-                isFormDisabled ? 'bg-gray-50 cursor-not-allowed' : ''
-              }`}
-              disabled={isFormDisabled}
-            >
-              <option value="">Select a technician</option>
-              {technicians.map((technician) => (
-                <option key={technician.id} value={technician.id}>
-                  {technician.name} - {technician.phone}
-                </option>
-              ))}
-            </select>
+            {techniciansLoading && (
+              <p className="mt-2 text-sm text-blue-600">Loading technicians...</p>
+            )}
+            {techniciansError && (
+              <p className="mt-2 text-sm text-red-600">Error loading technicians: {techniciansError}</p>
+            )}
+            {!techniciansLoading && technicians.length === 0 && (
+              <p className="mt-2 text-sm text-amber-600 bg-amber-50 px-3 py-2 rounded-lg">
+                ⚠️ No technicians available for this branch. Please add technicians first.
+              </p>
+            )}
           </div>
-          {techniciansLoading && (
-            <p className="mt-2 text-sm text-blue-600">Loading technicians...</p>
-          )}
-          {techniciansError && (
-            <p className="mt-2 text-sm text-red-600">Error loading technicians: {techniciansError}</p>
-          )}
-          {!techniciansLoading && technicians.length === 0 && (
-            <p className="mt-2 text-sm text-amber-600 bg-amber-50 px-3 py-2 rounded-lg">
-              ⚠️ No technicians available for this branch. Please add technicians first.
+        )}
+        
+        {/* Technician Assignment Info for Technicians */}
+        {isTechnician && (
+          <div className="mb-6">
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Service Assignment
+            </label>
+            <div className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-blue-50 text-blue-700 font-medium">
+              This service will be automatically assigned to you ({user?.name})
+            </div>
+            <p className="mt-1 text-sm text-gray-600">
+              As a technician, services you create are automatically assigned to you.
             </p>
-          )}
-        </div>
+          </div>
+        )}
       </div>
       
       {/* Error Message */}

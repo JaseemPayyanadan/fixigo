@@ -13,7 +13,7 @@ interface Service {
   price: number;
   status: string;
   customer?: { name: string; phone: string; email: string };
-  device?: { type: string; brand: string; model: string; serial: string };
+  device?: { type: string; brand: string; model: string; imei: string };
   createdAt: Date;
   updatedAt: Date;
   priority?: string;
@@ -403,8 +403,8 @@ export default function MyTasksPage() {
                               </div>
                               <p className="text-sm text-gray-600 font-medium">{task.device.brand} {task.device.model}</p>
                               <p className="text-sm text-gray-500">{task.device.type}</p>
-                              {task.device.serial && (
-                                <p className="text-sm text-gray-500">S/N: {task.device.serial}</p>
+                              {task.device.imei && (
+                                <p className="text-sm text-gray-500">IMEI: {task.device.imei}</p>
                               )}
                             </div>
                           )}

@@ -25,16 +25,16 @@ export default function NewServicePage() {
       }, [isBranchAdmin, user?.branchId]);
 
   const handleAdd = async (data: {
-    customer: { name: string; phone: string; place?: string };
-    device: { brand: string; model: string; serial: string; color: string };
-    service: { name: string; description: string; price: string; branch_id: string; technician_id?: string };
+    service: { name: string; description: string; price: string; branchId: string; technician_id?: string };
+    customer: { name: string; phone?: string; place?: string };
+    device: { brand: string; model: string; imei: string; color: string };
   }) => {
     setError(null);
     if (!data.service.name.trim() || !data.service.price || !shopId) {
       setError("Name, price, and shop are required.");
       return;
     }
-    if (isShopAdmin && !data.service.branch_id) {
+    if (isShopAdmin && !data.service.branchId) {
       setError("Branch selection is required for shop admin.");
       return;
     }
@@ -44,9 +44,9 @@ export default function NewServicePage() {
         name: data.service.name,
         description: data.service.description,
         price: Number(data.service.price),
-        shop_id: shopId,
-        branch_id: data.service.branch_id || "",
-        technician_id: data.service.technician_id || "",
+        shopId: shopId,
+        branchId: data.service.branchId || "",
+        technician_id: data.service.technician_id || (user?.role === "technician" ? user.id : ""),
         customer: data.customer,
         device: data.device, // color included
         created_by: { role: user?.role || "", name: user?.name || "" },
@@ -99,6 +99,7 @@ export default function NewServicePage() {
             isBranchAdmin={isBranchAdmin}
             userBranchId={user?.branchId}
             shopId={shopId}
+            user={user}
           />
         </div>
       </div>

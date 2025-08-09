@@ -168,7 +168,7 @@ export const filterServicesBySearch = (services: Service[], search: string): Ser
       service.description?.toLowerCase().includes(searchTerm) ||
       service.device?.brand?.toLowerCase().includes(searchTerm) ||
       service.device?.model?.toLowerCase().includes(searchTerm) ||
-      service.device?.serial?.toLowerCase().includes(searchTerm) ||
+      service.device?.imei?.toLowerCase().includes(searchTerm) ||
       service.customer?.name?.toLowerCase().includes(searchTerm) ||
       service.customer?.phone?.toLowerCase().includes(searchTerm) ||
       service.customer?.email?.toLowerCase().includes(searchTerm)
