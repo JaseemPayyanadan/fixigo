@@ -118,8 +118,7 @@ export default function ProfilePage() {
             });
           }
         }
-      } catch (error) {
-
+      } catch {
         setError("Failed to load profile");
       } finally {
         setLoading(false);
@@ -175,8 +174,7 @@ export default function ProfilePage() {
       } : null);
 
       setEditing(false);
-    } catch (error) {
-      
+    } catch {
       setError("Failed to update profile");
     } finally {
       setSaving(false);

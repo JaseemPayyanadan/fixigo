@@ -9,7 +9,6 @@ import {
   formatServicePrice, 
   getServiceAge,
   getTechnicianDisplayInfo,
-  ServiceLoadingState,
   ServiceErrorState,
   ServiceEmptyState,
   ServiceListSkeleton

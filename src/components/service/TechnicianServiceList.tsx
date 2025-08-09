@@ -11,12 +11,10 @@ import {
   TrashIcon,
   UserIcon,
   DevicePhoneMobileIcon,
-  MapPinIcon,
   ClockIcon,
   CheckCircleIcon,
   ExclamationTriangleIcon
 } from "@heroicons/react/24/outline";
-import { getTechnicianDisplayInfo } from "./shared/ServiceUtils";
 import type { Technician } from "@/types";
 
 interface ServiceListItem {
@@ -105,7 +103,6 @@ const statusConfig: Record<string, { label: string; color: string; icon: React.R
 const TechnicianServiceList: React.FC<TechnicianServiceListProps> = ({ 
   services, 
   branches, 
-  technicians,
   loading, 
   search, 
   user,

@@ -11,12 +11,10 @@ import {
   TrashIcon,
   UserIcon,
   DevicePhoneMobileIcon,
-  MapPinIcon,
   ClockIcon,
   CheckCircleIcon,
   ExclamationTriangleIcon
 } from "@heroicons/react/24/outline";
-import { getTechnicianDisplayInfo } from "./shared/ServiceUtils";
 import type { Technician } from "@/types";
 
 interface ServiceListItem {

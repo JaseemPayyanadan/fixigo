@@ -9,14 +9,7 @@ import { RoleGuard, PermissionGuard } from "@/components";
 import TechnicianForm from "@/modules/technician/TechnicianForm";
 import type { Technician } from "@/types";
 
-interface TechnicianData {
-  name: string;
-  email: string;
-  phone: string;
-  branchId: string;
-  skills: string[];
-  status: string;
-}
+
 
 export default function TechnicianEditPage() {
   return (

@@ -1,24 +1,18 @@
 "use client";
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import { useUser } from "@/hooks";
 import { useBranches } from "@/hooks/useBranches";
 import { useTechnicians } from "@/hooks/useTechnicians";
 import { usePermissions } from "@/hooks/usePermissions";
 import { RoleGuard, PermissionGuard } from "@/components";
 import TechnicianList from "@/modules/technician/TechnicianList";
-import { Technician, Branch } from "@/types";
 import Link from "next/link";
-import { logger, isIndexBuildingError, getIndexBuildingMessage } from "@/lib/logger";
 import { 
   UserGroupIcon, 
   StarIcon, 
   CheckCircleIcon,
   PlusIcon,
-  ChartBarIcon,
-  ClockIcon,
   WrenchScrewdriverIcon,
-  MapPinIcon,
-  FunnelIcon,
   MagnifyingGlassIcon
 } from "@heroicons/react/24/outline";
 
@@ -70,7 +64,7 @@ function TechniciansContent() {
 
   // Filter and sort technicians
   const filteredTechnicians = useMemo(() => {
-    let filtered = technicians.filter(tech => {
+    const filtered = technicians.filter(tech => {
       const matchesSearch = tech.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            tech.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            tech.phone.includes(searchTerm);

@@ -11,10 +11,7 @@ import {
   ChevronRightIcon, 
   ClipboardDocumentListIcon, 
   UserIcon,
-  ChartBarIcon,
-  Cog6ToothIcon,
-  DocumentChartBarIcon,
-  CurrencyDollarIcon
+  Cog6ToothIcon
 } from "@heroicons/react/24/outline";
 import { useUser } from "@/hooks/useUser";
 import { useSidebar } from "@/contexts/SidebarContext";
@@ -94,7 +91,6 @@ export function SideNavBar() {
 
   // const isShopAdmin = user?.role === "shop_admin";
   // const isBranchAdmin = user?.role === "branch_admin";
-  const isTechnician = user?.role === "technician";
 
   return (
     <aside className={`hidden md:flex  h-full flex-col fixed top-0 left-0 bg-white border-r border-gray-200 z-40 transition-all duration-300 ${

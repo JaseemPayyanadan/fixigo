@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { usePermissions } from "@/hooks";
+
 import { PermissionGuard } from "@/components";
 import { Technician, Branch } from "@/types";
 import { 
@@ -28,7 +28,7 @@ interface TechnicianListProps {
 
 export default function TechnicianList({ technicians, onDelete, branches }: TechnicianListProps) {
   const router = useRouter();
-  const { canManageTechnician, canDeleteTechnician } = usePermissions();
+
   const [selectedTechnician, setSelectedTechnician] = useState<Technician | null>(null);
 
   // Helper function to get branch name by ID

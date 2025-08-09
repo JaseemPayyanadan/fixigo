@@ -27,9 +27,6 @@ export default function TechnicianDashboard() {
   const { 
     services, 
     isLoading, 
-    metrics, 
-    totalRevenue, 
-    recentServices, 
     servicesLoading,
     servicesError
   } = useDashboardData(user?.shopId, user?.branchId);

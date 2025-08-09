@@ -1,5 +1,5 @@
 import { db } from "../lib/firebase";
-import { collection, getDocs, updateDoc, doc, writeBatch } from "firebase/firestore";
+import { collection, getDocs, doc, writeBatch } from "firebase/firestore";
 
 async function migrateShopIdField() {
   console.log("Starting migration: shop_id -> shopId");

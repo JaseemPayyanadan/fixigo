@@ -1,8 +1,7 @@
 import { initializeApp, getApps } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 
-// Check if we're in the browser and environment variables are available
-const isClient = typeof window !== 'undefined';
+
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || 'AIzaSyCXtm_dJdKOydCWdhkSHN-7b4-3uEgdyF4',

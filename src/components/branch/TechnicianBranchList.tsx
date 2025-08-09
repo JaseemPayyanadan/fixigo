@@ -3,7 +3,6 @@ import { Branch } from "../../types";
 import { db } from "../../lib/firebase";
 import { collection, getDocs, where, query, getDoc, doc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
-import { useUser } from "../../hooks/useUser";
 import { BuildingOfficeIcon, MapPinIcon, PhoneIcon, EnvelopeIcon, UserGroupIcon, EyeIcon } from "@heroicons/react/24/outline";
 
 interface TechnicianBranchListProps {
@@ -20,13 +19,10 @@ export const TechnicianBranchList: React.FC<TechnicianBranchListProps> = ({
   branches, 
   loading, 
   error, 
-  shopId, 
-  onAddBranch, 
-  onDeleteBranch 
+  shopId
 }) => {
   const [techniciansByBranch, setTechniciansByBranch] = useState<Record<string, string[]>>({});
   const router = useRouter();
-  const { user } = useUser();
 
   useEffect(() => {
     const fetchTechnicians = async () => {
@@ -60,7 +56,7 @@ export const TechnicianBranchList: React.FC<TechnicianBranchListProps> = ({
                         technicianNames.push(userName);
                         continue; // Skip the query method if direct access worked
                       }
-                    } catch (directError) {
+                    } catch {
                       // Direct access failed, try query method
                     }
                     
@@ -81,7 +77,7 @@ export const TechnicianBranchList: React.FC<TechnicianBranchListProps> = ({
                         technicianNames.push(member.name);
                       }
                     }
-                  } catch (userError) {
+                  } catch {
                     // Fallback: Use name from member data if available
                     if (member.name) {
                       technicianNames.push(member.name);
@@ -94,13 +90,13 @@ export const TechnicianBranchList: React.FC<TechnicianBranchListProps> = ({
             } else {
               byBranch[branch.id] = [];
             }
-          } catch (error) {
+          } catch {
             byBranch[branch.id] = [];
           }
         }
         
         setTechniciansByBranch(byBranch);
-      } catch (error) {
+      } catch {
         setTechniciansByBranch({});
       }
     };

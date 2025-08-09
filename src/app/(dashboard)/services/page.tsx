@@ -173,7 +173,7 @@ function ServicesContent() {
           const querySnapshot = await getDocs(q);
           console.log(`Found ${querySnapshot.size} services for ${user.role}`);
           
-          let allServicesData = querySnapshot.docs.map((doc) => {
+          const allServicesData = querySnapshot.docs.map((doc) => {
             const data = { id: doc.id, ...doc.data() } as any;
             console.log("Raw service data:", {
               id: data.id,
@@ -306,7 +306,7 @@ function ServicesContent() {
     };
 
     fetchServices();
-  }, [user?.shopId, user?.branchId, user?.role]);
+  }, [user?.shopId, user?.branchId, user?.role, user?.id, user?.uid, user?.name, user?.email]);
 
   // Filtered services
   const filteredServices = useMemo(() => {

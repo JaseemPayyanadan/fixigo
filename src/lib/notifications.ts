@@ -1,7 +1,6 @@
-import { addDoc, collection, query, where, orderBy, onSnapshot, doc, updateDoc, getDocs } from "firebase/firestore";
+import { addDoc, collection, query, where, onSnapshot, doc, updateDoc, getDocs } from "firebase/firestore";
 import { db } from "./firebase";
 import { logger } from "./logger";
-import type { User } from "@/types";
 
 export interface Notification {
   id: string;

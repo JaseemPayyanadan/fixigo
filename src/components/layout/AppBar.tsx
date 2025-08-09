@@ -10,7 +10,7 @@ import NotificationBell from "../NotificationBell";
 export function AppBar() {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
-  const [notifications] = useState(3); // Mock notifications count
+
   const userIconRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLDivElement>(null);
