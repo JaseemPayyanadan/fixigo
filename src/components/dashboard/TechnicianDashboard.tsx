@@ -150,10 +150,10 @@ export default function TechnicianDashboard() {
 
   if (!user) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading user data...</p>
+          <div className="animate-spin w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full mx-auto mb-3"></div>
+          <p className="text-sm text-gray-600">Loading user data...</p>
         </div>
       </div>
     );
@@ -161,43 +161,50 @@ export default function TechnicianDashboard() {
 
   return (
     <DashboardErrorBoundary>
-      <div className="p-6 space-y-6">
+      <div className="min-h-screen bg-white">
         {/* Header */}
-        <DashboardHeader 
-          title="My Dashboard" 
-          subtitle="Welcome back, {name}"
-          user={user}
-        />
-
-        {/* Loading State */}
-        {isLoading && <DashboardLoadingState message="Loading your services... This may take a moment." />}
-
-        {/* Error States */}
-        {servicesError && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-            <div className="flex items-center">
-              <svg className="h-5 w-5 text-red-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-              </svg>
-              <p className="text-red-800 text-sm">Services: {servicesError}</p>
-            </div>
+        <div className="border-b border-gray-100 bg-white sticky top-0 z-10">
+          <div className="px-6 py-4">
+            <DashboardHeader 
+              title="Dashboard" 
+              subtitle="Welcome back, {name}"
+              user={user}
+            />
           </div>
-        )}
+        </div>
 
-        {/* Metrics Grid */}
-        <MetricsGrid metrics={dashboardMetrics} />
+        {/* Content */}
+        <div className="p-6 space-y-6">
+          {/* Loading State */}
+          {isLoading && <DashboardLoadingState message="Loading your services..." />}
 
-        {/* My Services */}
-        <RecentServicesCard 
-          services={myRecentServices} 
-          loading={servicesLoading}
-          error={servicesError}
-          title="My Services"
-          viewAllLink="/services"
-          emptyMessage="No services assigned"
-          createLink={undefined}
-          onRetry={handleServicesRetry}
-        />
+          {/* Error States */}
+          {servicesError && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <div className="flex items-center">
+                <svg className="h-5 w-5 text-red-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
+                <p className="text-red-800 text-sm">Services: {servicesError}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Metrics Grid */}
+          <MetricsGrid metrics={dashboardMetrics} />
+
+          {/* My Services */}
+          <RecentServicesCard 
+            services={myRecentServices} 
+            loading={servicesLoading}
+            error={servicesError}
+            title="My Services"
+            viewAllLink="/services"
+            emptyMessage="No services assigned"
+            createLink={undefined}
+            onRetry={handleServicesRetry}
+          />
+        </div>
       </div>
     </DashboardErrorBoundary>
   );

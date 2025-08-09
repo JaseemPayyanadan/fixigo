@@ -3,7 +3,7 @@ import { Branch } from "../../types";
 import { db } from "../../lib/firebase";
 import { collection, getDocs, where, query, getDoc, doc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
-import { BuildingOfficeIcon, PhoneIcon, EnvelopeIcon, UserGroupIcon } from "@heroicons/react/24/outline";
+import { BuildingOfficeIcon, PhoneIcon, EnvelopeIcon, UserGroupIcon, PencilIcon, TrashIcon } from "@heroicons/react/24/outline";
 
 interface ShopAdminBranchListProps {
   branches: Branch[];
@@ -121,13 +121,10 @@ export const ShopAdminBranchList: React.FC<ShopAdminBranchListProps> = ({
 
   if (loading) {
     return (
-      <div className="p-8 text-center">
-        <div className="inline-flex items-center gap-3">
-          <svg className="animate-spin h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-          </svg>
-          <span className="text-gray-600 font-medium">Loading branches...</span>
+      <div className="flex items-center justify-center py-12">
+        <div className="text-center">
+          <div className="animate-spin w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full mx-auto mb-3"></div>
+          <p className="text-sm text-gray-600">Loading branches...</p>
         </div>
       </div>
     );
@@ -135,13 +132,15 @@ export const ShopAdminBranchList: React.FC<ShopAdminBranchListProps> = ({
 
   if (error) {
     return (
-      <div className="p-8 text-center">
-        <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-md mx-auto">
-          <svg className="h-12 w-12 text-red-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <h3 className="text-lg font-semibold text-red-800 mb-2">Error Loading Branches</h3>
-          <p className="text-red-600">{error}</p>
+      <div className="flex items-center justify-center py-12">
+        <div className="text-center max-w-sm mx-auto px-4">
+          <div className="w-12 h-12 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">Error Loading Branches</h3>
+          <p className="text-sm text-gray-600">{error}</p>
         </div>
       </div>
     );
@@ -149,108 +148,86 @@ export const ShopAdminBranchList: React.FC<ShopAdminBranchListProps> = ({
 
   if (branches.length === 0) {
     return (
-      <div className="p-12 flex flex-col items-center justify-center text-center">
-        <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-6">
-          <BuildingOfficeIcon className="h-12 w-12 text-gray-400" />
+      <div className="flex items-center justify-center py-16">
+        <div className="text-center max-w-sm mx-auto px-4">
+          <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
+            <BuildingOfficeIcon className="h-8 w-8 text-gray-400" />
+          </div>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">No branches yet</h3>
+          <p className="text-sm text-gray-600 mb-6">Get started by adding your first branch to manage multiple locations.</p>
+          {onAddBranch && (
+            <button
+              onClick={onAddBranch}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              </svg>
+              Add Your First Branch
+            </button>
+          )}
         </div>
-        <h3 className="text-xl font-semibold text-gray-900 mb-2">No branches yet</h3>
-        <p className="text-gray-600 mb-6 max-w-md">Branches help you organize your business locations. Get started by adding your first branch to manage multiple locations.</p>
-        {onAddBranch && (
-          <button
-            onClick={onAddBranch}
-            className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 font-semibold shadow-lg transition-all duration-200 transform hover:scale-105 flex items-center gap-2"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-            </svg>
-            Add Your First Branch
-          </button>
-        )}
       </div>
     );
   }
 
   return (
-    <>
-      {/* Table for md+ screens */}
-      <div className="hidden md:block">
-        <div className="overflow-x-auto">
-          <table className="min-w-full">
+    <div className="p-6">
+      {/* Desktop Table View */}
+      <div className="hidden lg:block">
+        <div className="overflow-hidden rounded-lg border border-gray-200">
+          <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Branch Name</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Location</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Contact</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Email</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Technicians</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Branch</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Technicians</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
+            <tbody className="bg-white divide-y divide-gray-200">
               {branches.map((branch) => (
-                <tr key={branch.id || `branch-${Math.random()}`} className="hover:bg-gray-50 transition-colors duration-150">
+                <tr key={branch.id || `branch-${Math.random()}`} className="hover:bg-gray-50 transition-colors">
                   <td className="px-6 py-4">
                     <div className="flex items-center">
-                      <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
-                        <BuildingOfficeIcon className="w-5 h-5 text-blue-600" />
+                      <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
+                        <BuildingOfficeIcon className="w-4 h-4 text-blue-600" />
                       </div>
                       <div>
-                        <div className="text-sm font-semibold text-gray-900">{branch.name}</div>
-                        <div className="text-xs text-gray-500">Branch ID: {branch.id ? branch.id.slice(0, 8) + '...' : 'N/A'}</div>
+                        <div className="text-sm font-medium text-gray-900">{branch.name}</div>
+                        <div className="text-xs text-gray-500">{getBranchField(branch, 'location')}</div>
                       </div>
                     </div>
                   </td>
                   <td className="px-6 py-4">
-                    <div className="text-sm text-gray-900">
-                      {getBranchField(branch, 'location')}
+                    <div className="space-y-1">
+                      <div className="flex items-center text-sm text-gray-900">
+                        <PhoneIcon className="w-4 h-4 text-gray-400 mr-2" />
+                        {getBranchField(branch, 'phone')}
+                      </div>
+                      <div className="flex items-center text-sm text-gray-900">
+                        <EnvelopeIcon className="w-4 h-4 text-gray-400 mr-2" />
+                        {getBranchField(branch, 'email')}
+                      </div>
                     </div>
                   </td>
                   <td className="px-6 py-4">
-                    <div className="text-sm text-gray-900">
-                      {getBranchField(branch, 'phone')}
+                    <div className="flex items-center">
+                      <UserGroupIcon className="w-4 h-4 text-gray-400 mr-2" />
+                      <span className="text-sm text-gray-900">
+                        {techniciansByBranch[branch.id]?.length || 0} {techniciansByBranch[branch.id]?.length === 1 ? 'technician' : 'technicians'}
+                      </span>
                     </div>
+                    {techniciansByBranch[branch.id]?.length > 0 && (
+                      <div className="text-xs text-gray-500 mt-1">
+                        {techniciansByBranch[branch.id]?.slice(0, 2).join(', ')}
+                        {techniciansByBranch[branch.id]?.length > 2 && ` +${techniciansByBranch[branch.id]?.length - 2} more`}
+                      </div>
+                    )}
                   </td>
                   <td className="px-6 py-4">
-                    <div className="text-sm text-gray-900">
-                      {getBranchField(branch, 'email')}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="text-sm text-gray-900">
-                      {techniciansByBranch[branch.id]?.length ? (
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full font-medium">
-                              {techniciansByBranch[branch.id]?.length} {techniciansByBranch[branch.id]?.length === 1 ? 'technician' : 'technicians'}
-                            </span>
-                          </div>
-                          <div className="text-gray-600 text-xs">
-                            {techniciansByBranch[branch.id]?.slice(0, 3).map((name, index) => (
-                              <div key={index} className="flex items-center gap-1">
-                                <span className="w-1 h-1 bg-gray-400 rounded-full"></span>
-                                <span>{name}</span>
-                              </div>
-                            ))}
-                            {techniciansByBranch[branch.id]?.length > 3 && (
-                              <div className="text-gray-400 italic">
-                                +{techniciansByBranch[branch.id]?.length - 3} more
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="text-gray-400 text-xs">
-                          <div className="flex items-center gap-1">
-                            <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
-                            <span>No technicians assigned</span>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
                       branch.status === 'active' 
                         ? 'bg-green-100 text-green-800' 
                         : 'bg-red-100 text-red-800'
@@ -261,18 +238,18 @@ export const ShopAdminBranchList: React.FC<ShopAdminBranchListProps> = ({
                       {branch.status}
                     </span>
                   </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-2">
+                  <td className="px-6 py-4 text-right">
+                    <div className="flex items-center justify-end gap-2">
                       <button
-                        className="text-blue-600 hover:text-blue-900 font-medium text-sm transition-colors"
+                        className="text-gray-400 hover:text-blue-600 transition-colors"
                         onClick={() => branch.id && router.push(`/branch/edit?id=${branch.id}`)}
                         title="Edit branch"
                       >
-                        Edit
+                        <PencilIcon className="w-4 h-4" />
                       </button>
                       {onDeleteBranch && (
                         <button
-                          className="text-red-600 hover:text-red-900 font-medium text-sm transition-colors"
+                          className="text-gray-400 hover:text-red-600 transition-colors"
                           onClick={() => {
                             if (window.confirm(`Are you sure you want to delete branch '${branch.name}'?`)) {
                               onDeleteBranch(branch);
@@ -280,7 +257,7 @@ export const ShopAdminBranchList: React.FC<ShopAdminBranchListProps> = ({
                           }}
                           title="Delete branch"
                         >
-                          Delete
+                          <TrashIcon className="w-4 h-4" />
                         </button>
                       )}
                     </div>
@@ -292,26 +269,22 @@ export const ShopAdminBranchList: React.FC<ShopAdminBranchListProps> = ({
         </div>
       </div>
 
-      {/* Cards for mobile screens */}
-      <div className="md:hidden">
-        <div className="px-4 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">Branch Locations</h3>
-          <p className="text-sm text-gray-600">Manage your business locations</p>
-        </div>
-        <div className="p-4 space-y-4">
+      {/* Mobile/Tablet Card View */}
+      <div className="lg:hidden">
+        <div className="space-y-4">
           {branches.map((branch) => (
-            <div key={branch.id || `branch-${Math.random()}`} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
-              <div className="flex items-start justify-between mb-4">
+            <div key={branch.id || `branch-${Math.random()}`} className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-sm transition-shadow">
+              <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <BuildingOfficeIcon className="w-6 h-6 text-blue-600" />
+                  <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <BuildingOfficeIcon className="w-5 h-5 text-blue-600" />
                   </div>
                   <div>
-                    <h4 className="text-lg font-semibold text-gray-900">{branch.name}</h4>
-                    <p className="text-sm text-gray-500">{getBranchField(branch, 'location')}</p>
+                    <h4 className="text-sm font-medium text-gray-900">{branch.name}</h4>
+                    <p className="text-xs text-gray-500">{getBranchField(branch, 'location')}</p>
                   </div>
                 </div>
-                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
                   branch.status === 'active' 
                     ? 'bg-green-100 text-green-800' 
                     : 'bg-red-100 text-red-800'
@@ -323,63 +296,47 @@ export const ShopAdminBranchList: React.FC<ShopAdminBranchListProps> = ({
                 </span>
               </div>
               
-              <div className="space-y-2 mb-4">
-                <div className="flex items-center gap-2 text-sm text-gray-600">
-                  <PhoneIcon className="w-4 h-4 text-gray-400" />
-                  <span className="font-medium">{getBranchField(branch, 'phone')}</span>
+              <div className="space-y-2 mb-3">
+                <div className="flex items-center text-xs text-gray-600">
+                  <PhoneIcon className="w-3 h-3 text-gray-400 mr-2" />
+                  <span>{getBranchField(branch, 'phone')}</span>
                 </div>
-                <div className="flex items-center gap-2 text-sm text-gray-600">
-                  <EnvelopeIcon className="w-4 h-4 text-gray-400" />
-                  <span className="font-medium">{getBranchField(branch, 'email')}</span>
+                <div className="flex items-center text-xs text-gray-600">
+                  <EnvelopeIcon className="w-3 h-3 text-gray-400 mr-2" />
+                  <span>{getBranchField(branch, 'email')}</span>
                 </div>
-                <div className="flex items-center gap-2 text-sm text-gray-600">
-                  <UserGroupIcon className="w-4 h-4 text-gray-400" />
-                  <span className="font-medium">
+                <div className="flex items-center text-xs text-gray-600">
+                  <UserGroupIcon className="w-3 h-3 text-gray-400 mr-2" />
+                  <span>
                     {techniciansByBranch[branch.id]?.length || 0} {techniciansByBranch[branch.id]?.length === 1 ? 'technician' : 'technicians'}
                   </span>
                 </div>
-                {techniciansByBranch[branch.id]?.length > 0 ? (
-                  <div className="text-xs text-gray-500 ml-6 space-y-1">
-                    {techniciansByBranch[branch.id]?.slice(0, 3).map((name, index) => (
-                      <div key={index} className="flex items-center gap-1">
-                        <span className="w-1 h-1 bg-gray-400 rounded-full"></span>
-                        <span>{name}</span>
-                      </div>
-                    ))}
-                    {techniciansByBranch[branch.id]?.length > 3 && (
-                      <div className="text-gray-400 italic">
-                        +{techniciansByBranch[branch.id]?.length - 3} more
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="text-xs text-gray-400 ml-6">
-                    <div className="flex items-center gap-1">
-                      <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
-                      <span>No technicians assigned</span>
-                    </div>
+                {techniciansByBranch[branch.id]?.length > 0 && (
+                  <div className="text-xs text-gray-500 ml-5">
+                    {techniciansByBranch[branch.id]?.slice(0, 2).join(', ')}
+                    {techniciansByBranch[branch.id]?.length > 2 && ` +${techniciansByBranch[branch.id]?.length - 2} more`}
                   </div>
                 )}
               </div>
               
-              <div className="flex gap-2 pt-4 border-t border-gray-100">
+              <div className="flex gap-2 pt-3 border-t border-gray-100">
                 <button
-                  className="flex-1 px-4 py-2 text-blue-600 hover:text-blue-900 font-medium text-sm transition-colors border border-blue-200 rounded-lg hover:bg-blue-50"
+                  className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-blue-600 hover:text-blue-700 text-xs font-medium transition-colors border border-blue-200 rounded-md hover:bg-blue-50"
                   onClick={() => branch.id && router.push(`/branch/edit?id=${branch.id}`)}
-                  title="Edit branch"
                 >
+                  <PencilIcon className="w-3 h-3" />
                   Edit
                 </button>
                 {onDeleteBranch && (
                   <button
-                    className="flex-1 px-4 py-2 text-red-600 hover:text-red-900 font-medium text-sm transition-colors border border-red-200 rounded-lg hover:bg-red-50"
+                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-red-600 hover:text-red-700 text-xs font-medium transition-colors border border-red-200 rounded-md hover:bg-red-50"
                     onClick={() => {
                       if (window.confirm(`Are you sure you want to delete branch '${branch.name}'?`)) {
                         onDeleteBranch(branch);
                       }
                     }}
-                    title="Delete branch"
                   >
+                    <TrashIcon className="w-3 h-3" />
                     Delete
                   </button>
                 )}
@@ -388,8 +345,9 @@ export const ShopAdminBranchList: React.FC<ShopAdminBranchListProps> = ({
           ))}
         </div>
       </div>
-    </>
+    </div>
   );
 };
 
 export default ShopAdminBranchList;
+

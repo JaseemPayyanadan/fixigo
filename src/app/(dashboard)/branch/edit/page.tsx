@@ -8,7 +8,6 @@ import { useUser } from "@/hooks";
 import { BranchForm } from "@/modules/branch/BranchForm";
 import { Branch } from "@/types";
 import { LoadingSpinner } from "@/components/ui";
-import { HiArrowLeft } from "react-icons/hi";
 import Link from "next/link";
 
 export default function EditBranchPage() {
@@ -90,7 +89,7 @@ function EditBranchContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 flex items-center justify-center">
+      <div className="min-h-screen bg-white flex items-center justify-center">
         <LoadingSpinner text="Loading branch details..." />
       </div>
     );
@@ -98,32 +97,28 @@ function EditBranchContent() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
-        <div className="max-w-2xl mx-auto px-4 py-8">
-          <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
-            <div className="text-center">
-              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <h2 className="text-xl font-semibold text-gray-900 mb-2">Unable to Load Branch</h2>
-              <p className="text-gray-600 mb-6">{error}</p>
-              <div className="flex gap-3 justify-center">
-                <button
-                  onClick={() => window.location.reload()}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  Try Again
-                </button>
-                <Link
-                  href="/branch"
-                  className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
-                >
-                  Back to Branches
-                </Link>
-              </div>
-            </div>
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center max-w-md mx-auto px-4">
+          <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
+            <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-3">Unable to Load Branch</h2>
+          <p className="text-gray-600 mb-6">{error}</p>
+          <div className="flex gap-3 justify-center">
+            <button
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Try Again
+            </button>
+            <Link
+              href="/branch"
+              className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+            >
+              Back to Branches
+            </Link>
           </div>
         </div>
       </div>
@@ -132,56 +127,68 @@ function EditBranchContent() {
 
   if (!branch) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
-        <div className="max-w-2xl mx-auto px-4 py-8">
-          <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
-            <div className="text-center">
-              <h2 className="text-xl font-semibold text-gray-900 mb-2">Branch Not Found</h2>
-              <p className="text-gray-600 mb-6">The branch you&apos;re looking for doesn&apos;t exist or has been removed.</p>
-              <Link
-                href="/branch"
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                Back to Branches
-              </Link>
-            </div>
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center max-w-md mx-auto px-4">
+          <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-6">
+            <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+            </svg>
           </div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-3">Branch Not Found</h2>
+          <p className="text-gray-600 mb-6">The branch you&apos;re looking for doesn&apos;t exist or has been removed.</p>
+          <Link
+            href="/branch"
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Back to Branches
+          </Link>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center gap-4 mb-6">
+    <div className="min-h-screen bg-white">
+      {/* Header */}
+      <div className="border-b border-gray-100 bg-white sticky top-0 z-10">
+        <div className="px-6 py-4">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+              <h1 className="text-2xl font-semibold text-gray-900">Edit Branch</h1>
+              <p className="text-sm text-gray-600 mt-1">Update branch information and contact details</p>
+            </div>
             <Link
               href="/branch"
-              className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
+              className="inline-flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-800 font-medium transition-colors"
             >
-              <HiArrowLeft className="w-5 h-5" />
-              <span>Back to Branches</span>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+              Back to Branches
             </Link>
           </div>
-          
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-              <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-              </svg>
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Edit Branch</h1>
-              <p className="text-gray-600">Update branch information and contact details</p>
-            </div>
-          </div>
         </div>
+      </div>
 
-        {/* Error Display */}
-        {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+      {/* Full Screen Form */}
+      <div className="flex-1">
+        <BranchForm
+          onSubmit={handleEditBranch}
+          loading={formLoading}
+          initialData={{
+            name: branch.name,
+            location: branch.location || "",
+            phone: branch.phone || "",
+            email: branch.email || "",
+          }}
+          editing={true}
+        />
+      </div>
+
+      {/* Error Message */}
+      {error && (
+        <div className="fixed bottom-6 right-6 max-w-sm">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 shadow-lg">
             <div className="flex">
               <div className="flex-shrink-0">
                 <svg className="h-5 w-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -193,23 +200,8 @@ function EditBranchContent() {
               </div>
             </div>
           </div>
-        )}
-
-        {/* Branch Form */}
-        <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
-          <BranchForm
-            onSubmit={handleEditBranch}
-            loading={formLoading}
-            initialData={{
-              name: branch.name,
-              location: branch.location || "",
-              phone: branch.phone || "",
-              email: branch.email || "",
-            }}
-            editing={true}
-          />
         </div>
-      </div>
+      )}
     </div>
   );
 } 
