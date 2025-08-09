@@ -6,7 +6,7 @@ import { db } from "@/lib/firebase";
 import { doc, getDoc, updateDoc, deleteDoc, collection, getDocs, query, where } from "firebase/firestore";
 import { useUser } from "@/hooks";
 import ServiceForm from "@/modules/service/ServiceForm";
-import type { Branch } from "@/types";
+import type { Branch, Technician } from "@/types";
 import {  
   MdPerson, 
   MdPhone, 
@@ -24,7 +24,30 @@ import {
   MdCheckCircle,
   MdWarning,
   MdInfo,
-  MdLocationOn
+  MdLocationOn,
+  MdPriorityHigh,
+  MdAccessTime,
+  MdHistory,
+  MdStar,
+  MdStarBorder,
+  MdEmail,
+  MdColorLens,
+  MdCategory,
+  MdAssignment,
+  MdPersonAdd,
+  MdShare,
+  MdPrint,
+  MdDownload,
+  MdRefresh,
+  MdNotes,
+  MdWork,
+  MdInventory,
+  MdFeedback,
+  MdGrade,
+  MdCalendarToday,
+  MdEvent,
+  MdBuildCircle,
+  MdDescription
 } from "react-icons/md";
 
 interface Service {
@@ -40,42 +63,86 @@ interface Service {
   paymentStatus?: string;
   status?: string;
   technician_id?: string;
+  priority?: string;
+  estimatedDuration?: number;
+  actualDuration?: number;
+  scheduledDate?: Date;
+  completedDate?: Date;
+  notes?: string;
+  workNotes?: string[];
+  partsUsed?: Array<{
+    name: string;
+    quantity: number;
+    cost: number;
+  }>;
+  customerFeedback?: {
+    rating: number;
+    comment?: string;
+    date: Date;
+  };
+  qualityScore?: number;
+  estimatedCompletion?: Date;
+  actualCompletion?: Date;
   device?: { 
     model: string; 
     brand: string; 
     imei: string; 
     color?: string;
-    type?: string; // Legacy field
+    type?: string;
+    issue?: string;
   };
   customer?: { 
     name: string; 
     phone?: string; 
     place?: string;
-    email?: string; // Legacy field
+    email?: string;
+    address?: string;
   };
 }
 
+interface StatusHistory {
+  status: string;
+  timestamp: Date;
+  updatedBy: string;
+}
+
 const STATUS_OPTIONS = ["To Do", "In Progress", "Completed", "Pending", "Cancelled", "Awaiting Parts", "On Hold", "Ready for Pickup"];
+const PRIORITY_OPTIONS = ["low", "medium", "high", "urgent"];
+
 const statusColors: Record<string, string> = {
-  "To Do": "bg-gray-100 text-gray-700 border border-gray-200",
-  Completed: "bg-green-100 text-green-700 border border-green-200",
-  "In Progress": "bg-yellow-100 text-yellow-700 border border-yellow-200",
-  Pending: "bg-gray-100 text-gray-700 border border-gray-200",
-  Cancelled: "bg-red-100 text-red-700 border border-red-200",
-  "Awaiting Parts": "bg-blue-100 text-blue-700 border border-blue-200",
-  "On Hold": "bg-orange-100 text-orange-700 border border-orange-200",
-  "Ready for Pickup": "bg-purple-100 text-purple-700 border border-purple-200",
+  "To Do": "bg-slate-50 text-slate-700 border-slate-200",
+  Completed: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  "In Progress": "bg-blue-50 text-blue-700 border-blue-200",
+  Pending: "bg-amber-50 text-amber-700 border-amber-200",
+  Cancelled: "bg-red-50 text-red-700 border-red-200",
+  "Awaiting Parts": "bg-violet-50 text-violet-700 border-violet-200",
+  "On Hold": "bg-orange-50 text-orange-700 border-orange-200",
+  "Ready for Pickup": "bg-indigo-50 text-indigo-700 border-indigo-200",
 };
 
 const statusIcons: Record<string, React.ReactNode> = {
-  "To Do": <MdSchedule className="w-5 h-5" />,
-  Completed: <MdCheckCircle className="w-5 h-5" />,
-  "In Progress": <MdWarning className="w-5 h-5" />,
-  Pending: <MdSchedule className="w-5 h-5" />,
-  Cancelled: <MdDelete className="w-5 h-5" />,
-  "Awaiting Parts": <MdInfo className="w-5 h-5" />,
-  "On Hold": <MdWarning className="w-5 h-5" />,
-  "Ready for Pickup": <MdCheckCircle className="w-5 h-5" />,
+  "To Do": <MdSchedule className="w-4 h-4" />,
+  Completed: <MdCheckCircle className="w-4 h-4" />,
+  "In Progress": <MdBuild className="w-4 h-4" />,
+  Pending: <MdSchedule className="w-4 h-4" />,
+  Cancelled: <MdDelete className="w-4 h-4" />,
+  "Awaiting Parts": <MdInfo className="w-4 h-4" />,
+  "On Hold": <MdWarning className="w-4 h-4" />,
+  "Ready for Pickup": <MdCheckCircle className="w-4 h-4" />,
+};
+
+const priorityColors: Record<string, string> = {
+  low: "bg-slate-100 text-slate-700 border-slate-200",
+  medium: "bg-blue-100 text-blue-700 border-blue-200",
+  high: "bg-orange-100 text-orange-700 border-orange-200",
+  urgent: "bg-red-100 text-red-700 border-red-200",
+};
+
+const priorityIcons: Record<string, React.ReactNode> = {
+  low: <MdPriorityHigh className="w-3 h-3" />,
+  medium: <MdPriorityHigh className="w-3 h-3" />,
+  high: <MdPriorityHigh className="w-3 h-3" />,
+  urgent: <MdPriorityHigh className="w-3 h-3" />,
 };
 
 function ServiceDetailsPage() {
@@ -85,12 +152,15 @@ function ServiceDetailsPage() {
   const { user } = useUser();
   const [service, setService] = useState<Service | null>(null);
   const [branches, setBranches] = useState<Branch[]>([]);
+  const [technicians, setTechnicians] = useState<Technician[]>([]);
   const [branchId, setBranchId] = useState("");
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState("To Do");
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [statusHistory, setStatusHistory] = useState<StatusHistory[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
 
   useEffect(() => {
     if (!serviceId) return;
@@ -100,64 +170,86 @@ function ServiceDetailsPage() {
         const docSnap = await getDoc(doc(db, "services", serviceId));
         if (docSnap.exists()) {
           const data = docSnap.data();
-          setService({
+          const serviceData: Service = {
             id: docSnap.id,
-            ...data,
-            createdAt: data.createdAt && typeof data.createdAt.toDate === 'function' ? data.createdAt.toDate() : undefined,
-            updatedAt: data.updatedAt && typeof data.updatedAt.toDate === 'function' ? data.updatedAt.toDate() : undefined,
-          } as Service);
-
-          const finalBranchId = data.branchId || "";
-          setBranchId(finalBranchId);
-          setStatus(data.status || "To Do");
+            name: data.name || "",
+            description: data.description || "",
+            price: data.price || 0,
+            shopId: data.shopId || "",
+            branchId: data.branchId || "",
+            created_by: data.created_by,
+            createdAt: data.createdAt?.toDate() || new Date(),
+            updatedAt: data.updatedAt?.toDate() || new Date(),
+            paymentStatus: data.paymentStatus,
+            status: data.status || "To Do",
+            technician_id: data.technician_id || "",
+            priority: data.priority || "medium",
+            estimatedDuration: data.estimatedDuration || 60,
+            actualDuration: data.actualDuration || 0,
+            scheduledDate: data.scheduledDate?.toDate(),
+            completedDate: data.completedDate?.toDate(),
+            notes: data.notes || "",
+            workNotes: data.workNotes || [],
+            partsUsed: data.partsUsed || [],
+            customerFeedback: data.customerFeedback ? {
+              ...data.customerFeedback,
+              date: data.customerFeedback.date?.toDate() || new Date()
+            } : undefined,
+            qualityScore: data.qualityScore,
+            estimatedCompletion: data.estimatedCompletion?.toDate(),
+            actualCompletion: data.actualCompletion?.toDate(),
+            device: data.device || {},
+            customer: data.customer || {},
+          };
+          setService(serviceData);
+          setStatus(serviceData.status || "To Do");
+          setBranchId(serviceData.branchId);
         } else {
           setError("Service not found");
         }
-      } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : String(err));
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to fetch service");
       } finally {
         setLoading(false);
       }
     };
-    fetchService();
-  }, [serviceId]);
 
-  useEffect(() => {
-    // Fetch all branches for branch name display
     const fetchBranches = async () => {
-      if (!user?.shopId) {
-        return;
-      }
-      
+      if (!user?.shopId) return;
       try {
-        // Use the correct collection path: main "branches" collection with shopId filter
-        const querySnapshot = await getDocs(
-          query(
-            collection(db, "branches"),
-            where("shopId", "==", user.shopId)
-          )
-        );
-        const branchesData = querySnapshot.docs.map(docSnap => ({ 
-          id: docSnap.id, 
-          ...docSnap.data() 
-        } as Branch));
+        const branchesRef = collection(db, "branches");
+        const q = query(branchesRef, where("shopId", "==", user.shopId));
+        const querySnapshot = await getDocs(q);
+        const branchesData = querySnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as Branch[];
         setBranches(branchesData);
-      } catch (error) {
-        console.error('Error fetching branches:', error);
+      } catch (err) {
+        // Error fetching branches
       }
     };
-    fetchBranches();
-  }, [user?.shopId]);
 
-  // Ensure branchId is set when service changes
-  useEffect(() => {
-    if (service) {
-              const serviceBranchId = service.branchId || "";
-      if (serviceBranchId && serviceBranchId !== branchId) {
-        setBranchId(serviceBranchId);
+    const fetchTechnicians = async () => {
+      if (!user?.shopId) return;
+      try {
+        const techniciansRef = collection(db, "technicians");
+        const q = query(techniciansRef, where("shopId", "==", user.shopId));
+        const querySnapshot = await getDocs(q);
+        const techniciansData = querySnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as Technician[];
+        setTechnicians(techniciansData);
+      } catch (err) {
+        // Error fetching technicians
       }
-    }
-  }, [service, branchId]);
+    };
+
+    fetchService();
+    fetchBranches();
+    fetchTechnicians();
+  }, [serviceId, user?.shopId]);
 
   const handleEdit = async (data: {
     service: { name: string; description: string; price: string; branchId: string; technician_id?: string };
@@ -226,8 +318,15 @@ function ServiceDetailsPage() {
           updatedAt: new Date() 
         });
         setService((prev) => prev ? { ...prev, status: newStatus, updatedAt: new Date() } : null);
+        
+        // Add to status history
+        const historyEntry: StatusHistory = {
+          status: newStatus,
+          timestamp: new Date(),
+          updatedBy: user?.name || "Unknown"
+        };
+        setStatusHistory(prev => [historyEntry, ...prev]);
       } catch (err) {
-        console.error("Error updating status:", err);
         setStatus(service?.status || "To Do"); // Revert on error
       } finally {
         setUpdatingStatus(false);
@@ -235,12 +334,52 @@ function ServiceDetailsPage() {
     }
   };
 
+  const getTechnicianName = (technicianId: string) => {
+    const technician = technicians.find(t => t.id === technicianId);
+    return technician?.name || "Not assigned";
+  };
+
+  const formatDuration = (minutes: number) => {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+  };
+
+  const getPriorityLabel = (priority: string) => {
+    const labels = {
+      low: "Low",
+      medium: "Medium", 
+      high: "High",
+      urgent: "Urgent"
+    };
+    return labels[priority as keyof typeof labels] || "Medium";
+  };
+
+  const formatDate = (date: Date | undefined) => {
+    if (!date) return "Not scheduled";
+    return date.toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'short', 
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const renderStars = (rating: number) => {
+    return Array.from({ length: 5 }, (_, i) => (
+      <MdStar key={i} className={`w-4 h-4 ${i < rating ? 'text-yellow-400 fill-current' : 'text-gray-300'}`} />
+    ));
+  };
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading service details...</p>
+          <div className="relative">
+            <div className="animate-spin rounded-full h-12 w-12 border-2 border-blue-200 border-t-blue-600 mx-auto mb-4"></div>
+          </div>
+          <p className="text-slate-600 font-medium">Loading service details...</p>
         </div>
       </div>
     );
@@ -248,19 +387,28 @@ function ServiceDetailsPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <MdWarning className="w-8 h-8 text-red-600" />
+      <div className="min-h-screen bg-white flex items-center justify-center p-4">
+        <div className="text-center max-w-md mx-auto">
+          <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
+            <MdWarning className="w-8 h-8 text-red-500" />
           </div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Error</h2>
-          <p className="text-gray-600 mb-4">{error}</p>
-          <button
-            onClick={() => router.back()}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            Go Back
-          </button>
+          <h2 className="text-xl font-semibold text-slate-900 mb-2">Error Loading Service</h2>
+          <p className="text-slate-600 mb-6">{error}</p>
+          <div className="flex gap-3 justify-center">
+            <button
+              onClick={() => router.back()}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Go Back
+            </button>
+            <button
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
+            >
+              <MdRefresh className="w-4 h-4 inline mr-1" />
+              Retry
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -270,16 +418,16 @@ function ServiceDetailsPage() {
 
   if (editing) {
     return (
-      <div className="min-h-screen bg-gray-50 p-8">
+      <div className="min-h-screen bg-white p-6">
         <div className="max-w-4xl mx-auto">
           <div className="flex items-center mb-6">
             <button 
               onClick={() => setEditing(false)} 
-              className="mr-4 p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+              className="mr-4 p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
             >
               <MdArrowBack className="w-6 h-6" />
             </button>
-            <h1 className="text-2xl font-bold text-gray-900">Edit Service</h1>
+            <h1 className="text-2xl font-bold text-slate-900">Edit Service</h1>
           </div>
 
           <ServiceForm
@@ -328,202 +476,443 @@ function ServiceDetailsPage() {
   const branchName = branches.find(b => b.id === service.branchId)?.name || service.branchId;
   const createdAt = service.createdAt ? new Date(service.createdAt) : null;
   const updatedAt = service.updatedAt ? new Date(service.updatedAt) : null;
-  const statusColor = statusColors[status] || "bg-gray-100 text-gray-700 border border-gray-200";
-  const statusIcon = statusIcons[status] || <MdInfo className="w-5 h-5" />;
+  const statusColor = statusColors[status] || "bg-slate-100 text-slate-700 border-slate-200";
+  const statusIcon = statusIcons[status] || <MdInfo className="w-4 h-4" />;
+  const priorityColor = priorityColors[service.priority || "medium"];
+  const priorityIcon = priorityIcons[service.priority || "medium"];
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-6xl mx-auto p-8">
+    <div className="min-h-screen bg-white">
+      <div className="max-w-6xl mx-auto p-6">
         {/* Header */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <button 
-                onClick={() => router.back()} 
-                className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <MdArrowBack className="w-6 h-6" />
-              </button>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">{service.name}</h1>
-                <p className="text-gray-600">Service ID: #{service.id.slice(-6)}</p>
-              </div>
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-4">
+            <button 
+              onClick={() => router.back()} 
+              className="p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+            >
+              <MdArrowBack className="w-6 h-6" />
+            </button>
+            <div>
+              <h1 className="text-2xl font-bold text-slate-900">{service.name}</h1>
+              <p className="text-slate-500">ID: #{service.id.slice(-6)}</p>
             </div>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={handleDelete}
-                className="flex items-center gap-2 px-4 py-2 border border-red-300 text-red-600 bg-white rounded-lg font-medium hover:bg-red-50 transition-colors"
-              >
-                <MdDelete className="w-5 h-5" />
-                Delete
-              </button>
-              <button
-                onClick={() => setEditing(true)}
-                className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 bg-white rounded-lg font-medium hover:bg-gray-50 transition-colors"
-              >
-                <MdEdit className="w-5 h-5" />
-                Edit
-              </button>
-              <button
-                onClick={() => {
-                  router.push(`/invoices/details?id=${service.id}`);
-                }}
-                className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
-              >
-                <MdReceipt className="w-5 h-5" />
-                Generate Invoice
-              </button>
-            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowHistory(!showHistory)}
+              className="flex items-center gap-2 px-3 py-2 text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors"
+            >
+              <MdHistory className="w-4 h-4" />
+              History
+            </button>
+            <button
+              onClick={handleDelete}
+              className="flex items-center gap-2 px-3 py-2 border border-red-300 text-red-600 bg-white rounded-lg font-medium hover:bg-red-50 transition-colors"
+            >
+              <MdDelete className="w-4 h-4" />
+              Delete
+            </button>
+            <button
+              onClick={() => setEditing(true)}
+              className="flex items-center gap-2 px-3 py-2 border border-slate-300 text-slate-700 bg-white rounded-lg font-medium hover:bg-slate-50 transition-colors"
+            >
+              <MdEdit className="w-4 h-4" />
+              Edit
+            </button>
+            <button
+              onClick={() => router.push(`/invoices/details?id=${service.id}`)}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
+            >
+              <MdReceipt className="w-4 h-4" />
+              Generate Invoice
+            </button>
           </div>
         </div>
 
-        {/* Status Management */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className={`${statusColor} flex items-center gap-2 px-4 py-2 rounded-lg font-semibold`}>
-                {statusIcon}
-                {status}
-              </div>
-              <select
-                value={status}
-                onChange={handleStatusChange}
-                disabled={updatingStatus}
-                className="border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-              >
-                {STATUS_OPTIONS.map(opt => (
-                  <option key={opt} value={opt}>{opt}</option>
-                ))}
-              </select>
-              {updatingStatus && (
-                <div className="flex items-center gap-2 text-sm text-gray-500">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                  Updating...
-                </div>
+        {/* Status and Priority */}
+        <div className="flex items-center gap-4 mb-8">
+          <div className={`${statusColor} flex items-center gap-2 px-4 py-2 rounded-lg font-semibold border`}>
+            {statusIcon}
+            {status}
+          </div>
+          <div className={`${priorityColor} flex items-center gap-1.5 px-3 py-2 rounded-lg font-semibold border`}>
+            {priorityIcon}
+            {getPriorityLabel(service.priority || "medium")}
+          </div>
+          <select
+            value={status}
+            onChange={handleStatusChange}
+            disabled={updatingStatus}
+            className="border border-slate-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 bg-white"
+          >
+            {STATUS_OPTIONS.map(opt => (
+              <option key={opt} value={opt}>{opt}</option>
+            ))}
+          </select>
+          {updatingStatus && (
+            <div className="flex items-center gap-2 text-sm text-slate-500">
+              <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-200 border-t-blue-600"></div>
+              Updating...
+            </div>
+          )}
+        </div>
+
+        {/* Status History */}
+        {showHistory && (
+          <div className="mb-8 p-6 bg-slate-50 rounded-xl border border-slate-200">
+            <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
+              <MdHistory className="w-5 h-5 text-blue-600" />
+              Status History
+            </h3>
+            <div className="space-y-3">
+              {statusHistory.length > 0 ? (
+                statusHistory.map((entry, index) => (
+                  <div key={index} className="flex items-center justify-between p-3 bg-white rounded-lg border border-slate-200">
+                    <div className="flex items-center gap-3">
+                      <div className={`${statusColors[entry.status]} px-3 py-1 rounded-full text-sm font-medium`}>
+                        {entry.status}
+                      </div>
+                      <span className="text-sm text-slate-600">by {entry.updatedBy}</span>
+                    </div>
+                    <span className="text-sm text-slate-500">
+                      {entry.timestamp.toLocaleString()}
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <p className="text-slate-500 text-center py-4">No status history available</p>
               )}
             </div>
-            <div className="text-right text-sm text-gray-500">
-              <div>Last updated: {updatedAt ? updatedAt.toLocaleString() : "-"}</div>
-              <div>Created: {createdAt ? createdAt.toLocaleDateString() : "-"}</div>
-            </div>
           </div>
-        </div>
+        )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Device Information */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <h2 className="font-semibold text-lg mb-4 flex items-center gap-2">
-              <MdDevices className="w-5 h-5 text-blue-600" />
-              Device Information
-            </h2>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <div className="flex items-center gap-1 text-gray-500 text-sm mb-1">
-                  <MdDevices className="w-4 h-4" />
-                  Type
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Main Content */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Service Information */}
+            <div className="bg-white border border-slate-200 rounded-xl p-6">
+              <h2 className="font-semibold text-lg mb-4 flex items-center gap-2">
+                <MdBuild className="w-5 h-5 text-blue-600" />
+                Service Information
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <div className="text-slate-500 text-sm mb-1">Service Name</div>
+                  <div className="font-medium text-slate-900">{service.name}</div>
                 </div>
-                <div className="font-medium text-gray-900">
-                  {service.device && typeof service.device === "object" && "type" in service.device 
-                    ? String((service.device as Record<string, unknown>).type || "") 
-                    : "Not specified"}
+                <div>
+                  <div className="text-slate-500 text-sm mb-1">Price</div>
+                  <div className="font-bold text-slate-900 text-lg">₹{service.price?.toLocaleString()}</div>
                 </div>
-              </div>
-              <div>
-                <div className="flex items-center gap-1 text-gray-500 text-sm mb-1">
-                  <MdBusiness className="w-4 h-4" />
-                  Brand
+                <div>
+                  <div className="text-slate-500 text-sm mb-1">Branch</div>
+                  <div className="font-medium text-slate-900">{branchName}</div>
                 </div>
-                <div className="font-medium text-gray-900">
-                  {service.device && typeof service.device === "object" && "brand" in service.device 
-                    ? String((service.device as Record<string, unknown>).brand || "") 
-                    : "Not specified"}
+                <div>
+                  <div className="text-slate-500 text-sm mb-1">Assigned Technician</div>
+                  <div className="font-medium text-slate-900">
+                    {service.technician_id ? getTechnicianName(service.technician_id) : "Not assigned"}
+                  </div>
                 </div>
-              </div>
-              <div>
-                <div className="flex items-center gap-1 text-gray-500 text-sm mb-1">
-                  <MdLabel className="w-4 h-4" />
-                  Model
+                <div>
+                  <div className="text-slate-500 text-sm mb-1">Estimated Duration</div>
+                  <div className="font-medium text-slate-900">
+                    {formatDuration(service.estimatedDuration || 60)}
+                  </div>
                 </div>
-                <div className="font-medium text-gray-900">
-                  {service.device && typeof service.device === "object" && "model" in service.device 
-                    ? String((service.device as Record<string, unknown>).model || "") 
-                    : "Not specified"}
-                </div>
-              </div>
-              <div>
-                <div className="flex items-center gap-1 text-gray-500 text-sm mb-1">
-                  <MdConfirmationNumber className="w-4 h-4" />
-                  IMEI
-                </div>
-                <div className="font-medium text-gray-900">
-                  {service.device && typeof service.device === "object" && "imei" in service.device 
-                    ? String((service.device as Record<string, unknown>).imei || "") 
-                    : "Not specified"}
+                {service.actualDuration && (
+                  <div>
+                    <div className="text-slate-500 text-sm mb-1">Actual Duration</div>
+                    <div className="font-medium text-slate-900">
+                      {formatDuration(service.actualDuration)}
+                    </div>
+                  </div>
+                )}
+                <div className="md:col-span-2">
+                  <div className="text-slate-500 text-sm mb-1">Description</div>
+                  <div className="font-medium text-slate-900 bg-slate-50 p-3 rounded-lg">
+                    {service.description || "No description provided"}
+                  </div>
                 </div>
               </div>
             </div>
+
+            {/* Device Information */}
+            <div className="bg-white border border-slate-200 rounded-xl p-6">
+              <h2 className="font-semibold text-lg mb-4 flex items-center gap-2">
+                <MdDevices className="w-5 h-5 text-green-600" />
+                Device Information
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <div className="text-slate-500 text-sm mb-1">Type</div>
+                  <div className="font-medium text-slate-900">
+                    {service.device?.type || "Not specified"}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-slate-500 text-sm mb-1">Brand</div>
+                  <div className="font-medium text-slate-900">
+                    {service.device?.brand || "Not specified"}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-slate-500 text-sm mb-1">Model</div>
+                  <div className="font-medium text-slate-900">
+                    {service.device?.model || "Not specified"}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-slate-500 text-sm mb-1">IMEI</div>
+                  <div className="font-medium text-slate-900 font-mono text-sm">
+                    {service.device?.imei || "Not specified"}
+                  </div>
+                </div>
+                {service.device?.color && (
+                  <div>
+                    <div className="text-slate-500 text-sm mb-1">Color</div>
+                    <div className="font-medium text-slate-900">
+                      {service.device.color}
+                    </div>
+                  </div>
+                )}
+                {service.device?.issue && (
+                  <div className="md:col-span-2">
+                    <div className="text-slate-500 text-sm mb-1">Issue Description</div>
+                    <div className="font-medium text-slate-900 bg-slate-50 p-3 rounded-lg">
+                      {service.device.issue}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Customer Information */}
+            <div className="bg-white border border-slate-200 rounded-xl p-6">
+              <h2 className="font-semibold text-lg mb-4 flex items-center gap-2">
+                <MdPerson className="w-5 h-5 text-purple-600" />
+                Customer Information
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <div className="text-slate-500 text-sm mb-1">Name</div>
+                  <div className="font-medium text-slate-900">{service.customer?.name || "Not specified"}</div>
+                </div>
+                <div>
+                  <div className="text-slate-500 text-sm mb-1">Phone</div>
+                  <div className="font-medium text-slate-900">
+                    {service.customer?.phone ? (
+                      <a href={`tel:${service.customer.phone}`} className="text-blue-600 hover:text-blue-800">
+                        {service.customer.phone}
+                      </a>
+                    ) : "Not specified"}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-slate-500 text-sm mb-1">Email</div>
+                  <div className="font-medium text-slate-900">
+                    {service.customer?.email ? (
+                      <a href={`mailto:${service.customer.email}`} className="text-blue-600 hover:text-blue-800">
+                        {service.customer.email}
+                      </a>
+                    ) : "Not specified"}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-slate-500 text-sm mb-1">Place</div>
+                  <div className="font-medium text-slate-900">{service.customer?.place || "Not specified"}</div>
+                </div>
+                {service.customer?.address && (
+                  <div className="md:col-span-2">
+                    <div className="text-slate-500 text-sm mb-1">Address</div>
+                    <div className="font-medium text-slate-900 bg-slate-50 p-3 rounded-lg">
+                      {service.customer.address}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Notes and Work Notes */}
+            {(service.notes || (service.workNotes && service.workNotes.length > 0)) && (
+              <div className="bg-white border border-slate-200 rounded-xl p-6">
+                <h2 className="font-semibold text-lg mb-4 flex items-center gap-2">
+                  <MdNotes className="w-5 h-5 text-amber-600" />
+                  Notes & Work Notes
+                </h2>
+                {service.notes && (
+                  <div className="mb-4">
+                    <div className="text-slate-500 text-sm mb-1">General Notes</div>
+                    <div className="font-medium text-slate-900 bg-slate-50 p-3 rounded-lg">
+                      {service.notes}
+                    </div>
+                  </div>
+                )}
+                {service.workNotes && service.workNotes.length > 0 && (
+                  <div>
+                    <div className="text-slate-500 text-sm mb-2">Work Notes</div>
+                    <div className="space-y-2">
+                      {service.workNotes.map((note, index) => (
+                        <div key={index} className="bg-slate-50 p-3 rounded-lg border-l-4 border-blue-500">
+                          <div className="font-medium text-slate-900">{note}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Parts Used */}
+            {service.partsUsed && service.partsUsed.length > 0 && (
+              <div className="bg-white border border-slate-200 rounded-xl p-6">
+                <h2 className="font-semibold text-lg mb-4 flex items-center gap-2">
+                  <MdInventory className="w-5 h-5 text-emerald-600" />
+                  Parts Used
+                </h2>
+                <div className="space-y-3">
+                  {service.partsUsed.map((part, index) => (
+                    <div key={index} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                      <div>
+                        <div className="font-medium text-slate-900">{part.name}</div>
+                        <div className="text-sm text-slate-500">Qty: {part.quantity}</div>
+                      </div>
+                      <div className="font-semibold text-slate-900">₹{part.cost.toLocaleString()}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Customer Feedback */}
+            {service.customerFeedback && (
+              <div className="bg-white border border-slate-200 rounded-xl p-6">
+                <h2 className="font-semibold text-lg mb-4 flex items-center gap-2">
+                  <MdFeedback className="w-5 h-5 text-yellow-600" />
+                  Customer Feedback
+                </h2>
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <span className="text-slate-500 text-sm">Rating:</span>
+                    <div className="flex items-center gap-1">
+                      {renderStars(service.customerFeedback.rating)}
+                    </div>
+                    <span className="text-sm font-medium text-slate-900">({service.customerFeedback.rating}/5)</span>
+                  </div>
+                  {service.customerFeedback.comment && (
+                    <div>
+                      <div className="text-slate-500 text-sm mb-1">Comment</div>
+                      <div className="font-medium text-slate-900 bg-slate-50 p-3 rounded-lg">
+                        {service.customerFeedback.comment}
+                      </div>
+                    </div>
+                  )}
+                  <div className="text-sm text-slate-500">
+                    Date: {service.customerFeedback.date.toLocaleDateString()}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Service Information */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <h2 className="font-semibold text-lg mb-4 flex items-center gap-2">
-              <MdBuild className="w-5 h-5 text-green-600" />
-              Service Information
-            </h2>
-            <div className="space-y-4">
-              <div>
-                <div className="flex items-center gap-1 text-gray-500 text-sm mb-1">
-                  <MdBuild className="w-4 h-4" />
-                  Service Name
+          {/* Sidebar */}
+          <div className="space-y-6">
+            {/* Quick Info */}
+            <div className="bg-white border border-slate-200 rounded-xl p-6">
+              <h3 className="font-semibold text-lg mb-4">Quick Info</h3>
+              <div className="space-y-4">
+                <div>
+                  <div className="text-slate-500 text-sm mb-1">Created</div>
+                  <div className="font-medium text-slate-900">
+                    {createdAt ? createdAt.toLocaleDateString() : "-"}
+                  </div>
                 </div>
-                <div className="font-medium text-gray-900">{service.name}</div>
-              </div>
-              <div>
-                <div className="flex items-center gap-1 text-gray-500 text-sm mb-1">
-                  <MdAttachMoney className="w-4 h-4" />
-                  Price
+                <div>
+                  <div className="text-slate-500 text-sm mb-1">Last Updated</div>
+                  <div className="font-medium text-slate-900">
+                    {updatedAt ? updatedAt.toLocaleDateString() : "-"}
+                  </div>
                 </div>
-                <div className="font-medium text-gray-900 text-lg">₹{service.price?.toLocaleString()}</div>
-              </div>
-              <div>
-                <div className="text-gray-500 text-sm mb-1">Branch</div>
-                <div className="font-medium text-gray-900">{branchName}</div>
-              </div>
-              <div>
-                <div className="text-gray-500 text-sm mb-1">Description</div>
-                <div className="font-medium text-gray-900">{service.description}</div>
+                {service.scheduledDate && (
+                  <div>
+                    <div className="text-slate-500 text-sm mb-1">Scheduled Date</div>
+                    <div className="font-medium text-slate-900">
+                      {formatDate(service.scheduledDate)}
+                    </div>
+                  </div>
+                )}
+                {service.completedDate && (
+                  <div>
+                    <div className="text-slate-500 text-sm mb-1">Completed Date</div>
+                    <div className="font-medium text-slate-900">
+                      {formatDate(service.completedDate)}
+                    </div>
+                  </div>
+                )}
+                {service.estimatedCompletion && (
+                  <div>
+                    <div className="text-slate-500 text-sm mb-1">Estimated Completion</div>
+                    <div className="font-medium text-slate-900">
+                      {formatDate(service.estimatedCompletion)}
+                    </div>
+                  </div>
+                )}
+                {service.actualCompletion && (
+                  <div>
+                    <div className="text-slate-500 text-sm mb-1">Actual Completion</div>
+                    <div className="font-medium text-slate-900">
+                      {formatDate(service.actualCompletion)}
+                    </div>
+                  </div>
+                )}
+                {service.qualityScore && (
+                  <div>
+                    <div className="text-slate-500 text-sm mb-1">Quality Score</div>
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1">
+                        {renderStars(Math.round(service.qualityScore))}
+                      </div>
+                      <span className="font-medium text-slate-900">({service.qualityScore}/5)</span>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
-          </div>
-        </div>
 
-        {/* Customer Information */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mt-6">
-          <h2 className="font-semibold text-lg mb-4 flex items-center gap-2">
-            <MdPerson className="w-5 h-5 text-purple-600" />
-            Customer Information
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div>
-              <div className="flex items-center gap-1 text-gray-500 text-sm mb-1">
-                <MdPerson className="w-4 h-4" />
-                Name
+            {/* Quick Actions */}
+            <div className="bg-white border border-slate-200 rounded-xl p-6">
+              <h3 className="font-semibold text-lg mb-4">Quick Actions</h3>
+              <div className="space-y-3">
+                <button
+                  onClick={() => setEditing(true)}
+                  className="w-full flex items-center gap-2 p-3 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
+                >
+                  <MdEdit className="w-4 h-4 text-blue-600" />
+                  <span className="text-sm font-medium">Edit Service</span>
+                </button>
+                <button
+                  onClick={() => router.push(`/invoices/details?id=${service.id}`)}
+                  className="w-full flex items-center gap-2 p-3 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
+                >
+                  <MdReceipt className="w-4 h-4 text-green-600" />
+                  <span className="text-sm font-medium">Generate Invoice</span>
+                </button>
+                <button
+                  onClick={() => setShowHistory(!showHistory)}
+                  className="w-full flex items-center gap-2 p-3 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
+                >
+                  <MdHistory className="w-4 h-4 text-purple-600" />
+                  <span className="text-sm font-medium">View History</span>
+                </button>
+                <button
+                  onClick={() => window.print()}
+                  className="w-full flex items-center gap-2 p-3 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
+                >
+                  <MdPrint className="w-4 h-4 text-orange-600" />
+                  <span className="text-sm font-medium">Print Details</span>
+                </button>
               </div>
-              <div className="font-medium text-gray-900">{service.customer?.name || "Not specified"}</div>
-            </div>
-            <div>
-              <div className="flex items-center gap-1 text-gray-500 text-sm mb-1">
-                <MdPhone className="w-4 h-4" />
-                Phone
-              </div>
-              <div className="font-medium text-gray-900">{service.customer?.phone || "Not specified"}</div>
-            </div>
-            <div>
-              <div className="flex items-center gap-1 text-gray-500 text-sm mb-1">
-                <MdLocationOn className="w-4 h-4" />
-                Place
-              </div>
-              <div className="font-medium text-gray-900">{service.customer?.place || "Not specified"}</div>
             </div>
           </div>
         </div>
@@ -535,10 +924,10 @@ function ServiceDetailsPage() {
 export default function ServiceDetailsPageWrapper() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-2 border-blue-200 border-t-blue-600 mx-auto mb-4"></div>
+          <p className="text-slate-600 font-medium">Loading service details...</p>
         </div>
       </div>
     }>
