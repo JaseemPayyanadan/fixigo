@@ -6,7 +6,6 @@ export interface ServiceFormData {
     name: string;
     phone: string;
     place?: string;
-    email?: string;
   };
   device: {
     brand: string;
@@ -37,7 +36,7 @@ export interface ServiceFormProps {
   user: User | null;
   shopId?: string;
   initialData?: {
-    customer?: { name: string; phone: string; place?: string; email?: string };
+    customer?: { name: string; phone: string; place?: string };
     device?: { brand: string; model: string; imei: string; color: string; type?: string };
     service?: { name: string; description: string; price: string; technician_id?: string; branchId?: string; priority?: string; estimatedDuration?: number };
   };

@@ -35,12 +35,13 @@ const BaseServiceForm: React.FC<BaseServiceFormProps> = ({
   children,
   customFields
 }) => {
-  const [customer, setCustomer] = useState({ name: "", phone: "", place: "", email: "" });
+  const [customer, setCustomer] = useState({ name: "", phone: "", place: "" });
   const [device, setDevice] = useState({ brand: "", model: "", imei: "", color: "", type: "" });
   const [service, setService] = useState({ 
     name: "", 
     description: "", 
     price: "", 
+    branchId: "",
     technician_id: "",
     priority: "medium",
     estimatedDuration: 60
@@ -49,16 +50,26 @@ const BaseServiceForm: React.FC<BaseServiceFormProps> = ({
   const [formErrors, setFormErrors] = useState<ServiceValidationErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  const fieldConfig = getFormFieldConfig(user);
+  const fieldConfig = getFormFieldConfig(user!);
 
   // Initialize form with initial data
   useEffect(() => {
     if (initialData) {
       if (initialData.customer) {
-        setCustomer(initialData.customer);
+        setCustomer({
+          name: initialData.customer.name || "",
+          phone: initialData.customer.phone || "",
+          place: initialData.customer.place || ""
+        });
       }
       if (initialData.device) {
-        setDevice(initialData.device);
+        setDevice({
+          brand: initialData.device.brand || "",
+          model: initialData.device.model || "",
+          imei: initialData.device.imei || "",
+          color: initialData.device.color || "",
+          type: initialData.device.type || ""
+        });
       }
       if (initialData.service) {
         setService(prev => ({
@@ -131,10 +142,7 @@ const BaseServiceForm: React.FC<BaseServiceFormProps> = ({
 
   // Handle IMEI formatting
   const handleImeiChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    let value = e.target.value.replace(/\s/g, '');
-    if (value.length > 15) {
-      value = value.slice(0, 15);
-    }
+    const value = e.target.value;
     setDevice(prev => ({ ...prev, imei: value }));
     if (formErrors.deviceImei) {
       setFormErrors(prev => ({ ...prev, deviceImei: undefined }));
@@ -192,7 +200,7 @@ const BaseServiceForm: React.FC<BaseServiceFormProps> = ({
               </div>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <TextInput
                 type="text"
                 name="name"
@@ -220,25 +228,12 @@ const BaseServiceForm: React.FC<BaseServiceFormProps> = ({
               />
               
               <TextInput
-                type="email"
-                name="email"
-                label="Email Address"
-                value={customer.email}
-                onChange={handleCustomerChange}
-                placeholder="Enter email address"
-                error={formErrors.customerEmail}
-                disabled={isFormDisabled}
-                icon={<EnvelopeIcon className="h-4 w-4 text-gray-400" />}
-              />
-              
-              <TextInput
                 type="text"
                 name="place"
                 label="Location"
                 value={customer.place}
                 onChange={handleCustomerChange}
                 placeholder="Enter location"
-                error={formErrors.customerPlace}
                 disabled={isFormDisabled}
                 icon={<MapPinIcon className="h-4 w-4 text-gray-400" />}
               />
@@ -292,12 +287,11 @@ const BaseServiceForm: React.FC<BaseServiceFormProps> = ({
                 label="IMEI Number"
                 value={device.imei}
                 onChange={handleImeiChange}
-                placeholder="Enter 15-digit IMEI"
+                placeholder="Enter IMEI number"
                 required
                 error={formErrors.deviceImei}
                 disabled={isFormDisabled}
                 icon={<DevicePhoneMobileIcon className="h-4 w-4 text-gray-400" />}
-                maxLength={15}
               />
               
               <TextInput
@@ -308,7 +302,6 @@ const BaseServiceForm: React.FC<BaseServiceFormProps> = ({
                 onChange={handleDeviceChange}
                 placeholder="Enter device color"
                 required
-                error={formErrors.deviceColor}
                 disabled={isFormDisabled}
                 icon={<DevicePhoneMobileIcon className="h-4 w-4 text-gray-400" />}
               />

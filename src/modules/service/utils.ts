@@ -37,8 +37,6 @@ export const validateServiceForm = (data: any): ServiceValidationErrors => {
   }
   if (!data.device?.imei?.trim()) {
     errors.deviceImei = "Device IMEI is required";
-  } else if (!/^[0-9]{15}$/.test(data.device.imei.replace(/\s/g, ''))) {
-    errors.deviceImei = "IMEI must be 15 digits";
   }
 
   // Service validation
