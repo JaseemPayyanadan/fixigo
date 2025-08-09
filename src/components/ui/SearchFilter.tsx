@@ -1,3 +1,4 @@
+"use client";
 import React, { useState } from "react";
 import { MagnifyingGlassIcon, ArrowPathIcon, FunnelIcon } from "@heroicons/react/24/outline";
 

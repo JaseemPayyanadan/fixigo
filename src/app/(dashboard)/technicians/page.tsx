@@ -7,6 +7,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { RoleGuard, PermissionGuard } from "@/components";
 import TechnicianList from "@/modules/technician/TechnicianList";
 import Link from "next/link";
+import { logger, isIndexBuildingError } from "@/lib/logger";
 import { 
   UserGroupIcon, 
   StarIcon, 
