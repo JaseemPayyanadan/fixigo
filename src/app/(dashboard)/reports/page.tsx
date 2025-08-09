@@ -1,5 +1,4 @@
 import { AuthGuard } from "@/components";
-import { useUser } from "@/hooks/useUser";
 import { DocumentChartBarIcon } from "@heroicons/react/24/outline";
 
 export default function ReportsPage() {

@@ -8,23 +8,13 @@ export default function RBACDemo() {
   const { user, loading } = useUser();
   const {
     permissions,
-    accessibleResources,
     hasElevatedPermissions,
     canManageUsers,
     isShopAdminOrHigher,
     isBranchAdminOrHigher,
     userScope,
     hasPermission,
-    hasAnyPermission,
-    hasAllPermissions,
     hasRole,
-    hasAnyRole,
-    hasRoleLevel,
-    canAccessShop,
-    canAccessBranch,
-    canViewResource,
-    canManageResource,
-    canDeleteResource,
     canCreate,
     canRead,
     canUpdate,
@@ -50,10 +40,6 @@ export default function RBACDemo() {
     canManageUser,
     canViewUser,
     canDeleteUser,
-    canManageReport,
-    canViewReport,
-    canManageSetting,
-    canViewSetting,
   } = usePermissions();
 
   if (loading) {

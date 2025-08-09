@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {
   try {
-    const { 
+        const {
       name, 
       location, 
       phone, 
@@ -16,7 +16,6 @@ export async function POST(request: NextRequest) {
       password, 
       shopId,
       managerName,
-      managerEmail,
       managerPhone
     } = await request.json();
 

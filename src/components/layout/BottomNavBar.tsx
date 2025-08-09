@@ -3,7 +3,6 @@ import React, { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { HomeIcon, BriefcaseIcon, BuildingOfficeIcon, UserGroupIcon, UserIcon, ClipboardDocumentListIcon, Bars3Icon, XMarkIcon } from "@heroicons/react/24/outline";
 import { useUser } from "@/hooks/useUser";
-// import { useSidebar } from "@/contexts/SidebarContext";
 
 const navItems = [
   { 
@@ -48,7 +47,6 @@ export function BottomNavBar() {
   const pathname = usePathname();
   const router = useRouter();
   const { user } = useUser();
-  // const { collapsed, setCollapsed } = useSidebar();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   // Filter navigation items based on user role
@@ -71,33 +69,20 @@ export function BottomNavBar() {
   return (
     <>
       {/* Main Bottom Navigation */}
-      <nav className="bottom-nav-fixed md:hidden">
-        <div className="flex items-center justify-around h-16 px-2">
-          {/* More Menu Button (if more than 4 items) - Now at the beginning */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 z-30 md:hidden">
+        <div className="flex items-center justify-around h-12 px-2">
+          {/* More Menu Button (if more than 4 items) */}
           {filteredNavItems.length > 4 && (
             <button
               onClick={toggleMenu}
-              className={`flex flex-col items-center justify-center px-3 py-2 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+              className={`flex flex-col items-center justify-center px-2 py-1 rounded-md transition-colors ${
                 isMenuOpen 
-                  ? "text-blue-600 bg-blue-50" 
-                  : "text-gray-600 hover:text-blue-600 hover:bg-gray-50"
+                  ? "text-blue-600" 
+                  : "text-slate-600 hover:text-blue-600"
               }`}
             >
-              <div className="relative">
-                {isMenuOpen ? (
-                  <XMarkIcon className="text-xl mb-1 transition-transform duration-200 scale-110" />
-                ) : (
-                  <Bars3Icon className="text-xl mb-1 transition-transform duration-200" />
-                )}
-                {isMenuOpen && (
-                  <div className="absolute -top-1 -right-1 w-2 h-2 bg-blue-600 rounded-full animate-pulse"></div>
-                )}
-              </div>
-              <span className={`text-xs font-medium transition-colors duration-200 ${
-                isMenuOpen ? "text-blue-600" : "text-gray-500"
-              }`}>
-                More
-              </span>
+              <Bars3Icon className="w-5 h-5 mb-0.5" />
+              <span className="text-xs font-medium">More</span>
             </button>
           )}
 
@@ -109,34 +94,18 @@ export function BottomNavBar() {
               <button
                 key={item.href}
                 onClick={() => handleNavigation(item.href)}
-                className={`flex flex-col items-center justify-center px-3 py-2 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                className={`flex flex-col items-center justify-center px-2 py-1 rounded-md transition-colors ${
                   isActive 
-                    ? "text-blue-600 bg-blue-50" 
-                    : "text-gray-600 hover:text-blue-600 hover:bg-gray-50"
+                    ? "text-blue-600" 
+                    : "text-slate-600 hover:text-blue-600"
                 }`}
               >
-                <div className={`relative ${isActive ? "animate-bounce" : ""}`}>
-                  <Icon className={`text-xl mb-1 transition-transform duration-200 ${
-                    isActive ? "scale-110" : "scale-100"
-                  }`} />
-                  {isActive && (
-                    <div className="absolute -top-1 -right-1 w-2 h-2 bg-blue-600 rounded-full animate-pulse"></div>
-                  )}
-                </div>
-                <span className={`text-xs font-medium transition-colors duration-200 ${
-                  isActive ? "text-blue-600" : "text-gray-500"
-                }`}>
-                  {item.label}
-                </span>
+                <Icon className="w-5 h-5 mb-0.5" />
+                <span className="text-xs font-medium">{item.label}</span>
               </button>
             );
           })}
         </div>
-
-        {/* Active Item Indicator */}
-        {activeItem && (
-          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 to-indigo-500"></div>
-        )}
       </nav>
 
       {/* Expanded Menu Overlay */}
@@ -144,24 +113,24 @@ export function BottomNavBar() {
         <div className="fixed inset-0 z-40 md:hidden">
           {/* Backdrop */}
           <div 
-            className="absolute inset-0 bg-black bg-opacity-50 transition-opacity duration-200"
+            className="absolute inset-0 bg-black bg-opacity-30"
             onClick={() => setIsMenuOpen(false)}
           />
           
           {/* Menu Panel */}
-          <div className="absolute bottom-20 left-4 right-4 bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden animate-in fade-in-0 zoom-in-95">
-            <div className="p-4">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">More Options</h3>
+          <div className="absolute bottom-16 left-4 right-4 bg-white rounded-lg shadow-lg border border-slate-200 overflow-hidden">
+            <div className="p-3">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-slate-900">More Options</h3>
                 <button
                   onClick={() => setIsMenuOpen(false)}
-                  className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
+                  className="p-1 text-slate-400 hover:text-slate-600"
                 >
-                  <XMarkIcon className="w-5 h-5" />
+                  <XMarkIcon className="w-4 h-4" />
                 </button>
               </div>
               
-              <div className="space-y-2">
+              <div className="space-y-1">
                 {filteredNavItems.slice(4).map((item) => {
                   const isActive = pathname.startsWith(item.href);
                   const Icon = item.icon;
@@ -169,17 +138,14 @@ export function BottomNavBar() {
                     <button
                       key={item.href}
                       onClick={() => handleNavigation(item.href)}
-                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${
                         isActive 
-                          ? "bg-blue-50 text-blue-600 border border-blue-200" 
-                          : "text-gray-700 hover:bg-gray-50 hover:text-blue-600"
+                          ? "bg-blue-50 text-blue-600" 
+                          : "text-slate-700 hover:bg-slate-50"
                       }`}
                     >
-                      <Icon className={`w-5 h-5 ${isActive ? "text-blue-600" : "text-gray-500"}`} />
-                      <span className="font-medium">{item.label}</span>
-                      {isActive && (
-                        <div className="ml-auto w-2 h-2 bg-blue-600 rounded-full"></div>
-                      )}
+                      <Icon className="w-4 h-4" />
+                      <span className="text-sm font-medium">{item.label}</span>
                     </button>
                   );
                 })}

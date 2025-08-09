@@ -5,13 +5,7 @@ import {
   getDocs, 
   getDoc, 
   setDoc, 
-  updateDoc, 
   deleteDoc, 
-  query, 
-  where, 
-  orderBy,
-  writeBatch,
-  runTransaction,
   Timestamp 
 } from 'firebase/firestore';
 import { logger } from './logger';
@@ -589,7 +583,7 @@ export class FirestoreMigration {
 
   private async validateCollection(collectionName: string): Promise<boolean> {
     try {
-      const snapshot = await getDocs(collection(db, collectionName));
+      await getDocs(collection(db, collectionName));
       // Consider empty collections as valid (they exist but have no data)
       return true;
     } catch (error) {

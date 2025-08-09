@@ -171,60 +171,14 @@ function ServicesContent() {
           }
           
           const querySnapshot = await getDocs(q);
-          console.log(`Found ${querySnapshot.size} services for ${user.role}`);
           
-          let allServicesData = querySnapshot.docs.map((doc) => {
+          const allServicesData = querySnapshot.docs.map((doc) => {
             const data = { id: doc.id, ...doc.data() } as any;
-            console.log("Raw service data:", {
-              id: data.id,
-              name: data.name,
-              technician_id: data.technician_id,
-              created_by: data.created_by,
-              shopId: data.shopId,
-              branchId: data.branchId,
-              // Add more fields for debugging
-              assignedTechnicianId: data.assignedTechnicianId,
-              technicianId: data.technicianId,
-              createdBy: data.createdBy
-            });
             return transformServiceData(data);
           });
 
           // For technicians, filter to show only assigned services or services they created
           if (user.role === "technician") {
-            console.log(`🔍 Filtering services for technician ${user.id} (${user.name})`);
-            console.log(`📊 Total services before filtering: ${allServicesData.length}`);
-            console.log(`👤 User details:`, {
-              id: user.id,
-              uid: user.uid,
-              name: user.name,
-              email: user.email,
-              role: user.role
-            });
-            
-            // Check if this technician has any services assigned
-            const servicesWithTechnicianId = querySnapshot.docs.filter(doc => {
-              const data = doc.data() as any;
-              return data.technician_id;
-            });
-            console.log(`🔍 Services with technician_id: ${servicesWithTechnicianId.length}`);
-            
-            // Get all unique technician IDs in the system
-            const allTechnicianIds = new Set();
-            querySnapshot.docs.forEach(doc => {
-              const data = doc.data() as any;
-              if (data.technician_id) allTechnicianIds.add(data.technician_id);
-            });
-            console.log(`🔍 All technician IDs in system:`, Array.from(allTechnicianIds));
-            
-            servicesWithTechnicianId.forEach(doc => {
-              const data = doc.data() as any;
-              console.log(`Service with technician:`, {
-                id: doc.id,
-                name: data.name,
-                technician_id: data.technician_id
-              });
-            });
             
             allServices = allServicesData.filter(service => {
               // Check for assignment - look for technician_id in the raw data
@@ -238,28 +192,8 @@ function ServicesContent() {
                 rawData?.created_by?.uid === user.uid ||
                 rawData?.created_by?.uid === user.id;
               
-              // Debug logging for each service
-              console.log(`Service ${service.id}:`, {
-                name: service.name,
-                raw_technician_id: rawData?.technician_id,
-                raw_created_by: rawData?.created_by,
-                isAssigned,
-                isCreated,
-                included: isAssigned || isCreated,
-                user_id: user.id,
-                user_uid: user.uid
-              });
-              
               return isAssigned || isCreated;
             });
-            
-            console.log(`✅ Technician ${user.id}: Found ${allServices.length} relevant services out of ${allServicesData.length} total`);
-            
-            // If no services found, show all services temporarily for debugging
-            if (allServices.length === 0 && allServicesData.length > 0) {
-              console.log("🔧 TEMPORARY: No services matched filtering criteria. Showing all services for debugging.");
-              allServices = allServicesData;
-            }
           } else {
             allServices = allServicesData;
           }
@@ -306,7 +240,7 @@ function ServicesContent() {
     };
 
     fetchServices();
-  }, [user?.shopId, user?.branchId, user?.role]);
+  }, [user?.shopId, user?.branchId, user?.role, user?.id, user?.uid, user?.name, user?.email]);
 
   // Filtered services
   const filteredServices = useMemo(() => {
@@ -362,153 +296,122 @@ function ServicesContent() {
   }
 
   return (
-    <div className="p-4 space-y-6">
-      {/* Debug Indicator */}
-      <div className="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded">
-        🔧 Services page improvements loaded successfully! Data fetching enhanced with loading states and error handling.
-        <br />
-        <strong>Debug Info:</strong> User: {user?.role} | Shop: {user?.shopId} | Branch: {user?.branchId} | Services: {services.length}
-        {user?.role === "technician" && (
-          <>
-            <br />
-            <strong>Technician Info:</strong> ID: {user?.id} | Assigned/Created Services: {services.length}
-            <br />
-            <strong>User Details:</strong> Name: {user?.name} | Email: {user?.email}
-          </>
+    <div className="min-h-screen bg-white">
+      <div className="max-w-6xl mx-auto p-4">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900">Services</h1>
+            <p className="text-slate-500 text-sm">Manage service requests</p>
+          </div>
+          <PermissionGuard permissions={["service:write"]} fallback={null}>
+            <Link
+              href="/services/new"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+            >
+              <PlusIcon className="w-4 h-4" />
+              New Service
+            </Link>
+          </PermissionGuard>
+        </div>
+
+        {/* Stats Cards and Search in Same Row */}
+        <div className="flex flex-col lg:flex-row gap-4 mb-6">
+          {/* Stats Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 flex-1">
+            <div className="bg-slate-50 rounded-lg p-2">
+              <div className="flex items-center gap-2">
+                <DevicePhoneMobileIcon className="w-4 h-4 text-blue-600" />
+                <div className="flex items-baseline gap-1">
+                  <span className="text-lg font-bold text-slate-900">{stats.total}</span>
+                  <span className="text-xs font-medium text-slate-500">Total</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-slate-50 rounded-lg p-2">
+              <div className="flex items-center gap-2">
+                <CheckCircleIcon className="w-4 h-4 text-emerald-600" />
+                <div className="flex items-baseline gap-1">
+                  <span className="text-lg font-bold text-emerald-600">{stats.completed}</span>
+                  <span className="text-xs font-medium text-slate-500">Completed</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-slate-50 rounded-lg p-2">
+              <div className="flex items-center gap-2">
+                <ClockIcon className="w-4 h-4 text-amber-600" />
+                <div className="flex items-baseline gap-1">
+                  <span className="text-lg font-bold text-amber-600">{stats.inProgress}</span>
+                  <span className="text-xs font-medium text-slate-500">In Progress</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-slate-50 rounded-lg p-2">
+              <div className="flex items-center gap-2">
+                <ClockIcon className="w-4 h-4 text-slate-600" />
+                <div className="flex items-baseline gap-1">
+                  <span className="text-lg font-bold text-slate-600">{stats.pending}</span>
+                  <span className="text-xs font-medium text-slate-500">Pending</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Search and Filters */}
+          <div className="lg:w-80">
+            <SearchFilter
+              search={search}
+              onSearchChange={setSearch}
+              placeholder="Search services..."
+              filters={[
+                {
+                  key: "status",
+                  label: "Status",
+                  value: statusFilter,
+                  options: STATUS_OPTIONS.map(status => ({ value: status, label: status })),
+                  onChange: setStatusFilter
+                }
+              ]}
+              onClear={clearFilters}
+              showClear={true}
+            />
+          </div>
+        </div>
+
+        {/* Services List */}
+        {user?.role === "shop_admin" && (
+          <ShopAdminServiceList
+            services={filteredServices}
+            branches={branches}
+            technicians={technicians}
+            loading={loading}
+            search={search}
+          />
         )}
-        <br />
-        <strong>Loading:</strong> {loading ? "Yes" : "No"}
-      </div>
+        {user?.role === "branch_admin" && (
+          <BranchAdminServiceList
+            services={filteredServices}
+            branches={branches}
+            technicians={technicians}
+            loading={loading}
+            search={search}
+          />
+        )}
+        {user?.role === "technician" && (
+          <TechnicianServiceList
+            services={filteredServices}
+            branches={branches}
+            technicians={technicians}
+            loading={loading}
+            search={search}
+            user={user}
+          />
+        )}
 
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Services</h1>
-          <p className="text-gray-600 mt-1">Manage and track your service requests</p>
-        </div>
-        <PermissionGuard permissions={["service:write"]} fallback={null}>
-          <Link
-            href="/services/new"
-            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <PlusIcon className="w-4 h-4" />
-            New Service
-          </Link>
-        </PermissionGuard>
-      </div>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Total Services</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
-            </div>
-            <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-              <DevicePhoneMobileIcon className="w-6 h-6 text-blue-600" />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Completed</p>
-              <p className="text-2xl font-bold text-green-600">{stats.completed}</p>
-            </div>
-            <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-              <CheckCircleIcon className="w-6 h-6 text-green-600" />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">In Progress</p>
-              <p className="text-2xl font-bold text-yellow-600">{stats.inProgress}</p>
-            </div>
-            <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
-              <ClockIcon className="w-6 h-6 text-yellow-600" />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Pending</p>
-              <p className="text-2xl font-bold text-gray-600">{stats.pending}</p>
-            </div>
-            <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
-              <ClockIcon className="w-6 h-6 text-gray-600" />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Revenue</p>
-              <p className="text-2xl font-bold text-green-600">₹{stats.totalRevenue.toLocaleString()}</p>
-            </div>
-            <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-              <CurrencyDollarIcon className="w-6 h-6 text-green-600" />
-            </div>
-          </div>
         </div>
       </div>
-
-      {/* Search and Filters */}
-      <SearchFilter
-        search={search}
-        onSearchChange={setSearch}
-        placeholder="Search services by customer, device, or service name..."
-        filters={[
-          {
-            key: "status",
-            label: "Status",
-            value: statusFilter,
-            options: STATUS_OPTIONS.map(status => ({ value: status, label: status })),
-            onChange: setStatusFilter
-          }
-        ]}
-        onClear={clearFilters}
-        showClear={true}
-        className="mb-6"
-      />
-
-      {/* Services List */}
-      {user?.role === "shop_admin" && (
-        <ShopAdminServiceList
-          services={filteredServices}
-          branches={branches}
-          technicians={technicians}
-          loading={loading}
-          search={search}
-        />
-      )}
-      {user?.role === "branch_admin" && (
-        <BranchAdminServiceList
-          services={filteredServices}
-          branches={branches}
-          technicians={technicians}
-          loading={loading}
-          search={search}
-        />
-      )}
-      {user?.role === "technician" && (
-        <TechnicianServiceList
-          services={filteredServices}
-          branches={branches}
-          technicians={technicians}
-          loading={loading}
-          search={search}
-          user={user}
-        />
-      )}
-
-    </div>
-  );
+    );
 } 

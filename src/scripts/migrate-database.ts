@@ -1,7 +1,6 @@
 #!/usr/bin/env tsx
 
 import { firestoreMigration } from '../lib/migration';
-import { logger } from '../lib/logger';
 
 /**
  * Database Migration Script

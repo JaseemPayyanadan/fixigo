@@ -1,7 +1,7 @@
 "use client";
-import React, { createContext, useContext, ReactNode } from "react";
+import React, { createContext, useContext } from "react";
 import { useUser } from "@/hooks/useUser";
-import { hasPermission, hasAllPermissions, hasAnyPermission } from "@/lib/rbac";
+import { hasPermission } from "@/lib/rbac";
 import { authUserToUser } from "@/lib/auth";
 import type { User, Permission } from "@/types";
 

@@ -1,11 +1,11 @@
 "use client";
-import { useCallback, useRef } from 'react';
+import { useRef } from 'react';
 
 /**
  * Custom hook for memoized callbacks with dependency tracking
  * This helps prevent unnecessary re-renders in dashboard components
  */
-export function useMemoizedCallback<T extends (...args: any[]) => any>(
+export function useMemoizedCallback<T extends (...args: unknown[]) => unknown>(
   callback: T,
   deps: React.DependencyList
 ): T {

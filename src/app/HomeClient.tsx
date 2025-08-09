@@ -4,8 +4,6 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useUser } from "@/hooks/useUser";
 
-import Image from "next/image";
-
 export function HomeClient() {
   const { user, loading } = useUser();
   const router = useRouter();

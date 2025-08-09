@@ -4,19 +4,16 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { 
   CubeIcon, 
-  BuildingOfficeIcon, 
   CurrencyDollarIcon, 
   EyeIcon, 
   PencilIcon, 
   TrashIcon,
   UserIcon,
   DevicePhoneMobileIcon,
-  MapPinIcon,
   ClockIcon,
   CheckCircleIcon,
   ExclamationTriangleIcon
 } from "@heroicons/react/24/outline";
-import { getTechnicianDisplayInfo } from "./shared/ServiceUtils";
 import type { Technician } from "@/types";
 
 interface ServiceListItem {
@@ -103,7 +100,6 @@ const statusConfig: Record<string, { label: string; color: string; icon: React.R
 
 const BranchAdminServiceList: React.FC<BranchAdminServiceListProps> = ({ 
   services, 
-  branches, 
   technicians,
   loading, 
   search, 
