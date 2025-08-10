@@ -1,8 +1,7 @@
-import { clsx, type ClassValue } from 'clsx';
-import { twMerge } from 'tailwind-merge';
+import { clsx, type ClassValue } from "clsx";
+import { twMerge } from "tailwind-merge";
 
-import { logger } from './logger';
-import { isIndexBuildingError } from './logger';
+import { isIndexBuildingError, logger } from "./logger";
 
 // Class name utility for merging Tailwind classes
 export function cn(...inputs: ClassValue[]) {
@@ -15,19 +14,19 @@ export function isDefined<T>(value: T | null | undefined): value is T {
 }
 
 export function isString(value: unknown): value is string {
-  return typeof value === 'string';
+  return typeof value === "string";
 }
 
 export function isNumber(value: unknown): value is number {
-  return typeof value === 'number' && !isNaN(value);
+  return typeof value === "number" && !isNaN(value);
 }
 
 export function isBoolean(value: unknown): value is boolean {
-  return typeof value === 'boolean';
+  return typeof value === "boolean";
 }
 
 export function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 export function isArray(value: unknown): value is unknown[] {
@@ -39,7 +38,7 @@ export function safeString(value: unknown): string {
   if (isString(value)) return value;
   if (isNumber(value)) return String(value);
   if (isBoolean(value)) return String(value);
-  return '';
+  return "";
 }
 
 export function safeNumber(value: unknown): number {
@@ -53,7 +52,7 @@ export function safeNumber(value: unknown): number {
 
 export function safeBoolean(value: unknown): boolean {
   if (isBoolean(value)) return value;
-  if (isString(value)) return value.toLowerCase() === 'true';
+  if (isString(value)) return value.toLowerCase() === "true";
   if (isNumber(value)) return value !== 0;
   return false;
 }
@@ -72,27 +71,27 @@ export function safeDate(value: unknown): Date {
 }
 
 export function formatDate(date: Date): string {
-  return date.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric'
+  return date.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
   });
 }
 
 export function formatDateTime(date: Date): string {
-  return date.toLocaleString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
+  return date.toLocaleString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
   });
 }
 
 // Firebase timestamp utilities
 export function getTimestampSeconds(timestamp: unknown): number {
   if (!timestamp) return 0;
-  if (isObject(timestamp) && 'seconds' in timestamp) {
+  if (isObject(timestamp) && "seconds" in timestamp) {
     return (timestamp as { seconds: number }).seconds;
   }
   if (isNumber(timestamp)) return timestamp;
@@ -101,7 +100,7 @@ export function getTimestampSeconds(timestamp: unknown): number {
 
 export function timestampToDate(timestamp: unknown): Date {
   if (timestamp instanceof Date) return timestamp;
-  if (isObject(timestamp) && 'toDate' in timestamp && typeof timestamp.toDate === 'function') {
+  if (isObject(timestamp) && "toDate" in timestamp && typeof timestamp.toDate === "function") {
     return timestamp.toDate();
   }
   if (isNumber(timestamp)) return new Date(timestamp);
@@ -115,14 +114,14 @@ export function capitalize(str: string): string {
 
 export function truncate(str: string, length: number): string {
   if (str.length <= length) return str;
-  return `${str.slice(0, length)  }...`;
+  return `${str.slice(0, length)}...`;
 }
 
 export function slugify(str: string): string {
   return str
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/(^-|-$)/g, '');
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
 }
 
 // Array utilities
@@ -130,10 +129,7 @@ export function unique<T>(array: T[]): T[] {
   return [...new Set(array)];
 }
 
-export function groupBy<T, K extends string | number>(
-  array: T[],
-  keyFn: (item: T) => K
-): Record<K, T[]> {
+export function groupBy<T, K extends string | number>(array: T[], keyFn: (item: T) => K): Record<K, T[]> {
   return array.reduce((groups, item) => {
     const key = keyFn(item);
     if (!groups[key]) groups[key] = [];
@@ -142,17 +138,13 @@ export function groupBy<T, K extends string | number>(
   }, {} as Record<K, T[]>);
 }
 
-export function sortBy<T, K extends keyof T>(
-  array: T[],
-  key: K,
-  direction: 'asc' | 'desc' = 'asc'
-): T[] {
+export function sortBy<T, K extends keyof T>(array: T[], key: K, direction: "asc" | "desc" = "asc"): T[] {
   return [...array].sort((a, b) => {
     const aVal = a[key];
     const bVal = b[key];
-    
-    if (aVal < bVal) return direction === 'asc' ? -1 : 1;
-    if (aVal > bVal) return direction === 'asc' ? 1 : -1;
+
+    if (aVal < bVal) return direction === "asc" ? -1 : 1;
+    if (aVal > bVal) return direction === "asc" ? 1 : -1;
     return 0;
   });
 }
@@ -160,7 +152,7 @@ export function sortBy<T, K extends keyof T>(
 // Object utilities
 export function pick<T extends Record<string, unknown>, K extends keyof T>(obj: T, keys: K[]): Pick<T, K> {
   const result = {} as Pick<T, K>;
-  keys.forEach(key => {
+  keys.forEach((key) => {
     if (key in obj) {
       result[key] = obj[key];
     }
@@ -170,7 +162,7 @@ export function pick<T extends Record<string, unknown>, K extends keyof T>(obj: 
 
 export function omit<T, K extends keyof T>(obj: T, keys: K[]): Omit<T, K> {
   const result = { ...obj };
-  keys.forEach(key => {
+  keys.forEach((key) => {
     delete result[key];
   });
   return result;
@@ -187,7 +179,7 @@ export function createError(message: string, code?: string): Error {
 
 export function handleError(error: unknown, context?: string): string {
   const errorMessage = error instanceof Error ? error.message : String(error);
-  logger.error(`Error${context ? ` in ${context}` : ''}`, { error: errorMessage });
+  logger.error(`Error${context ? ` in ${context}` : ""}`, { error: errorMessage });
   return errorMessage;
 }
 
@@ -199,7 +191,7 @@ export function validateEmail(email: string): boolean {
 
 export function validatePhone(phone: string): boolean {
   const phoneRegex = /^[\+]?[1-9][\d]{0,15}$/;
-  return phoneRegex.test(phone.replace(/\s/g, ''));
+  return phoneRegex.test(phone.replace(/\s/g, ""));
 }
 
 export function validatePassword(password: string): boolean {
@@ -212,10 +204,7 @@ export function validateStrongPassword(password: string): boolean {
 }
 
 // Debounce utility
-export function debounce<T extends (...args: unknown[]) => unknown>(
-  func: T,
-  wait: number
-): (...args: Parameters<T>) => void {
+export function debounce<T extends (...args: unknown[]) => unknown>(func: T, wait: number): (...args: Parameters<T>) => void {
   let timeout: NodeJS.Timeout;
   return (...args: Parameters<T>) => {
     clearTimeout(timeout);
@@ -224,10 +213,7 @@ export function debounce<T extends (...args: unknown[]) => unknown>(
 }
 
 // Throttle utility
-export function throttle<T extends (...args: unknown[]) => unknown>(
-  func: T,
-  limit: number
-): (...args: Parameters<T>) => void {
+export function throttle<T extends (...args: unknown[]) => unknown>(func: T, limit: number): (...args: Parameters<T>) => void {
   let inThrottle: boolean;
   return (...args: Parameters<T>) => {
     if (!inThrottle) {
@@ -239,29 +225,25 @@ export function throttle<T extends (...args: unknown[]) => unknown>(
 }
 
 // Async utilities
-export async function retry<T>(
-  fn: () => Promise<T>,
-  maxAttempts: number = 3,
-  delay: number = 1000
-): Promise<T> {
+export async function retry<T>(fn: () => Promise<T>, maxAttempts: number = 3, delay: number = 1000): Promise<T> {
   let lastError: Error;
-  
+
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
       return await fn();
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
-      
+
       if (attempt === maxAttempts) {
         throw lastError;
       }
-      
+
       logger.warn(`Attempt ${attempt} failed, retrying in ${delay}ms`, { error: lastError.message });
-      await new Promise(resolve => setTimeout(resolve, delay));
+      await new Promise((resolve) => setTimeout(resolve, delay));
       delay *= 2; // Exponential backoff
     }
   }
-  
+
   throw lastError!;
 }
 
@@ -279,10 +261,7 @@ function getRetryDelay(attempt: number): number {
 }
 
 // Retry function for operations that might fail due to index building
-export async function retryOnIndexError<T>(
-  operation: () => Promise<T>,
-  maxRetries: number = INDEX_RETRY_CONFIG.maxRetries
-): Promise<T> {
+export async function retryOnIndexError<T>(operation: () => Promise<T>, maxRetries: number = INDEX_RETRY_CONFIG.maxRetries): Promise<T> {
   let lastError: Error;
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -296,7 +275,7 @@ export async function retryOnIndexError<T>(
       if (isIndexBuildingError(errorMessage) && attempt < maxRetries) {
         const delay = getRetryDelay(attempt);
         console.log(`Index building in progress, retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries + 1})`);
-        await new Promise(resolve => setTimeout(resolve, delay));
+        await new Promise((resolve) => setTimeout(resolve, delay));
         continue;
       }
 
@@ -326,4 +305,142 @@ export async function measureAsyncTime<T>(fn: () => Promise<T>, label: string): 
   const result = await fn();
   const end = performance.now();
   return result;
+}
+
+// Invoice data transformation utilities
+export function transformFirestoreInvoiceData(docData: any, docId: string): any {
+  try {
+    // Handle both new and legacy invoice structures
+    const baseInvoice = {
+      id: docId,
+      serviceId: docData.serviceId || "",
+      customerName: docData.customerName || docData.customer?.name || "",
+      customerEmail: docData.customerEmail || docData.customer?.email || "",
+      customerPhone: docData.customerPhone || docData.customer?.phone || "",
+      amount: docData.amount || docData.subtotal || 0,
+      tax: docData.tax || 0,
+      total: docData.total || 0,
+      discount: docData.discount || 0,
+      advance: docData.advance || 0,
+      status: docData.status || "draft",
+      paymentStatus: docData.paymentStatus || "pending",
+      paymentMethod: docData.paymentMethod || "",
+      paymentDate: docData.paymentDate?.toDate?.() || docData.paymentDate || null,
+      dueDate: docData.dueDate?.toDate?.() || docData.dueDate || new Date(),
+      paidDate: docData.paidDate?.toDate?.() || docData.paidDate || null,
+      notes: docData.notes || "",
+      shopId: docData.shopId || "",
+      branchId: docData.branchId || "",
+      createdAt: docData.createdAt?.toDate?.() || docData.createdAt || new Date(),
+      updatedAt: docData.updatedAt?.toDate?.() || docData.updatedAt || new Date(),
+    };
+
+    // Transform items array to ensure consistency
+    const items = (docData.items || []).map((item: any) => ({
+      name: item.name || "",
+      description: item.description || item.variation || "",
+      quantity: item.quantity || item.qty || 1,
+      unitPrice: item.unitPrice || item.price || 0,
+      total: item.total || (item.quantity || item.qty || 1) * (item.unitPrice || item.price || 0),
+      variation: item.variation || "",
+      qty: item.qty || item.quantity || 1,
+      price: item.price || item.unitPrice || 0,
+    }));
+
+    // Handle legacy customer and device fields
+    const customer = docData.customer
+      ? {
+          name: docData.customer.name || "",
+          phone: docData.customer.phone || "",
+          email: docData.customer.email || "",
+          address: docData.customer.address || "",
+        }
+      : undefined;
+
+    const device = docData.device
+      ? {
+          type: docData.device.type || "",
+          brand: docData.device.brand || "",
+          model: docData.device.model || "",
+          imei: docData.device.imei || "",
+          color: docData.device.color || "",
+          issue: docData.device.issue || "",
+        }
+      : undefined;
+
+    return {
+      ...baseInvoice,
+      items,
+      customer,
+      device,
+      subtotal: docData.subtotal || baseInvoice.amount,
+    };
+  } catch (error) {
+    logger.error("Error transforming invoice data", { error, docData, docId });
+    throw new Error("Failed to transform invoice data");
+  }
+}
+
+export function normalizeInvoiceStatus(status: string): string {
+  const statusMap: Record<string, string> = {
+    Pending: "pending",
+    pending: "pending",
+    Sent: "sent",
+    sent: "sent",
+    Paid: "paid",
+    paid: "paid",
+    Overdue: "overdue",
+    overdue: "overdue",
+    Cancelled: "cancelled",
+    cancelled: "cancelled",
+    Draft: "draft",
+    draft: "draft",
+  };
+
+  return statusMap[status] || "draft";
+}
+
+export function normalizePaymentStatus(status: string): string {
+  const statusMap: Record<string, string> = {
+    Pending: "pending",
+    pending: "pending",
+    Paid: "paid",
+    paid: "paid",
+    Failed: "failed",
+    failed: "failed",
+    Partial: "partial",
+    partial: "partial",
+    Refunded: "refunded",
+    refunded: "refunded",
+  };
+
+  return statusMap[status] || "pending";
+}
+
+export function sanitizeInvoiceData(data: any): any {
+  // Remove undefined values and ensure proper types
+  const sanitized: any = {};
+
+  Object.entries(data).forEach(([key, value]) => {
+    if (value !== undefined && value !== null) {
+      if (key === "amount" || key === "tax" || key === "total" || key === "discount" || key === "advance") {
+        sanitized[key] = Math.max(0, Number(value) || 0);
+      } else if (key === "items" && Array.isArray(value)) {
+        sanitized[key] = value.map((item: any) => ({
+          name: String(item.name || ""),
+          description: item.description ? String(item.description) : undefined,
+          quantity: Math.max(1, Number(item.quantity || item.qty || 1)),
+          unitPrice: Math.max(0, Number(item.unitPrice || item.price || 0)),
+          total: Math.max(0, Number(item.total || 0)),
+          variation: item.variation ? String(item.variation) : undefined,
+        }));
+      } else if (key === "dueDate" || key === "paymentDate" || key === "paidDate") {
+        sanitized[key] = value instanceof Date ? value : new Date(value);
+      } else {
+        sanitized[key] = value;
+      }
+    }
+  });
+
+  return sanitized;
 }

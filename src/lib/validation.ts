@@ -26,7 +26,7 @@ export class Validator {
     const errors: Record<string, string> = {};
 
     for (const [field, rules] of Object.entries(this.schema)) {
-      const value = data[field] || '';
+      const value = data[field] || "";
       const fieldErrors: string[] = [];
 
       // Required validation
@@ -58,7 +58,7 @@ export class Validator {
       }
 
       if (fieldErrors.length > 0) {
-        errors[field] = fieldErrors.join(', ');
+        errors[field] = fieldErrors.join(", ");
       }
     }
 
@@ -69,7 +69,7 @@ export class Validator {
   }
 }
 
-export type { ValidationRule, ValidationSchema, ValidationResult };
+export type { ValidationResult, ValidationRule, ValidationSchema };
 
 // Common validation patterns
 export const patterns = {
@@ -78,7 +78,7 @@ export const patterns = {
   password: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d@$!%*?&]{8,}$/,
   url: /^https?:\/\/.+/,
   numeric: /^\d+$/,
-  alphanumeric: /^[a-zA-Z0-9]+$/
+  alphanumeric: /^[a-zA-Z0-9]+$/,
 };
 
 // Common validation rules
@@ -90,7 +90,7 @@ export const rules = {
   strongPassword: { required: true, pattern: patterns.password },
   url: { pattern: patterns.url },
   numeric: { pattern: patterns.numeric },
-  alphanumeric: { pattern: patterns.alphanumeric }
+  alphanumeric: { pattern: patterns.alphanumeric },
 };
 
 // Utility functions
@@ -99,7 +99,7 @@ export function validateEmail(email: string): boolean {
 }
 
 export function validatePhone(phone: string): boolean {
-  return patterns.phone.test(phone.replace(/\s/g, ''));
+  return patterns.phone.test(phone.replace(/\s/g, ""));
 }
 
 export function validatePassword(password: string): boolean {
@@ -108,4 +108,124 @@ export function validatePassword(password: string): boolean {
 
 export function validateStrongPassword(password: string): boolean {
   return patterns.password.test(password);
-} 
+}
+
+// Invoice-specific validation rules
+export const invoiceValidationRules = {
+  customerName: { required: true, minLength: 2, maxLength: 100 },
+  customerEmail: { required: true, pattern: patterns.email },
+  customerPhone: { required: true, pattern: patterns.phone },
+  amount: {
+    required: true,
+    custom: (value: string) => {
+      const num = parseFloat(value);
+      return isNaN(num) || num < 0 ? "Amount must be a positive number" : null;
+    },
+  },
+  tax: {
+    custom: (value: string) => {
+      const num = parseFloat(value);
+      return isNaN(num) || num < 0 ? "Tax must be a positive number" : null;
+    },
+  },
+  total: {
+    required: true,
+    custom: (value: string) => {
+      const num = parseFloat(value);
+      return isNaN(num) || num < 0 ? "Total must be a positive number" : null;
+    },
+  },
+  discount: {
+    custom: (value: string) => {
+      const num = parseFloat(value);
+      return isNaN(num) || num < 0 ? "Discount must be a positive number" : null;
+    },
+  },
+  advance: {
+    custom: (value: string) => {
+      const num = parseFloat(value);
+      return isNaN(num) || num < 0 ? "Advance must be a positive number" : null;
+    },
+  },
+  dueDate: {
+    required: true,
+    custom: (value: string) => {
+      const date = new Date(value);
+      return isNaN(date.getTime()) ? "Invalid due date" : null;
+    },
+  },
+  items: {
+    required: true,
+    custom: (value: any) => {
+      if (!Array.isArray(value) || value.length === 0) {
+        return "At least one item is required";
+      }
+      for (const item of value) {
+        if (!item.name || !item.quantity || !item.unitPrice) {
+          return "All items must have name, quantity, and unit price";
+        }
+        if (item.quantity <= 0 || item.unitPrice < 0) {
+          return "Quantity and unit price must be positive";
+        }
+      }
+      return null;
+    },
+  },
+};
+
+// Invoice validation function
+export function validateInvoice(invoice: any): ValidationResult {
+  const validator = new Validator(invoiceValidationRules);
+  return validator.validate(invoice);
+}
+
+// Calculate invoice totals
+export function calculateInvoiceTotals(items: any[], discount: number = 0, tax: number = 0, advance: number = 0) {
+  const subtotal = items.reduce((sum, item) => {
+    const quantity = item.quantity || item.qty || 1;
+    const unitPrice = item.unitPrice || item.price || 0;
+    return sum + quantity * unitPrice;
+  }, 0);
+
+  const totalAfterDiscount = subtotal - discount;
+  const totalAfterTax = totalAfterDiscount + tax;
+  const finalTotal = totalAfterTax - advance;
+
+  return {
+    subtotal,
+    totalAfterDiscount,
+    totalAfterTax,
+    finalTotal,
+    discount,
+    tax,
+    advance,
+  };
+}
+
+// Validate invoice status transitions
+export function validateStatusTransition(currentStatus: string, newStatus: string): boolean {
+  const validTransitions: Record<string, string[]> = {
+    draft: ["sent", "cancelled"],
+    sent: ["paid", "overdue", "cancelled"],
+    paid: ["refunded"],
+    overdue: ["paid", "cancelled"],
+    cancelled: [],
+    Pending: ["paid", "cancelled"], // Legacy status
+  };
+
+  return validTransitions[currentStatus]?.includes(newStatus) || false;
+}
+
+// Validate payment status transitions
+export function validatePaymentStatusTransition(currentStatus: string, newStatus: string): boolean {
+  const validTransitions: Record<string, string[]> = {
+    pending: ["paid", "failed", "partial"],
+    paid: ["refunded"],
+    failed: ["pending"],
+    partial: ["paid", "refunded"],
+    refunded: [],
+    Pending: ["paid", "failed", "partial"], // Legacy status
+  };
+
+  return validTransitions[currentStatus]?.includes(newStatus) || false;
+}

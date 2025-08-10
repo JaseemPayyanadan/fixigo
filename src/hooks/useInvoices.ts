@@ -1,349 +1,394 @@
 "use client";
-import { useState, useEffect } from "react";
-
-import { collection, query, where, getDocs, addDoc, updateDoc, doc, deleteDoc, orderBy } from "firebase/firestore";
+import { addDoc, collection, deleteDoc, doc, getDocs, onSnapshot, orderBy, query, Unsubscribe, updateDoc, where } from "firebase/firestore";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { db } from "@/lib/firebase";
-import { logger, isIndexBuildingError, getIndexBuildingMessage } from "@/lib/logger";
+import { getIndexBuildingMessage, isIndexBuildingError, logger } from "@/lib/logger";
+import { normalizeInvoiceStatus, normalizePaymentStatus, sanitizeInvoiceData, transformFirestoreInvoiceData } from "@/lib/utils";
+import { calculateInvoiceTotals, validateInvoice, validatePaymentStatusTransition, validateStatusTransition } from "@/lib/validation";
 import type { Invoice } from "@/types";
 
 import { useUser } from "./useUser";
+
+export interface InvoiceFilters {
+  status?: string;
+  paymentStatus?: string;
+  dateRange?: {
+    start: Date;
+    end: Date;
+  };
+  search?: string;
+}
+
+export interface InvoiceSortOptions {
+  field: "createdAt" | "dueDate" | "total" | "customerName" | "status";
+  direction: "asc" | "desc";
+}
 
 export function useInvoices(shopId?: string, branchId?: string) {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [filters, setFilters] = useState<InvoiceFilters>({});
+  const [sortOptions, setSortOptions] = useState<InvoiceSortOptions>({ field: "createdAt", direction: "desc" });
   const { user } = useUser();
 
-  useEffect(() => {
-    if (!user) return;
+  // Memoized query based on shopId and branchId
+  const baseQuery = useMemo(() => {
+    if (!shopId) return null;
 
-    const fetchInvoices = async () => {
+    let q = query(collection(db, "invoices"), where("shopId", "==", shopId));
+
+    if (branchId) {
+      q = query(q, where("branchId", "==", branchId));
+    }
+
+    return q;
+  }, [shopId, branchId]);
+
+  // Fetch invoices with error handling and fallback
+  const fetchInvoices = useCallback(
+    async (q: any, useOrdering: boolean = true) => {
       try {
-        setLoading(true);
-        setError(null);
-
-        let q;
         let querySnapshot;
-        
-        try {
-          if (shopId && branchId) {
-            // New flat structure: query top-level invoices collection with filters
-            q = query(
-              collection(db, "invoices"),
-              where("shopId", "==", shopId),
-              where("branchId", "==", branchId),
-              orderBy("createdAt", "desc")
-            );
-          } else if (shopId) {
-            // Query all invoices for the shop
-            q = query(
-              collection(db, "invoices"),
-              where("shopId", "==", shopId),
-              orderBy("createdAt", "desc")
-            );
-          } else {
-            setInvoices([]);
-            setLoading(false);
-            return;
-          }
 
-          querySnapshot = await getDocs(q);
-        } catch (indexError) {
-          // If index is building, try without ordering
-          logger.warn("Index building in progress for invoices, using fallback query", { error: String(indexError) });
-          
-          if (shopId && branchId) {
-            q = query(
-              collection(db, "invoices"),
-              where("shopId", "==", shopId),
-              where("branchId", "==", branchId)
-            );
-          } else if (shopId) {
-            q = query(
-              collection(db, "invoices"),
-              where("shopId", "==", shopId)
-            );
-          } else {
-            setInvoices([]);
-            setLoading(false);
-            return;
+        if (useOrdering) {
+          try {
+            const orderedQuery = query(q, orderBy(sortOptions.field, sortOptions.direction));
+            querySnapshot = await getDocs(orderedQuery);
+          } catch (indexError) {
+            logger.warn("Index building in progress for invoices, using fallback query", { error: String(indexError) });
+            querySnapshot = await getDocs(q);
           }
-          
+        } else {
           querySnapshot = await getDocs(q);
         }
+
         const invoiceList: Invoice[] = [];
 
         for (const docSnapshot of querySnapshot.docs) {
-          const data = docSnapshot.data();
-          const invoice: Invoice = {
-            id: docSnapshot.id,
-            serviceId: data.serviceId || "",
-            customerName: data.customerName || "",
-            customerEmail: data.customerEmail || "",
-            customerPhone: data.customerPhone || "",
-            amount: data.amount || 0,
-            tax: data.tax || 0,
-            total: data.total || 0,
-            status: data.status || "draft",
-            paymentStatus: data.paymentStatus || "pending",
-            dueDate: data.dueDate?.toDate() || new Date(),
-            shopId: data.shopId || "",
-            branchId: data.branchId || "",
-            items: data.items || [],
-            createdAt: data.createdAt?.toDate() || new Date(),
-            updatedAt: data.updatedAt?.toDate() || new Date(),
-          };
-          invoiceList.push(invoice);
+          try {
+            const data = docSnapshot.data();
+            const invoice = transformFirestoreInvoiceData(data, docSnapshot.id);
+            invoiceList.push(invoice);
+          } catch (transformError) {
+            logger.error("Error transforming invoice data", {
+              error: transformError,
+              docId: docSnapshot.id,
+            });
+            // Skip malformed invoices but continue processing others
+            continue;
+          }
         }
 
-        // Sort manually since we're not using orderBy in the query
-        invoiceList.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+        // Sort manually if we couldn't use orderBy
+        if (!useOrdering) {
+          invoiceList.sort((a, b) => {
+            const aValue = a[sortOptions.field];
+            const bValue = b[sortOptions.field];
+
+            if (aValue instanceof Date && bValue instanceof Date) {
+              return sortOptions.direction === "asc" ? aValue.getTime() - bValue.getTime() : bValue.getTime() - aValue.getTime();
+            }
+
+            if (typeof aValue === "string" && typeof bValue === "string") {
+              return sortOptions.direction === "asc" ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
+            }
+
+            if (typeof aValue === "number" && typeof bValue === "number") {
+              return sortOptions.direction === "asc" ? aValue - bValue : bValue - aValue;
+            }
+
+            return 0;
+          });
+        }
 
         setInvoices(invoiceList);
+        setError(null);
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : "Failed to fetch invoices";
-        
-        // Check if it's an index building error
+
         if (isIndexBuildingError(errorMessage)) {
           setError(getIndexBuildingMessage(errorMessage));
         } else {
           setError(errorMessage);
+          logger.error("Error fetching invoices", { error: errorMessage });
         }
-        
-        logger.error("Error fetching invoices", { error: errorMessage });
-      } finally {
-        setLoading(false);
       }
-    };
+    },
+    [sortOptions]
+  );
 
-    fetchInvoices();
-  }, [user, shopId, branchId]);
+  // Apply filters and search
+  const filteredInvoices = useMemo(() => {
+    let filtered = [...invoices];
 
-  const createInvoice = async (invoiceData: Omit<Invoice, "id" | "createdAt" | "updatedAt">) => {
-    if (!user || !shopId || !branchId) {
-      throw new Error("User not authenticated or missing shop/branch ID");
+    // Apply status filter
+    if (filters.status) {
+      filtered = filtered.filter((invoice) => normalizeInvoiceStatus(invoice.status) === normalizeInvoiceStatus(filters.status!));
     }
 
+    // Apply payment status filter
+    if (filters.paymentStatus) {
+      filtered = filtered.filter((invoice) => normalizePaymentStatus(invoice.paymentStatus) === normalizePaymentStatus(filters.paymentStatus!));
+    }
+
+    // Apply date range filter
+    if (filters.dateRange) {
+      filtered = filtered.filter((invoice) => {
+        const invoiceDate = invoice.createdAt;
+        return invoiceDate >= filters.dateRange!.start && invoiceDate <= filters.dateRange!.end;
+      });
+    }
+
+    // Apply search filter
+    if (filters.search) {
+      const searchLower = filters.search.toLowerCase();
+      filtered = filtered.filter(
+        (invoice) =>
+          invoice.customerName.toLowerCase().includes(searchLower) ||
+          invoice.customerEmail.toLowerCase().includes(searchLower) ||
+          invoice.customerPhone.includes(filters.search!) ||
+          invoice.id.toLowerCase().includes(searchLower) ||
+          invoice.items.some((item) => item.name.toLowerCase().includes(searchLower))
+      );
+    }
+
+    return filtered;
+  }, [invoices, filters]);
+
+  // Set up real-time listener
+  useEffect(() => {
+    if (!user || !baseQuery) return;
+
+    let unsubscribe: Unsubscribe;
+
     try {
-      // New flat structure: add to top-level invoices collection
-      const invoiceDocRef = await addDoc(
-        collection(db, "invoices"),
-        {
-          ...invoiceData,
-          shopId, // Ensure shopId is set
-          branchId, // Ensure branchId is set
-          createdAt: new Date(),
-          updatedAt: new Date(),
+      unsubscribe = onSnapshot(
+        baseQuery,
+        (snapshot) => {
+          const invoiceList: Invoice[] = [];
+
+          snapshot.docs.forEach((docSnapshot) => {
+            try {
+              const data = docSnapshot.data();
+              const invoice = transformFirestoreInvoiceData(data, docSnapshot.id);
+              invoiceList.push(invoice);
+            } catch (transformError) {
+              logger.error("Error transforming invoice data in snapshot", {
+                error: transformError,
+                docId: docSnapshot.id,
+              });
+            }
+          });
+
+          // Sort manually since onSnapshot doesn't support orderBy with complex queries
+          invoiceList.sort((a, b) => {
+            const aValue = a[sortOptions.field];
+            const bValue = b[sortOptions.field];
+
+            if (aValue instanceof Date && bValue instanceof Date) {
+              return sortOptions.direction === "asc" ? aValue.getTime() - bValue.getTime() : bValue.getTime() - aValue.getTime();
+            }
+
+            if (typeof aValue === "string" && typeof bValue === "string") {
+              return sortOptions.direction === "asc" ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
+            }
+
+            if (typeof aValue === "number" && typeof bValue === "number") {
+              return sortOptions.direction === "asc" ? aValue - bValue : bValue - aValue;
+            }
+
+            return 0;
+          });
+
+          setInvoices(invoiceList);
+          setLoading(false);
+          setError(null);
+        },
+        (error) => {
+          logger.error("Error in invoices snapshot listener", { error });
+          setError("Failed to listen for invoice updates");
+          setLoading(false);
         }
       );
+    } catch (error) {
+      logger.error("Error setting up invoices snapshot listener", { error });
+      setError("Failed to set up real-time updates");
+      setLoading(false);
+    }
 
-      // Refresh invoices list
-      let updatedInvoices;
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
+  }, [user, baseQuery, sortOptions]);
+
+  // Create invoice with validation
+  const createInvoice = useCallback(
+    async (invoiceData: Omit<Invoice, "id" | "createdAt" | "updatedAt">) => {
+      if (!user || !shopId || !branchId) {
+        throw new Error("User not authenticated or missing shop/branch ID");
+      }
+
       try {
-        updatedInvoices = await getDocs(
-          query(
-            collection(db, "invoices"),
-            where("shopId", "==", shopId),
-            where("branchId", "==", branchId),
-            orderBy("createdAt", "desc")
-          )
-        );
-      } catch (indexError) {
-        // If index is building, try without ordering
-        logger.warn("Index building in progress for invoices refresh, using fallback query", { error: String(indexError) });
-        
-        updatedInvoices = await getDocs(
-          query(
-            collection(db, "invoices"),
-            where("shopId", "==", shopId),
-            where("branchId", "==", branchId)
-          )
-        );
+        // Validate invoice data
+        const validationResult = validateInvoice(invoiceData);
+        if (!validationResult.isValid) {
+          const errorMessage = Object.values(validationResult.errors).join(", ");
+          throw new Error(`Invalid invoice data: ${errorMessage}`);
+        }
+
+        // Sanitize and prepare data
+        const sanitizedData = sanitizeInvoiceData({
+          ...invoiceData,
+          shopId,
+          branchId,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+
+        // Calculate totals if not provided
+        if (!sanitizedData.total || sanitizedData.total === 0) {
+          const totals = calculateInvoiceTotals(sanitizedData.items, sanitizedData.discount || 0, sanitizedData.tax || 0, sanitizedData.advance || 0);
+          sanitizedData.total = totals.finalTotal;
+          sanitizedData.amount = totals.subtotal;
+        }
+
+        // Create invoice in Firestore
+        const invoiceDocRef = await addDoc(collection(db, "invoices"), sanitizedData);
+
+        logger.info("Invoice created successfully", { invoiceId: invoiceDocRef.id });
+        return invoiceDocRef.id;
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : "Failed to create invoice";
+        logger.error("Error creating invoice", { error: errorMessage });
+        throw new Error(errorMessage);
+      }
+    },
+    [user, shopId, branchId]
+  );
+
+  // Update invoice with validation
+  const updateInvoice = useCallback(
+    async (invoiceId: string, updates: Partial<Invoice>) => {
+      if (!user || !shopId || !branchId) {
+        throw new Error("User not authenticated or missing shop/branch ID");
       }
 
-      const invoiceList: Invoice[] = [];
-      for (const docSnapshot of updatedInvoices.docs) {
-        const data = docSnapshot.data();
-        const invoice: Invoice = {
-          id: docSnapshot.id,
-          serviceId: data.serviceId || "",
-          customerName: data.customerName || "",
-          customerEmail: data.customerEmail || "",
-          customerPhone: data.customerPhone || "",
-          amount: data.amount || 0,
-          tax: data.tax || 0,
-          total: data.total || 0,
-          status: data.status || "draft",
-          paymentStatus: data.paymentStatus || "pending",
-          dueDate: data.dueDate?.toDate() || new Date(),
-          shopId: data.shopId || "",
-          branchId: data.branchId || "",
-          items: data.items || [],
-          createdAt: data.createdAt?.toDate() || new Date(),
-          updatedAt: data.updatedAt?.toDate() || new Date(),
-        };
-        invoiceList.push(invoice);
-      }
-
-      // Sort manually if we couldn't use orderBy
-      invoiceList.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-
-      setInvoices(invoiceList);
-      return invoiceDocRef.id;
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Failed to create invoice";
-      logger.error("Error creating invoice", { error: errorMessage });
-      throw new Error(errorMessage);
-    }
-  };
-
-  const updateInvoice = async (invoiceId: string, updates: Partial<Invoice>) => {
-    if (!user || !shopId || !branchId) {
-      throw new Error("User not authenticated or missing shop/branch ID");
-    }
-
-    try {
-      // New flat structure: update in top-level invoices collection
-      const invoiceRef = doc(db, "invoices", invoiceId);
-      await updateDoc(invoiceRef, {
-        ...updates,
-        updatedAt: new Date(),
-      });
-
-      // Refresh invoices list
-      let updatedInvoices;
       try {
-        updatedInvoices = await getDocs(
-          query(
-            collection(db, "invoices"),
-            where("shopId", "==", shopId),
-            where("branchId", "==", branchId),
-            orderBy("createdAt", "desc")
-          )
-        );
-      } catch (indexError) {
-        // If index is building, try without ordering
-        logger.warn("Index building in progress for invoices update refresh, using fallback query", { error: String(indexError) });
-        
-        updatedInvoices = await getDocs(
-          query(
-            collection(db, "invoices"),
-            where("shopId", "==", shopId),
-            where("branchId", "==", branchId)
-          )
-        );
+        // Find the current invoice to validate status transitions
+        const currentInvoice = invoices.find((inv) => inv.id === invoiceId);
+        if (!currentInvoice) {
+          throw new Error("Invoice not found");
+        }
+
+        // Validate status transitions if status is being updated
+        if (updates.status && updates.status !== currentInvoice.status) {
+          if (!validateStatusTransition(currentInvoice.status, updates.status)) {
+            throw new Error(`Invalid status transition from ${currentInvoice.status} to ${updates.status}`);
+          }
+        }
+
+        if (updates.paymentStatus && updates.paymentStatus !== currentInvoice.paymentStatus) {
+          if (!validatePaymentStatusTransition(currentInvoice.paymentStatus, updates.paymentStatus)) {
+            throw new Error(`Invalid payment status transition from ${currentInvoice.paymentStatus} to ${updates.paymentStatus}`);
+          }
+        }
+
+        // Sanitize update data
+        const sanitizedUpdates = sanitizeInvoiceData({
+          ...updates,
+          updatedAt: new Date(),
+        });
+
+        // Recalculate totals if items, discount, tax, or advance changed
+        if (updates.items || updates.discount !== undefined || updates.tax !== undefined || updates.advance !== undefined) {
+          const totals = calculateInvoiceTotals(updates.items || currentInvoice.items, updates.discount ?? currentInvoice.discount ?? 0, updates.tax ?? currentInvoice.tax ?? 0, updates.advance ?? currentInvoice.advance ?? 0);
+          sanitizedUpdates.total = totals.finalTotal;
+          sanitizedUpdates.amount = totals.subtotal;
+        }
+
+        // Update invoice in Firestore
+        const invoiceRef = doc(db, "invoices", invoiceId);
+        await updateDoc(invoiceRef, sanitizedUpdates);
+
+        logger.info("Invoice updated successfully", { invoiceId });
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : "Failed to update invoice";
+        logger.error("Error updating invoice", { error: errorMessage, invoiceId });
+        throw new Error(errorMessage);
+      }
+    },
+    [user, shopId, branchId, invoices]
+  );
+
+  // Delete invoice
+  const deleteInvoice = useCallback(
+    async (invoiceId: string) => {
+      if (!user || !shopId || !branchId) {
+        throw new Error("User not authenticated or missing shop/branch ID");
       }
 
-      const invoiceList: Invoice[] = [];
-      for (const docSnapshot of updatedInvoices.docs) {
-        const data = docSnapshot.data();
-        const invoice: Invoice = {
-          id: docSnapshot.id,
-          serviceId: data.serviceId || "",
-          customerName: data.customerName || "",
-          customerEmail: data.customerEmail || "",
-          customerPhone: data.customerPhone || "",
-          amount: data.amount || 0,
-          tax: data.tax || 0,
-          total: data.total || 0,
-          status: data.status || "draft",
-          paymentStatus: data.paymentStatus || "pending",
-          dueDate: data.dueDate?.toDate() || new Date(),
-          shopId: data.shopId || "",
-          branchId: data.branchId || "",
-          items: data.items || [],
-          createdAt: data.createdAt?.toDate() || new Date(),
-          updatedAt: data.updatedAt?.toDate() || new Date(),
-        };
-        invoiceList.push(invoice);
-      }
-
-      // Sort manually if we couldn't use orderBy
-      invoiceList.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-
-      setInvoices(invoiceList);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Failed to update invoice";
-      logger.error("Error updating invoice", { error: errorMessage });
-      throw new Error(errorMessage);
-    }
-  };
-
-  const deleteInvoice = async (invoiceId: string) => {
-    if (!user || !shopId || !branchId) {
-      throw new Error("User not authenticated or missing shop/branch ID");
-    }
-
-    try {
-      // New flat structure: delete from top-level invoices collection
-      await deleteDoc(doc(db, "invoices", invoiceId));
-      
-      // Refresh invoices list
-      let updatedInvoices;
       try {
-        updatedInvoices = await getDocs(
-          query(
-            collection(db, "invoices"),
-            where("shopId", "==", shopId),
-            where("branchId", "==", branchId),
-            orderBy("createdAt", "desc")
-          )
-        );
-      } catch (indexError) {
-        // If index is building, try without ordering
-        logger.warn("Index building in progress for invoices delete refresh, using fallback query", { error: String(indexError) });
-        
-        updatedInvoices = await getDocs(
-          query(
-            collection(db, "invoices"),
-            where("shopId", "==", shopId),
-            where("branchId", "==", branchId)
-          )
-        );
+        // Check if invoice exists and user has permission
+        const invoice = invoices.find((inv) => inv.id === invoiceId);
+        if (!invoice) {
+          throw new Error("Invoice not found");
+        }
+
+        // Prevent deletion of paid invoices (optional business rule)
+        if (invoice.paymentStatus === "paid") {
+          throw new Error("Cannot delete paid invoices");
+        }
+
+        await deleteDoc(doc(db, "invoices", invoiceId));
+
+        logger.info("Invoice deleted successfully", { invoiceId });
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : "Failed to delete invoice";
+        logger.error("Error deleting invoice", { error: errorMessage, invoiceId });
+        throw new Error(errorMessage);
       }
+    },
+    [user, shopId, branchId, invoices]
+  );
 
-      const invoiceList: Invoice[] = [];
-      for (const docSnapshot of updatedInvoices.docs) {
-        const data = docSnapshot.data();
-        const invoice: Invoice = {
-          id: docSnapshot.id,
-          serviceId: data.serviceId || "",
-          customerName: data.customerName || "",
-          customerEmail: data.customerEmail || "",
-          customerPhone: data.customerPhone || "",
-          amount: data.amount || 0,
-          tax: data.tax || 0,
-          total: data.total || 0,
-          status: data.status || "draft",
-          paymentStatus: data.paymentStatus || "pending",
-          dueDate: data.dueDate?.toDate() || new Date(),
-          shopId: data.shopId || "",
-          branchId: data.branchId || "",
-          items: data.items || [],
-          createdAt: data.createdAt?.toDate() || new Date(),
-          updatedAt: data.updatedAt?.toDate() || new Date(),
-        };
-        invoiceList.push(invoice);
-      }
+  // Update filters
+  const updateFilters = useCallback((newFilters: Partial<InvoiceFilters>) => {
+    setFilters((prev) => ({ ...prev, ...newFilters }));
+  }, []);
 
-      // Sort manually if we couldn't use orderBy
-      invoiceList.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  // Update sort options
+  const updateSortOptions = useCallback((newSortOptions: Partial<InvoiceSortOptions>) => {
+    setSortOptions((prev) => ({ ...prev, ...newSortOptions }));
+  }, []);
 
-      setInvoices(invoiceList);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Failed to delete invoice";
-      logger.error("Error deleting invoice", { error: errorMessage });
-      throw new Error(errorMessage);
-    }
-  };
+  // Clear filters
+  const clearFilters = useCallback(() => {
+    setFilters({});
+  }, []);
+
+  // Refresh invoices manually
+  const refreshInvoices = useCallback(async () => {
+    if (!baseQuery) return;
+    setLoading(true);
+    await fetchInvoices(baseQuery, false);
+  }, [baseQuery, fetchInvoices]);
 
   return {
-    invoices,
+    invoices: filteredInvoices,
     loading,
     error,
+    filters,
+    sortOptions,
     createInvoice,
     updateInvoice,
     deleteInvoice,
+    updateFilters,
+    updateSortOptions,
+    clearFilters,
+    refreshInvoices,
   };
-} 
+}

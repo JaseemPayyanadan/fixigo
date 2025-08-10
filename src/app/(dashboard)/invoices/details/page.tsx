@@ -1,11 +1,10 @@
 "use client";
-import { Suspense, useCallback, useEffect, useState } from "react";
-
+import { collection, doc, getDoc, getDocs, query, updateDoc, where } from "firebase/firestore";
 import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useCallback, useEffect, useState } from "react";
+import { FaDownload, FaEdit, FaPrint, FaRegPaperPlane, FaSave, FaTimes, FaTimesCircle } from "react-icons/fa";
 
-import { addDoc, collection, doc, getDoc, getDocs, query, updateDoc, where } from "firebase/firestore";
-import { FaDownload, FaEdit, FaPrint, FaRegPaperPlane, FaTimesCircle } from "react-icons/fa";
-
+import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import { db } from "@/lib/firebase";
 
 interface Service {
@@ -20,9 +19,35 @@ interface Service {
   branchId: string;
 }
 
+interface InvoiceData {
+  id: string;
+  serviceId: string;
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  amount: number;
+  tax: number;
+  total: number;
+  discount: number;
+  advance: number;
+  status: string;
+  paymentStatus: string;
+  dueDate: Date;
+  items: Array<{
+    name: string;
+    description: string;
+    quantity: number;
+    unitPrice: number;
+    total: number;
+    variation: string;
+  }>;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export default function InvoiceDetailsPage() {
   return (
-    <Suspense fallback={<div>Loading...</div>}>
+    <Suspense fallback={<LoadingSpinner size="lg" />}>
       <InvoiceDetailsContent />
     </Suspense>
   );
@@ -33,84 +58,130 @@ function InvoiceDetailsContent() {
   const router = useRouter();
   const serviceId = searchParams.get("id");
   const shouldPrint = searchParams.get("print") === "1";
+
   const [service, setService] = useState<Service | null>(null);
   const [branch, setBranch] = useState<Record<string, unknown> | null>(null);
+  const [invoice, setInvoice] = useState<InvoiceData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [invoiceStatus, setInvoiceStatus] = useState("Pending");
-  const [paymentStatus, setPaymentStatus] = useState("Pending");
   const [isEditing, setIsEditing] = useState(false);
-  const [editableItems, setEditableItems] = useState<Array<{ name: string; variation: string; price: number; qty: number }>>([]);
-  const [editableDiscount, setEditableDiscount] = useState(0);
-  const [editableTax, setEditableTax] = useState(0);
-  const [editableAdvance, setEditableAdvance] = useState(0);
+  const [saving, setSaving] = useState(false);
 
+  // Editable fields
+  const [editableData, setEditableData] = useState({
+    status: "Pending",
+    paymentStatus: "Pending",
+    discount: 0,
+    tax: 0,
+    advance: 0,
+    items: [] as Array<{ name: string; description: string; quantity: number; unitPrice: number; total: number; variation: string }>,
+  });
+
+  // Fetch service, branch, and invoice data
   useEffect(() => {
     if (!serviceId) return;
-    const fetchServiceAndBranch = async () => {
+
+    const fetchData = async () => {
       setLoading(true);
       try {
-        const docSnap = await getDoc(doc(db, "services", serviceId));
-        if (docSnap.exists()) {
-          const serviceData = { id: docSnap.id, ...docSnap.data() } as Service;
-          setService(serviceData);
-          // Fetch branch info
-          if (serviceData.shopId && serviceData.branchId) {
-            const branchSnap = await getDoc(doc(db, `shops/${serviceData.shopId}/branches/${serviceData.branchId}`));
-            if (branchSnap.exists()) {
-              setBranch({ id: branchSnap.id, ...branchSnap.data() });
-            }
+        // Fetch service
+        const serviceDoc = await getDoc(doc(db, "services", serviceId));
+        if (!serviceDoc.exists()) {
+          setLoading(false);
+          return;
+        }
+
+        const serviceData = { id: serviceDoc.id, ...serviceDoc.data() } as Service;
+        setService(serviceData);
+
+        // Fetch branch info
+        if (serviceData.shopId && serviceData.branchId) {
+          const branchDoc = await getDoc(doc(db, `shops/${serviceData.shopId}/branches/${serviceData.branchId}`));
+          if (branchDoc.exists()) {
+            setBranch({ id: branchDoc.id, ...branchDoc.data() });
           }
         }
+
+        // Check for existing invoice
+        const invoicesRef = collection(db, "invoices");
+        const invoiceQuery = query(invoicesRef, where("serviceId", "==", serviceId));
+        const invoiceDocs = await getDocs(invoiceQuery);
+
+        if (!invoiceDocs.empty) {
+          const invoiceDoc = invoiceDocs.docs[0];
+          const invoiceData = { id: invoiceDoc.id, ...invoiceDoc.data() } as InvoiceData;
+          setInvoice(invoiceData);
+
+          // Initialize editable data
+          setEditableData({
+            status: invoiceData.status,
+            paymentStatus: invoiceData.paymentStatus,
+            discount: invoiceData.discount || 0,
+            tax: invoiceData.tax || 0,
+            advance: invoiceData.advance || 0,
+            items: (invoiceData.items || []).map((item) => ({
+              name: item.name || "",
+              description: item.description || "",
+              quantity: item.quantity || 1,
+              unitPrice: item.unitPrice || 0,
+              total: item.total || 0,
+              variation: item.variation || "",
+            })),
+          });
+        } else {
+          // Create default invoice data
+          const defaultInvoice: InvoiceData = {
+            id: serviceData.id,
+            serviceId: serviceData.id,
+            customerName: serviceData.customer?.name || "Customer",
+            customerEmail: serviceData.customer?.email || "",
+            customerPhone: serviceData.customer?.phone || "",
+            amount: serviceData.price || 0,
+            tax: (serviceData.price || 0) * 0.05,
+            total: (serviceData.price || 0) * 1.05,
+            discount: 0,
+            advance: 0,
+            status: "Pending",
+            paymentStatus: "Pending",
+            dueDate: new Date(),
+            items: [
+              {
+                name: serviceData.name,
+                description: serviceData.description,
+                quantity: 1,
+                unitPrice: serviceData.price || 0,
+                total: serviceData.price || 0,
+                variation: serviceData.device ? `${serviceData.device.brand} ${serviceData.device.model}` : "",
+              },
+            ],
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          };
+
+          setInvoice(defaultInvoice);
+          setEditableData({
+            status: defaultInvoice.status,
+            paymentStatus: defaultInvoice.paymentStatus,
+            discount: defaultInvoice.discount,
+            tax: defaultInvoice.tax,
+            advance: defaultInvoice.advance,
+            items: defaultInvoice.items,
+          });
+        }
+      } catch (error) {
+        console.error("Error fetching data:", error);
       } finally {
         setLoading(false);
       }
     };
-    fetchServiceAndBranch();
+
+    fetchData();
   }, [serviceId]);
 
-  // Create invoice document in Firestore if not exists
-  useEffect(() => {
-    if (!service || !branch) return;
-    const createInvoiceIfNotExists = async () => {
-      // Check if invoice already exists for this service
-      const invoicesRef = collection(db, "invoices");
-      const q = query(invoicesRef, where("serviceId", "==", service.id));
-      const existing = await getDocs(q);
-      if (!existing.empty) return; // Already exists
-      // Prepare invoice data
-      const invoiceData = {
-        serviceId: service.id,
-        branchId: service.branchId,
-        shopId: service.shopId,
-        customer: service.customer || {},
-        device: service.device || {},
-        items: [
-          {
-            name: service.name,
-            variation: service.device ? `${service.device.brand} ${service.device.model}` : "-",
-            price: service.price || 0,
-            qty: 1,
-          },
-        ],
-        subtotal: service.price || 0,
-        discount: 0,
-        tax: (service.price || 0) * 0.05,
-        total: (service.price || 0) * 1.05,
-        status: "Pending",
-        paymentStatus: "Pending",
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-      await addDoc(invoicesRef, invoiceData);
-    };
-    createInvoiceIfNotExists();
-  }, [service, branch]);
-
+  // Handle print functionality
   useEffect(() => {
     if (!loading && shouldPrint) {
       setTimeout(() => {
         window.print();
-        // Remove print=1 from URL after printing
         const url = new URL(window.location.href);
         url.searchParams.delete("print");
         router.replace(url.pathname + url.search);
@@ -118,72 +189,111 @@ function InvoiceDetailsContent() {
     }
   }, [loading, shouldPrint, router]);
 
-  if (loading)
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading invoice...</p>
-        </div>
-      </div>
-    );
+  // Calculate totals
+  const calculateTotals = useCallback(() => {
+    const subtotal = editableData.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+    const total = subtotal - editableData.discount + editableData.tax - editableData.advance;
+    return { subtotal, total };
+  }, [editableData]);
 
-  if (!service)
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-24 h-24 bg-red-100 rounded-full flex items-center justify-center mb-6 mx-auto">
-            <FaTimesCircle className="h-12 w-12 text-red-600" />
-          </div>
-          <h3 className="text-xl font-semibold text-gray-900 mb-2">Service not found</h3>
-          <p className="text-gray-600 mb-6">The service you&apos;re looking for doesn&apos;t exist.</p>
-          <button onClick={handleBackToInvoices} className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-            Back to Invoices
-          </button>
-        </div>
-      </div>
-    );
+  // Handle field updates
+  const handleFieldUpdate = useCallback((field: string, value: string | number) => {
+    setEditableData((prev) => ({ ...prev, [field]: value }));
+  }, []);
 
-  const { id, name, price, createdAt, customer, device } = service;
-  const branchName = branch?.name || service.branchId;
-  const branchLocation = branch?.location || "-";
-  const branchContact = branch?.contactNumber || "-";
+  // Handle item updates
+  const handleItemUpdate = useCallback((index: number, field: string, value: string | number) => {
+    setEditableData((prev) => {
+      const newItems = [...prev.items];
+      newItems[index] = { ...newItems[index], [field]: value };
 
-  const invoiceId = id;
-  const invoiceDate = createdAt ? new Date(createdAt.seconds ? createdAt.seconds * 1000 : createdAt.nanoseconds).toLocaleDateString() : "-";
-  const dueDate = "-";
-  const from = {
-    name: branchName,
-    phone: branchContact,
-    address: branchLocation,
-  };
-  const billFor = {
-    name: customer?.name || "-",
-    phone: customer?.phone || "-",
-    address: customer?.email || "-",
-  };
-  const defaultItems = [
-    {
-      name,
-      variation: device ? `${device.brand} ${device.model}` : "-",
-      price: price || 0,
-      qty: 1,
+      // Recalculate item total
+      if (field === "quantity" || field === "unitPrice") {
+        newItems[index].total = newItems[index].quantity * newItems[index].unitPrice;
+      }
+
+      return { ...prev, items: newItems };
+    });
+  }, []);
+
+  // Add new item
+  const handleAddItem = useCallback(() => {
+    setEditableData((prev) => ({
+      ...prev,
+      items: [...prev.items, { name: "", description: "", quantity: 1, unitPrice: 0, total: 0, variation: "" }],
+    }));
+  }, []);
+
+  // Remove item
+  const handleRemoveItem = useCallback(
+    (index: number) => {
+      if (editableData.items.length > 1) {
+        setEditableData((prev) => ({
+          ...prev,
+          items: prev.items.filter((_, i) => i !== index),
+        }));
+      }
     },
-  ];
-  const defaultSubtotal = price || 0;
-  const defaultDiscount = 0;
-  const defaultTax = defaultSubtotal * 0.05;
-  const defaultTotal = defaultSubtotal - defaultDiscount + defaultTax;
+    [editableData.items.length]
+  );
 
-  // Use editable values when editing, otherwise use default values
-  const items = isEditing ? editableItems : defaultItems;
-  const subtotal = isEditing ? editableItems.reduce((sum, item) => sum + item.price * item.qty, 0) : defaultSubtotal;
-  const discount = isEditing ? editableDiscount : defaultDiscount;
-  const tax = isEditing ? editableTax : defaultTax;
-  const advance = isEditing ? editableAdvance : 0;
-  const total = isEditing ? subtotal - discount + tax - advance : defaultTotal;
-  const otherInfo = "Thank you for choosing our services! We appreciate your business.";
+  // Save invoice changes
+  const handleSave = useCallback(async () => {
+    if (!invoice || !service) return;
 
+    setSaving(true);
+    try {
+      const invoicesRef = collection(db, "invoices");
+      const invoiceQuery = query(invoicesRef, where("serviceId", "==", serviceId));
+      const existing = await getDocs(invoiceQuery);
+
+      if (!existing.empty) {
+        const invoiceDoc = existing.docs[0];
+        const { total } = calculateTotals();
+
+        const updateData = {
+          status: editableData.status,
+          paymentStatus: editableData.paymentStatus,
+          discount: editableData.discount,
+          tax: editableData.tax,
+          advance: editableData.advance,
+          total,
+          items: editableData.items,
+          updatedAt: new Date(),
+        };
+
+        await updateDoc(doc(db, "invoices", invoiceDoc.id), updateData);
+
+        // Update local state
+        setInvoice((prev) => (prev ? { ...prev, ...updateData } : null));
+        setIsEditing(false);
+      }
+    } catch (error) {
+      console.error("Error saving invoice:", error);
+    } finally {
+      setSaving(false);
+    }
+  }, [invoice, service, serviceId, editableData, calculateTotals]);
+
+  // Toggle edit mode
+  const handleEditToggle = useCallback(() => {
+    if (isEditing) {
+      // Reset to original values
+      if (invoice) {
+        setEditableData({
+          status: invoice.status,
+          paymentStatus: invoice.paymentStatus,
+          discount: invoice.discount || 0,
+          tax: invoice.tax || 0,
+          advance: invoice.advance || 0,
+          items: invoice.items || [],
+        });
+      }
+    }
+    setIsEditing(!isEditing);
+  }, [isEditing, invoice]);
+
+  // Navigation handlers
   const handleBackToInvoices = useCallback(() => {
     router.push("/invoices");
   }, [router]);
@@ -192,164 +302,43 @@ function InvoiceDetailsContent() {
     router.push(`/invoices/details?id=${serviceId}&print=1`);
   }, [router, serviceId]);
 
-  const handleStatusUpdate = useCallback(async (newStatus: string, type: "status" | "payment") => {
-    try {
-      if (type === "status") {
-        setInvoiceStatus(newStatus);
-      } else {
-        setPaymentStatus(newStatus);
-      }
-    } catch (error) {
-      // Handle error silently or show user feedback
-    }
-  }, []);
-
-  const handleDiscountChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setEditableDiscount(parseFloat(e.target.value) || 0);
-  }, []);
-
-  const handleTaxChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setEditableTax(parseFloat(e.target.value) || 0);
-  }, []);
-
-  const handleAdvanceChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setEditableAdvance(parseFloat(e.target.value) || 0);
-  }, []);
-
-  const handleEditToggle = useCallback(() => {
-    // Always initialize editable data when toggling
-    setEditableItems([...defaultItems]);
-    setEditableDiscount(defaultDiscount);
-    setEditableTax(defaultTax);
-    setEditableAdvance(0);
-    setIsEditing(!isEditing);
-  }, [defaultItems, defaultDiscount, defaultTax, isEditing]);
-
-  const handleItemUpdate = useCallback(
-    (index: number, field: string, value: string | number) => {
-      const updatedItems = [...editableItems];
-      updatedItems[index] = { ...updatedItems[index], [field]: value };
-      setEditableItems(updatedItems);
-    },
-    [editableItems]
-  );
-
-  const handleAddItem = useCallback(() => {
-    setEditableItems([...editableItems, { name: "", variation: "", price: 0, qty: 1 }]);
-  }, [editableItems]);
-
-  const handleRemoveItem = useCallback(
-    (index: number) => {
-      if (editableItems.length > 1) {
-        const updatedItems = editableItems.filter((_, i) => i !== index);
-        setEditableItems(updatedItems);
-      }
-    },
-    [editableItems]
-  );
-
-  const handleSaveInvoice = useCallback(async () => {
-    if (!service) return;
-
-    try {
-      const invoicesRef = collection(db, "invoices");
-      const q = query(invoicesRef, where("serviceId", "==", service.id));
-      const existing = await getDocs(q);
-
-      if (!existing.empty) {
-        const invoiceDoc = existing.docs[0];
-        const total = subtotal - editableDiscount + editableTax - editableAdvance;
-
-        const updateData = {
-          status: invoiceStatus,
-          paymentStatus,
-          discount: editableDiscount,
-          tax: editableTax,
-          advance: editableAdvance,
-          total,
-          updatedAt: new Date(),
-        };
-
-        await updateDoc(doc(db, "invoices", invoiceDoc.id), updateData);
-        // Don't exit edit mode - keep the form visible
-      }
-    } catch (error) {
-      // Handle error silently or show user feedback
-    }
-  }, [service, subtotal, editableDiscount, editableTax, editableAdvance, invoiceStatus, paymentStatus]);
-
-  if (loading)
+  if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading invoice...</p>
-        </div>
+        <LoadingSpinner size="lg" />
       </div>
     );
+  }
 
-  if (!service)
+  if (!service || !invoice) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 flex items-center justify-center">
         <div className="text-center">
           <div className="w-24 h-24 bg-red-100 rounded-full flex items-center justify-center mb-6 mx-auto">
             <FaTimesCircle className="h-12 w-12 text-red-600" />
           </div>
-          <h3 className="text-xl font-semibold text-gray-900 mb-2">Service not found</h3>
-          <p className="text-gray-600 mb-6">The service you&apos;re looking for doesn&apos;t exist.</p>
+          <h3 className="text-xl font-semibold text-gray-900 mb-2">Invoice not found</h3>
+          <p className="text-gray-600 mb-6">The invoice you're looking for doesn't exist.</p>
           <button onClick={handleBackToInvoices} className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
             Back to Invoices
           </button>
         </div>
       </div>
     );
+  }
 
-  const { id, name, price, createdAt, customer, device } = service;
-  const branchName = branch?.name || service.branchId;
-  const branchLocation = branch?.location || "-";
-  const branchContact = branch?.contactNumber || "-";
-
-  const invoiceId = id;
-  const invoiceDate = createdAt ? new Date(createdAt.seconds ? createdAt.seconds * 1000 : createdAt.nanoseconds).toLocaleDateString() : "-";
-  const dueDate = "-";
-  const from = {
-    name: branchName,
-    phone: branchContact,
-    address: branchLocation,
-  };
-  const billFor = {
-    name: customer?.name || "-",
-    phone: customer?.phone || "-",
-    address: customer?.email || "-",
-  };
-  const defaultItems = [
-    {
-      name,
-      variation: device ? `${device.brand} ${device.model}` : "-",
-      price: price || 0,
-      qty: 1,
-    },
-  ];
-  const defaultSubtotal = price || 0;
-  const defaultDiscount = 0;
-  const defaultTax = defaultSubtotal * 0.05;
-  const defaultTotal = defaultSubtotal - defaultDiscount + defaultTax;
-
-  // Use editable values when editing, otherwise use default values
-  const items = isEditing ? editableItems : defaultItems;
-  const subtotal = isEditing ? editableItems.reduce((sum, item) => sum + item.price * item.qty, 0) : defaultSubtotal;
-  const discount = isEditing ? editableDiscount : defaultDiscount;
-  const tax = isEditing ? editableTax : defaultTax;
-  const advance = isEditing ? editableAdvance : 0;
-  const total = isEditing ? subtotal - discount + tax - advance : defaultTotal;
-  const otherInfo = "Thank you for choosing our services! We appreciate your business.";
+  const { subtotal, total } = calculateTotals();
+  const branchName = (branch?.name as string) || service.branchId || "Branch Name";
+  const branchLocation = (branch?.location as string) || "-";
+  const branchContact = (branch?.contactNumber as string) || "-";
+  const invoiceDate = service.createdAt ? new Date(service.createdAt.seconds ? service.createdAt.seconds * 1000 : service.createdAt.nanoseconds).toLocaleDateString() : new Date().toLocaleDateString();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
-        <div className="flex items-center justify-between mb-4">
-          <button onClick={handleBackToInvoices} className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+          <button onClick={handleBackToInvoices} className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors self-start">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
@@ -357,23 +346,29 @@ function InvoiceDetailsContent() {
           </button>
 
           {/* Action Buttons */}
-          <div className="flex flex-row gap-2">
-            <button className="flex items-center gap-3 bg-blue-600 text-white font-normal px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors">
+          <div className="flex flex-wrap gap-2">
+            <button className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors">
               <FaRegPaperPlane className="w-3 h-3" />
               Send Invoice
             </button>
-            <button className="flex items-center gap-3 bg-gray-100 text-gray-700 font-normal px-4 py-2 text-sm rounded-lg hover:bg-gray-200 transition-colors">
+            <button className="flex items-center gap-2 bg-gray-100 text-gray-700 px-4 py-2 text-sm rounded-lg hover:bg-gray-200 transition-colors">
               <FaDownload className="w-3 h-3" />
               Download PDF
             </button>
-            <button onClick={handlePrintInvoice} className="flex items-center gap-3 bg-gray-100 text-gray-700 font-normal px-4 py-2 text-sm rounded-lg hover:bg-gray-200 transition-colors">
+            <button onClick={handlePrintInvoice} className="flex items-center gap-2 bg-gray-100 text-gray-700 px-4 py-2 text-sm rounded-lg hover:bg-gray-200 transition-colors">
               <FaPrint className="w-3 h-3" />
               Print Invoice
             </button>
-            <button onClick={handleEditToggle} className={`flex items-center gap-3 font-normal px-4 py-2 text-sm rounded-lg transition-colors ${isEditing ? "bg-orange-600 text-white hover:bg-orange-700" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}>
+            <button onClick={handleEditToggle} className={`flex items-center gap-2 px-4 py-2 text-sm rounded-lg transition-colors ${isEditing ? "bg-orange-600 text-white hover:bg-orange-700" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}>
               <FaEdit className="w-3 h-3" />
               {isEditing ? "Cancel Edit" : "Edit Invoice"}
             </button>
+            {isEditing && (
+              <button onClick={handleSave} disabled={saving} className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 text-sm rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50">
+                <FaSave className="w-3 h-3" />
+                {saving ? "Saving..." : "Save Changes"}
+              </button>
+            )}
           </div>
         </div>
 
@@ -382,7 +377,7 @@ function InvoiceDetailsContent() {
           <div className="flex-1">
             <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden invoice-print">
               {/* Invoice Header */}
-              <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-8">
+              <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-6 sm:p-8">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                   <div className="flex items-center gap-3">
                     <div className="h-12 w-12 rounded-full bg-white/20 flex items-center justify-center">
@@ -391,21 +386,21 @@ function InvoiceDetailsContent() {
                       </svg>
                     </div>
                     <div>
-                      <span className="text-2xl font-bold">Fixigo</span>
-                      <div className="text-sm opacity-90">Professional Service Management</div>
+                      <span className="text-xl sm:text-2xl font-bold">Fixigo</span>
+                      <div className="text-xs sm:text-sm opacity-90">Professional Service Management</div>
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="text-3xl font-bold mb-2">INVOICE</div>
-                    <div className="text-sm opacity-90">
+                    <div className="text-2xl sm:text-3xl font-bold mb-2">INVOICE</div>
+                    <div className="text-xs sm:text-sm opacity-90">
                       <div>
-                        Invoice ID: <span className="font-semibold">{invoiceId}</span>
+                        Invoice ID: <span className="font-semibold">#{invoice.id.slice(-8)}</span>
                       </div>
                       <div>
                         Date: <span className="font-semibold">{invoiceDate}</span>
                       </div>
                       <div>
-                        Due: <span className="font-semibold">{dueDate}</span>
+                        Due: <span className="font-semibold">{invoice.dueDate.toLocaleDateString()}</span>
                       </div>
                     </div>
                   </div>
@@ -413,20 +408,20 @@ function InvoiceDetailsContent() {
               </div>
 
               {/* Invoice Content */}
-              <div className="p-8">
+              <div className="p-6 sm:p-8">
                 {/* From / Bill For */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-                  <div className="bg-gray-50 rounded-lg p-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 mb-8">
+                  <div className="bg-gray-50 rounded-lg p-4 sm:p-6">
                     <div className="text-gray-500 text-sm mb-2 font-semibold">FROM</div>
-                    <div className="font-bold text-gray-900 text-lg">{typeof from.name === "string" ? from.name : ""}</div>
-                    <div className="text-gray-700 text-sm mt-1">{typeof from.phone === "string" ? from.phone : ""}</div>
-                    <div className="text-gray-700 text-sm">{typeof from.address === "string" ? from.address : ""}</div>
+                    <div className="font-bold text-gray-900 text-lg">{branchName}</div>
+                    <div className="text-gray-700 text-sm mt-1">{branchContact}</div>
+                    <div className="text-gray-700 text-sm">{branchLocation}</div>
                   </div>
-                  <div className="bg-gray-50 rounded-lg p-6">
+                  <div className="bg-gray-50 rounded-lg p-4 sm:p-6">
                     <div className="text-gray-500 text-sm mb-2 font-semibold">BILL TO</div>
-                    <div className="font-bold text-gray-900 text-lg">{billFor.name}</div>
-                    <div className="text-gray-700 text-sm mt-1">{billFor.phone}</div>
-                    <div className="text-gray-700 text-sm">{billFor.address}</div>
+                    <div className="font-bold text-gray-900 text-lg">{invoice.customerName}</div>
+                    <div className="text-gray-700 text-sm mt-1">{invoice.customerPhone}</div>
+                    <div className="text-gray-700 text-sm">{invoice.customerEmail}</div>
                   </div>
                 </div>
 
@@ -435,23 +430,69 @@ function InvoiceDetailsContent() {
                   <table className="min-w-full bg-white">
                     <thead>
                       <tr className="bg-gray-50">
-                        <th className="px-6 py-4 text-left text-gray-600 font-semibold text-sm">Description</th>
-                        <th className="px-6 py-4 text-left text-gray-600 font-semibold text-sm">Details</th>
-                        <th className="px-6 py-4 text-right text-gray-600 font-semibold text-sm">Price</th>
-                        <th className="px-6 py-4 text-right text-gray-600 font-semibold text-sm">Qty</th>
-                        <th className="px-6 py-4 text-right text-gray-600 font-semibold text-sm">Total</th>
+                        <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Description</th>
+                        <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Details</th>
+                        <th className="px-4 sm:px-6 py-3 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">Price</th>
+                        <th className="px-4 sm:px-6 py-3 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">Qty</th>
+                        <th className="px-4 sm:px-6 py-3 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">Total</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {items.map((item, idx) => (
+                      {editableData.items.map((item, idx) => (
                         <tr key={idx} className={idx % 2 === 0 ? "bg-white" : "bg-gray-50"}>
-                          <td className="px-6 py-4 text-gray-900 font-medium">{item.name}</td>
-                          <td className="px-6 py-4 text-gray-700">{item.variation}</td>
-                          <td className="px-6 py-4 text-right text-gray-900">₹{item.price.toFixed(2)}</td>
-                          <td className="px-6 py-4 text-right text-gray-900">{item.qty}</td>
-                          <td className="px-6 py-4 text-right text-gray-900 font-semibold">₹{(item.qty * item.price).toFixed(2)}</td>
+                          <td className="px-4 sm:px-6 py-4">
+                            {isEditing ? (
+                              <input type="text" value={item.name} onChange={(e) => handleItemUpdate(idx, "name", e.target.value)} className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                            ) : (
+                              <span className="text-gray-900 font-medium">{item.name}</span>
+                            )}
+                          </td>
+                          <td className="px-4 sm:px-6 py-4">
+                            {isEditing ? (
+                              <input type="text" value={item.variation} onChange={(e) => handleItemUpdate(idx, "variation", e.target.value)} className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                            ) : (
+                              <span className="text-gray-700">{item.variation}</span>
+                            )}
+                          </td>
+                          <td className="px-4 sm:px-6 py-4 text-right">
+                            {isEditing ? (
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={item.unitPrice}
+                                onChange={(e) => handleItemUpdate(idx, "unitPrice", parseFloat(e.target.value) || 0)}
+                                className="w-20 border border-gray-300 rounded px-2 py-1 text-sm text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
+                              />
+                            ) : (
+                              <span className="text-gray-900">₹{item.unitPrice.toFixed(2)}</span>
+                            )}
+                          </td>
+                          <td className="px-4 sm:px-6 py-4 text-right">
+                            {isEditing ? (
+                              <input type="number" min="1" value={item.quantity} onChange={(e) => handleItemUpdate(idx, "quantity", parseInt(e.target.value) || 1)} className="w-16 border border-gray-300 rounded px-2 py-1 text-sm text-right focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                            ) : (
+                              <span className="text-gray-900">{item.quantity}</span>
+                            )}
+                          </td>
+                          <td className="px-4 sm:px-6 py-4 text-right">
+                            <span className="text-gray-900 font-semibold">₹{item.total.toFixed(2)}</span>
+                            {isEditing && (
+                              <button onClick={() => handleRemoveItem(idx)} className="ml-2 text-red-600 hover:text-red-800 p-1" title="Remove item">
+                                <FaTimes className="w-3 h-3" />
+                              </button>
+                            )}
+                          </td>
                         </tr>
                       ))}
+                      {isEditing && (
+                        <tr>
+                          <td colSpan={5} className="px-4 sm:px-6 py-2">
+                            <button onClick={handleAddItem} className="w-full text-blue-600 hover:text-blue-800 text-sm py-2 border-2 border-dashed border-blue-300 rounded hover:border-blue-400 transition-colors">
+                              + Add Item
+                            </button>
+                          </td>
+                        </tr>
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -466,16 +507,40 @@ function InvoiceDetailsContent() {
                       </div>
                       <div className="flex justify-between py-2 text-gray-700">
                         <span>Discount</span>
-                        <span className="text-green-600">-₹{discount.toFixed(2)}</span>
+                        {isEditing ? (
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={editableData.discount}
+                            onChange={(e) => handleFieldUpdate("discount", parseFloat(e.target.value) || 0)}
+                            className="w-20 border border-gray-300 rounded px-2 py-1 text-sm text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          />
+                        ) : (
+                          <span className="text-green-600">-₹{editableData.discount.toFixed(2)}</span>
+                        )}
                       </div>
                       <div className="flex justify-between py-2 text-gray-700">
                         <span>Tax</span>
-                        <span>₹{tax.toFixed(2)}</span>
+                        {isEditing ? (
+                          <input type="number" step="0.01" value={editableData.tax} onChange={(e) => handleFieldUpdate("tax", parseFloat(e.target.value) || 0)} className="w-20 border border-gray-300 rounded px-2 py-1 text-sm text-right focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                        ) : (
+                          <span>₹{editableData.tax.toFixed(2)}</span>
+                        )}
                       </div>
-                      {advance > 0 && (
+                      {editableData.advance > 0 && (
                         <div className="flex justify-between py-2 text-gray-700">
                           <span>Advance</span>
-                          <span className="text-blue-600">-₹{advance.toFixed(2)}</span>
+                          {isEditing ? (
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={editableData.advance}
+                              onChange={(e) => handleFieldUpdate("advance", parseFloat(e.target.value) || 0)}
+                              className="w-20 border border-gray-300 rounded px-2 py-1 text-sm text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            />
+                          ) : (
+                            <span className="text-blue-600">-₹{editableData.advance.toFixed(2)}</span>
+                          )}
                         </div>
                       )}
                       <div className="flex justify-between py-3 text-lg font-bold text-gray-900 border-t border-gray-300 pt-3">
@@ -491,10 +556,10 @@ function InvoiceDetailsContent() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div className="text-sm text-gray-600">
                       <div className="font-semibold text-gray-700 mb-2">Additional Information</div>
-                      <div>{otherInfo}</div>
+                      <div>Thank you for choosing our services! We appreciate your business.</div>
                     </div>
                     <div className="flex flex-col items-center md:items-end">
-                      <div className="h-20 w-48 border-b- border-gray-400 mb-2 flex items-end justify-center"></div>
+                      <div className="h-20 w-48 border-b border-gray-400 mb-2 flex items-end justify-center"></div>
                       <div className="text-gray-700 text-sm">Authorized Signature</div>
                       <div className="text-gray-500 text-xs mt-1">{invoiceDate}</div>
                     </div>
@@ -522,7 +587,12 @@ function InvoiceDetailsContent() {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-medium text-gray-600 mb-1">Invoice Status</label>
-                    <select value={invoiceStatus} onChange={(e) => handleStatusUpdate(e.target.value, "status")} className="w-full border border-gray-300 rounded px-2 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500">
+                    <select
+                      value={editableData.status}
+                      onChange={(e) => handleFieldUpdate("status", e.target.value)}
+                      disabled={!isEditing}
+                      className={`w-full border border-gray-300 rounded px-2 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500 ${!isEditing ? "bg-gray-100 cursor-not-allowed" : ""}`}
+                    >
                       <option value="Pending">Pending</option>
                       <option value="Paid">Paid</option>
                       <option value="Cancelled">Cancelled</option>
@@ -530,46 +600,16 @@ function InvoiceDetailsContent() {
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-600 mb-1">Payment Status</label>
-                    <select value={paymentStatus} onChange={(e) => handleStatusUpdate(e.target.value, "payment")} className="w-full border border-gray-300 rounded px-2 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500">
+                    <select
+                      value={editableData.paymentStatus}
+                      onChange={(e) => handleFieldUpdate("paymentStatus", e.target.value)}
+                      disabled={!isEditing}
+                      className={`w-full border border-gray-300 rounded px-2 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500 ${!isEditing ? "bg-gray-100 cursor-not-allowed" : ""}`}
+                    >
                       <option value="Pending">Pending</option>
                       <option value="Paid">Paid</option>
                       <option value="Failed">Failed</option>
                     </select>
-                  </div>
-                </div>
-              </div>
-
-              {/* Financial Adjustments */}
-              <div className="mb-4">
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 bg-green-100 rounded flex items-center justify-center">
-                      <svg className="w-2.5 h-2.5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                      </svg>
-                    </div>
-                    <input type="number" step="0.01" value={editableDiscount} onChange={handleDiscountChange} className="flex-1 border border-gray-300 rounded px-2 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-green-500" placeholder="Discount" />
-                    <span className="text-green-600 font-medium text-xs">₹</span>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 bg-blue-100 rounded flex items-center justify-center">
-                      <svg className="w-2.5 h-2.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                      </svg>
-                    </div>
-                    <input type="number" step="0.01" value={editableTax} onChange={handleTaxChange} className="flex-1 border border-gray-300 rounded px-2 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500" placeholder="Tax" />
-                    <span className="text-blue-600 font-medium text-xs">₹</span>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 bg-purple-100 rounded flex items-center justify-center">
-                      <svg className="w-2.5 h-2.5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
-                      </svg>
-                    </div>
-                    <input type="number" step="0.01" value={editableAdvance} onChange={handleAdvanceChange} className="flex-1 border border-gray-300 rounded px-2 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-purple-500" placeholder="Advance" />
-                    <span className="text-purple-600 font-medium text-xs">₹</span>
                   </div>
                 </div>
               </div>
@@ -583,16 +623,16 @@ function InvoiceDetailsContent() {
                   </div>
                   <div className="flex justify-between text-green-600">
                     <span>Discount:</span>
-                    <span>-₹{editableDiscount.toFixed(2)}</span>
+                    <span>-₹{editableData.discount.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">Tax:</span>
-                    <span>₹{editableTax.toFixed(2)}</span>
+                    <span>₹{editableData.tax.toFixed(2)}</span>
                   </div>
-                  {editableAdvance > 0 && (
-                    <div className="flex justify-between text-purple-600">
+                  {editableData.advance > 0 && (
+                    <div className="flex justify-between text-blue-600">
                       <span>Advance:</span>
-                      <span>-₹{editableAdvance.toFixed(2)}</span>
+                      <span>-₹{editableData.advance.toFixed(2)}</span>
                     </div>
                   )}
                   <div className="flex justify-between font-semibold text-sm border-t border-gray-300 pt-1">
@@ -603,9 +643,11 @@ function InvoiceDetailsContent() {
               </div>
 
               {/* Save Button */}
-              <button onClick={handleSaveInvoice} className="w-full bg-blue-600 text-white font-medium py-2 px-3 rounded text-xs hover:bg-blue-700 transition-colors">
-                Save Changes
-              </button>
+              {isEditing && (
+                <button onClick={handleSave} disabled={saving} className="w-full bg-blue-600 text-white font-medium py-2 px-3 rounded text-xs hover:bg-blue-700 transition-colors disabled:opacity-50">
+                  {saving ? "Saving..." : "Save Changes"}
+                </button>
+              )}
             </div>
           </div>
         </div>

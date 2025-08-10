@@ -3,16 +3,32 @@
 export type Role = "shop_admin" | "branch_admin" | "technician";
 
 // Permission-based access control
-export type Permission = 
-  | "shop:read" | "shop:write" | "shop:delete"
-  | "branch:read" | "branch:write" | "branch:delete"
-  | "technician:read" | "technician:write" | "technician:delete"
-  | "service:read" | "service:write" | "service:delete"
-  | "invoice:read" | "invoice:write" | "invoice:delete"
-  | "task:read" | "task:write" | "task:delete"
-  | "user:read" | "user:write" | "user:delete"
-  | "report:read" | "report:write"
-  | "setting:read" | "setting:write"
+export type Permission =
+  | "shop:read"
+  | "shop:write"
+  | "shop:delete"
+  | "branch:read"
+  | "branch:write"
+  | "branch:delete"
+  | "technician:read"
+  | "technician:write"
+  | "technician:delete"
+  | "service:read"
+  | "service:write"
+  | "service:delete"
+  | "invoice:read"
+  | "invoice:write"
+  | "invoice:delete"
+  | "task:read"
+  | "task:write"
+  | "task:delete"
+  | "user:read"
+  | "user:write"
+  | "user:delete"
+  | "report:read"
+  | "report:write"
+  | "setting:read"
+  | "setting:write"
   | "dashboard:read";
 
 // Role hierarchy and permissions mapping
@@ -166,8 +182,8 @@ export interface Invoice {
   total: number;
   discount?: number;
   advance?: number;
-  status: "draft" | "sent" | "paid" | "overdue" | "cancelled";
-  paymentStatus: "pending" | "paid" | "failed" | "partial" | "refunded";
+  status: "draft" | "sent" | "paid" | "overdue" | "cancelled" | "Pending";
+  paymentStatus: "pending" | "paid" | "failed" | "partial" | "refunded" | "Pending";
   paymentMethod?: string;
   paymentDate?: Date;
   dueDate: Date;
@@ -181,7 +197,26 @@ export interface Invoice {
     quantity: number;
     unitPrice: number;
     total: number;
+    variation?: string;
+    qty?: number; // Legacy field for backward compatibility
+    price?: number; // Legacy field for backward compatibility
   }>;
+  // Legacy fields for backward compatibility
+  customer?: {
+    name?: string;
+    phone?: string;
+    email?: string;
+    address?: string;
+  };
+  device?: {
+    type?: string;
+    brand?: string;
+    model?: string;
+    imei?: string;
+    color?: string;
+    issue?: string;
+  };
+  subtotal?: number; // Legacy field
   createdAt: Date;
   updatedAt: Date;
 }
@@ -284,15 +319,7 @@ export interface DashboardStats {
 }
 
 // Service status with better UX
-export type ServiceStatus = 
-  | "pending" 
-  | "in_progress" 
-  | "completed" 
-  | "cancelled" 
-  | "on_hold" 
-  | "awaiting_parts"
-  | "ready_for_pickup"
-  | "quality_check";
+export type ServiceStatus = "pending" | "in_progress" | "completed" | "cancelled" | "on_hold" | "awaiting_parts" | "ready_for_pickup" | "quality_check";
 
 // Service priority levels
 export type ServicePriority = "low" | "medium" | "high" | "urgent";
@@ -307,7 +334,7 @@ export type InvoiceStatus = "draft" | "sent" | "paid" | "overdue" | "cancelled";
 export type UserStatus = "active" | "inactive" | "suspended";
 
 // Branch status
-export type BranchStatus = "active" | "inactive" | "maintenance"; 
+export type BranchStatus = "active" | "inactive" | "maintenance";
 
 export interface Device {
   brand: string;
@@ -315,4 +342,4 @@ export interface Device {
   imei: string;
   color?: string;
   type?: string;
-} 
+}
