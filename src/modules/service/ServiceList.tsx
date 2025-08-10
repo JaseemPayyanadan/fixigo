@@ -1,8 +1,9 @@
 "use client";
 import React from "react";
-import type { ServiceListProps } from "./types";
-import ShopAdminServiceList from "./components/ShopAdminServiceList";
+
 import BaseServiceList from "./components/BaseServiceList";
+import ShopAdminServiceList from "./components/ShopAdminServiceList";
+import type { ServiceListProps } from "./types";
 
 const ServiceList: React.FC<ServiceListProps> = (props) => {
   const { user } = props;

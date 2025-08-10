@@ -1,9 +1,11 @@
 "use client"
 import React, { useState } from "react";
+
+import Link from "next/link";
+
 import { UsersIcon, ChartBarIcon } from "@heroicons/react/24/outline";
 import { BuildingStorefrontIcon } from "@heroicons/react/24/outline";
 import { HiSparkles, HiX, HiCheckCircle } from "react-icons/hi";
-import Link from "next/link";
 
 interface OnboardingGuideProps {
   user: { name?: string; email?: string; role?: string };

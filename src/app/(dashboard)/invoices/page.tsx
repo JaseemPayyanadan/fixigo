@@ -1,10 +1,14 @@
 "use client";
-import React, { useEffect, useState } from "react";
-import { collection, getDocs, query, where } from "firebase/firestore";
-import { db } from "@/lib/firebase";
-import { useUser } from "@/hooks/useUser";
-import { useRouter } from "next/navigation";
+
+import { useEffect, useState } from "react";
+
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+
+import { collection, getDocs, query, where } from "firebase/firestore";
+
+import { useUser } from "@/hooks/useUser";
+import { db } from "@/lib/firebase";
 
 interface Invoice {
   id: string;
@@ -39,25 +43,27 @@ export default function InvoicesPage() {
         q = query(collection(db, "invoices"), where("branchId", "==", user.branchId));
       }
       const snap = await getDocs(q);
-      const invoicesData = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Invoice));
+      const invoicesData = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Invoice));
       setInvoices(invoicesData);
       // Fetch service names for all unique serviceIds
-      const uniqueServiceIds = Array.from(new Set(invoicesData.map(inv => inv.serviceId)));
+      const uniqueServiceIds = Array.from(new Set(invoicesData.map((inv) => inv.serviceId)));
       const serviceNameMap: { [serviceId: string]: string } = {};
-      await Promise.all(uniqueServiceIds.map(async (serviceId) => {
-        if (!serviceId) return;
-        try {
-          const serviceDoc = await getDocs(query(collection(db, "services"), where("id", "==", serviceId)));
-          if (!serviceDoc.empty) {
-            const docData = serviceDoc.docs[0].data();
-            serviceNameMap[serviceId] = docData.name || serviceId;
-          } else {
+      await Promise.all(
+        uniqueServiceIds.map(async (serviceId) => {
+          if (!serviceId) return;
+          try {
+            const serviceDoc = await getDocs(query(collection(db, "services"), where("id", "==", serviceId)));
+            if (!serviceDoc.empty) {
+              const docData = serviceDoc.docs[0].data();
+              serviceNameMap[serviceId] = docData.name || serviceId;
+            } else {
+              serviceNameMap[serviceId] = serviceId;
+            }
+          } catch {
             serviceNameMap[serviceId] = serviceId;
           }
-        } catch {
-          serviceNameMap[serviceId] = serviceId;
-        }
-      }));
+        })
+      );
       setServiceNames(serviceNameMap);
       setFetching(false);
     };
@@ -65,30 +71,26 @@ export default function InvoicesPage() {
   }, [user, loading, router]);
 
   // Filter invoices based on search
-  const filteredInvoices = invoices.filter(invoice => {
+  const filteredInvoices = invoices.filter((invoice) => {
     const searchLower = search.toLowerCase();
-    return (
-      invoice.customer?.name?.toLowerCase().includes(searchLower) ||
-      invoice.customer?.phone?.includes(search) ||
-      serviceNames[invoice.serviceId]?.toLowerCase().includes(searchLower) ||
-      invoice.id.toLowerCase().includes(searchLower)
-    );
+    return invoice.customer?.name?.toLowerCase().includes(searchLower) || invoice.customer?.phone?.includes(search) || serviceNames[invoice.serviceId]?.toLowerCase().includes(searchLower) || invoice.id.toLowerCase().includes(searchLower);
   });
 
   // Calculate stats
   const totalInvoices = invoices.length;
-  const pendingInvoices = invoices.filter(inv => inv.status === "Pending").length;
-  const paidInvoices = invoices.filter(inv => inv.status === "Paid").length;
+  const pendingInvoices = invoices.filter((inv) => inv.status === "Pending").length;
+  const paidInvoices = invoices.filter((inv) => inv.status === "Paid").length;
   const totalValue = invoices.reduce((sum, inv) => sum + (inv.total || 0), 0);
 
-  if (loading || fetching) return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 flex items-center justify-center">
-      <div className="text-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-        <p className="text-gray-600">Loading invoices...</p>
+  if (loading || fetching)
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading invoices...</p>
+        </div>
       </div>
-    </div>
-  );
+    );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
@@ -101,10 +103,7 @@ export default function InvoicesPage() {
               <p className="text-gray-600 text-sm">Track and manage all your invoices</p>
             </div>
             <div className="flex items-center gap-4">
-              <Link
-                href="/services"
-                className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 font-semibold shadow-lg transition-all duration-200 transform hover:scale-105 flex items-center gap-2"
-              >
+              <Link href="/services" className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 font-semibold shadow-lg transition-all duration-200 transform hover:scale-105 flex items-center gap-2">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                 </svg>
@@ -112,7 +111,7 @@ export default function InvoicesPage() {
               </Link>
             </div>
           </div>
-          
+
           {/* Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-8">
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
@@ -128,7 +127,7 @@ export default function InvoicesPage() {
                 </div>
               </div>
             </div>
-            
+
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
               <div className="flex items-center">
                 <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
@@ -142,7 +141,7 @@ export default function InvoicesPage() {
                 </div>
               </div>
             </div>
-            
+
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
               <div className="flex items-center">
                 <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
@@ -156,7 +155,7 @@ export default function InvoicesPage() {
                 </div>
               </div>
             </div>
-            
+
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
               <div className="flex items-center">
                 <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
@@ -185,7 +184,7 @@ export default function InvoicesPage() {
               <input
                 type="text"
                 value={search}
-                onChange={e => setSearch(e.target.value)}
+                onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search invoices by customer, service, or invoice ID..."
                 className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
               />
@@ -209,14 +208,9 @@ export default function InvoicesPage() {
                 </svg>
               </div>
               <h3 className="text-xl font-semibold text-gray-900 mb-2">No invoices found</h3>
-              <p className="text-gray-600 mb-6 max-w-md">
-                {search ? "No invoices match your search criteria." : "Get started by creating a service to generate your first invoice."}
-              </p>
+              <p className="text-gray-600 mb-6 max-w-md">{search ? "No invoices match your search criteria." : "Get started by creating a service to generate your first invoice."}</p>
               {!search && (
-                <Link
-                  href="/services"
-                  className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 font-semibold shadow-lg transition-all duration-200 transform hover:scale-105 flex items-center gap-2"
-                >
+                <Link href="/services" className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 font-semibold shadow-lg transition-all duration-200 transform hover:scale-105 flex items-center gap-2">
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                   </svg>
@@ -240,10 +234,7 @@ export default function InvoicesPage() {
                 </thead>
                 <tbody>
                   {filteredInvoices.map((inv, idx) => (
-                    <tr
-                      key={inv.id}
-                      className={`transition-all duration-200 ${idx % 2 === 0 ? "bg-white" : "bg-gray-50"} hover:bg-blue-50 hover:shadow-md rounded-lg`}
-                    >
+                    <tr key={inv.id} className={`transition-all duration-200 ${idx % 2 === 0 ? "bg-white" : "bg-gray-50"} hover:bg-blue-50 hover:shadow-md rounded-lg`}>
                       <td className="px-6 py-4 font-mono text-sm text-gray-900 rounded-l-lg">
                         <div className="flex items-center gap-2">
                           <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
@@ -252,63 +243,37 @@ export default function InvoicesPage() {
                       </td>
                       <td className="px-6 py-4">
                         <div>
-                          <div className="text-sm font-medium text-gray-900">{inv.customer?.name || 'N/A'}</div>
-                          <div className="text-sm text-gray-500">{inv.customer?.phone || 'N/A'}</div>
+                          <div className="text-sm font-medium text-gray-900">{inv.customer?.name || "N/A"}</div>
+                          <div className="text-sm text-gray-500">{inv.customer?.phone || "N/A"}</div>
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <div className="text-sm text-gray-900 max-w-xs truncate">
-                          {serviceNames[inv.serviceId] || inv.serviceId}
-                        </div>
+                        <div className="text-sm text-gray-900 max-w-xs truncate">{serviceNames[inv.serviceId] || inv.serviceId}</div>
                       </td>
                       <td className="px-6 py-4">
-                        <div className="text-sm font-semibold text-blue-700">
-                          ₹{(inv.total || 0).toFixed(2)}
-                        </div>
+                        <div className="text-sm font-semibold text-blue-700">₹{(inv.total || 0).toFixed(2)}</div>
                       </td>
                       <td className="px-6 py-4">
-                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${
-                          inv.status === 'Pending' 
-                            ? 'bg-orange-100 text-orange-700' 
-                            : inv.status === 'Paid' 
-                            ? 'bg-green-100 text-green-700' 
-                            : 'bg-gray-100 text-gray-700'
-                        }`}>
-                          <div className={`w-2 h-2 rounded-full mr-2 ${
-                            inv.status === 'Pending' ? 'bg-orange-500' : inv.status === 'Paid' ? 'bg-green-500' : 'bg-gray-500'
-                          }`}></div>
+                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${inv.status === "Pending" ? "bg-orange-100 text-orange-700" : inv.status === "Paid" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"}`}>
+                          <div className={`w-2 h-2 rounded-full mr-2 ${inv.status === "Pending" ? "bg-orange-500" : inv.status === "Paid" ? "bg-green-500" : "bg-gray-500"}`}></div>
                           {inv.status}
                         </span>
                       </td>
                       <td className="px-6 py-4">
-                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${
-                          inv.paymentStatus === 'Paid' 
-                            ? 'bg-green-100 text-green-700' 
-                            : 'bg-orange-100 text-orange-700'
-                        }`}>
-                          <div className={`w-2 h-2 rounded-full mr-2 ${
-                            inv.paymentStatus === 'Paid' ? 'bg-green-500' : 'bg-orange-500'
-                          }`}></div>
-                          {inv.paymentStatus || 'Pending'}
+                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${inv.paymentStatus === "Paid" ? "bg-green-100 text-green-700" : "bg-orange-100 text-orange-700"}`}>
+                          <div className={`w-2 h-2 rounded-full mr-2 ${inv.paymentStatus === "Paid" ? "bg-green-500" : "bg-orange-500"}`}></div>
+                          {inv.paymentStatus || "Pending"}
                         </span>
                       </td>
                       <td className="px-6 py-4 rounded-r-lg">
                         <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => router.push(`/invoices/details?id=${inv.serviceId}`)}
-                            className="text-blue-600 hover:text-blue-800 transition-colors"
-                            title="View Invoice"
-                          >
+                          <button onClick={() => router.push(`/invoices/details?id=${inv.serviceId}`)} className="text-blue-600 hover:text-blue-800 transition-colors" title="View Invoice">
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                             </svg>
                           </button>
-                          <button
-                            onClick={() => router.push(`/invoices/details?id=${inv.serviceId}&print=1`)}
-                            className="text-gray-600 hover:text-gray-800 transition-colors"
-                            title="Print Invoice"
-                          >
+                          <button onClick={() => router.push(`/invoices/details?id=${inv.serviceId}&print=1`)} className="text-gray-600 hover:text-gray-800 transition-colors" title="Print Invoice">
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
                             </svg>
@@ -325,4 +290,4 @@ export default function InvoicesPage() {
       </div>
     </div>
   );
-} 
+}

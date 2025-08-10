@@ -1,8 +1,10 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useUser } from "./useUser";
-import { NotificationService, type Notification } from "@/lib/notifications";
+
 import { logger } from "@/lib/logger";
+import { NotificationService, type Notification } from "@/lib/notifications";
+
+import { useUser } from "./useUser";
 
 export function useNotifications() {
   const { user } = useUser();

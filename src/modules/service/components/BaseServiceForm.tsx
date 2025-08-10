@@ -1,8 +1,6 @@
 "use client";
 import React, { useState, useEffect, useCallback } from "react";
-import type { ServiceFormProps, ServiceFormData, ServiceValidationErrors } from "../types";
-import { validateServiceForm, getFormFieldConfig } from "../utils";
-import TextInput from "@/components/ui/TextInput";
+
 import { 
   UserIcon, 
   PhoneIcon, 
@@ -14,6 +12,11 @@ import {
   ClockIcon,
   ExclamationTriangleIcon
 } from "@heroicons/react/24/outline";
+
+import TextInput from "@/components/ui/TextInput";
+
+import type { ServiceFormProps, ServiceFormData, ServiceValidationErrors } from "../types";
+import { validateServiceForm, getFormFieldConfig } from "../utils";
 
 interface BaseServiceFormProps extends ServiceFormProps {
   children?: React.ReactNode;

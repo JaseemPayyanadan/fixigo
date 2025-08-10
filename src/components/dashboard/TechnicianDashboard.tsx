@@ -1,42 +1,22 @@
 "use client";
-import React from 'react';
-import { 
-  HiClipboardList, 
-  HiClock, 
-  HiCheckCircle, 
-  HiTrendingUp, 
-  HiStar,
-  HiUser,
-  HiCalendar,
-  HiExclamation
-} from "react-icons/hi";
-import { useUser } from '@/hooks/useUser';
-import { useDashboardData } from '@/hooks/useDashboardData';
-import { 
-  DashboardHeader, 
-  DashboardLoadingState, 
-  EnhancedMetricsGrid, 
-  RecentServicesCard,
-  DashboardMetric,
-  DashboardErrorBoundary,
-  CompactDashboardLayout,
-  CompactDashboardHeader,
-  CompactDashboardContent,
-  CompactErrorState
-} from './shared/DashboardComponents';
-import { formatCurrency } from './shared/DashboardUtils';
-import { collection, query, where, getDocs } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
-import type { Service } from '@/types';
+
+import React from "react";
+
+import { collection, getDocs, query, where } from "firebase/firestore";
+import { HiCalendar, HiCheckCircle, HiClipboardList, HiClock, HiExclamation, HiStar, HiTrendingUp, HiUser } from "react-icons/hi";
+
+
+import { useDashboardData } from "@/hooks/useDashboardData";
+import { useUser } from "@/hooks/useUser";
+import { db } from "@/lib/firebase";
+import type { Service } from "@/types";
+
+import { CompactDashboardContent, CompactDashboardHeader, CompactDashboardLayout, CompactErrorState, DashboardErrorBoundary, DashboardHeader, DashboardLoadingState, DashboardMetric, EnhancedMetricsGrid, RecentServicesCard } from "./shared/DashboardComponents";
+import { formatCurrency } from "./shared/DashboardUtils";
 
 export default function TechnicianDashboard() {
   const { user } = useUser();
-  const { 
-    services, 
-    isLoading, 
-    servicesLoading,
-    servicesError
-  } = useDashboardData(user?.shopId, user?.branchId);
+  const { services, isLoading, servicesLoading, servicesError } = useDashboardData(user?.shopId, user?.branchId);
 
   // State for technician's services
   const [myServices, setMyServices] = React.useState<Service[]>([]);
@@ -53,25 +33,22 @@ export default function TechnicianDashboard() {
 
       try {
         setTechnicianServicesLoading(true);
-        
+
         // First, get the technician document to find the correct ID
         const technicianQuery = query(collection(db, "technicians"), where("created_by", "==", user.id));
         const technicianSnapshot = await getDocs(technicianQuery);
         const technicianDoc = technicianSnapshot.docs[0];
-        
+
         if (technicianDoc) {
           const technicianId = technicianDoc.id;
-          console.log('TechnicianDashboard - Found technician document ID:', technicianId);
-          
+          console.log("TechnicianDashboard - Found technician document ID:", technicianId);
+
           // Filter services assigned to this technician
-          const technicianServices = services.filter(service => 
-            service.assignedTechnicianId === technicianId || 
-            (service as any).technician_id === technicianId
-          );
-          
+          const technicianServices = services.filter((service) => service.assignedTechnicianId === technicianId || (service as any).technician_id === technicianId);
+
           setMyServices(technicianServices);
         } else {
-          console.log('TechnicianDashboard - No technician document found for UID:', user.id);
+          console.log("TechnicianDashboard - No technician document found for UID:", user.id);
           setMyServices([]);
         }
       } catch (error) {
@@ -88,10 +65,10 @@ export default function TechnicianDashboard() {
   // Calculate technician-specific metrics
   const technicianMetrics = React.useMemo(() => {
     const totalServices = myServices.length;
-    const pendingServices = myServices.filter(s => s.status === 'pending').length;
-    const inProgressServices = myServices.filter(s => s.status === 'in_progress').length;
-    const completedServices = myServices.filter(s => s.status === 'completed').length;
-    const urgentServices = myServices.filter(s => s.status === 'pending' || s.status === 'in_progress').length;
+    const pendingServices = myServices.filter((s) => s.status === "pending").length;
+    const inProgressServices = myServices.filter((s) => s.status === "in_progress").length;
+    const completedServices = myServices.filter((s) => s.status === "completed").length;
+    const urgentServices = myServices.filter((s) => s.status === "pending" || s.status === "in_progress").length;
     const myRevenue = myServices.reduce((sum, service) => sum + (service.price || 0), 0);
     const customerSatisfaction = totalServices > 0 ? Math.round((completedServices / totalServices) * 100) : 0;
 
@@ -102,93 +79,91 @@ export default function TechnicianDashboard() {
       completedServices,
       urgentServices,
       myRevenue,
-      customerSatisfaction
+      customerSatisfaction,
     };
   }, [myServices]);
 
   // Get recent services for technician
-  const myRecentServices = React.useMemo(() => 
-    myServices.slice(0, 5),
-    [myServices]
-  );
+  const myRecentServices = React.useMemo(() => myServices.slice(0, 5), [myServices]);
 
   // Build metrics array
-  const dashboardMetrics: DashboardMetric[] = React.useMemo(() => [
-    {
-      id: 'total',
-      label: 'Total Services',
-      value: technicianMetrics.totalServices,
-      icon: HiClipboardList,
-      color: 'text-blue-600',
-      bgColor: 'bg-blue-100',
-      description: 'Your assigned services'
-    },
-    {
-      id: 'pending',
-      label: 'Pending',
-      value: technicianMetrics.pendingServices,
-      icon: HiClock,
-      color: 'text-orange-600',
-      bgColor: 'bg-orange-100',
-      description: 'Awaiting your attention'
-    },
-    {
-      id: 'in_progress',
-      label: 'In Progress',
-      value: technicianMetrics.inProgressServices,
-      icon: HiTrendingUp,
-      color: 'text-blue-600',
-      bgColor: 'bg-blue-100',
-      description: 'Currently working on'
-    },
-    {
-      id: 'completed',
-      label: 'Completed',
-      value: technicianMetrics.completedServices,
-      icon: HiCheckCircle,
-      color: 'text-green-600',
-      bgColor: 'bg-green-100',
-      description: 'Successfully finished'
-    },
-    {
-      id: 'urgent',
-      label: 'Urgent',
-      value: technicianMetrics.urgentServices,
-      icon: HiExclamation,
-      color: 'text-red-600',
-      bgColor: 'bg-red-100',
-      description: 'Requires immediate attention'
-    },
-    {
-      id: 'revenue',
-      label: 'My Revenue',
-      value: formatCurrency(technicianMetrics.myRevenue),
-      icon: HiStar,
-      color: 'text-yellow-600',
-      bgColor: 'bg-yellow-100',
-      description: 'Revenue from your services'
-    },
-    {
-      id: 'satisfaction',
-      label: 'Satisfaction',
-      value: `${technicianMetrics.customerSatisfaction}%`,
-      icon: HiUser,
-      color: 'text-indigo-600',
-      bgColor: 'bg-indigo-100',
-      description: 'Customer satisfaction rate'
-    },
-    {
-      id: 'efficiency',
-      label: 'Efficiency',
-      value: technicianMetrics.totalServices > 0 
-        ? `${Math.round((technicianMetrics.completedServices / technicianMetrics.totalServices) * 100)}%` 
-        : '0%',
-      icon: HiCalendar,
-      color: 'text-purple-600',
-      bgColor: 'bg-purple-100',
-      description: 'Completion rate'
-    }
-  ], [technicianMetrics]);
+  const dashboardMetrics: DashboardMetric[] = React.useMemo(
+    () => [
+      {
+        id: "total",
+        label: "Total Services",
+        value: technicianMetrics.totalServices,
+        icon: HiClipboardList,
+        color: "text-blue-600",
+        bgColor: "bg-blue-100",
+        description: "Your assigned services",
+      },
+      {
+        id: "pending",
+        label: "Pending",
+        value: technicianMetrics.pendingServices,
+        icon: HiClock,
+        color: "text-orange-600",
+        bgColor: "bg-orange-100",
+        description: "Awaiting your attention",
+      },
+      {
+        id: "in_progress",
+        label: "In Progress",
+        value: technicianMetrics.inProgressServices,
+        icon: HiTrendingUp,
+        color: "text-blue-600",
+        bgColor: "bg-blue-100",
+        description: "Currently working on",
+      },
+      {
+        id: "completed",
+        label: "Completed",
+        value: technicianMetrics.completedServices,
+        icon: HiCheckCircle,
+        color: "text-green-600",
+        bgColor: "bg-green-100",
+        description: "Successfully finished",
+      },
+      {
+        id: "urgent",
+        label: "Urgent",
+        value: technicianMetrics.urgentServices,
+        icon: HiExclamation,
+        color: "text-red-600",
+        bgColor: "bg-red-100",
+        description: "Requires immediate attention",
+      },
+      {
+        id: "revenue",
+        label: "My Revenue",
+        value: formatCurrency(technicianMetrics.myRevenue),
+        icon: HiStar,
+        color: "text-yellow-600",
+        bgColor: "bg-yellow-100",
+        description: "Revenue from your services",
+      },
+      {
+        id: "satisfaction",
+        label: "Satisfaction",
+        value: `${technicianMetrics.customerSatisfaction}%`,
+        icon: HiUser,
+        color: "text-indigo-600",
+        bgColor: "bg-indigo-100",
+        description: "Customer satisfaction rate",
+      },
+      {
+        id: "efficiency",
+        label: "Efficiency",
+        value: technicianMetrics.totalServices > 0 ? `${Math.round((technicianMetrics.completedServices / technicianMetrics.totalServices) * 100)}%` : "0%",
+        icon: HiCalendar,
+        color: "text-purple-600",
+        bgColor: "bg-purple-100",
+        description: "Completion rate",
+      },
+    ],
+    [technicianMetrics]
+  );
 
   // Handle retry for services
   const handleServicesRetry = React.useCallback(() => {
@@ -229,11 +204,7 @@ export default function TechnicianDashboard() {
       <CompactDashboardLayout>
         {/* Header */}
         <CompactDashboardHeader>
-          <DashboardHeader 
-            title="Technician Dashboard" 
-            subtitle="Welcome back, {name}"
-            user={user}
-          />
+          <DashboardHeader title="Technician Dashboard" subtitle="Welcome back, {name}" user={user} />
         </CompactDashboardHeader>
 
         {/* Content */}
@@ -242,24 +213,13 @@ export default function TechnicianDashboard() {
           {(isLoading || technicianServicesLoading) && <DashboardLoadingState message="Loading your services..." />}
 
           {/* Error States */}
-          {servicesError && (
-            <CompactErrorState message={`Services: ${servicesError}`} />
-          )}
+          {servicesError && <CompactErrorState message={`Services: ${servicesError}`} />}
 
           {/* Metrics Grid */}
           <EnhancedMetricsGrid metrics={dashboardMetrics} columns={6} />
 
           {/* My Services */}
-          <RecentServicesCard 
-            services={myRecentServices} 
-            loading={servicesLoading || technicianServicesLoading}
-            error={servicesError}
-            title="My Services"
-            viewAllLink="/services"
-            emptyMessage="No services assigned"
-            createLink={undefined}
-            onRetry={handleServicesRetry}
-          />
+          <RecentServicesCard services={myRecentServices} loading={servicesLoading || technicianServicesLoading} error={servicesError} title="My Services" viewAllLink="/services" emptyMessage="No services assigned" createLink={undefined} onRetry={handleServicesRetry} />
         </CompactDashboardContent>
       </CompactDashboardLayout>
     </DashboardErrorBoundary>

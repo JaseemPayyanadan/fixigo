@@ -1,21 +1,18 @@
 "use client";
-import React, { useState, useMemo } from "react";
+
+import { useMemo, useState } from "react";
+
+import Link from "next/link";
+
+import { CheckCircleIcon, MagnifyingGlassIcon, PlusIcon, StarIcon, UserGroupIcon, WrenchScrewdriverIcon } from "@heroicons/react/24/outline";
+
+import { PermissionGuard, RoleGuard } from "@/components";
 import { useUser } from "@/hooks";
 import { useBranches } from "@/hooks/useBranches";
-import { useTechnicians } from "@/hooks/useTechnicians";
 import { usePermissions } from "@/hooks/usePermissions";
-import { RoleGuard, PermissionGuard } from "@/components";
+import { useTechnicians } from "@/hooks/useTechnicians";
+import { isIndexBuildingError, logger } from "@/lib/logger";
 import TechnicianList from "@/modules/technician/TechnicianList";
-import Link from "next/link";
-import { logger, isIndexBuildingError } from "@/lib/logger";
-import { 
-  UserGroupIcon, 
-  StarIcon, 
-  CheckCircleIcon,
-  PlusIcon,
-  WrenchScrewdriverIcon,
-  MagnifyingGlassIcon
-} from "@heroicons/react/24/outline";
 
 export default function TechniciansPage() {
   return (
@@ -30,12 +27,9 @@ export default function TechniciansPage() {
 function TechniciansContent() {
   const { user } = useUser();
   const { branches } = useBranches(user?.shopId);
-  const { technicians, loading, error, deleteTechnician } = useTechnicians(
-    user?.shopId, 
-    user?.role === 'branch_admin' ? user?.branchId : undefined
-  );
+  const { technicians, loading, error, deleteTechnician } = useTechnicians(user?.shopId, user?.role === "branch_admin" ? user?.branchId : undefined);
   const { canDeleteTechnician } = usePermissions();
-  
+
   // State for filtering and search
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -45,11 +39,9 @@ function TechniciansContent() {
   // Calculate stats from actual data
   const stats = useMemo(() => {
     const total = technicians.length;
-    const active = technicians.filter(t => t.status === 'active').length;
+    const active = technicians.filter((t) => t.status === "active").length;
     const online = Math.floor(total * 0.7); // Mock online count
-    const averageRating = technicians.length > 0 
-      ? technicians.reduce((sum, t) => sum + (t.rating || 0), 0) / technicians.length
-      : 0;
+    const averageRating = technicians.length > 0 ? technicians.reduce((sum, t) => sum + (t.rating || 0), 0) / technicians.length : 0;
     const totalCompleted = technicians.reduce((sum, t) => sum + (t.completedServices || 0), 0);
     const totalCurrent = technicians.reduce((sum, t) => sum + (t.totalServices || 0), 0);
 
@@ -59,20 +51,18 @@ function TechniciansContent() {
       online,
       averageRating: parseFloat(averageRating.toFixed(1)),
       totalCompleted,
-      totalCurrent
+      totalCurrent,
     };
   }, [technicians]);
 
   // Filter and sort technicians
   const filteredTechnicians = useMemo(() => {
-    const filtered = technicians.filter(tech => {
-      const matchesSearch = tech.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           tech.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           tech.phone.includes(searchTerm);
-      
+    const filtered = technicians.filter((tech) => {
+      const matchesSearch = tech.name.toLowerCase().includes(searchTerm.toLowerCase()) || tech.email.toLowerCase().includes(searchTerm.toLowerCase()) || tech.phone.includes(searchTerm);
+
       const matchesStatus = statusFilter === "all" || tech.status === statusFilter;
       const matchesBranch = branchFilter === "all" || tech.branchId === branchFilter;
-      
+
       return matchesSearch && matchesStatus && matchesBranch;
     });
 
@@ -98,25 +88,25 @@ function TechniciansContent() {
   // Handle delete technician
   const handleDelete = async (technicianId: string) => {
     if (!canDeleteTechnician()) {
-      logger.warn('User attempted to delete technician without permission', { 
-        userId: user?.id, 
-        technicianId 
+      logger.warn("User attempted to delete technician without permission", {
+        userId: user?.id,
+        technicianId,
       });
       return;
     }
-    
+
     try {
       await deleteTechnician(technicianId);
-      logger.info('Technician deleted successfully', { technicianId });
+      logger.info("Technician deleted successfully", { technicianId });
     } catch (error) {
-      logger.error('Error deleting technician', { technicianId, error: error as Error });
+      logger.error("Error deleting technician", { technicianId, error: error as Error });
     }
   };
 
   // Handle error states
   if (error) {
     const isIndexBuilding = isIndexBuildingError(error);
-    
+
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
         <div className="flex items-center justify-center min-h-screen">
@@ -128,15 +118,10 @@ function TechniciansContent() {
                 <UserGroupIcon className="h-12 w-12 text-red-600" />
               </div>
             )}
-            <h2 className="mt-4 text-xl font-semibold text-gray-900">
-              {isIndexBuilding ? 'Setting Up Database' : 'Error Loading Technicians'}
-            </h2>
+            <h2 className="mt-4 text-xl font-semibold text-gray-900">{isIndexBuilding ? "Setting Up Database" : "Error Loading Technicians"}</h2>
             <p className="mt-2 text-gray-600">{error}</p>
             {!isIndexBuilding && (
-              <button 
-                onClick={() => window.location.reload()}
-                className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 transition-colors"
-              >
+              <button onClick={() => window.location.reload()} className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 transition-colors">
                 Try Again
               </button>
             )}
@@ -153,18 +138,10 @@ function TechniciansContent() {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8">
           <div>
             <h1 className="text-3xl font-bold text-gray-900 mb-2">Technicians</h1>
-            <p className="text-gray-600">
-              {user?.role === "shop_admin" 
-                ? "Manage all technicians across your business" 
-                : "Manage your team of skilled technicians"
-              }
-            </p>
+            <p className="text-gray-600">{user?.role === "shop_admin" ? "Manage all technicians across your business" : "Manage your team of skilled technicians"}</p>
           </div>
           <PermissionGuard permissions={["technician:write"]} fallback={null}>
-            <Link
-              href="/technicians/new"
-              className="mt-4 sm:mt-0 inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 font-semibold shadow-lg transition-all duration-200 transform hover:scale-105"
-            >
+            <Link href="/technicians/new" className="mt-4 sm:mt-0 inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 font-semibold shadow-lg transition-all duration-200 transform hover:scale-105">
               <PlusIcon className="w-5 h-5" />
               Add Technician
             </Link>
@@ -233,23 +210,13 @@ function TechniciansContent() {
             <div className="flex-1">
               <div className="relative">
                 <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search technicians..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
+                <input type="text" placeholder="Search technicians..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
               </div>
             </div>
 
             {/* Status Filter */}
             <div className="flex gap-4">
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              >
+              <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                 <option value="all">All Status</option>
                 <option value="active">Active</option>
                 <option value="inactive">Inactive</option>
@@ -257,11 +224,7 @@ function TechniciansContent() {
               </select>
 
               {/* Branch Filter */}
-              <select
-                value={branchFilter}
-                onChange={(e) => setBranchFilter(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              >
+              <select value={branchFilter} onChange={(e) => setBranchFilter(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                 <option value="all">All Branches</option>
                 {branches?.map((branch) => (
                   <option key={branch.id} value={branch.id}>
@@ -271,11 +234,7 @@ function TechniciansContent() {
               </select>
 
               {/* Sort */}
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              >
+              <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                 <option value="name">Sort by Name</option>
                 <option value="status">Sort by Status</option>
                 <option value="rating">Sort by Rating</option>
@@ -295,14 +254,10 @@ function TechniciansContent() {
               </div>
             </div>
           ) : (
-                         <TechnicianList
-               technicians={filteredTechnicians}
-               branches={branches || []}
-               onDelete={handleDelete}
-             />
+            <TechnicianList technicians={filteredTechnicians} branches={branches || []} onDelete={handleDelete} />
           )}
         </div>
       </div>
     </div>
   );
-} 
+}

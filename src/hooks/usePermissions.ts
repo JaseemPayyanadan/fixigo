@@ -1,5 +1,5 @@
 "use client";
-import { useUser } from "./useUser";
+import { authUserToUser } from "@/lib/auth";
 import { 
   getUserPermissions, 
   PermissionUtils, 
@@ -17,8 +17,9 @@ import {
   CRUD_PERMISSIONS,
   PERMISSION_ACTIONS
 } from "@/lib/rbac";
-import { authUserToUser } from "@/lib/auth";
 import type { Permission, Role } from "@/types";
+
+import { useUser } from "./useUser";
 
 export function usePermissions() {
   const { user } = useUser();

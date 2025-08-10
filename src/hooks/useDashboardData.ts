@@ -1,13 +1,16 @@
 "use client";
 import { useMemo } from 'react';
-import { useUser } from './useUser';
-import { useBranches } from './useBranches';
-import { useTechnicians } from './useTechnicians';
-import { useServices } from './useServices';
-import { useInvoices } from './useInvoices';
-import { Service, Branch, Technician, Invoice } from '@/types';
-import { AuthUser } from '@/lib/auth';
+
 import { calculateDashboardMetrics, getRecentServices } from '@/components/dashboard/shared/DashboardUtils';
+import { AuthUser } from '@/lib/auth';
+import { Service, Branch, Technician, Invoice } from '@/types';
+
+import { useBranches } from './useBranches';
+import { useInvoices } from './useInvoices';
+import { useServices } from './useServices';
+import { useTechnicians } from './useTechnicians';
+import { useUser } from './useUser';
+
 
 export interface DashboardMetrics {
   totalServices: number;

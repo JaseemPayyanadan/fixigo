@@ -1,8 +1,7 @@
 import React, { useState } from "react";
+
 import { useRouter } from "next/navigation";
 
-import { PermissionGuard } from "@/components";
-import { Technician, Branch } from "@/types";
 import { 
   UserIcon, 
   EnvelopeIcon, 
@@ -19,6 +18,9 @@ import {
   WrenchScrewdriverIcon,
   MapPinIcon
 } from "@heroicons/react/24/outline";
+
+import { PermissionGuard } from "@/components";
+import { Technician, Branch } from "@/types";
 
 interface TechnicianListProps {
   technicians: Technician[];

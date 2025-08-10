@@ -1,10 +1,14 @@
 "use client";
-import React, { useState, useEffect } from "react";
-import { useUser } from "@/hooks/useUser";
+
+import { useEffect, useState } from "react";
+
 import { useRouter } from "next/navigation";
+
+import { collection, doc, getDocs, onSnapshot, query, updateDoc, where } from "firebase/firestore";
+import { HiCalendar, HiCheckCircle, HiClipboardList, HiClock, HiCurrencyDollar, HiDeviceMobile, HiEye, HiUser, HiXCircle } from "react-icons/hi";
+
+import { useUser } from "@/hooks/useUser";
 import { db } from "@/lib/firebase";
-import { collection, query, where, updateDoc, doc, onSnapshot, getDocs } from "firebase/firestore";
-import { HiClipboardList, HiClock, HiCheckCircle, HiXCircle, HiEye, HiUser, HiDeviceMobile, HiCurrencyDollar, HiCalendar } from "react-icons/hi";
 
 interface Service {
   id: string;
@@ -43,31 +47,28 @@ export default function MyTasksPage() {
         const technicianQuery = query(collection(db, "technicians"), where("created_by", "==", user.id));
         const technicianSnapshot = await getDocs(technicianQuery);
         const technicianDoc = technicianSnapshot.docs[0];
-        
+
         if (technicianDoc) {
           const technicianId = technicianDoc.id;
-          console.log('My Tasks - Found technician document ID:', technicianId);
-          
+          console.log("My Tasks - Found technician document ID:", technicianId);
+
           // Fetch services assigned to this technician
-          const servicesQuery = query(
-            collection(db, "services"),
-            where("technician_id", "==", technicianId)
-          );
-          
+          const servicesQuery = query(collection(db, "services"), where("technician_id", "==", technicianId));
+
           // Set up real-time listener for updates
           const unsubscribe = onSnapshot(servicesQuery, (snapshot) => {
-            const services = snapshot.docs.map(doc => ({
+            const services = snapshot.docs.map((doc) => ({
               id: doc.id,
-              ...doc.data()
+              ...doc.data(),
             })) as Service[];
-            
+
             setTasks(services);
             setLoading(false);
           });
 
           return () => unsubscribe();
         } else {
-          console.log('My Tasks - No technician document found for UID:', user.id);
+          console.log("My Tasks - No technician document found for UID:", user.id);
           setTasks([]);
           setLoading(false);
         }
@@ -84,7 +85,7 @@ export default function MyTasksPage() {
     try {
       await updateDoc(doc(db, "services", taskId), {
         status: newStatus,
-        updatedAt: new Date()
+        updatedAt: new Date(),
       });
     } catch (error) {
       console.error("Error updating status:", error);
@@ -135,22 +136,16 @@ export default function MyTasksPage() {
   };
 
   const filteredAndSortedTasks = tasks
-    .filter(task => {
+    .filter((task) => {
       // Filter by status
       if (filter !== "all" && task.status !== filter) return false;
-      
+
       // Filter by search term
       if (searchTerm) {
         const searchLower = searchTerm.toLowerCase();
-        return (
-          task.name.toLowerCase().includes(searchLower) ||
-          task.description.toLowerCase().includes(searchLower) ||
-          task.customer?.name.toLowerCase().includes(searchLower) ||
-          task.device?.brand.toLowerCase().includes(searchLower) ||
-          task.device?.model.toLowerCase().includes(searchLower)
-        );
+        return task.name.toLowerCase().includes(searchLower) || task.description.toLowerCase().includes(searchLower) || task.customer?.name.toLowerCase().includes(searchLower) || task.device?.brand.toLowerCase().includes(searchLower) || task.device?.model.toLowerCase().includes(searchLower);
       }
-      
+
       return true;
     })
     .sort((a, b) => {
@@ -158,7 +153,7 @@ export default function MyTasksPage() {
         case "createdAt":
           return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
         case "status":
-          const statusOrder = { "To Do": 1, "In Progress": 2, "Completed": 3, "Cancelled": 4 };
+          const statusOrder = { "To Do": 1, "In Progress": 2, Completed: 3, Cancelled: 4 };
           return (statusOrder[a.status as keyof typeof statusOrder] || 0) - (statusOrder[b.status as keyof typeof statusOrder] || 0);
         case "price":
           return b.price - a.price;
@@ -169,10 +164,10 @@ export default function MyTasksPage() {
 
   const stats = {
     total: tasks.length,
-    todo: tasks.filter(t => t.status === "To Do").length,
-    inProgress: tasks.filter(t => t.status === "In Progress").length,
-    completed: tasks.filter(t => t.status === "Completed").length,
-    cancelled: tasks.filter(t => t.status === "Cancelled").length,
+    todo: tasks.filter((t) => t.status === "To Do").length,
+    inProgress: tasks.filter((t) => t.status === "In Progress").length,
+    completed: tasks.filter((t) => t.status === "Completed").length,
+    cancelled: tasks.filter((t) => t.status === "Cancelled").length,
   };
 
   if (loading) {
@@ -272,11 +267,7 @@ export default function MyTasksPage() {
             <div className="flex flex-col sm:flex-row gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Filter by Status</label>
-                <select
-                  value={filter}
-                  onChange={(e) => setFilter(e.target.value)}
-                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
+                <select value={filter} onChange={(e) => setFilter(e.target.value)} className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                   <option value="all">All Tasks</option>
                   <option value="To Do">To Do</option>
                   <option value="In Progress">In Progress</option>
@@ -284,31 +275,21 @@ export default function MyTasksPage() {
                   <option value="Cancelled">Cancelled</option>
                 </select>
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Sort by</label>
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
-                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
+                <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                   <option value="createdAt">Date Created</option>
                   <option value="status">Status</option>
                   <option value="price">Price</option>
                 </select>
               </div>
             </div>
-            
+
             <div className="flex-1 max-w-md">
               <label className="block text-sm font-medium text-gray-700 mb-2">Search Tasks</label>
               <div className="relative">
-                <input
-                  type="text"
-                  placeholder="Search by name, customer, or device..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
+                <input type="text" placeholder="Search by name, customer, or device..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full border border-gray-300 rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <HiEye className="h-5 w-5 text-gray-400" />
                 </div>
@@ -321,9 +302,7 @@ export default function MyTasksPage() {
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
           <div className="p-6 border-b border-gray-200">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-900">
-                Task List ({filteredAndSortedTasks.length} tasks)
-              </h3>
+              <h3 className="text-lg font-semibold text-gray-900">Task List ({filteredAndSortedTasks.length} tasks)</h3>
               <div className="text-sm text-gray-500">
                 Showing {filteredAndSortedTasks.length} of {tasks.length} tasks
               </div>
@@ -335,14 +314,7 @@ export default function MyTasksPage() {
               <div className="text-center py-12">
                 <HiClipboardList className="mx-auto h-12 w-12 text-gray-400" />
                 <h3 className="mt-2 text-sm font-medium text-gray-900">No tasks found</h3>
-                <p className="mt-1 text-sm text-gray-500">
-                  {filter === "all" && !searchTerm
-                    ? "You don&apos;t have any assigned tasks yet." 
-                    : searchTerm
-                    ? `No tasks match "${searchTerm}"`
-                    : `No tasks with status "${filter}" found.`
-                  }
-                </p>
+                <p className="mt-1 text-sm text-gray-500">{filter === "all" && !searchTerm ? "You don&apos;t have any assigned tasks yet." : searchTerm ? `No tasks match "${searchTerm}"` : `No tasks with status "${filter}" found.`}</p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -357,19 +329,11 @@ export default function MyTasksPage() {
                               {getStatusIcon(task.status)}
                               {task.status}
                             </span>
-                            {task.priority && (
-                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getPriorityColor(task.priority)}`}>
-                                {task.priority} Priority
-                              </span>
-                            )}
+                            {task.priority && <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getPriorityColor(task.priority)}`}>{task.priority} Priority</span>}
                           </div>
-                          
+
                           <div className="flex items-center gap-2">
-                            <select
-                              value={task.status}
-                              onChange={(e) => handleStatusUpdate(task.id, e.target.value)}
-                              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            >
+                            <select value={task.status} onChange={(e) => handleStatusUpdate(task.id, e.target.value)} className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                               <option value="To Do">To Do</option>
                               <option value="In Progress">In Progress</option>
                               <option value="Completed">Completed</option>
@@ -377,9 +341,9 @@ export default function MyTasksPage() {
                             </select>
                           </div>
                         </div>
-                        
+
                         <p className="text-gray-600 mb-4">{task.description}</p>
-                        
+
                         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-4">
                           {task.customer && (
                             <div className="bg-gray-50 rounded-lg p-3">
@@ -389,45 +353,41 @@ export default function MyTasksPage() {
                               </div>
                               <p className="text-sm text-gray-600 font-medium">{task.customer.name}</p>
                               <p className="text-sm text-gray-500">{task.customer.phone}</p>
-                              {task.customer.email && (
-                                <p className="text-sm text-gray-500">{task.customer.email}</p>
-                              )}
+                              {task.customer.email && <p className="text-sm text-gray-500">{task.customer.email}</p>}
                             </div>
                           )}
-                          
+
                           {task.device && (
                             <div className="bg-gray-50 rounded-lg p-3">
                               <div className="flex items-center gap-2 mb-2">
                                 <HiDeviceMobile className="w-4 h-4 text-gray-500" />
                                 <h5 className="text-sm font-medium text-gray-900">Device</h5>
                               </div>
-                              <p className="text-sm text-gray-600 font-medium">{task.device.brand} {task.device.model}</p>
+                              <p className="text-sm text-gray-600 font-medium">
+                                {task.device.brand} {task.device.model}
+                              </p>
                               <p className="text-sm text-gray-500">{task.device.type}</p>
-                              {task.device.imei && (
-                                <p className="text-sm text-gray-500">IMEI: {task.device.imei}</p>
-                              )}
+                              {task.device.imei && <p className="text-sm text-gray-500">IMEI: {task.device.imei}</p>}
                             </div>
                           )}
-                          
+
                           <div className="bg-gray-50 rounded-lg p-3">
                             <div className="flex items-center gap-2 mb-2">
                               <HiCurrencyDollar className="w-4 h-4 text-gray-500" />
                               <h5 className="text-sm font-medium text-gray-900">Service Details</h5>
                             </div>
                             <p className="text-sm text-gray-600 font-medium">${task.price}</p>
-                            {task.estimatedDuration && (
-                              <p className="text-sm text-gray-500">Est. Duration: {task.estimatedDuration}</p>
-                            )}
+                            {task.estimatedDuration && <p className="text-sm text-gray-500">Est. Duration: {task.estimatedDuration}</p>}
                           </div>
                         </div>
-                        
+
                         {task.notes && (
                           <div className="bg-blue-50 rounded-lg p-3 mb-4">
                             <h5 className="text-sm font-medium text-blue-900 mb-1">Notes</h5>
                             <p className="text-sm text-blue-700">{task.notes}</p>
                           </div>
                         )}
-                        
+
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-4 text-sm text-gray-500">
                             <div className="flex items-center gap-1">
@@ -441,12 +401,9 @@ export default function MyTasksPage() {
                               </div>
                             )}
                           </div>
-                          
+
                           <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => router.push(`/services/details?id=${task.id}`)}
-                              className="flex items-center gap-1 px-4 py-2 text-blue-600 hover:text-blue-800 text-sm font-medium transition-colors border border-blue-200 rounded-lg hover:bg-blue-50"
-                            >
+                            <button onClick={() => router.push(`/services/details?id=${task.id}`)} className="flex items-center gap-1 px-4 py-2 text-blue-600 hover:text-blue-800 text-sm font-medium transition-colors border border-blue-200 rounded-lg hover:bg-blue-50">
                               <HiEye className="w-4 h-4" />
                               View Details
                             </button>
@@ -463,4 +420,4 @@ export default function MyTasksPage() {
       </div>
     </div>
   );
-} 
+}

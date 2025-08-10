@@ -1,12 +1,15 @@
 "use client";
 import React, { useState, useMemo } from "react";
-import type { ServiceListProps } from "../types";
-import BaseServiceList from "./BaseServiceList";
+
 import { 
   FunnelIcon,
   ChevronDownIcon,
   ChevronUpIcon
 } from "@heroicons/react/24/outline";
+
+import type { ServiceListProps } from "../types";
+
+import BaseServiceList from "./BaseServiceList";
 
 const ShopAdminServiceList: React.FC<ServiceListProps> = (props) => {
   const [showFilters, setShowFilters] = useState(false);

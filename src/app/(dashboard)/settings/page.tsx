@@ -1,5 +1,6 @@
-import { AuthGuard } from "@/components";
 import { Cog6ToothIcon } from "@heroicons/react/24/outline";
+
+import { AuthGuard } from "@/components";
 
 export default function SettingsPage() {
   return (
@@ -24,9 +25,7 @@ export default function SettingsPage() {
             <div className="text-center py-12">
               <Cog6ToothIcon className="mx-auto h-12 w-12 text-gray-400" />
               <h3 className="mt-2 text-sm font-semibold text-gray-900">System Settings</h3>
-              <p className="mt-1 text-sm text-gray-500">
-                System configuration and settings will be displayed here.
-              </p>
+              <p className="mt-1 text-sm text-gray-500">System configuration and settings will be displayed here.</p>
               <div className="mt-6">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div className="bg-gray-50 rounded-lg p-4">
@@ -49,4 +48,4 @@ export default function SettingsPage() {
       </div>
     </AuthGuard>
   );
-} 
+}

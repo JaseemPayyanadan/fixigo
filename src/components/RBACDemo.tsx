@@ -1,7 +1,9 @@
 "use client";
 import React from "react";
-import { useUser } from "@/hooks/useUser";
+
 import { usePermissions } from "@/hooks/usePermissions";
+import { useUser } from "@/hooks/useUser";
+
 import PermissionGuard from "./auth/PermissionGuard";
 
 export default function RBACDemo() {

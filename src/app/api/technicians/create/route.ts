@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/firebase";
+
 import { collection, addDoc, setDoc, doc, query, where, getDocs } from "firebase/firestore";
+
 import { hashPassword } from "@/lib/auth";
+import { db } from "@/lib/firebase";
 import { Technician } from "@/types";
 
 export const dynamic = "force-dynamic";

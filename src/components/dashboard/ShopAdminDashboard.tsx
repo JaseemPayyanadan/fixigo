@@ -1,121 +1,97 @@
 "use client";
-import React from 'react';
-import { 
-  HiOfficeBuilding, 
-  HiUserGroup, 
-  HiClipboardList, 
-  HiCurrencyDollar, 
-  HiTrendingUp, 
-  HiClock, 
-  HiCheckCircle, 
-  HiStar
-} from "react-icons/hi";
-import { useDashboardData } from '@/hooks/useDashboardData';
-import { useUser } from '@/hooks/useUser';
-import { 
-  DashboardHeader, 
-  DashboardLoadingState, 
-  EnhancedMetricsGrid, 
-  RecentServicesCard,
-  DashboardMetric,
-  DashboardErrorBoundary,
-  UltraCompactDashboardLayout,
-  UltraCompactDashboardHeader,
-  UltraCompactDashboardContent,
-  CompactErrorState
-} from './shared/DashboardComponents';
-import { formatCurrency } from './shared/DashboardUtils';
+
+import React from "react";
+
+import { HiCheckCircle, HiClipboardList, HiClock, HiCurrencyDollar, HiOfficeBuilding, HiStar, HiTrendingUp, HiUserGroup } from "react-icons/hi";
+
+import { useDashboardData } from "@/hooks/useDashboardData";
+import { useUser } from "@/hooks/useUser";
+
+import { CompactErrorState, DashboardErrorBoundary, DashboardHeader, DashboardLoadingState, DashboardMetric, EnhancedMetricsGrid, RecentServicesCard, UltraCompactDashboardContent, UltraCompactDashboardHeader, UltraCompactDashboardLayout } from "./shared/DashboardComponents";
+import { formatCurrency } from "./shared/DashboardUtils";
 
 export default function ShopAdminDashboard() {
   const { user } = useUser();
-  const { 
-    isLoading, 
-    metrics, 
-    totalRevenue, 
-    branches, 
-    technicians, 
-    recentServices, 
-    servicesLoading,
-    servicesError,
-    branchesError,
-    techniciansError
-  } = useDashboardData(user?.shopId);
+  const { isLoading, metrics, totalRevenue, branches, technicians, recentServices, servicesLoading, servicesError, branchesError, techniciansError } = useDashboardData(user?.shopId);
 
   // Build metrics array
-  const dashboardMetrics: DashboardMetric[] = React.useMemo(() => [
-    {
-      id: 'branches',
-      label: 'Branches',
-      value: branches.length,
-      icon: HiOfficeBuilding,
-      color: 'text-blue-600',
-      bgColor: 'bg-blue-100',
-      description: 'Total active branches'
-    },
-    {
-      id: 'services',
-      label: 'Total Services',
-      value: metrics.totalServices,
-      icon: HiClipboardList,
-      color: 'text-green-600',
-      bgColor: 'bg-green-100',
-      description: 'All services across branches'
-    },
-    {
-      id: 'technicians',
-      label: 'Technicians',
-      value: technicians.length,
-      icon: HiUserGroup,
-      color: 'text-purple-600',
-      bgColor: 'bg-purple-100',
-      description: 'Active technicians'
-    },
-    {
-      id: 'revenue',
-      label: 'Total Revenue',
-      value: formatCurrency(totalRevenue),
-      icon: HiCurrencyDollar,
-      color: 'text-yellow-600',
-      bgColor: 'bg-yellow-100',
-      description: 'Total revenue across all branches'
-    },
-    {
-      id: 'pending',
-      label: 'Pending Services',
-      value: metrics.pendingServices,
-      icon: HiClock,
-      color: 'text-orange-600',
-      bgColor: 'bg-orange-100',
-      description: 'Services awaiting attention'
-    },
-    {
-      id: 'completed',
-      label: 'Completed',
-      value: metrics.completedServices,
-      icon: HiCheckCircle,
-      color: 'text-green-600',
-      bgColor: 'bg-green-100',
-      description: 'Successfully completed services'
-    },
-    {
-      id: 'active',
-      label: 'Active Services',
-      value: metrics.activeServices,
-      icon: HiTrendingUp,
-      color: 'text-blue-600',
-      bgColor: 'bg-blue-100',
-      description: 'Currently in progress'
-    },
-    {
-      id: 'satisfaction',
-      label: 'Customer Satisfaction',
-      value: `${metrics.customerSatisfaction}%`,
-      icon: HiStar,
-      color: 'text-indigo-600',
-      bgColor: 'bg-indigo-100',
-      description: 'Overall satisfaction rate'
-    }
-  ], [branches.length, technicians.length, metrics, totalRevenue]);
+  const dashboardMetrics: DashboardMetric[] = React.useMemo(
+    () => [
+      {
+        id: "branches",
+        label: "Branches",
+        value: branches.length,
+        icon: HiOfficeBuilding,
+        color: "text-blue-600",
+        bgColor: "bg-blue-100",
+        description: "Total active branches",
+      },
+      {
+        id: "services",
+        label: "Total Services",
+        value: metrics.totalServices,
+        icon: HiClipboardList,
+        color: "text-green-600",
+        bgColor: "bg-green-100",
+        description: "All services across branches",
+      },
+      {
+        id: "technicians",
+        label: "Technicians",
+        value: technicians.length,
+        icon: HiUserGroup,
+        color: "text-purple-600",
+        bgColor: "bg-purple-100",
+        description: "Active technicians",
+      },
+      {
+        id: "revenue",
+        label: "Total Revenue",
+        value: formatCurrency(totalRevenue),
+        icon: HiCurrencyDollar,
+        color: "text-yellow-600",
+        bgColor: "bg-yellow-100",
+        description: "Total revenue across all branches",
+      },
+      {
+        id: "pending",
+        label: "Pending Services",
+        value: metrics.pendingServices,
+        icon: HiClock,
+        color: "text-orange-600",
+        bgColor: "bg-orange-100",
+        description: "Services awaiting attention",
+      },
+      {
+        id: "completed",
+        label: "Completed",
+        value: metrics.completedServices,
+        icon: HiCheckCircle,
+        color: "text-green-600",
+        bgColor: "bg-green-100",
+        description: "Successfully completed services",
+      },
+      {
+        id: "active",
+        label: "Active Services",
+        value: metrics.activeServices,
+        icon: HiTrendingUp,
+        color: "text-blue-600",
+        bgColor: "bg-blue-100",
+        description: "Currently in progress",
+      },
+      {
+        id: "satisfaction",
+        label: "Customer Satisfaction",
+        value: `${metrics.customerSatisfaction}%`,
+        icon: HiStar,
+        color: "text-indigo-600",
+        bgColor: "bg-indigo-100",
+        description: "Overall satisfaction rate",
+      },
+    ],
+    [branches.length, technicians.length, metrics, totalRevenue]
+  );
 
   // Handle retry for services
   const handleServicesRetry = React.useCallback(() => {
@@ -139,11 +115,7 @@ export default function ShopAdminDashboard() {
       <UltraCompactDashboardLayout>
         {/* Header */}
         <UltraCompactDashboardHeader>
-          <DashboardHeader 
-            title="Dashboard" 
-            subtitle="Welcome back, {name}"
-            user={user}
-          />
+          <DashboardHeader title="Dashboard" subtitle="Welcome back, {name}" user={user} />
         </UltraCompactDashboardHeader>
 
         {/* Content */}
@@ -152,26 +124,13 @@ export default function ShopAdminDashboard() {
           {isLoading && <DashboardLoadingState />}
 
           {/* Error States */}
-          {(servicesError || branchesError || techniciansError) && (
-            <CompactErrorState 
-              message={`${servicesError ? `Services: ${servicesError}` : ''} ${branchesError ? `Branches: ${branchesError}` : ''} ${techniciansError ? `Technicians: ${techniciansError}` : ''}`.trim()}
-            />
-          )}
+          {(servicesError || branchesError || techniciansError) && <CompactErrorState message={`${servicesError ? `Services: ${servicesError}` : ""} ${branchesError ? `Branches: ${branchesError}` : ""} ${techniciansError ? `Technicians: ${techniciansError}` : ""}`.trim()} />}
 
           {/* Metrics Grid */}
           <EnhancedMetricsGrid metrics={dashboardMetrics} columns={8} />
 
           {/* Recent Services */}
-          <RecentServicesCard 
-            services={recentServices} 
-            loading={servicesLoading}
-            error={servicesError}
-            title="Recent Services"
-            viewAllLink="/services"
-            emptyMessage="No services yet"
-            createLink="/services/new"
-            onRetry={handleServicesRetry}
-          />
+          <RecentServicesCard services={recentServices} loading={servicesLoading} error={servicesError} title="Recent Services" viewAllLink="/services" emptyMessage="No services yet" createLink="/services/new" onRetry={handleServicesRetry} />
         </UltraCompactDashboardContent>
       </UltraCompactDashboardLayout>
     </DashboardErrorBoundary>

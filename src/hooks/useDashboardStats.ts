@@ -1,9 +1,12 @@
 "use client";
 import { useState, useEffect } from "react";
+
 import { collection, query, where, getDocs, orderBy } from "firebase/firestore";
+
 import { db } from "@/lib/firebase";
-import { useUser } from "./useUser";
 import { logger } from "@/lib/logger";
+
+import { useUser } from "./useUser";
 
 export interface DashboardStats {
   totalServices: number;

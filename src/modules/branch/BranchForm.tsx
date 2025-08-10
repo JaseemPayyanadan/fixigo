@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from "react";
-import TextInput from "../../components/ui/TextInput";
-import PasswordInput from "../../components/ui/PasswordInput";
+
 import { BuildingOfficeIcon, PhoneIcon, EnvelopeIcon, MapPinIcon, CheckCircleIcon, UserIcon, LockClosedIcon } from "@heroicons/react/24/outline";
+
+import PasswordInput from "../../components/ui/PasswordInput";
+import TextInput from "../../components/ui/TextInput";
 
 interface BranchFormProps {
   onSubmit: (branch: {

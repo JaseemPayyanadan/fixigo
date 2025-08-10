@@ -1,57 +1,17 @@
 "use client";
-import { Suspense } from "react";
-import React, { useEffect, useState } from "react";
+
+import React, { Suspense, useEffect, useState } from "react";
+
 import { useRouter, useSearchParams } from "next/navigation";
-import { db } from "@/lib/firebase";
-import { doc, getDoc, updateDoc, deleteDoc, collection, getDocs, query, where } from "firebase/firestore";
+
+import { collection, deleteDoc, doc, getDoc, getDocs, query, updateDoc, where } from "firebase/firestore";
+import { MdArrowBack, MdBuild, MdCheckCircle, MdDelete, MdDevices, MdEdit, MdFeedback, MdHistory, MdInfo, MdInventory, MdNotes, MdPerson, MdPrint, MdPriorityHigh, MdReceipt, MdRefresh, MdSchedule, MdStar, MdWarning } from "react-icons/md";
+
 import { useUser } from "@/hooks";
-import { useBranches } from "@/hooks/useBranches";
-import { useTechnicians } from "@/hooks/useTechnicians";
 import { authUserToUser } from "@/lib/auth";
+import { db } from "@/lib/firebase";
 import ServiceForm from "@/modules/service/ServiceForm";
 import type { Branch, Technician } from "@/types";
-import {  
-  MdPerson, 
-  MdPhone, 
-  MdDevices, 
-  MdBusiness, 
-  MdLabel, 
-  MdConfirmationNumber, 
-  MdBuild, 
-  MdAttachMoney,
-  MdArrowBack,
-  MdEdit,
-  MdDelete,
-  MdReceipt,
-  MdSchedule,
-  MdCheckCircle,
-  MdWarning,
-  MdInfo,
-  MdLocationOn,
-  MdPriorityHigh,
-  MdAccessTime,
-  MdHistory,
-  MdStar,
-  MdStarBorder,
-  MdEmail,
-  MdColorLens,
-  MdCategory,
-  MdAssignment,
-  MdPersonAdd,
-  MdShare,
-  MdPrint,
-  MdDownload,
-  MdRefresh,
-  MdNotes,
-  MdWork,
-  MdInventory,
-  MdFeedback,
-  MdGrade,
-  MdCalendarToday,
-  MdEvent,
-  MdBuildCircle,
-  MdDescription
-} from "react-icons/md";
 
 interface Service {
   id: string;
@@ -86,17 +46,17 @@ interface Service {
   qualityScore?: number;
   estimatedCompletion?: Date;
   actualCompletion?: Date;
-  device?: { 
-    model: string; 
-    brand: string; 
-    imei: string; 
+  device?: {
+    model: string;
+    brand: string;
+    imei: string;
     color?: string;
     type?: string;
     issue?: string;
   };
-  customer?: { 
-    name: string; 
-    phone?: string; 
+  customer?: {
+    name: string;
+    phone?: string;
     place?: string;
     email?: string;
     address?: string;
@@ -195,10 +155,12 @@ function ServiceDetailsPage() {
             notes: data.notes || "",
             workNotes: data.workNotes || [],
             partsUsed: data.partsUsed || [],
-            customerFeedback: data.customerFeedback ? {
-              ...data.customerFeedback,
-              date: data.customerFeedback.date?.toDate() || new Date()
-            } : undefined,
+            customerFeedback: data.customerFeedback
+              ? {
+                  ...data.customerFeedback,
+                  date: data.customerFeedback.date?.toDate() || new Date(),
+                }
+              : undefined,
             qualityScore: data.qualityScore,
             estimatedCompletion: data.estimatedCompletion?.toDate(),
             actualCompletion: data.actualCompletion?.toDate(),
@@ -224,9 +186,9 @@ function ServiceDetailsPage() {
         const branchesRef = collection(db, "branches");
         const q = query(branchesRef, where("shopId", "==", user.shopId));
         const querySnapshot = await getDocs(q);
-        const branchesData = querySnapshot.docs.map(doc => ({
+        const branchesData = querySnapshot.docs.map((doc) => ({
           id: doc.id,
-          ...doc.data()
+          ...doc.data(),
         })) as Branch[];
         setBranches(branchesData);
       } catch (err) {
@@ -240,9 +202,9 @@ function ServiceDetailsPage() {
         const techniciansRef = collection(db, "technicians");
         const q = query(techniciansRef, where("shopId", "==", user.shopId));
         const querySnapshot = await getDocs(q);
-        const techniciansData = querySnapshot.docs.map(doc => ({
+        const techniciansData = querySnapshot.docs.map((doc) => ({
           id: doc.id,
-          ...doc.data()
+          ...doc.data(),
         })) as Technician[];
         setTechnicians(techniciansData);
       } catch (err) {
@@ -255,11 +217,7 @@ function ServiceDetailsPage() {
     fetchTechnicians();
   }, [serviceId, user?.shopId]);
 
-  const handleEdit = async (data: {
-    service: { name: string; description: string; price: string; branchId: string; technician_id?: string };
-    customer: { name: string; phone?: string; place?: string };
-    device: { brand: string; model: string; imei: string; color: string };
-  }) => {
+  const handleEdit = async (data: { service: { name: string; description: string; price: string; branchId: string; technician_id?: string }; customer: { name: string; phone?: string; place?: string }; device: { brand: string; model: string; imei: string; color: string } }) => {
     setError(null);
     setLoading(true);
     try {
@@ -274,21 +232,25 @@ function ServiceDetailsPage() {
         status,
         updatedAt: new Date(),
       };
-      
+
       await updateDoc(doc(db, "services", serviceId!), updateData);
-      
-      setService((prev) => prev ? { 
-        ...prev, 
-        ...data.service, 
-        price: Number(data.service.price), 
-        customer: data.customer, 
-        device: data.device, 
-        branchId: data.service.branchId, 
-        technician_id: data.service.technician_id || (user?.role === "technician" ? user.id : ""),
-        status, 
-        updatedAt: new Date(), 
-        createdAt: prev.createdAt 
-      } : null);
+
+      setService((prev) =>
+        prev
+          ? {
+              ...prev,
+              ...data.service,
+              price: Number(data.service.price),
+              customer: data.customer,
+              device: data.device,
+              branchId: data.service.branchId,
+              technician_id: data.service.technician_id || (user?.role === "technician" ? user.id : ""),
+              status,
+              updatedAt: new Date(),
+              createdAt: prev.createdAt,
+            }
+          : null
+      );
       setEditing(false);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : String(err));
@@ -314,22 +276,22 @@ function ServiceDetailsPage() {
     const newStatus = e.target.value;
     setStatus(newStatus);
     setUpdatingStatus(true);
-    
+
     if (serviceId) {
       try {
-        await updateDoc(doc(db, "services", serviceId), { 
-          status: newStatus, 
-          updatedAt: new Date() 
+        await updateDoc(doc(db, "services", serviceId), {
+          status: newStatus,
+          updatedAt: new Date(),
         });
-        setService((prev) => prev ? { ...prev, status: newStatus, updatedAt: new Date() } : null);
-        
+        setService((prev) => (prev ? { ...prev, status: newStatus, updatedAt: new Date() } : null));
+
         // Add to status history
         const historyEntry: StatusHistory = {
           status: newStatus,
           timestamp: new Date(),
-          updatedBy: user?.name || "Unknown"
+          updatedBy: user?.name || "Unknown",
         };
-        setStatusHistory(prev => [historyEntry, ...prev]);
+        setStatusHistory((prev) => [historyEntry, ...prev]);
       } catch (err) {
         setStatus(service?.status || "To Do"); // Revert on error
       } finally {
@@ -339,7 +301,7 @@ function ServiceDetailsPage() {
   };
 
   const getTechnicianName = (technicianId: string) => {
-    const technician = technicians.find(t => t.id === technicianId);
+    const technician = technicians.find((t) => t.id === technicianId);
     return technician?.name || "Not assigned";
   };
 
@@ -352,28 +314,26 @@ function ServiceDetailsPage() {
   const getPriorityLabel = (priority: string) => {
     const labels = {
       low: "Low",
-      medium: "Medium", 
+      medium: "Medium",
       high: "High",
-      urgent: "Urgent"
+      urgent: "Urgent",
     };
     return labels[priority as keyof typeof labels] || "Medium";
   };
 
   const formatDate = (date: Date | undefined) => {
     if (!date) return "Not scheduled";
-    return date.toLocaleDateString('en-US', { 
-      year: 'numeric', 
-      month: 'short', 
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+    return date.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   };
 
   const renderStars = (rating: number) => {
-    return Array.from({ length: 5 }, (_, i) => (
-      <MdStar key={i} className={`w-4 h-4 ${i < rating ? 'text-yellow-400 fill-current' : 'text-gray-300'}`} />
-    ));
+    return Array.from({ length: 5 }, (_, i) => <MdStar key={i} className={`w-4 h-4 ${i < rating ? "text-yellow-400 fill-current" : "text-gray-300"}`} />);
   };
 
   if (loading) {
@@ -399,16 +359,10 @@ function ServiceDetailsPage() {
           <h2 className="text-xl font-semibold text-slate-900 mb-2">Error Loading Service</h2>
           <p className="text-slate-600 mb-6">{error}</p>
           <div className="flex gap-3 justify-center">
-            <button
-              onClick={() => router.back()}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
+            <button onClick={() => router.back()} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
               Go Back
             </button>
-            <button
-              onClick={() => window.location.reload()}
-              className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
-            >
+            <button onClick={() => window.location.reload()} className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors">
               <MdRefresh className="w-4 h-4 inline mr-1" />
               Retry
             </button>
@@ -425,17 +379,14 @@ function ServiceDetailsPage() {
       <div className="min-h-screen bg-white p-6">
         <div className="max-w-4xl mx-auto">
           <div className="flex items-center mb-6">
-            <button 
-              onClick={() => setEditing(false)} 
-              className="mr-4 p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
-            >
+            <button onClick={() => setEditing(false)} className="mr-4 p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors">
               <MdArrowBack className="w-6 h-6" />
             </button>
             <h1 className="text-2xl font-bold text-slate-900">Edit Service</h1>
           </div>
 
           <ServiceForm
-            key={editing ? 'editing' : 'viewing'}
+            key={editing ? "editing" : "viewing"}
             onSubmit={handleEdit}
             loading={loading}
             editing={true}
@@ -455,16 +406,14 @@ function ServiceDetailsPage() {
                 brand: typeof service.device?.brand === "string" ? service.device.brand : "",
                 model: typeof service.device?.model === "string" ? service.device.model : "",
                 imei: typeof service.device?.imei === "string" ? service.device.imei : "",
-                color: typeof (service.device as Record<string, unknown>)?.color === "string"
-                  ? (service.device as Record<string, unknown>).color as string
-                  : "",
+                color: typeof (service.device as Record<string, unknown>)?.color === "string" ? ((service.device as Record<string, unknown>).color as string) : "",
               },
-              service: { 
-                name: service.name, 
-                description: service.description, 
+              service: {
+                name: service.name,
+                description: service.description,
                 price: String(service.price),
                 technician_id: service.technician_id || "",
-                branchId: service.branchId || ""
+                branchId: service.branchId || "",
               },
             }}
             onCancelEdit={() => setEditing(false)}
@@ -474,7 +423,7 @@ function ServiceDetailsPage() {
     );
   }
 
-  const branchName = branches.find(b => b.id === service.branchId)?.name || service.branchId;
+  const branchName = branches.find((b) => b.id === service.branchId)?.name || service.branchId;
   const createdAt = service.createdAt ? new Date(service.createdAt) : null;
   const updatedAt = service.updatedAt ? new Date(service.updatedAt) : null;
   const statusColor = statusColors[status] || "bg-slate-100 text-slate-700 border-slate-200";
@@ -488,10 +437,7 @@ function ServiceDetailsPage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
-            <button 
-              onClick={() => router.back()} 
-              className="p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
-            >
+            <button onClick={() => router.back()} className="p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors">
               <MdArrowBack className="w-6 h-6" />
             </button>
             <div>
@@ -500,31 +446,19 @@ function ServiceDetailsPage() {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <button
-              onClick={() => setShowHistory(!showHistory)}
-              className="flex items-center gap-2 px-3 py-2 text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors"
-            >
+            <button onClick={() => setShowHistory(!showHistory)} className="flex items-center gap-2 px-3 py-2 text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors">
               <MdHistory className="w-4 h-4" />
               History
             </button>
-            <button
-              onClick={handleDelete}
-              className="flex items-center gap-2 px-3 py-2 border border-red-300 text-red-600 bg-white rounded-lg font-medium hover:bg-red-50 transition-colors"
-            >
+            <button onClick={handleDelete} className="flex items-center gap-2 px-3 py-2 border border-red-300 text-red-600 bg-white rounded-lg font-medium hover:bg-red-50 transition-colors">
               <MdDelete className="w-4 h-4" />
               Delete
             </button>
-            <button
-              onClick={() => setEditing(true)}
-              className="flex items-center gap-2 px-3 py-2 border border-slate-300 text-slate-700 bg-white rounded-lg font-medium hover:bg-slate-50 transition-colors"
-            >
+            <button onClick={() => setEditing(true)} className="flex items-center gap-2 px-3 py-2 border border-slate-300 text-slate-700 bg-white rounded-lg font-medium hover:bg-slate-50 transition-colors">
               <MdEdit className="w-4 h-4" />
               Edit
             </button>
-            <button
-              onClick={() => router.push(`/invoices/details?id=${service.id}`)}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
-            >
+            <button onClick={() => router.push(`/invoices/details?id=${service.id}`)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors">
               <MdReceipt className="w-4 h-4" />
               Generate Invoice
             </button>
@@ -541,14 +475,11 @@ function ServiceDetailsPage() {
             {priorityIcon}
             {getPriorityLabel(service.priority || "medium")}
           </div>
-          <select
-            value={status}
-            onChange={handleStatusChange}
-            disabled={updatingStatus}
-            className="border border-slate-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 bg-white"
-          >
-            {STATUS_OPTIONS.map(opt => (
-              <option key={opt} value={opt}>{opt}</option>
+          <select value={status} onChange={handleStatusChange} disabled={updatingStatus} className="border border-slate-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 bg-white">
+            {STATUS_OPTIONS.map((opt) => (
+              <option key={opt} value={opt}>
+                {opt}
+              </option>
             ))}
           </select>
           {updatingStatus && (
@@ -571,14 +502,10 @@ function ServiceDetailsPage() {
                 statusHistory.map((entry, index) => (
                   <div key={index} className="flex items-center justify-between p-3 bg-white rounded-lg border border-slate-200">
                     <div className="flex items-center gap-3">
-                      <div className={`${statusColors[entry.status]} px-3 py-1 rounded-full text-sm font-medium`}>
-                        {entry.status}
-                      </div>
+                      <div className={`${statusColors[entry.status]} px-3 py-1 rounded-full text-sm font-medium`}>{entry.status}</div>
                       <span className="text-sm text-slate-600">by {entry.updatedBy}</span>
                     </div>
-                    <span className="text-sm text-slate-500">
-                      {entry.timestamp.toLocaleString()}
-                    </span>
+                    <span className="text-sm text-slate-500">{entry.timestamp.toLocaleString()}</span>
                   </div>
                 ))
               ) : (
@@ -612,29 +539,21 @@ function ServiceDetailsPage() {
                 </div>
                 <div>
                   <div className="text-slate-500 text-sm mb-1">Assigned Technician</div>
-                  <div className="font-medium text-slate-900">
-                    {service.technician_id ? getTechnicianName(service.technician_id) : "Not assigned"}
-                  </div>
+                  <div className="font-medium text-slate-900">{service.technician_id ? getTechnicianName(service.technician_id) : "Not assigned"}</div>
                 </div>
                 <div>
                   <div className="text-slate-500 text-sm mb-1">Estimated Duration</div>
-                  <div className="font-medium text-slate-900">
-                    {formatDuration(service.estimatedDuration || 60)}
-                  </div>
+                  <div className="font-medium text-slate-900">{formatDuration(service.estimatedDuration || 60)}</div>
                 </div>
                 {service.actualDuration && (
                   <div>
                     <div className="text-slate-500 text-sm mb-1">Actual Duration</div>
-                    <div className="font-medium text-slate-900">
-                      {formatDuration(service.actualDuration)}
-                    </div>
+                    <div className="font-medium text-slate-900">{formatDuration(service.actualDuration)}</div>
                   </div>
                 )}
                 <div className="md:col-span-2">
                   <div className="text-slate-500 text-sm mb-1">Description</div>
-                  <div className="font-medium text-slate-900 bg-slate-50 p-3 rounded-lg">
-                    {service.description || "No description provided"}
-                  </div>
+                  <div className="font-medium text-slate-900 bg-slate-50 p-3 rounded-lg">{service.description || "No description provided"}</div>
                 </div>
               </div>
             </div>
@@ -648,42 +567,30 @@ function ServiceDetailsPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <div className="text-slate-500 text-sm mb-1">Type</div>
-                  <div className="font-medium text-slate-900">
-                    {service.device?.type || "Not specified"}
-                  </div>
+                  <div className="font-medium text-slate-900">{service.device?.type || "Not specified"}</div>
                 </div>
                 <div>
                   <div className="text-slate-500 text-sm mb-1">Brand</div>
-                  <div className="font-medium text-slate-900">
-                    {service.device?.brand || "Not specified"}
-                  </div>
+                  <div className="font-medium text-slate-900">{service.device?.brand || "Not specified"}</div>
                 </div>
                 <div>
                   <div className="text-slate-500 text-sm mb-1">Model</div>
-                  <div className="font-medium text-slate-900">
-                    {service.device?.model || "Not specified"}
-                  </div>
+                  <div className="font-medium text-slate-900">{service.device?.model || "Not specified"}</div>
                 </div>
                 <div>
                   <div className="text-slate-500 text-sm mb-1">IMEI</div>
-                  <div className="font-medium text-slate-900 font-mono text-sm">
-                    {service.device?.imei || "Not specified"}
-                  </div>
+                  <div className="font-medium text-slate-900 font-mono text-sm">{service.device?.imei || "Not specified"}</div>
                 </div>
                 {service.device?.color && (
                   <div>
                     <div className="text-slate-500 text-sm mb-1">Color</div>
-                    <div className="font-medium text-slate-900">
-                      {service.device.color}
-                    </div>
+                    <div className="font-medium text-slate-900">{service.device.color}</div>
                   </div>
                 )}
                 {service.device?.issue && (
                   <div className="md:col-span-2">
                     <div className="text-slate-500 text-sm mb-1">Issue Description</div>
-                    <div className="font-medium text-slate-900 bg-slate-50 p-3 rounded-lg">
-                      {service.device.issue}
-                    </div>
+                    <div className="font-medium text-slate-900 bg-slate-50 p-3 rounded-lg">{service.device.issue}</div>
                   </div>
                 )}
               </div>
@@ -707,7 +614,9 @@ function ServiceDetailsPage() {
                       <a href={`tel:${service.customer.phone}`} className="text-blue-600 hover:text-blue-800">
                         {service.customer.phone}
                       </a>
-                    ) : "Not specified"}
+                    ) : (
+                      "Not specified"
+                    )}
                   </div>
                 </div>
                 <div>
@@ -717,7 +626,9 @@ function ServiceDetailsPage() {
                       <a href={`mailto:${service.customer.email}`} className="text-blue-600 hover:text-blue-800">
                         {service.customer.email}
                       </a>
-                    ) : "Not specified"}
+                    ) : (
+                      "Not specified"
+                    )}
                   </div>
                 </div>
                 <div>
@@ -727,9 +638,7 @@ function ServiceDetailsPage() {
                 {service.customer?.address && (
                   <div className="md:col-span-2">
                     <div className="text-slate-500 text-sm mb-1">Address</div>
-                    <div className="font-medium text-slate-900 bg-slate-50 p-3 rounded-lg">
-                      {service.customer.address}
-                    </div>
+                    <div className="font-medium text-slate-900 bg-slate-50 p-3 rounded-lg">{service.customer.address}</div>
                   </div>
                 )}
               </div>
@@ -745,9 +654,7 @@ function ServiceDetailsPage() {
                 {service.notes && (
                   <div className="mb-4">
                     <div className="text-slate-500 text-sm mb-1">General Notes</div>
-                    <div className="font-medium text-slate-900 bg-slate-50 p-3 rounded-lg">
-                      {service.notes}
-                    </div>
+                    <div className="font-medium text-slate-900 bg-slate-50 p-3 rounded-lg">{service.notes}</div>
                   </div>
                 )}
                 {service.workNotes && service.workNotes.length > 0 && (
@@ -796,22 +703,16 @@ function ServiceDetailsPage() {
                 <div className="space-y-4">
                   <div className="flex items-center gap-2">
                     <span className="text-slate-500 text-sm">Rating:</span>
-                    <div className="flex items-center gap-1">
-                      {renderStars(service.customerFeedback.rating)}
-                    </div>
+                    <div className="flex items-center gap-1">{renderStars(service.customerFeedback.rating)}</div>
                     <span className="text-sm font-medium text-slate-900">({service.customerFeedback.rating}/5)</span>
                   </div>
                   {service.customerFeedback.comment && (
                     <div>
                       <div className="text-slate-500 text-sm mb-1">Comment</div>
-                      <div className="font-medium text-slate-900 bg-slate-50 p-3 rounded-lg">
-                        {service.customerFeedback.comment}
-                      </div>
+                      <div className="font-medium text-slate-900 bg-slate-50 p-3 rounded-lg">{service.customerFeedback.comment}</div>
                     </div>
                   )}
-                  <div className="text-sm text-slate-500">
-                    Date: {service.customerFeedback.date.toLocaleDateString()}
-                  </div>
+                  <div className="text-sm text-slate-500">Date: {service.customerFeedback.date.toLocaleDateString()}</div>
                 </div>
               </div>
             )}
@@ -825,55 +726,41 @@ function ServiceDetailsPage() {
               <div className="space-y-4">
                 <div>
                   <div className="text-slate-500 text-sm mb-1">Created</div>
-                  <div className="font-medium text-slate-900">
-                    {createdAt ? createdAt.toLocaleDateString() : "-"}
-                  </div>
+                  <div className="font-medium text-slate-900">{createdAt ? createdAt.toLocaleDateString() : "-"}</div>
                 </div>
                 <div>
                   <div className="text-slate-500 text-sm mb-1">Last Updated</div>
-                  <div className="font-medium text-slate-900">
-                    {updatedAt ? updatedAt.toLocaleDateString() : "-"}
-                  </div>
+                  <div className="font-medium text-slate-900">{updatedAt ? updatedAt.toLocaleDateString() : "-"}</div>
                 </div>
                 {service.scheduledDate && (
                   <div>
                     <div className="text-slate-500 text-sm mb-1">Scheduled Date</div>
-                    <div className="font-medium text-slate-900">
-                      {formatDate(service.scheduledDate)}
-                    </div>
+                    <div className="font-medium text-slate-900">{formatDate(service.scheduledDate)}</div>
                   </div>
                 )}
                 {service.completedDate && (
                   <div>
                     <div className="text-slate-500 text-sm mb-1">Completed Date</div>
-                    <div className="font-medium text-slate-900">
-                      {formatDate(service.completedDate)}
-                    </div>
+                    <div className="font-medium text-slate-900">{formatDate(service.completedDate)}</div>
                   </div>
                 )}
                 {service.estimatedCompletion && (
                   <div>
                     <div className="text-slate-500 text-sm mb-1">Estimated Completion</div>
-                    <div className="font-medium text-slate-900">
-                      {formatDate(service.estimatedCompletion)}
-                    </div>
+                    <div className="font-medium text-slate-900">{formatDate(service.estimatedCompletion)}</div>
                   </div>
                 )}
                 {service.actualCompletion && (
                   <div>
                     <div className="text-slate-500 text-sm mb-1">Actual Completion</div>
-                    <div className="font-medium text-slate-900">
-                      {formatDate(service.actualCompletion)}
-                    </div>
+                    <div className="font-medium text-slate-900">{formatDate(service.actualCompletion)}</div>
                   </div>
                 )}
                 {service.qualityScore && (
                   <div>
                     <div className="text-slate-500 text-sm mb-1">Quality Score</div>
                     <div className="flex items-center gap-2">
-                      <div className="flex items-center gap-1">
-                        {renderStars(Math.round(service.qualityScore))}
-                      </div>
+                      <div className="flex items-center gap-1">{renderStars(Math.round(service.qualityScore))}</div>
                       <span className="font-medium text-slate-900">({service.qualityScore}/5)</span>
                     </div>
                   </div>
@@ -885,31 +772,19 @@ function ServiceDetailsPage() {
             <div className="bg-white border border-slate-200 rounded-xl p-6">
               <h3 className="font-semibold text-lg mb-4">Quick Actions</h3>
               <div className="space-y-3">
-                <button
-                  onClick={() => setEditing(true)}
-                  className="w-full flex items-center gap-2 p-3 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
-                >
+                <button onClick={() => setEditing(true)} className="w-full flex items-center gap-2 p-3 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
                   <MdEdit className="w-4 h-4 text-blue-600" />
                   <span className="text-sm font-medium">Edit Service</span>
                 </button>
-                <button
-                  onClick={() => router.push(`/invoices/details?id=${service.id}`)}
-                  className="w-full flex items-center gap-2 p-3 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
-                >
+                <button onClick={() => router.push(`/invoices/details?id=${service.id}`)} className="w-full flex items-center gap-2 p-3 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
                   <MdReceipt className="w-4 h-4 text-green-600" />
                   <span className="text-sm font-medium">Generate Invoice</span>
                 </button>
-                <button
-                  onClick={() => setShowHistory(!showHistory)}
-                  className="w-full flex items-center gap-2 p-3 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
-                >
+                <button onClick={() => setShowHistory(!showHistory)} className="w-full flex items-center gap-2 p-3 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
                   <MdHistory className="w-4 h-4 text-purple-600" />
                   <span className="text-sm font-medium">View History</span>
                 </button>
-                <button
-                  onClick={() => window.print()}
-                  className="w-full flex items-center gap-2 p-3 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
-                >
+                <button onClick={() => window.print()} className="w-full flex items-center gap-2 p-3 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
                   <MdPrint className="w-4 h-4 text-orange-600" />
                   <span className="text-sm font-medium">Print Details</span>
                 </button>
@@ -924,15 +799,17 @@ function ServiceDetailsPage() {
 
 export default function ServiceDetailsPageWrapper() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-2 border-blue-200 border-t-blue-600 mx-auto mb-4"></div>
-          <p className="text-slate-600 font-medium">Loading service details...</p>
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-white flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-2 border-blue-200 border-t-blue-600 mx-auto mb-4"></div>
+            <p className="text-slate-600 font-medium">Loading service details...</p>
+          </div>
         </div>
-      </div>
-    }>
+      }
+    >
       <ServiceDetailsPage />
     </Suspense>
   );
-} 
+}

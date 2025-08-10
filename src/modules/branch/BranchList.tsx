@@ -1,5 +1,6 @@
-import { useRouter } from "next/navigation";
 import React, { useEffect, useState } from "react";
+
+import { useRouter } from "next/navigation";
 
 import { collection, doc, getDoc, getDocs, query, where } from "firebase/firestore";
 
@@ -188,7 +189,7 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, loading, error
                       </div>
                       <div>
                         <div className="text-sm font-semibold text-gray-900">{branch.name}</div>
-                        <div className="text-xs text-gray-500">Branch ID: {branch.id ? branch.id.slice(0, 8) + "..." : "N/A"}</div>
+                        <div className="text-xs text-gray-500">Branch ID: {branch.id ? `${branch.id.slice(0, 8)  }...` : "N/A"}</div>
                       </div>
                     </div>
                   </td>

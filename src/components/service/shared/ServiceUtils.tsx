@@ -1,4 +1,5 @@
 import React from 'react';
+
 import type { Service, Technician } from '@/types';
 
 // Status configuration with improved accessibility

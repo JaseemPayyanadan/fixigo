@@ -1,9 +1,12 @@
 "use client";
 import React, { Suspense, useState, useEffect } from "react";
+
 import { useSearchParams, useRouter } from "next/navigation";
-import { db } from "@/lib/firebase";
+
 import { doc, getDoc, collection, getDocs, query, where, addDoc, updateDoc } from "firebase/firestore";
 import { FaRegPaperPlane, FaDownload, FaPrint, FaEdit, FaTimesCircle } from "react-icons/fa";
+
+import { db } from "@/lib/firebase";
 
 interface Service {
   id: string;
@@ -184,7 +187,7 @@ function InvoiceDetailsContent() {
         
         const updateData = {
           status: invoiceStatus,
-          paymentStatus: paymentStatus,
+          paymentStatus,
           discount: editableDiscount,
           tax: editableTax,
           advance: editableAdvance,
@@ -247,7 +250,7 @@ function InvoiceDetailsContent() {
   };
   const defaultItems = [
     {
-      name: name,
+      name,
       variation: device ? `${device.brand} ${device.model}` : "-",
       price: price || 0,
       qty: 1,

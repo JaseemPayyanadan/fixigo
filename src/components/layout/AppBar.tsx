@@ -1,10 +1,14 @@
 "use client";
 import React, { useState, useRef, useEffect } from "react";
-import { useUser } from "@/hooks/useUser";
-import { useAuth } from "@/contexts/AuthContext";
+
 import { useRouter } from "next/navigation";
+
 import { MagnifyingGlassIcon, Cog6ToothIcon, ArrowRightOnRectangleIcon, UserIcon, ShieldCheckIcon } from "@heroicons/react/24/outline";
+
+import { useAuth } from "@/contexts/AuthContext";
 import { useSidebar } from "@/contexts/SidebarContext";
+import { useUser } from "@/hooks/useUser";
+
 import NotificationBell from "../NotificationBell";
 
 export function AppBar() {

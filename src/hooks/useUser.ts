@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
+
 import { AuthUser } from "@/lib/auth";
 
 // Cache for user data to prevent unnecessary API calls

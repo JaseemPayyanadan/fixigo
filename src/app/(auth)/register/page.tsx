@@ -1,12 +1,15 @@
-"use client"
+"use client";
+
 import React, { useState } from "react";
-import { useAuth } from "@/contexts/AuthContext";
-import { AuthGuard } from "@/components";
+
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+
+import { ChartBarIcon, ClockIcon, EnvelopeIcon, UserIcon, UsersIcon } from "@heroicons/react/24/outline";
+
+import { AuthGuard } from "@/components";
 import TextInput from "@/components/ui/TextInput";
-import { UserIcon, EnvelopeIcon } from "@heroicons/react/24/outline";
-import { UsersIcon, ChartBarIcon, ClockIcon } from "@heroicons/react/24/outline";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function RegisterPage() {
   return (
@@ -43,7 +46,6 @@ function RegisterContent() {
 
   return (
     <div className="min-h-screen flex flex-col lg:flex-row w-full">
-      
       {/* Left Side - Hero Section */}
       <div className="hidden lg:flex lg:flex-1 bg-gradient-to-br from-green-600 via-emerald-600 to-teal-600">
         <div className="max-w-lg mx-auto text-white flex flex-col justify-center px-8">
@@ -63,9 +65,7 @@ function RegisterContent() {
             Streamline Your <br />
             <span className="text-blue-200">Service Business</span>
           </h2>
-          <p className="text-sm lg:text-base xl:text-xl text-blue-100 mb-8 leading-relaxed">
-            Manage technicians, track services, and grow your business with our comprehensive platform designed for service professionals.
-          </p>
+          <p className="text-sm lg:text-base xl:text-xl text-blue-100 mb-8 leading-relaxed">Manage technicians, track services, and grow your business with our comprehensive platform designed for service professionals.</p>
 
           {/* Features */}
           <div className="space-y-6">
@@ -118,29 +118,9 @@ function RegisterContent() {
           <div className="flex flex-col">
             <form className="space-y-6" onSubmit={handleSubmit}>
               {/* Name Field */}
-              <TextInput
-                type="text"
-                id="name"
-                name="name"
-                label="Full Name"
-                required
-                placeholder="Enter your full name"
-                value={name}
-                onChange={e => setName(e.target.value)}
-                icon={<UserIcon className="h-5 w-5 text-gray-400" />}
-              />
+              <TextInput type="text" id="name" name="name" label="Full Name" required placeholder="Enter your full name" value={name} onChange={(e) => setName(e.target.value)} icon={<UserIcon className="h-5 w-5 text-gray-400" />} />
               {/* Email Field */}
-              <TextInput
-                type="email"
-                id="email"
-                name="email"
-                label="Email Address"
-                required
-                placeholder="Enter your email address"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                icon={<EnvelopeIcon className="h-5 w-5 text-gray-400" />}
-              />
+              <TextInput type="email" id="email" name="email" label="Email Address" required placeholder="Enter your email address" value={email} onChange={(e) => setEmail(e.target.value)} icon={<EnvelopeIcon className="h-5 w-5 text-gray-400" />} />
               {/* Password Field */}
               <TextInput
                 type="password"
@@ -150,16 +130,14 @@ function RegisterContent() {
                 required
                 placeholder="Create a strong password"
                 value={password}
-                onChange={e => setPassword(e.target.value)}
+                onChange={(e) => setPassword(e.target.value)}
                 icon={
                   <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                   </svg>
                 }
               />
-              <p className="text-xs text-gray-500 relative mt-[-14px] font-light">
-                Password must be at least 6 characters long
-              </p>
+              <p className="text-xs text-gray-500 relative mt-[-14px] font-light">Password must be at least 6 characters long</p>
 
               {/* Error Message */}
               {error && (
@@ -200,10 +178,7 @@ function RegisterContent() {
             <div className="mt-8 text-center">
               <p className="text-gray-600 text-sm">
                 Already have an account?{" "}
-                <Link 
-                  href="/login" 
-                  className="text-blue-600 hover:text-blue-700 font-semibold hover:underline transition duration-200"
-                >
+                <Link href="/login" className="text-blue-600 hover:text-blue-700 font-semibold hover:underline transition duration-200">
                   Sign in here
                 </Link>
               </p>
@@ -214,13 +189,17 @@ function RegisterContent() {
           <div className="text-center mt-6">
             <p className="text-xs text-gray-400">
               By signing in, you agree to our{" "}
-              <a href="#" className="text-blue-600 hover:text-blue-700">Terms of Service</a>
-              {" "}and{" "}
-              <a href="#" className="text-blue-600 hover:text-blue-700">Privacy Policy</a>
+              <a href="#" className="text-blue-600 hover:text-blue-700">
+                Terms of Service
+              </a>{" "}
+              and{" "}
+              <a href="#" className="text-blue-600 hover:text-blue-700">
+                Privacy Policy
+              </a>
             </p>
           </div>
         </div>
       </div>
     </div>
   );
-} 
+}

@@ -1,15 +1,9 @@
 "use client";
 import React, { useMemo, useCallback } from "react";
-import type { ServiceListProps } from "../types";
-import { 
-  filterServices, 
-  sortServices, 
-  getServiceDisplayInfo, 
-  getServiceActions,
-  canAccessService 
-} from "../utils";
+
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+
 import { 
   EyeIcon, 
   PencilIcon, 
@@ -19,6 +13,15 @@ import {
   UserIcon,
   BuildingOfficeIcon
 } from "@heroicons/react/24/outline";
+
+import type { ServiceListProps } from "../types";
+import { 
+  filterServices, 
+  sortServices, 
+  getServiceDisplayInfo, 
+  getServiceActions,
+  canAccessService 
+} from "../utils";
 
 interface BaseServiceListProps extends ServiceListProps {
   children?: React.ReactNode;

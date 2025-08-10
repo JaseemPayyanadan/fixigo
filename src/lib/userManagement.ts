@@ -1,8 +1,10 @@
-import { addDoc, collection, doc, getDoc, updateDoc, arrayUnion } from "firebase/firestore";
+import { addDoc, arrayUnion, collection, doc, getDoc, updateDoc } from "firebase/firestore";
+
+import type { Role, User } from "@/types";
+
+import { registerUser } from "./auth";
 import { db } from "./firebase";
 import { logger } from "./logger";
-import type { User, Role } from "@/types";
-import { registerUser } from "./auth";
 
 export interface CreateUserOptions {
   name: string;
@@ -29,7 +31,7 @@ export interface CreateUserResult {
 export async function addUserToBranchMembers(shopId: string, branchId: string, userId: string, role: string) {
   const branchRef = doc(db, "shops", shopId, "branches", branchId);
   await updateDoc(branchRef, {
-    members: arrayUnion({ userId, role })
+    members: arrayUnion({ userId, role }),
   });
 }
 
@@ -73,7 +75,7 @@ export class UserManagementService {
       // Step 4: Generate password if not provided
       let userPassword = password;
       let tempPassword: string | undefined;
-      
+
       if (!userPassword) {
         tempPassword = this.generateSecurePassword();
         userPassword = tempPassword;
@@ -182,24 +184,21 @@ export class UserManagementService {
       bio: string;
     }
   ) {
-    await addDoc(
-      collection(db, "shops", data.shopId, "branches", data.branchId, "technicians"),
-      {
-        uid,
-        name: data.name,
-        email: data.email,
-        phone: data.phone,
-        role: "technician",
-        shopId: data.shopId,
-        branchId: data.branchId,
-        skills: data.skills,
-        status: "active",
-        bio: data.bio,
-        specializations: data.specializations,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      }
-    );
+    await addDoc(collection(db, "shops", data.shopId, "branches", data.branchId, "technicians"), {
+      uid,
+      name: data.name,
+      email: data.email,
+      phone: data.phone,
+      role: "technician",
+      shopId: data.shopId,
+      branchId: data.branchId,
+      skills: data.skills,
+      status: "active",
+      bio: data.bio,
+      specializations: data.specializations,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
 
     logger.info("Technician profile created", { uid, branchId: data.branchId });
   }
@@ -208,8 +207,8 @@ export class UserManagementService {
    * Generates a secure temporary password
    */
   private static generateSecurePassword(): string {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
-    let password = '';
+    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*";
+    let password = "";
     for (let i = 0; i < 12; i++) {
       password += chars.charAt(Math.floor(Math.random() * chars.length));
     }
@@ -219,12 +218,7 @@ export class UserManagementService {
   /**
    * Validates user permissions for creating other users
    */
-  static validateUserCreationPermissions(
-    currentUser: User | null,
-    targetRole: Role,
-    targetShopId: string,
-    targetBranchId?: string
-  ): boolean {
+  static validateUserCreationPermissions(currentUser: User | null, targetRole: Role, targetShopId: string, targetBranchId?: string): boolean {
     if (!currentUser) return false;
 
     // Shop admin can create branch admins and technicians in their shop
@@ -233,13 +227,10 @@ export class UserManagementService {
     }
 
     // Branch admin can only create technicians in their branch
-    if (currentUser.role === "branch_admin" && 
-        currentUser.shopId === targetShopId && 
-        currentUser.branchId === targetBranchId &&
-        targetRole === "technician") {
+    if (currentUser.role === "branch_admin" && currentUser.shopId === targetShopId && currentUser.branchId === targetBranchId && targetRole === "technician") {
       return true;
     }
 
     return false;
   }
-} 
+}

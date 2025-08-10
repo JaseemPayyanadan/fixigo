@@ -1,10 +1,13 @@
 "use client";
 import { useState, useEffect, useCallback, useMemo } from "react";
+
 import { collection, query, where, getDocs, addDoc, updateDoc, doc, deleteDoc, orderBy } from "firebase/firestore";
+
 import { db } from "@/lib/firebase";
-import { useUser } from "./useUser";
 import { logger } from "@/lib/logger";
 import type { Service } from "@/types";
+
+import { useUser } from "./useUser";
 
 export interface ServiceFilters {
   status?: string;

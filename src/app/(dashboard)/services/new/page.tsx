@@ -1,12 +1,16 @@
 "use client";
+
 import React, { useState } from "react";
+
 import { useRouter } from "next/navigation";
-import { db } from "@/lib/firebase";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+
+import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+
 import { useUser } from "@/hooks";
 import { useBranches } from "@/hooks/useBranches";
-import ServiceForm from "@/modules/service/ServiceForm";
 import { authUserToUser } from "@/lib/auth";
+import { db } from "@/lib/firebase";
+import ServiceForm from "@/modules/service/ServiceForm";
 
 export default function NewServicePage() {
   const { user, loading: userLoading } = useUser();
@@ -55,11 +59,7 @@ export default function NewServicePage() {
     );
   }
 
-  const handleAdd = async (data: {
-    service: { name: string; description: string; price: string; branchId: string; technician_id?: string };
-    customer: { name: string; phone?: string; place?: string };
-    device: { brand: string; model: string; imei: string; color: string };
-  }) => {
+  const handleAdd = async (data: { service: { name: string; description: string; price: string; branchId: string; technician_id?: string }; customer: { name: string; phone?: string; place?: string }; device: { brand: string; model: string; imei: string; color: string } }) => {
     setError(null);
     if (!data.service.name.trim() || !data.service.price || !shopId) {
       setError("Name, price, and shop are required.");
@@ -75,7 +75,7 @@ export default function NewServicePage() {
         name: data.service.name,
         description: data.service.description,
         price: Number(data.service.price),
-        shopId: shopId,
+        shopId,
         branchId: data.service.branchId || "",
         technician_id: data.service.technician_id || (user?.role === "technician" ? user.id : ""),
         customer: data.customer,
@@ -104,10 +104,7 @@ export default function NewServicePage() {
                 <h1 className="text-xl font-semibold text-gray-900">Create New Service</h1>
                 <p className="text-sm text-gray-600 mt-1">Add a new service request for your customer</p>
               </div>
-              <button
-                onClick={() => router.push("/services")}
-                className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
-              >
+              <button onClick={() => router.push("/services")} className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                 </svg>
@@ -118,17 +115,8 @@ export default function NewServicePage() {
         </div>
 
         {/* Form Container */}
-        <ServiceForm
-          onSubmit={handleAdd}
-          loading={loading || branchesLoading}
-          error={error}
-          branches={branches}
-          branchId={branchId}
-          setBranchId={setBranchId}
-          user={convertedUser}
-          shopId={shopId}
-        />
+        <ServiceForm onSubmit={handleAdd} loading={loading || branchesLoading} error={error} branches={branches} branchId={branchId} setBranchId={setBranchId} user={convertedUser} shopId={shopId} />
       </div>
     </div>
   );
-} 
+}

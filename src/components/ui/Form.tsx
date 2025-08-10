@@ -1,7 +1,8 @@
 "use client";
 import React, { useState, useCallback } from "react";
-import { Validator, ValidationSchema } from '@/lib/validation';
+
 import { logger } from '@/lib/logger';
+import { Validator, ValidationSchema } from '@/lib/validation';
 
 interface ValidationRule {
   required?: boolean;

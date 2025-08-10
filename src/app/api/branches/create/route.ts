@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/firebase";
+
 import { collection, addDoc, setDoc, doc, query, where, getDocs } from "firebase/firestore";
+
 import { hashPassword } from "@/lib/auth";
+import { db } from "@/lib/firebase";
 import { Branch } from "@/types";
 
 export const dynamic = "force-dynamic";
@@ -56,7 +58,7 @@ export async function POST(request: NextRequest) {
 
     // Create user document for branch manager
     const userData = {
-      name: managerName || name + " Manager",
+      name: managerName || `${name  } Manager`,
       email,
       password: hashedPassword,
       role: "branch_admin",
@@ -81,7 +83,7 @@ export async function POST(request: NextRequest) {
       status: "active",
       shopId,
       managerId: userRef.id, // Link to the user account
-      managerName: managerName || name + " Manager",
+      managerName: managerName || `${name  } Manager`,
       managerEmail: email,
       managerPhone: managerPhone || phone,
     };

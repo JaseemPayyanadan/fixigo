@@ -1,7 +1,9 @@
 "use client";
 import React, { useState } from "react";
-import { useNotifications } from "@/hooks/useNotifications";
+
 import { BellIcon } from "@heroicons/react/24/outline";
+
+import { useNotifications } from "@/hooks/useNotifications";
 
 interface NotificationBellProps {
   className?: string;

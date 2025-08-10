@@ -1,6 +1,7 @@
-import { logger } from './logger';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+
+import { logger } from './logger';
 import { isIndexBuildingError } from './logger';
 
 // Class name utility for merging Tailwind classes
@@ -114,7 +115,7 @@ export function capitalize(str: string): string {
 
 export function truncate(str: string, length: number): string {
   if (str.length <= length) return str;
-  return str.slice(0, length) + '...';
+  return `${str.slice(0, length)  }...`;
 }
 
 export function slugify(str: string): string {

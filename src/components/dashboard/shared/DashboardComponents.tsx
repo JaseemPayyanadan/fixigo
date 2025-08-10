@@ -1,8 +1,12 @@
 "use client";
 import React from 'react';
+
 import Link from 'next/link';
+
 import { HiClipboardList } from "react-icons/hi";
+
 import { Service } from '@/types';
+
 import { getStatusColor, formatCurrency, LoadingSpinner, ErrorState } from './DashboardUtils';
 
 // Metric Card Component - Ultra compact and modern design

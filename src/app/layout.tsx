@@ -1,7 +1,9 @@
 import { Inter } from "next/font/google";
 import "./globals.css";
-import { Providers } from "@/components/providers";
+
 import { SpeedInsights } from "@vercel/speed-insights/next";
+
+import { Providers } from "@/components/providers";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -11,7 +13,7 @@ const inter = Inter({
 export const metadata = {
   title: {
     default: "Fixigo - Service Management",
-    template: "%s | Fixigo"
+    template: "%s | Fixigo",
   },
   description: "Professional service management platform",
   keywords: ["service management", "technicians", "branches", "invoices"],
@@ -32,14 +34,8 @@ export const metadata = {
   },
   manifest: "/manifest.json",
   icons: {
-    icon: [
-      { url: "/favicon.ico" },
-      { url: "/icon-192x192.png", sizes: "192x192", type: "image/png" },
-      { url: "/icon-512x512.png", sizes: "512x512", type: "image/png" },
-    ],
-    apple: [
-      { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
-    ],
+    icon: [{ url: "/favicon.ico" }, { url: "/icon-192x192.png", sizes: "192x192", type: "image/png" }, { url: "/icon-512x512.png", sizes: "512x512", type: "image/png" }],
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
   },
   // themeColor: "#2563eb",
   appleWebApp: {
@@ -61,11 +57,7 @@ export const viewport = {
   viewportFit: "cover",
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
@@ -79,7 +71,7 @@ export default function RootLayout({
                 if (viewport) {
                   viewport.setAttribute('content', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover');
                 }
-                
+
                 // Add CSS for Android safe areas
                 const style = document.createElement('style');
                 style.textContent = \`
@@ -99,9 +91,7 @@ export default function RootLayout({
         />
       </head>
       <body className={`${inter.variable} antialiased bg-gray-50`}>
-        <Providers>
-          {children}
-        </Providers>
+        <Providers>{children}</Providers>
         <SpeedInsights />
       </body>
     </html>

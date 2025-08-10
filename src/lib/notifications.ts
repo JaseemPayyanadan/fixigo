@@ -1,4 +1,5 @@
-import { addDoc, collection, query, where, onSnapshot, doc, updateDoc, getDocs } from "firebase/firestore";
+import { addDoc, collection, doc, getDocs, onSnapshot, query, updateDoc, where } from "firebase/firestore";
+
 import { db } from "./firebase";
 import { logger } from "./logger";
 
@@ -41,14 +42,14 @@ export class NotificationService {
         createdAt: new Date(),
         updatedAt: new Date(),
       });
-      
-      logger.info("Notification created", { 
-        notificationId: docRef.id, 
+
+      logger.info("Notification created", {
+        notificationId: docRef.id,
         userId: notification.userId,
         type: notification.type,
-        category: notification.category
+        category: notification.category,
       });
-      
+
       return docRef.id;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Failed to create notification";
@@ -60,28 +61,23 @@ export class NotificationService {
   /**
    * Create notifications for multiple users
    */
-  static async createBulkNotifications(
-    userIds: string[],
-    notification: Omit<Notification, "id" | "userId" | "createdAt" | "updatedAt">
-  ): Promise<void> {
+  static async createBulkNotifications(userIds: string[], notification: Omit<Notification, "id" | "userId" | "createdAt" | "updatedAt">): Promise<void> {
     try {
-      const notifications = userIds.map(userId => ({
+      const notifications = userIds.map((userId) => ({
         ...notification,
         userId,
         createdAt: new Date(),
         updatedAt: new Date(),
       }));
 
-      const batch = notifications.map(notification => 
-        addDoc(collection(db, "notifications"), notification)
-      );
+      const batch = notifications.map((notification) => addDoc(collection(db, "notifications"), notification));
 
       await Promise.all(batch);
-      
-      logger.info("Bulk notifications created", { 
+
+      logger.info("Bulk notifications created", {
         count: userIds.length,
         type: notification.type,
-        category: notification.category
+        category: notification.category,
       });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Failed to create bulk notifications";
@@ -99,7 +95,7 @@ export class NotificationService {
         read: true,
         updatedAt: new Date(),
       });
-      
+
       logger.info("Notification marked as read", { notificationId });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Failed to mark notification as read";
@@ -113,19 +109,13 @@ export class NotificationService {
    */
   static async markAllAsRead(userId: string): Promise<void> {
     try {
-      const notificationsQuery = query(
-        collection(db, "notifications"),
-        where("userId", "==", userId),
-        where("read", "==", false)
-      );
-      
+      const notificationsQuery = query(collection(db, "notifications"), where("userId", "==", userId), where("read", "==", false));
+
       const snapshot = await getDocs(notificationsQuery);
-      const batch = snapshot.docs.map(doc => 
-        updateDoc(doc.ref, { read: true, updatedAt: new Date() })
-      );
-      
+      const batch = snapshot.docs.map((doc) => updateDoc(doc.ref, { read: true, updatedAt: new Date() }));
+
       await Promise.all(batch);
-      
+
       logger.info("All notifications marked as read", { userId, count: snapshot.docs.length });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Failed to mark all notifications as read";
@@ -137,10 +127,7 @@ export class NotificationService {
   /**
    * Get notifications for a user with real-time updates
    */
-  static subscribeToNotifications(
-    userId: string,
-    callback: (notifications: Notification[]) => void
-  ): () => void {
+  static subscribeToNotifications(userId: string, callback: (notifications: Notification[]) => void): () => void {
     const notificationsQuery = query(
       collection(db, "notifications"),
       where("userId", "==", userId)
@@ -149,7 +136,7 @@ export class NotificationService {
     );
 
     return onSnapshot(notificationsQuery, (snapshot) => {
-      const notifications: Notification[] = snapshot.docs.map(doc => ({
+      const notifications: Notification[] = snapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
         createdAt: doc.data().createdAt?.toDate() || new Date(),
@@ -166,15 +153,8 @@ export class NotificationService {
   /**
    * Get unread notification count
    */
-  static subscribeToUnreadCount(
-    userId: string,
-    callback: (count: number) => void
-  ): () => void {
-    const unreadQuery = query(
-      collection(db, "notifications"),
-      where("userId", "==", userId),
-      where("read", "==", false)
-    );
+  static subscribeToUnreadCount(userId: string, callback: (count: number) => void): () => void {
+    const unreadQuery = query(collection(db, "notifications"), where("userId", "==", userId), where("read", "==", false));
 
     return onSnapshot(unreadQuery, (snapshot) => {
       callback(snapshot.docs.length);
@@ -184,12 +164,7 @@ export class NotificationService {
   /**
    * Create service-related notifications
    */
-  static async createServiceNotification(
-    userId: string,
-    serviceId: string,
-    action: "assigned" | "updated" | "completed" | "cancelled",
-    serviceName: string
-  ): Promise<void> {
+  static async createServiceNotification(userId: string, serviceId: string, action: "assigned" | "updated" | "completed" | "cancelled", serviceName: string): Promise<void> {
     const notifications = {
       assigned: {
         title: "New Service Assigned",
@@ -214,7 +189,7 @@ export class NotificationService {
     };
 
     const notification = notifications[action];
-    
+
     await this.createNotification({
       userId,
       title: notification.title,
@@ -229,12 +204,7 @@ export class NotificationService {
   /**
    * Create invoice-related notifications
    */
-  static async createInvoiceNotification(
-    userId: string,
-    invoiceId: string,
-    action: "created" | "paid" | "overdue",
-    amount: number
-  ): Promise<void> {
+  static async createInvoiceNotification(userId: string, invoiceId: string, action: "created" | "paid" | "overdue", amount: number): Promise<void> {
     const notifications = {
       created: {
         title: "New Invoice Created",
@@ -254,7 +224,7 @@ export class NotificationService {
     };
 
     const notification = notifications[action];
-    
+
     await this.createNotification({
       userId,
       title: notification.title,
@@ -269,12 +239,7 @@ export class NotificationService {
   /**
    * Create system notifications
    */
-  static async createSystemNotification(
-    userId: string,
-    title: string,
-    message: string,
-    type: "info" | "success" | "warning" | "error" = "info"
-  ): Promise<void> {
+  static async createSystemNotification(userId: string, title: string, message: string, type: "info" | "success" | "warning" | "error" = "info"): Promise<void> {
     await this.createNotification({
       userId,
       title,
@@ -284,4 +249,4 @@ export class NotificationService {
       read: false,
     });
   }
-} 
+}

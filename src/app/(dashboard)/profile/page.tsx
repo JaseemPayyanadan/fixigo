@@ -1,10 +1,14 @@
 "use client";
-import React, { useState, useEffect } from "react";
-import { useUser } from "@/hooks/useUser";
+
+import React, { useEffect, useState } from "react";
+
 import { useRouter } from "next/navigation";
+
+import { collection, doc, getDoc, getDocs, query, updateDoc, where } from "firebase/firestore";
+import { HiCheckCircle, HiClipboardList, HiClock, HiCurrencyDollar, HiMail, HiOfficeBuilding, HiPhone, HiUser } from "react-icons/hi";
+
+import { useUser } from "@/hooks/useUser";
 import { db } from "@/lib/firebase";
-import { doc, getDoc, updateDoc, collection, query, where, getDocs } from "firebase/firestore";
-import { HiUser, HiPhone, HiMail, HiOfficeBuilding, HiClipboardList, HiCheckCircle, HiClock, HiCurrencyDollar } from "react-icons/hi";
 
 interface TechnicianProfile {
   id: string;
@@ -43,7 +47,7 @@ export default function ProfilePage() {
   const [formData, setFormData] = useState({
     name: "",
     email: "",
-    phone: ""
+    phone: "",
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -76,39 +80,32 @@ export default function ProfilePage() {
           setFormData({
             name: profileData.name,
             email: profileData.email,
-            phone: profileData.phone
+            phone: profileData.phone,
           });
 
           // Get the technician document ID for services lookup
           const technicianQuery = query(collection(db, "technicians"), where("created_by", "==", user.id));
           const technicianSnapshot = await getDocs(technicianQuery);
           const technicianDocForServices = technicianSnapshot.docs[0];
-          
+
           if (technicianDocForServices) {
             const technicianId = technicianDocForServices.id;
-    
-            
+
             // Fetch work statistics
-            const servicesQuery = query(
-              collection(db, "services"),
-              where("technician_id", "==", technicianId)
-            );
+            const servicesQuery = query(collection(db, "services"), where("technician_id", "==", technicianId));
             const servicesSnapshot = await getDocs(servicesQuery);
-            const services = servicesSnapshot.docs.map(doc => doc.data());
+            const services = servicesSnapshot.docs.map((doc) => doc.data());
 
             const stats: WorkStats = {
               totalTasks: services.length,
-                          completedTasks: services.filter((s) => (s as Record<string, unknown>).status === "Completed").length,
-            inProgressTasks: services.filter((s) => (s as Record<string, unknown>).status === "In Progress").length,
-            pendingTasks: services.filter((s) => (s as Record<string, unknown>).status === "To Do").length,
-                          totalEarnings: services
-              .filter((s) => (s as Record<string, unknown>).status === "Completed")
-              .reduce((sum: number, s) => sum + (Number((s as Record<string, unknown>).price) || 0), 0),
+              completedTasks: services.filter((s) => (s as Record<string, unknown>).status === "Completed").length,
+              inProgressTasks: services.filter((s) => (s as Record<string, unknown>).status === "In Progress").length,
+              pendingTasks: services.filter((s) => (s as Record<string, unknown>).status === "To Do").length,
+              totalEarnings: services.filter((s) => (s as Record<string, unknown>).status === "Completed").reduce((sum: number, s) => sum + (Number((s as Record<string, unknown>).price) || 0), 0),
             };
 
             setWorkStats(stats);
           } else {
-    
             setWorkStats({
               totalTasks: 0,
               completedTasks: 0,
@@ -138,7 +135,7 @@ export default function ProfilePage() {
     setFormData({
       name: profile?.name || "",
       email: profile?.email || "",
-      phone: profile?.phone || ""
+      phone: profile?.phone || "",
     });
     setError(null);
   };
@@ -161,17 +158,21 @@ export default function ProfilePage() {
         name: formData.name.trim(),
         email: formData.email.trim(),
         phone: formData.phone.trim(),
-        updatedAt: new Date()
+        updatedAt: new Date(),
       });
 
       // Update local state
-      setProfile(prev => prev ? {
-        ...prev,
-        name: formData.name.trim(),
-        email: formData.email.trim(),
-        phone: formData.phone.trim(),
-        updatedAt: new Date()
-      } : null);
+      setProfile((prev) =>
+        prev
+          ? {
+              ...prev,
+              name: formData.name.trim(),
+              email: formData.email.trim(),
+              phone: formData.phone.trim(),
+              updatedAt: new Date(),
+            }
+          : null
+      );
 
       setEditing(false);
     } catch {
@@ -184,7 +185,7 @@ export default function ProfilePage() {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value
+      [e.target.name]: e.target.value,
     });
     if (error) setError(null);
   };
@@ -238,10 +239,7 @@ export default function ProfilePage() {
                 <div className="flex items-center justify-between">
                   <h2 className="text-xl font-semibold text-gray-900">Profile Information</h2>
                   {!editing && (
-                    <button
-                      onClick={handleEdit}
-                      className="px-4 py-2 text-blue-600 hover:text-blue-800 text-sm font-medium transition-colors border border-blue-200 rounded-lg hover:bg-blue-50"
-                    >
+                    <button onClick={handleEdit} className="px-4 py-2 text-blue-600 hover:text-blue-800 text-sm font-medium transition-colors border border-blue-200 rounded-lg hover:bg-blue-50">
                       Edit Profile
                     </button>
                   )}
@@ -265,14 +263,7 @@ export default function ProfilePage() {
                       </div>
                     </label>
                     {editing ? (
-                      <input
-                        type="text"
-                        name="name"
-                        value={formData.name}
-                        onChange={handleInputChange}
-                        className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Enter your full name"
-                      />
+                      <input type="text" name="name" value={formData.name} onChange={handleInputChange} className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Enter your full name" />
                     ) : (
                       <p className="text-gray-900 font-medium">{profile.name}</p>
                     )}
@@ -287,14 +278,7 @@ export default function ProfilePage() {
                       </div>
                     </label>
                     {editing ? (
-                      <input
-                        type="email"
-                        name="email"
-                        value={formData.email}
-                        onChange={handleInputChange}
-                        className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Enter your email address"
-                      />
+                      <input type="email" name="email" value={formData.email} onChange={handleInputChange} className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Enter your email address" />
                     ) : (
                       <p className="text-gray-900 font-medium">{profile.email}</p>
                     )}
@@ -309,14 +293,7 @@ export default function ProfilePage() {
                       </div>
                     </label>
                     {editing ? (
-                      <input
-                        type="tel"
-                        name="phone"
-                        value={formData.phone}
-                        onChange={handleInputChange}
-                        className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Enter your phone number"
-                      />
+                      <input type="tel" name="phone" value={formData.phone} onChange={handleInputChange} className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Enter your phone number" />
                     ) : (
                       <p className="text-gray-900 font-medium">{profile.phone}</p>
                     )}
@@ -348,17 +325,10 @@ export default function ProfilePage() {
                   {/* Action Buttons */}
                   {editing && (
                     <div className="flex items-center gap-3 pt-4 border-t border-gray-200">
-                      <button
-                        onClick={handleSave}
-                        disabled={saving}
-                        className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                      >
+                      <button onClick={handleSave} disabled={saving} className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
                         {saving ? "Saving..." : "Save Changes"}
                       </button>
-                      <button
-                        onClick={handleCancel}
-                        className="px-6 py-2 text-gray-600 hover:text-gray-800 transition-colors"
-                      >
+                      <button onClick={handleCancel} className="px-6 py-2 text-gray-600 hover:text-gray-800 transition-colors">
                         Cancel
                       </button>
                     </div>
@@ -447,16 +417,10 @@ export default function ProfilePage() {
                 <div className="mt-6 pt-6 border-t border-gray-200">
                   <h3 className="text-sm font-medium text-gray-900 mb-3">Quick Actions</h3>
                   <div className="space-y-2">
-                    <button
-                      onClick={() => router.push("/my-tasks")}
-                      className="w-full text-left px-4 py-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                    >
+                    <button onClick={() => router.push("/my-tasks")} className="w-full text-left px-4 py-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
                       View My Tasks
                     </button>
-                    <button
-                      onClick={() => router.push("/dashboard")}
-                      className="w-full text-left px-4 py-2 text-gray-600 hover:bg-gray-50 rounded-lg transition-colors"
-                    >
+                    <button onClick={() => router.push("/dashboard")} className="w-full text-left px-4 py-2 text-gray-600 hover:bg-gray-50 rounded-lg transition-colors">
                       Go to Dashboard
                     </button>
                   </div>
@@ -468,4 +432,4 @@ export default function ProfilePage() {
       </div>
     </div>
   );
-} 
+}

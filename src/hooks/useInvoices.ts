@@ -1,10 +1,13 @@
 "use client";
 import { useState, useEffect } from "react";
+
 import { collection, query, where, getDocs, addDoc, updateDoc, doc, deleteDoc, orderBy } from "firebase/firestore";
+
 import { db } from "@/lib/firebase";
-import { useUser } from "./useUser";
 import { logger, isIndexBuildingError, getIndexBuildingMessage } from "@/lib/logger";
 import type { Invoice } from "@/types";
+
+import { useUser } from "./useUser";
 
 export function useInvoices(shopId?: string, branchId?: string) {
   const [invoices, setInvoices] = useState<Invoice[]>([]);

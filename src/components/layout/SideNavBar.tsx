@@ -1,11 +1,15 @@
 "use client";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+
+import { usePathname } from "next/navigation";
+
+import { BriefcaseIcon, BuildingOfficeIcon, ChevronRightIcon, ClipboardDocumentListIcon, Cog6ToothIcon, DocumentTextIcon, HomeIcon, UserGroupIcon, UserIcon, XMarkIcon } from "@heroicons/react/24/outline";
+
 import { PerformanceMonitor } from "@/components/PerformanceMonitor";
 import { useSidebar } from "@/contexts/SidebarContext";
 import { useNavigation } from "@/hooks/useNavigation";
 import { useUser } from "@/hooks/useUser";
-import { BriefcaseIcon, BuildingOfficeIcon, ChevronRightIcon, ClipboardDocumentListIcon, Cog6ToothIcon, DocumentTextIcon, HomeIcon, UserGroupIcon, UserIcon, XMarkIcon } from "@heroicons/react/24/outline";
-import { usePathname } from "next/navigation";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+
 
 // Enhanced navigation items with preloading hints
 const navItems = [
@@ -75,7 +79,7 @@ const navItems = [
 ];
 
 // Performance-optimized navigation item component
-const NavItem = React.memo(function NavItem({
+const NavItem = React.memo(({
   item,
   isActive,
   collapsed,
@@ -91,7 +95,7 @@ const NavItem = React.memo(function NavItem({
   onNavigate: (href: string) => void;
   onMouseEnter: (href: string) => void;
   onMouseLeave: () => void;
-}) {
+}) => {
   const Icon = item.icon;
 
   return (
@@ -120,7 +124,7 @@ const NavItem = React.memo(function NavItem({
 
 NavItem.displayName = "NavItem";
 
-const SideNavBar = React.memo(function SideNavBar() {
+const SideNavBar = React.memo(() => {
   const pathname = usePathname();
   const { navigate, router } = useNavigation();
   const { user } = useUser();

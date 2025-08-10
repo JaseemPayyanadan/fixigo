@@ -1,6 +1,5 @@
 import React, { useState, useEffect, ChangeEvent, FormEvent } from "react";
-import TextInput from "../../components/ui/TextInput";
-import PasswordInput from "../../components/ui/PasswordInput";
+
 import { 
   UserIcon, 
   EnvelopeIcon, 
@@ -9,6 +8,9 @@ import {
   LockClosedIcon,
   BuildingOfficeIcon
 } from "@heroicons/react/24/outline";
+
+import PasswordInput from "../../components/ui/PasswordInput";
+import TextInput from "../../components/ui/TextInput";
 
 interface Branch {
   id: string;

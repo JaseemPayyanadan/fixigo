@@ -1,12 +1,16 @@
 "use client";
+
 import React, { useState } from "react";
-import { useAuth } from "@/contexts/AuthContext";
-import { AuthGuard } from "@/components";
-import { EnvelopeIcon, LockClosedIcon, UsersIcon, ChartBarIcon, ClockIcon, ShieldCheckIcon } from "@heroicons/react/24/outline";
+
 import Link from "next/link";
-import TextInput from "@/components/ui/TextInput";
-import PasswordInput from "@/components/ui/PasswordInput";
 import { useRouter } from "next/navigation";
+
+import { ChartBarIcon, ClockIcon, EnvelopeIcon, LockClosedIcon, ShieldCheckIcon, UsersIcon } from "@heroicons/react/24/outline";
+
+import { AuthGuard } from "@/components";
+import PasswordInput from "@/components/ui/PasswordInput";
+import TextInput from "@/components/ui/TextInput";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function LoginPage() {
   return (
@@ -23,6 +27,9 @@ function LoginContent() {
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const router = useRouter();
+
+  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value);
+  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,9 +67,7 @@ function LoginContent() {
             Streamline Your <br />
             <span className="text-blue-200">Service Business</span>
           </h2>
-          <p className="text-sm lg:text-base xl:text-xl text-blue-100 mb-8 leading-relaxed">
-            Manage technicians, track services, and grow your business with our comprehensive platform designed for service professionals.
-          </p>
+          <p className="text-sm lg:text-base xl:text-xl text-blue-100 mb-8 leading-relaxed">Manage technicians, track services, and grow your business with our comprehensive platform designed for service professionals.</p>
 
           {/* Features */}
           <div className="space-y-6">
@@ -115,29 +120,10 @@ function LoginContent() {
           <div className="flex flex-col">
             <form className="space-y-6" onSubmit={handleSubmit}>
               {/* Email Field */}
-              <TextInput
-                type="email"
-                id="email"
-                name="email"
-                label="Email Address"
-                required
-                placeholder="Email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                icon={<EnvelopeIcon className="h-5 w-5 text-gray-400" />}
-              />
+              <TextInput type="email" id="email" name="email" label="Email Address" required placeholder="Email" value={email} onChange={handleEmailChange} icon={<EnvelopeIcon className="h-5 w-5 text-gray-400" />} />
 
               {/* Password Field */}
-              <PasswordInput
-                id="password"
-                name="password"
-                label="Password"
-                required
-                placeholder="Password"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                icon={<LockClosedIcon className="h-5 w-5 text-gray-400" />}
-              />
+              <PasswordInput id="password" name="password" label="Password" required placeholder="Password" value={password} onChange={handlePasswordChange} icon={<LockClosedIcon className="h-5 w-5 text-gray-400" />} />
 
               {/* Error Message */}
               {error && (
@@ -179,10 +165,7 @@ function LoginContent() {
             <div className="mt-8 text-center">
               <p className="text-gray-600 text-sm">
                 Don&apos;t have an account?{" "}
-                <Link 
-                  href="/register" 
-                  className="text-blue-600 hover:text-blue-700 font-semibold hover:underline transition duration-200"
-                >
+                <Link href="/register" className="text-blue-600 hover:text-blue-700 font-semibold hover:underline transition duration-200">
                   Create one here
                 </Link>
               </p>
@@ -201,13 +184,17 @@ function LoginContent() {
           <div className="text-center mt-6">
             <p className="text-xs text-gray-400">
               By signing in, you agree to our{" "}
-              <a href="#" className="text-blue-600 hover:text-blue-700">Terms of Service</a>
-              {" "}and{" "}
-              <a href="#" className="text-blue-600 hover:text-blue-700">Privacy Policy</a>
+              <a href="#" className="text-blue-600 hover:text-blue-700">
+                Terms of Service
+              </a>{" "}
+              and{" "}
+              <a href="#" className="text-blue-600 hover:text-blue-700">
+                Privacy Policy
+              </a>
             </p>
           </div>
         </div>
       </div>
     </div>
   );
-} 
+}

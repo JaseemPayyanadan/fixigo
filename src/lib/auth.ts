@@ -1,11 +1,12 @@
-import { db } from "./firebase";
-import { doc, getDoc, setDoc, query, collection, where, getDocs } from "firebase/firestore";
-import { User } from "@/types";
 import bcrypt from "bcryptjs";
+import { collection, doc, getDoc, getDocs, query, setDoc, where } from "firebase/firestore";
 import jwt from "jsonwebtoken";
 
-const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key-change-in-production";
+import { User } from "@/types";
 
+import { db } from "./firebase";
+
+const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key-change-in-production";
 
 export interface AuthUser {
   id: string;
@@ -75,7 +76,7 @@ export async function registerUser(data: RegisterData): Promise<AuthUser> {
   const usersRef = collection(db, "users");
   const q = query(usersRef, where("email", "==", email));
   const querySnapshot = await getDocs(q);
-  
+
   if (!querySnapshot.empty) {
     throw new Error("User with this email already exists");
   }
@@ -182,11 +183,15 @@ export async function getUserById(id: string): Promise<AuthUser | null> {
 // Update user onboarding status
 export async function updateUserOnboarding(userId: string, shopId: string): Promise<void> {
   const userRef = doc(db, "users", userId);
-  await setDoc(userRef, {
-    shopId,
-    onboardingCompleted: true,
-    updatedAt: new Date(),
-  }, { merge: true });
+  await setDoc(
+    userRef,
+    {
+      shopId,
+      onboardingCompleted: true,
+      updatedAt: new Date(),
+    },
+    { merge: true }
+  );
 }
 
 // Utility function to convert AuthUser to User type for compatibility
@@ -204,4 +209,4 @@ export function authUserToUser(authUser: AuthUser): User {
     createdAt: authUser.createdAt,
     updatedAt: authUser.updatedAt,
   };
-} 
+}

@@ -1,7 +1,8 @@
 "use client";
-
 import { useEffect } from "react";
+
 import { useRouter } from "next/navigation";
+
 import { useUser } from "@/hooks/useUser";
 
 export function HomeClient() {
@@ -30,7 +31,9 @@ export function HomeClient() {
       <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50">
         <h1 className="text-2xl font-bold mb-2 text-blue-700">Fixigo</h1>
         <div className="flex items-center gap-2 mb-2">
-          <span className="sr-only" role="status">Checking your session…</span>
+          <span className="sr-only" role="status">
+            Checking your session…
+          </span>
           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" aria-label="Loading" />
         </div>
         <p className="text-gray-500">Checking your session…</p>
@@ -39,4 +42,4 @@ export function HomeClient() {
   }
 
   return null; // Don't render anything while redirecting
-} 
+}

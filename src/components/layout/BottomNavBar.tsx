@@ -1,7 +1,10 @@
 "use client";
 import React, { useState } from "react";
+
 import { usePathname, useRouter } from "next/navigation";
+
 import { HomeIcon, BriefcaseIcon, BuildingOfficeIcon, UserGroupIcon, UserIcon, ClipboardDocumentListIcon, Bars3Icon, XMarkIcon } from "@heroicons/react/24/outline";
+
 import { useUser } from "@/hooks/useUser";
 
 const navItems = [

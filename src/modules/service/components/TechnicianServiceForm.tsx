@@ -1,14 +1,17 @@
 "use client";
 import React from "react";
-import type { ServiceFormProps } from "../types";
-import { getFormFieldConfig } from "../utils";
-import BaseServiceForm from "./BaseServiceForm";
+
 import { 
   BuildingOfficeIcon, 
   UserGroupIcon, 
   ExclamationTriangleIcon,
   ClockIcon
 } from "@heroicons/react/24/outline";
+
+import type { ServiceFormProps } from "../types";
+import { getFormFieldConfig } from "../utils";
+
+import BaseServiceForm from "./BaseServiceForm";
 
 const TechnicianServiceForm: React.FC<ServiceFormProps> = (props) => {
   const { user, branchId } = props;

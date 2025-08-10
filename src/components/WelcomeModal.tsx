@@ -1,8 +1,10 @@
 "use client"
 import React, { useState, useEffect } from "react";
+
+import Link from "next/link";
+
 import { HiSparkles, HiUsers, HiChartBar, HiCheckCircle, HiX } from "react-icons/hi";
 import { MdStore, } from "react-icons/md";
-import Link from "next/link";
 
 interface WelcomeModalProps {
   isOpen: boolean;

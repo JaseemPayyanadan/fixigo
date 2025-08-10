@@ -1,10 +1,13 @@
 "use client";
 import { useState, useEffect } from "react";
+
 import { collection, query, where, getDocs, getDoc, addDoc, updateDoc, doc, deleteDoc, orderBy } from "firebase/firestore";
+
 import { db } from "@/lib/firebase";
-import { useUser } from "./useUser";
 import { logger, isIndexBuildingError, getIndexBuildingMessage } from "@/lib/logger";
 import type { Branch } from "@/types";
+
+import { useUser } from "./useUser";
 
 export function useBranches(shopId?: string) {
   const [branches, setBranches] = useState<Branch[]>([]);

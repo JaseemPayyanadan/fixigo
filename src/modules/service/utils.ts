@@ -1,6 +1,7 @@
+import { CheckCircleIcon, ChevronDownIcon, ChevronUpIcon, ClockIcon, CubeIcon, ExclamationTriangleIcon, MagnifyingGlassIcon, PauseIcon, TruckIcon, XCircleIcon } from "@heroicons/react/24/outline";
+
 import type { Branch, Service, Technician, User } from "@/types";
 
-import { CheckCircleIcon, ChevronDownIcon, ChevronUpIcon, ClockIcon, CubeIcon, ExclamationTriangleIcon, MagnifyingGlassIcon, PauseIcon, TruckIcon, XCircleIcon } from "@heroicons/react/24/outline";
 
 import type { ServiceActions, ServiceDisplayInfo, ServiceFilters, ServiceValidationErrors } from "./types";
 

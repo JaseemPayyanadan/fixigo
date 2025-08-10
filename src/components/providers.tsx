@@ -1,8 +1,9 @@
 "use client";
 
-import { SidebarProvider } from "@/contexts/SidebarContext";
-import { AuthProvider } from "@/contexts/AuthContext";
 import { ReactNode } from "react";
+
+import { AuthProvider } from "@/contexts/AuthContext";
+import { SidebarProvider } from "@/contexts/SidebarContext";
 
 interface ProvidersProps {
   children: ReactNode;

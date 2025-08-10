@@ -1,13 +1,14 @@
 "use client";
 
 import React from 'react';
-import { useUser } from '@/hooks/useUser';
+
 import PermissionGuard from '@/components/auth/PermissionGuard';
 import { 
   ShopAdminDashboard, 
   BranchAdminDashboard, 
   TechnicianDashboard 
 } from '@/components/dashboard';
+import { useUser } from '@/hooks/useUser';
 
 // Main Dashboard Component
 const DashboardContent: React.FC = () => {

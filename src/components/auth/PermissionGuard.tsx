@@ -1,8 +1,9 @@
 "use client";
 import React, { createContext, useContext } from "react";
+
 import { useUser } from "@/hooks/useUser";
-import { hasPermission } from "@/lib/rbac";
 import { authUserToUser } from "@/lib/auth";
+import { hasPermission } from "@/lib/rbac";
 import type { User, Permission } from "@/types";
 
 interface PermissionContext {
