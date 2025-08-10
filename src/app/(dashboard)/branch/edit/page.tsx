@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState, Suspense } from "react";
+import { Suspense, useEffect, useState, useCallback } from "react";
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -40,14 +40,14 @@ function EditBranchContent() {
         setLoading(false);
         return;
       }
-      
+
       setLoading(true);
       setError(null);
-      
+
       try {
         const docRef = doc(db, `shops/${shopId}/branches`, id as string);
         const docSnap = await getDoc(docRef);
-        
+
         if (docSnap.exists()) {
           const branchData = { id: docSnap.id, ...docSnap.data() } as Branch;
           setBranch(branchData);
@@ -55,40 +55,37 @@ function EditBranchContent() {
           setError("Branch not found. It may have been deleted or you don't have permission to access it.");
         }
       } catch (err) {
-        console.error('Error fetching branch:', err);
         setError((err as Error).message || "Failed to fetch branch. Please try again.");
       } finally {
         setLoading(false);
       }
     };
-    
+
     fetchBranch();
   }, [shopId, id]);
 
-  const handleEditBranch = async (branchData: {
-    name: string;
-    location: string;
-    phone: string;
-    email: string;
-  }) => {
+  const handleEditBranch = useCallback(async (branchData: { name: string; location: string; phone: string; email: string }) => {
     if (!branch) {
       setError("No branch data available");
       return;
     }
-    
+
     setFormLoading(true);
     setError(null);
-    
+
     try {
       await updateBranch(branch.id, branchData);
       router.push("/branch");
     } catch (err) {
-      console.error('Error updating branch:', err);
       setError((err as Error).message || "Failed to update branch. Please try again.");
     } finally {
       setFormLoading(false);
     }
-  };
+  }, [branch, updateBranch, router]);
+
+  const handleTryAgain = useCallback(() => {
+    window.location.reload();
+  }, []);
 
   if (loading) {
     return (
@@ -110,16 +107,10 @@ function EditBranchContent() {
           <h2 className="text-xl font-semibold text-gray-900 mb-3">Unable to Load Branch</h2>
           <p className="text-gray-600 mb-6">{error}</p>
           <div className="flex gap-3 justify-center">
-            <button
-              onClick={() => window.location.reload()}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
+            <button onClick={handleTryAgain} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
               Try Again
             </button>
-            <Link
-              href="/branch"
-              className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
-            >
+            <Link href="/branch" className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors">
               Back to Branches
             </Link>
           </div>
@@ -139,10 +130,7 @@ function EditBranchContent() {
           </div>
           <h2 className="text-xl font-semibold text-gray-900 mb-3">Branch Not Found</h2>
           <p className="text-gray-600 mb-6">The branch you&apos;re looking for doesn&apos;t exist or has been removed.</p>
-          <Link
-            href="/branch"
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
+          <Link href="/branch" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
             Back to Branches
           </Link>
         </div>
@@ -160,10 +148,7 @@ function EditBranchContent() {
               <h1 className="text-2xl font-semibold text-gray-900">Edit Branch</h1>
               <p className="text-sm text-gray-600 mt-1">Update branch information and contact details</p>
             </div>
-            <Link
-              href="/branch"
-              className="inline-flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-800 font-medium transition-colors"
-            >
+            <Link href="/branch" className="inline-flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-800 font-medium transition-colors">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
               </svg>
@@ -207,4 +192,4 @@ function EditBranchContent() {
       )}
     </div>
   );
-} 
+}

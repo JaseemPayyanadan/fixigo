@@ -1,13 +1,13 @@
 "use client";
-import React from 'react';
+import React from "react";
 
-import Link from 'next/link';
+import Link from "next/link";
 
 import { HiClipboardList } from "react-icons/hi";
 
-import { Service } from '@/types';
+import { Service } from "@/types";
 
-import { getStatusColor, formatCurrency, LoadingSpinner, ErrorState } from './DashboardUtils';
+import { ErrorState, formatCurrency, getStatusColor, LoadingSpinner } from "./DashboardUtils";
 
 // Metric Card Component - Ultra compact and modern design
 export interface DashboardMetric {
@@ -15,7 +15,7 @@ export interface DashboardMetric {
   label: string;
   value: number | string;
   change?: number;
-  changeType?: 'increase' | 'decrease';
+  changeType?: "increase" | "decrease";
   icon: React.ComponentType<{ className?: string }>;
   color: string;
   bgColor: string;
@@ -23,24 +23,11 @@ export interface DashboardMetric {
 }
 
 // Ultra compact metric card with modern design
-export const MetricCard: React.FC<DashboardMetric> = React.memo(({ 
-  label, 
-  value, 
-  change, 
-  changeType, 
-  icon: Icon, 
-  color, 
-  bgColor,
-  description 
-}) => (
-  <div 
-    className="bg-white rounded-lg border border-gray-100 p-2.5 hover:shadow-md hover:border-gray-200 transition-all duration-200 group relative overflow-hidden"
-    role="region"
-    aria-label={`${label}: ${value}`}
-  >
+export const MetricCard: React.FC<DashboardMetric> = React.memo(({ label, value, change, changeType, icon: Icon, color, bgColor, description }) => (
+  <div className="bg-white rounded-lg border border-gray-100 p-2.5 hover:shadow-md hover:border-gray-200 transition-all duration-200 group relative overflow-hidden" role="region" aria-label={`${label}: ${value}`}>
     {/* Subtle background pattern */}
-    <div className={`absolute inset-0 opacity-3 ${bgColor.replace('bg-', 'from-').replace('-100', '-200')} bg-gradient-to-br`} />
-    
+    <div className={`absolute inset-0 opacity-3 ${bgColor.replace("bg-", "from-").replace("-100", "-200")} bg-gradient-to-br`} />
+
     <div className="relative z-10">
       <div className="flex items-center justify-between">
         <div className="flex-1 min-w-0">
@@ -48,22 +35,18 @@ export const MetricCard: React.FC<DashboardMetric> = React.memo(({
             <div className={`p-1 rounded-md ${bgColor} group-hover:scale-105 transition-transform duration-200`} aria-hidden="true">
               <Icon className={`h-3 w-3 ${color}`} />
             </div>
-            <p className="text-xs font-medium text-gray-600" id={`metric-${label.toLowerCase().replace(/\s+/g, '-')}`}>
+            <p className="text-xs font-medium text-gray-600" id={`metric-${label.toLowerCase().replace(/\s+/g, "-")}`}>
               {label}
             </p>
           </div>
-          <p className="text-base font-bold text-gray-900 group-hover:text-gray-700 transition-colors" aria-describedby={`metric-${label.toLowerCase().replace(/\s+/g, '-')}`}>
+          <p className="text-base font-bold text-gray-900 group-hover:text-gray-700 transition-colors" aria-describedby={`metric-${label.toLowerCase().replace(/\s+/g, "-")}`}>
             {value}
           </p>
-          {description && (
-            <p className="text-xs text-gray-500 mt-0.5 line-clamp-1 group-hover:text-gray-600 transition-colors">{description}</p>
-          )}
+          {description && <p className="text-xs text-gray-500 mt-0.5 line-clamp-1 group-hover:text-gray-600 transition-colors">{description}</p>}
           {change !== undefined && (
             <div className="flex items-center mt-1.5">
-              <span className={`text-xs font-semibold ${
-                changeType === 'increase' ? 'text-emerald-600' : 'text-rose-600'
-              }`}>
-                {changeType === 'increase' ? '↗' : '↘'} {change}%
+              <span className={`text-xs font-semibold ${changeType === "increase" ? "text-emerald-600" : "text-rose-600"}`}>
+                {changeType === "increase" ? "↗" : "↘"} {change}%
               </span>
               <span className="text-xs text-gray-400 ml-1">vs last month</span>
             </div>
@@ -71,24 +54,20 @@ export const MetricCard: React.FC<DashboardMetric> = React.memo(({
         </div>
       </div>
     </div>
-    
+
     {/* Hover effect overlay */}
     <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
   </div>
 ));
 
-MetricCard.displayName = 'MetricCard';
+MetricCard.displayName = "MetricCard";
 
 // Service Card Component - Ultra compact with modern visuals
 export const ServiceCard: React.FC<{ service: Service }> = React.memo(({ service }) => {
   const statusColors = getStatusColor(service.status);
-  
+
   return (
-    <div 
-      className="flex items-center justify-between p-2 bg-white rounded-md hover:bg-gray-50 transition-all duration-150 border border-gray-100 hover:border-gray-200 hover:shadow-sm group"
-      role="article"
-      aria-label={`Service: ${service.name} - Status: ${service.status}`}
-    >
+    <div className="flex items-center justify-between p-2 bg-white rounded-md hover:bg-gray-50 transition-all duration-150 border border-gray-100 hover:border-gray-200 hover:shadow-sm group" role="article" aria-label={`Service: ${service.name} - Status: ${service.status}`}>
       <div className="flex items-center space-x-2.5 flex-1 min-w-0">
         <div className="flex-shrink-0">
           <div className="w-6 h-6 bg-blue-100 rounded-md flex items-center justify-center group-hover:scale-105 transition-transform duration-150" aria-hidden="true">
@@ -98,28 +77,24 @@ export const ServiceCard: React.FC<{ service: Service }> = React.memo(({ service
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-gray-900 truncate group-hover:text-blue-600 transition-colors">{service.name}</p>
           <p className="text-xs text-gray-500 truncate group-hover:text-gray-600 transition-colors">
-            {service.customer?.name || 'Unknown Customer'} • {service.device?.type || 'Unknown Device'}
+            {service.customer?.name || "Unknown Customer"} • {service.device?.type || "Unknown Device"}
           </p>
         </div>
       </div>
-      
+
       <div className="flex items-center gap-2 flex-shrink-0">
-        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${statusColors.text} ${statusColors.bg}`}>
-          {service.status}
-        </span>
-        <span className="text-xs font-semibold text-gray-900">
-          {formatCurrency(service.price)}
-        </span>
+        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${statusColors.text} ${statusColors.bg}`}>{service.status}</span>
+        <span className="text-xs font-semibold text-gray-900">{formatCurrency(service.price)}</span>
       </div>
     </div>
   );
 });
 
-ServiceCard.displayName = 'ServiceCard';
+ServiceCard.displayName = "ServiceCard";
 
 // Recent Services Card Component - Ultra compact
-export const RecentServicesCard: React.FC<{ 
-  services: Service[]; 
+export const RecentServicesCard: React.FC<{
+  services: Service[];
   loading: boolean;
   error?: string | null;
   title?: string;
@@ -127,25 +102,13 @@ export const RecentServicesCard: React.FC<{
   emptyMessage?: string;
   createLink?: string;
   onRetry?: () => void;
-}> = React.memo(({ 
-  services, 
-  loading, 
-  error,
-  title = "Recent Services",
-  viewAllLink = "/services",
-  emptyMessage = "No services yet",
-  createLink = "/services/new",
-  onRetry
-}) => (
+}> = React.memo(({ services, loading, error, title = "Recent Services", viewAllLink = "/services", emptyMessage = "No services yet", createLink = "/services/new", onRetry }) => (
   <div className="bg-white rounded-lg border border-gray-100 shadow-sm">
     <div className="px-3 py-2.5 border-b border-gray-100">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-gray-900">{title}</h3>
         {viewAllLink && (
-          <Link 
-            href={viewAllLink} 
-            className="text-xs font-medium text-blue-600 hover:text-blue-700 transition-colors px-2 py-1 rounded-md hover:bg-blue-50"
-          >
+          <Link href={viewAllLink} className="text-xs font-medium text-blue-600 hover:text-blue-700 transition-colors px-2 py-1 rounded-md hover:bg-blue-50">
             View all →
           </Link>
         )}
@@ -169,10 +132,7 @@ export const RecentServicesCard: React.FC<{
           <p className="mt-1 text-xs text-gray-500">Get started by creating your first service.</p>
           {createLink && (
             <div className="mt-2.5">
-              <Link
-                href={createLink}
-                className="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 transition-colors"
-              >
+              <Link href={createLink} className="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 transition-colors">
                 Create Service
               </Link>
             </div>
@@ -183,40 +143,34 @@ export const RecentServicesCard: React.FC<{
   </div>
 ));
 
-RecentServicesCard.displayName = 'RecentServicesCard';
+RecentServicesCard.displayName = "RecentServicesCard";
 
 // Dashboard Header Component - Ultra compact
-export const DashboardHeader: React.FC<{ 
-  title: string; 
+export const DashboardHeader: React.FC<{
+  title: string;
   subtitle?: string;
   user?: { name?: string };
 }> = React.memo(({ title, subtitle, user }) => (
   <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1.5">
     <div>
       <h1 className="text-base font-bold text-gray-900">{title}</h1>
-      {subtitle && (
-        <p className="text-xs text-gray-600 mt-0.5">
-          {subtitle.replace('{name}', user?.name || 'User')}
-        </p>
-      )}
+      {subtitle && <p className="text-xs text-gray-600 mt-0.5">{subtitle.replace("{name}", user?.name || "User")}</p>}
     </div>
     <div className="text-xs text-gray-400 bg-gray-50 px-2 py-1 rounded-md">
-      {new Date().toLocaleDateString('en-US', { 
-        weekday: 'short', 
-        year: 'numeric', 
-        month: 'short', 
-        day: 'numeric' 
+      {new Date().toLocaleDateString("en-US", {
+        weekday: "short",
+        year: "numeric",
+        month: "short",
+        day: "numeric",
       })}
     </div>
   </div>
 ));
 
-DashboardHeader.displayName = 'DashboardHeader';
+DashboardHeader.displayName = "DashboardHeader";
 
 // Loading State Component - Ultra compact
-export const DashboardLoadingState: React.FC<{ message?: string }> = React.memo(({ 
-  message = "Loading dashboard data..."
-}) => (
+export const DashboardLoadingState: React.FC<{ message?: string }> = React.memo(({ message = "Loading dashboard data..." }) => (
   <div className="bg-blue-50 border border-blue-200 rounded-lg p-2.5" role="status" aria-live="polite">
     <div className="flex items-center">
       <svg className="h-3.5 w-3.5 text-blue-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
@@ -227,19 +181,15 @@ export const DashboardLoadingState: React.FC<{ message?: string }> = React.memo(
   </div>
 ));
 
-DashboardLoadingState.displayName = 'DashboardLoadingState';
+DashboardLoadingState.displayName = "DashboardLoadingState";
 
 // Ultra Compact Dashboard Layout Component
 export const UltraCompactDashboardLayout: React.FC<{
   children: React.ReactNode;
   className?: string;
-}> = React.memo(({ children, className = "" }) => (
-  <div className={`min-h-screen bg-gray-50 ${className}`}>
-    {children}
-  </div>
-));
+}> = React.memo(({ children, className = "" }) => <div className={`min-h-screen bg-gray-50 ${className}`}>{children}</div>);
 
-UltraCompactDashboardLayout.displayName = 'UltraCompactDashboardLayout';
+UltraCompactDashboardLayout.displayName = "UltraCompactDashboardLayout";
 
 // Ultra Compact Dashboard Header
 export const UltraCompactDashboardHeader: React.FC<{
@@ -247,37 +197,27 @@ export const UltraCompactDashboardHeader: React.FC<{
   className?: string;
 }> = React.memo(({ children, className = "" }) => (
   <div className={`border-b border-gray-100 bg-white sticky top-0 z-10 shadow-sm ${className}`}>
-    <div className="px-3 py-2">
-      {children}
-    </div>
+    <div className="px-3 py-2">{children}</div>
   </div>
 ));
 
-UltraCompactDashboardHeader.displayName = 'UltraCompactDashboardHeader';
+UltraCompactDashboardHeader.displayName = "UltraCompactDashboardHeader";
 
 // Ultra Compact Dashboard Content
 export const UltraCompactDashboardContent: React.FC<{
   children: React.ReactNode;
   className?: string;
-}> = React.memo(({ children, className = "" }) => (
-  <div className={`p-2.5 space-y-2.5 ${className}`}>
-    {children}
-  </div>
-));
+}> = React.memo(({ children, className = "" }) => <div className={`p-2.5 space-y-2.5 ${className}`}>{children}</div>);
 
-UltraCompactDashboardContent.displayName = 'UltraCompactDashboardContent';
+UltraCompactDashboardContent.displayName = "UltraCompactDashboardContent";
 
 // Compact Dashboard Layout Component
 export const CompactDashboardLayout: React.FC<{
   children: React.ReactNode;
   className?: string;
-}> = React.memo(({ children, className = "" }) => (
-  <div className={`min-h-screen bg-gray-50 ${className}`}>
-    {children}
-  </div>
-));
+}> = React.memo(({ children, className = "" }) => <div className={`min-h-screen bg-gray-50 ${className}`}>{children}</div>);
 
-CompactDashboardLayout.displayName = 'CompactDashboardLayout';
+CompactDashboardLayout.displayName = "CompactDashboardLayout";
 
 // Compact Dashboard Header
 export const CompactDashboardHeader: React.FC<{
@@ -285,39 +225,33 @@ export const CompactDashboardHeader: React.FC<{
   className?: string;
 }> = React.memo(({ children, className = "" }) => (
   <div className={`border-b border-gray-100 bg-white sticky top-0 z-10 shadow-sm ${className}`}>
-    <div className="px-3 py-2.5">
-      {children}
-    </div>
+    <div className="px-3 py-2.5">{children}</div>
   </div>
 ));
 
-CompactDashboardHeader.displayName = 'CompactDashboardHeader';
+CompactDashboardHeader.displayName = "CompactDashboardHeader";
 
 // Compact Dashboard Content
 export const CompactDashboardContent: React.FC<{
   children: React.ReactNode;
   className?: string;
-}> = React.memo(({ children, className = "" }) => (
-  <div className={`p-3 space-y-3 ${className}`}>
-    {children}
-  </div>
-));
+}> = React.memo(({ children, className = "" }) => <div className={`p-3 space-y-3 ${className}`}>{children}</div>);
 
-CompactDashboardContent.displayName = 'CompactDashboardContent';
+CompactDashboardContent.displayName = "CompactDashboardContent";
 
 // Enhanced Metrics Grid with ultra compact responsive design
-export const EnhancedMetricsGrid: React.FC<{ 
+export const EnhancedMetricsGrid: React.FC<{
   metrics: DashboardMetric[];
   columns?: number;
   className?: string;
 }> = React.memo(({ metrics, columns = 6, className = "" }) => {
   const gridCols = {
-    2: 'grid-cols-2',
-    3: 'grid-cols-2 md:grid-cols-3',
-    4: 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4',
-    5: 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5',
-    6: 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6',
-    8: 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-8'
+    2: "grid-cols-2",
+    3: "grid-cols-2 md:grid-cols-3",
+    4: "grid-cols-2 md:grid-cols-3 lg:grid-cols-4",
+    5: "grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5",
+    6: "grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6",
+    8: "grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-8",
   };
 
   return (
@@ -329,7 +263,7 @@ export const EnhancedMetricsGrid: React.FC<{
   );
 });
 
-EnhancedMetricsGrid.displayName = 'EnhancedMetricsGrid';
+EnhancedMetricsGrid.displayName = "EnhancedMetricsGrid";
 
 // Compact Error State
 export const CompactErrorState: React.FC<{
@@ -346,10 +280,7 @@ export const CompactErrorState: React.FC<{
         <p className="text-red-800 text-sm">{message}</p>
       </div>
       {retry && (
-        <button
-          onClick={retry}
-          className="text-xs text-red-600 hover:text-red-800 underline"
-        >
+        <button onClick={retry} className="text-xs text-red-600 hover:text-red-800 underline">
           Try again
         </button>
       )}
@@ -357,10 +288,10 @@ export const CompactErrorState: React.FC<{
   </div>
 ));
 
-CompactErrorState.displayName = 'CompactErrorState';
+CompactErrorState.displayName = "CompactErrorState";
 
 // Error Boundary Component for Dashboard
-export const DashboardErrorBoundary: React.FC<{ 
+export const DashboardErrorBoundary: React.FC<{
   children: React.ReactNode;
   fallback?: React.ReactNode;
 }> = React.memo(({ children, fallback }) => {
@@ -368,37 +299,36 @@ export const DashboardErrorBoundary: React.FC<{
 
   React.useEffect(() => {
     const handleError = (error: ErrorEvent) => {
-      console.error('Dashboard error:', error);
+      console.error("Dashboard error:", error);
       setHasError(true);
     };
 
-    window.addEventListener('error', handleError);
-    return () => window.removeEventListener('error', handleError);
+    window.addEventListener("error", handleError);
+    return () => window.removeEventListener("error", handleError);
   }, []);
 
   if (hasError) {
-    return fallback || (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="text-center max-w-sm mx-auto px-4">
-          <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
-            <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-            </svg>
+    return (
+      fallback || (
+        <div className="min-h-screen bg-white flex items-center justify-center">
+          <div className="text-center max-w-sm mx-auto px-4">
+            <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
+              <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-medium text-gray-900 mb-3">Something went wrong</h3>
+            <p className="text-sm text-gray-600 mb-4">There was an error loading the dashboard.</p>
+            <button onClick={window.location.reload} className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors">
+              Reload Page
+            </button>
           </div>
-          <h3 className="text-lg font-medium text-gray-900 mb-3">Something went wrong</h3>
-          <p className="text-sm text-gray-600 mb-4">There was an error loading the dashboard.</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            Reload Page
-          </button>
         </div>
-      </div>
+      )
     );
   }
 
   return <>{children}</>;
 });
 
-DashboardErrorBoundary.displayName = 'DashboardErrorBoundary';
+DashboardErrorBoundary.displayName = "DashboardErrorBoundary";

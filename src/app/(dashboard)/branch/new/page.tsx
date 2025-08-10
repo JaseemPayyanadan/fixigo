@@ -1,5 +1,6 @@
 "use client";
-import React, { useState } from "react";
+
+import { useState, useCallback } from "react";
 
 import { useRouter } from "next/navigation";
 
@@ -10,21 +11,12 @@ import { BranchForm } from "@/modules/branch/BranchForm";
 export default function NewBranchPage() {
   const { user } = useUser();
   const shopId = user?.shopId || "";
-  const { } = useBranches(shopId);
+  const {} = useBranches(shopId);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
-  const handleCreateBranch = async (branchData: {
-    name: string;
-    location: string;
-    phone: string;
-    email: string;
-    password: string;
-    managerName?: string;
-    managerEmail?: string;
-    managerPhone?: string;
-  }) => {
+  const handleCreateBranch = useCallback(async (branchData: { name: string; location: string; phone: string; email: string; password: string; managerName?: string; managerEmail?: string; managerPhone?: string }) => {
     setLoading(true);
     setError(null);
     try {
@@ -45,9 +37,6 @@ export default function NewBranchPage() {
         throw new Error(errorData.error || "Failed to create branch");
       }
 
-      const result = await response.json();
-      console.log("Branch created successfully:", result);
-      
       // Redirect to branches list after successful creation
       router.push("/branch");
     } catch (err: unknown) {
@@ -55,7 +44,15 @@ export default function NewBranchPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [shopId, router]);
+
+  const handleBackToBranches = useCallback(() => {
+    router.push("/branch");
+  }, [router]);
+
+  const handleCancel = useCallback(() => {
+    router.push("/branch");
+  }, [router]);
 
   return (
     <div className="min-h-screen bg-white">
@@ -67,10 +64,7 @@ export default function NewBranchPage() {
               <h1 className="text-2xl font-semibold text-gray-900">Create New Branch</h1>
               <p className="text-sm text-gray-600 mt-1">Add a new branch to your shop</p>
             </div>
-            <button
-              onClick={() => router.push("/branch")}
-              className="inline-flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-800 font-medium transition-colors"
-            >
+            <button onClick={handleBackToBranches} className="inline-flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-800 font-medium transition-colors">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
               </svg>
@@ -82,12 +76,7 @@ export default function NewBranchPage() {
 
       {/* Full Screen Form */}
       <div className="flex-1">
-        <BranchForm
-          onSubmit={handleCreateBranch}
-          loading={loading}
-          editing={false}
-          onCancel={() => router.push("/branch")}
-        />
+        <BranchForm onSubmit={handleCreateBranch} loading={loading} editing={false} onCancel={handleCancel} />
       </div>
 
       {/* Error Message */}
@@ -109,4 +98,4 @@ export default function NewBranchPage() {
       )}
     </div>
   );
-} 
+}

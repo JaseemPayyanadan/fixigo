@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -28,21 +28,36 @@ function RegisterContent() {
   const { register } = useAuth();
   const router = useRouter();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError("");
-    try {
-      // Register with shop_admin role by default
-      await register(name, email, password, "shop_admin");
-      // Redirect to onboarding after successful registration
-      router.push("/onboarding");
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setLoading(false);
-    }
-  };
+  const handleSubmit = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+      setLoading(true);
+      setError("");
+      try {
+        // Register with shop_admin role by default
+        await register(name, email, password, "shop_admin");
+        // Redirect to onboarding after successful registration
+        router.push("/onboarding");
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : String(err));
+      } finally {
+        setLoading(false);
+      }
+    },
+    [register, name, email, password, router]
+  );
+
+  const handleNameChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setName(e.target.value);
+  }, []);
+
+  const handleEmailChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setEmail(e.target.value);
+  }, []);
+
+  const handlePasswordChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setPassword(e.target.value);
+  }, []);
 
   return (
     <div className="min-h-screen flex flex-col lg:flex-row w-full">
@@ -118,9 +133,9 @@ function RegisterContent() {
           <div className="flex flex-col">
             <form className="space-y-6" onSubmit={handleSubmit}>
               {/* Name Field */}
-              <TextInput type="text" id="name" name="name" label="Full Name" required placeholder="Enter your full name" value={name} onChange={(e) => setName(e.target.value)} icon={<UserIcon className="h-5 w-5 text-gray-400" />} />
+              <TextInput type="text" id="name" name="name" label="Full Name" required placeholder="Enter your full name" value={name} onChange={handleNameChange} icon={<UserIcon className="h-5 w-5 text-gray-400" />} />
               {/* Email Field */}
-              <TextInput type="email" id="email" name="email" label="Email Address" required placeholder="Enter your email address" value={email} onChange={(e) => setEmail(e.target.value)} icon={<EnvelopeIcon className="h-5 w-5 text-gray-400" />} />
+              <TextInput type="email" id="email" name="email" label="Email Address" required placeholder="Enter your email address" value={email} onChange={handleEmailChange} icon={<EnvelopeIcon className="h-5 w-5 text-gray-400" />} />
               {/* Password Field */}
               <TextInput
                 type="password"
@@ -130,7 +145,7 @@ function RegisterContent() {
                 required
                 placeholder="Create a strong password"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={handlePasswordChange}
                 icon={
                   <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />

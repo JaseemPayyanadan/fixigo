@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -28,10 +28,10 @@ function LoginContent() {
   const { login } = useAuth();
   const router = useRouter();
 
-  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value);
-  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value);
+  const handleEmailChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value), []);
+  const handlePasswordChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value), []);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError("");
@@ -44,7 +44,7 @@ function LoginContent() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [login, email, password, router]);
 
   return (
     <div className="min-h-screen flex flex-col lg:flex-row w-full">

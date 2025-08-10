@@ -1,6 +1,6 @@
 "use client";
 
-import React, { Suspense, useEffect, useState } from "react";
+import React, { Suspense, useCallback, useEffect, useState } from "react";
 
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -70,7 +70,6 @@ interface StatusHistory {
 }
 
 const STATUS_OPTIONS = ["To Do", "In Progress", "Completed", "Pending", "Cancelled", "Awaiting Parts", "On Hold", "Ready for Pickup"];
-const PRIORITY_OPTIONS = ["low", "medium", "high", "urgent"];
 
 const statusColors: Record<string, string> = {
   "To Do": "bg-slate-50 text-slate-700 border-slate-200",
@@ -191,7 +190,7 @@ function ServiceDetailsPage() {
           ...doc.data(),
         })) as Branch[];
         setBranches(branchesData);
-      } catch (err) {
+      } catch {
         // Error fetching branches
       }
     };
@@ -207,7 +206,7 @@ function ServiceDetailsPage() {
           ...doc.data(),
         })) as Technician[];
         setTechnicians(techniciansData);
-      } catch (err) {
+      } catch {
         // Error fetching technicians
       }
     };
@@ -292,7 +291,7 @@ function ServiceDetailsPage() {
           updatedBy: user?.name || "Unknown",
         };
         setStatusHistory((prev) => [historyEntry, ...prev]);
-      } catch (err) {
+      } catch {
         setStatus(service?.status || "To Do"); // Revert on error
       } finally {
         setUpdatingStatus(false);
@@ -332,9 +331,18 @@ function ServiceDetailsPage() {
     });
   };
 
-  const renderStars = (rating: number) => {
-    return Array.from({ length: 5 }, (_, i) => <MdStar key={i} className={`w-4 h-4 ${i < rating ? "text-yellow-400 fill-current" : "text-gray-300"}`} />);
-  };
+  const renderStars = useCallback((rating: number) => {
+    return Array.from({ length: 5 }, (_, i) => <MdStar key={`star-${rating}-${i}`} className={`w-4 h-4 ${i < rating ? "text-yellow-400 fill-current" : "text-gray-300"}`} />);
+  }, []);
+
+  // Memoized handlers to avoid arrow functions in JSX
+  const handleGoBack = useCallback(() => router.back(), [router]);
+  const handleReload = useCallback(() => window.location.reload(), []);
+  const handleToggleShowHistory = useCallback(() => setShowHistory((prev) => !prev), []);
+  const handleGenerateInvoice = useCallback(() => router.push(`/invoices/details?id=${service?.id}`), [router, service?.id]);
+  const handleCancelEdit = useCallback(() => setEditing(false), []);
+  const handleEditClick = useCallback(() => setEditing(true), []);
+  const handlePrint = useCallback(() => window.print(), []);
 
   if (loading) {
     return (
@@ -359,10 +367,10 @@ function ServiceDetailsPage() {
           <h2 className="text-xl font-semibold text-slate-900 mb-2">Error Loading Service</h2>
           <p className="text-slate-600 mb-6">{error}</p>
           <div className="flex gap-3 justify-center">
-            <button onClick={() => router.back()} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+            <button onClick={handleGoBack} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
               Go Back
             </button>
-            <button onClick={() => window.location.reload()} className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors">
+            <button onClick={handleReload} className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors">
               <MdRefresh className="w-4 h-4 inline mr-1" />
               Retry
             </button>
@@ -379,7 +387,7 @@ function ServiceDetailsPage() {
       <div className="min-h-screen bg-white p-6">
         <div className="max-w-4xl mx-auto">
           <div className="flex items-center mb-6">
-            <button onClick={() => setEditing(false)} className="mr-4 p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors">
+            <button onClick={handleCancelEdit} className="mr-4 p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors">
               <MdArrowBack className="w-6 h-6" />
             </button>
             <h1 className="text-2xl font-bold text-slate-900">Edit Service</h1>
@@ -416,7 +424,7 @@ function ServiceDetailsPage() {
                 branchId: service.branchId || "",
               },
             }}
-            onCancelEdit={() => setEditing(false)}
+            onCancelEdit={handleCancelEdit}
           />
         </div>
       </div>
@@ -437,7 +445,7 @@ function ServiceDetailsPage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
-            <button onClick={() => router.back()} className="p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors">
+            <button onClick={handleGoBack} className="p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors">
               <MdArrowBack className="w-6 h-6" />
             </button>
             <div>
@@ -446,7 +454,7 @@ function ServiceDetailsPage() {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <button onClick={() => setShowHistory(!showHistory)} className="flex items-center gap-2 px-3 py-2 text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors">
+            <button onClick={handleToggleShowHistory} className="flex items-center gap-2 px-3 py-2 text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors">
               <MdHistory className="w-4 h-4" />
               History
             </button>
@@ -454,11 +462,11 @@ function ServiceDetailsPage() {
               <MdDelete className="w-4 h-4" />
               Delete
             </button>
-            <button onClick={() => setEditing(true)} className="flex items-center gap-2 px-3 py-2 border border-slate-300 text-slate-700 bg-white rounded-lg font-medium hover:bg-slate-50 transition-colors">
+            <button onClick={handleEditClick} className="flex items-center gap-2 px-3 py-2 border border-slate-300 text-slate-700 bg-white rounded-lg font-medium hover:bg-slate-50 transition-colors">
               <MdEdit className="w-4 h-4" />
               Edit
             </button>
-            <button onClick={() => router.push(`/invoices/details?id=${service.id}`)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors">
+            <button onClick={handleGenerateInvoice} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors">
               <MdReceipt className="w-4 h-4" />
               Generate Invoice
             </button>
@@ -500,7 +508,7 @@ function ServiceDetailsPage() {
             <div className="space-y-3">
               {statusHistory.length > 0 ? (
                 statusHistory.map((entry, index) => (
-                  <div key={index} className="flex items-center justify-between p-3 bg-white rounded-lg border border-slate-200">
+                  <div key={`history-${entry.status}-${entry.timestamp.getTime()}-${index}`} className="flex items-center justify-between p-3 bg-white rounded-lg border border-slate-200">
                     <div className="flex items-center gap-3">
                       <div className={`${statusColors[entry.status]} px-3 py-1 rounded-full text-sm font-medium`}>{entry.status}</div>
                       <span className="text-sm text-slate-600">by {entry.updatedBy}</span>
@@ -662,7 +670,7 @@ function ServiceDetailsPage() {
                     <div className="text-slate-500 text-sm mb-2">Work Notes</div>
                     <div className="space-y-2">
                       {service.workNotes.map((note, index) => (
-                        <div key={index} className="bg-slate-50 p-3 rounded-lg border-l-4 border-blue-500">
+                        <div key={`worknote-${index}-${note.substring(0, 10)}`} className="bg-slate-50 p-3 rounded-lg border-l-4 border-blue-500">
                           <div className="font-medium text-slate-900">{note}</div>
                         </div>
                       ))}
@@ -681,7 +689,7 @@ function ServiceDetailsPage() {
                 </h2>
                 <div className="space-y-3">
                   {service.partsUsed.map((part, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                    <div key={`part-${index}-${part.name}`} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
                       <div>
                         <div className="font-medium text-slate-900">{part.name}</div>
                         <div className="text-sm text-slate-500">Qty: {part.quantity}</div>
@@ -772,19 +780,19 @@ function ServiceDetailsPage() {
             <div className="bg-white border border-slate-200 rounded-xl p-6">
               <h3 className="font-semibold text-lg mb-4">Quick Actions</h3>
               <div className="space-y-3">
-                <button onClick={() => setEditing(true)} className="w-full flex items-center gap-2 p-3 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
+                <button onClick={handleEditClick} className="w-full flex items-center gap-2 p-3 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
                   <MdEdit className="w-4 h-4 text-blue-600" />
                   <span className="text-sm font-medium">Edit Service</span>
                 </button>
-                <button onClick={() => router.push(`/invoices/details?id=${service.id}`)} className="w-full flex items-center gap-2 p-3 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
+                <button onClick={handleGenerateInvoice} className="w-full flex items-center gap-2 p-3 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
                   <MdReceipt className="w-4 h-4 text-green-600" />
                   <span className="text-sm font-medium">Generate Invoice</span>
                 </button>
-                <button onClick={() => setShowHistory(!showHistory)} className="w-full flex items-center gap-2 p-3 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
+                <button onClick={handleToggleShowHistory} className="w-full flex items-center gap-2 p-3 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
                   <MdHistory className="w-4 h-4 text-purple-600" />
                   <span className="text-sm font-medium">View History</span>
                 </button>
-                <button onClick={() => window.print()} className="w-full flex items-center gap-2 p-3 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
+                <button onClick={handlePrint} className="w-full flex items-center gap-2 p-3 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
                   <MdPrint className="w-4 h-4 text-orange-600" />
                   <span className="text-sm font-medium">Print Details</span>
                 </button>

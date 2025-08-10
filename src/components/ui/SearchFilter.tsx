@@ -1,7 +1,7 @@
 "use client";
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 
-import { MagnifyingGlassIcon, ArrowPathIcon, FunnelIcon } from "@heroicons/react/24/outline";
+import { ArrowPathIcon, FunnelIcon, MagnifyingGlassIcon } from "@heroicons/react/24/outline";
 
 interface SearchFilterProps {
   search: string;
@@ -19,21 +19,22 @@ interface SearchFilterProps {
   className?: string;
 }
 
-const SearchFilter: React.FC<SearchFilterProps> = ({
-  search,
-  onSearchChange,
-  placeholder = "Search...",
-  filters = [],
-  onClear,
-  showClear = false,
-  className = ""
-}) => {
+const SearchFilter: React.FC<SearchFilterProps> = ({ search, onSearchChange, placeholder = "Search...", filters = [], onClear, showClear = false, className = "" }) => {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const hasActiveFilters = search || filters.some(filter => filter.value !== filter.options[0]?.value);
+  const hasActiveFilters = search || filters.some((filter) => filter.value !== filter.options[0]?.value);
 
-  const toggleFilter = () => {
+  const toggleFilter = useCallback(() => {
     setIsFilterOpen(!isFilterOpen);
-  };
+  }, [isFilterOpen]);
+
+  const handleFilterChange = useCallback((filter: any, optionValue: string) => {
+    filter.onChange(optionValue);
+    if (optionValue === filter.options[0]?.value) {
+      setIsFilterOpen(false);
+    }
+  }, []);
+
+  const handleCloseFilter = useCallback(() => setIsFilterOpen(false), []);
 
   return (
     <div className={`relative ${className}`}>
@@ -43,39 +44,21 @@ const SearchFilter: React.FC<SearchFilterProps> = ({
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
             <MagnifyingGlassIcon className="h-4 w-4 text-slate-400" />
           </div>
-          <input
-            type="text"
-            value={search}
-            onChange={e => onSearchChange(e.target.value)}
-            placeholder={placeholder}
-            className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
-          />
+          <input type="text" value={search} onChange={(e) => onSearchChange(e.target.value)} placeholder={placeholder} className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white" />
         </div>
 
         {/* Filter Button */}
         {filters.length > 0 && (
-          <button
-            onClick={toggleFilter}
-            className={`flex items-center gap-2 px-3 py-2 border border-slate-200 rounded-lg text-sm transition-colors ${
-              hasActiveFilters 
-                ? "bg-blue-50 text-blue-600 border-blue-200" 
-                : "bg-white text-slate-600 hover:bg-slate-50"
-            }`}
-          >
+          <button onClick={toggleFilter} className={`flex items-center gap-2 px-3 py-2 border border-slate-200 rounded-lg text-sm transition-colors ${hasActiveFilters ? "bg-blue-50 text-blue-600 border-blue-200" : "bg-white text-slate-600 hover:bg-slate-50"}`}>
             <FunnelIcon className="w-4 h-4" />
             <span>Filter</span>
-            {hasActiveFilters && (
-              <span className="w-2 h-2 bg-blue-600 rounded-full"></span>
-            )}
+            {hasActiveFilters && <span className="w-2 h-2 bg-blue-600 rounded-full"></span>}
           </button>
         )}
 
         {/* Clear Button */}
         {showClear && hasActiveFilters && onClear && (
-          <button
-            onClick={onClear}
-            className="flex items-center gap-1 px-3 py-2 border border-slate-200 rounded-lg bg-white hover:bg-slate-50 transition-colors text-sm text-slate-600"
-          >
+          <button onClick={onClear} className="flex items-center gap-1 px-3 py-2 border border-slate-200 rounded-lg bg-white hover:bg-slate-50 transition-colors text-sm text-slate-600">
             <ArrowPathIcon className="w-4 h-4" />
             Clear
           </button>
@@ -89,25 +72,10 @@ const SearchFilter: React.FC<SearchFilterProps> = ({
             <div className="space-y-3">
               {filters.map((filter) => (
                 <div key={filter.key}>
-                  <label className="block text-xs font-medium text-slate-700 mb-2">
-                    {filter.label}
-                  </label>
+                  <label className="block text-xs font-medium text-slate-700 mb-2">{filter.label}</label>
                   <div className="flex flex-wrap gap-2">
-                    {filter.options.map(option => (
-                      <button
-                        key={option.value}
-                        onClick={() => {
-                          filter.onChange(option.value);
-                          if (option.value === filter.options[0]?.value) {
-                            setIsFilterOpen(false);
-                          }
-                        }}
-                        className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                          filter.value === option.value
-                            ? "bg-blue-600 text-white"
-                            : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                        }`}
-                      >
+                    {filter.options.map((option) => (
+                      <button key={option.value} onClick={() => handleFilterChange(filter, option.value)} className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${filter.value === option.value ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}`}>
                         {option.label}
                       </button>
                     ))}
@@ -120,14 +88,9 @@ const SearchFilter: React.FC<SearchFilterProps> = ({
       )}
 
       {/* Backdrop */}
-      {isFilterOpen && (
-        <div 
-          className="fixed inset-0 z-5"
-          onClick={() => setIsFilterOpen(false)}
-        />
-      )}
+      {isFilterOpen && <div className="fixed inset-0 z-5" onClick={handleCloseFilter} />}
     </div>
   );
 };
 
-export default SearchFilter; 
+export default SearchFilter;

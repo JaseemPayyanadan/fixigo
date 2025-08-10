@@ -1,10 +1,10 @@
 "use client";
-import React, { Suspense, useState, useEffect } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 
-import { useSearchParams, useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
-import { doc, getDoc, collection, getDocs, query, where, addDoc, updateDoc } from "firebase/firestore";
-import { FaRegPaperPlane, FaDownload, FaPrint, FaEdit, FaTimesCircle } from "react-icons/fa";
+import { addDoc, collection, doc, getDoc, getDocs, query, updateDoc, where } from "firebase/firestore";
+import { FaDownload, FaEdit, FaPrint, FaRegPaperPlane, FaTimesCircle } from "react-icons/fa";
 
 import { db } from "@/lib/firebase";
 
@@ -39,7 +39,7 @@ function InvoiceDetailsContent() {
   const [invoiceStatus, setInvoiceStatus] = useState("Pending");
   const [paymentStatus, setPaymentStatus] = useState("Pending");
   const [isEditing, setIsEditing] = useState(false);
-  const [editableItems, setEditableItems] = useState<Array<{name: string; variation: string; price: number; qty: number}>>([]);
+  const [editableItems, setEditableItems] = useState<Array<{ name: string; variation: string; price: number; qty: number }>>([]);
   const [editableDiscount, setEditableDiscount] = useState(0);
   const [editableTax, setEditableTax] = useState(0);
   const [editableAdvance, setEditableAdvance] = useState(0);
@@ -54,8 +54,8 @@ function InvoiceDetailsContent() {
           const serviceData = { id: docSnap.id, ...docSnap.data() } as Service;
           setService(serviceData);
           // Fetch branch info
-                        if (serviceData.shopId && serviceData.branchId) {
-          const branchSnap = await getDoc(doc(db, `shops/${serviceData.shopId}/branches/${serviceData.branchId}`));
+          if (serviceData.shopId && serviceData.branchId) {
+            const branchSnap = await getDoc(doc(db, `shops/${serviceData.shopId}/branches/${serviceData.branchId}`));
             if (branchSnap.exists()) {
               setBranch({ id: branchSnap.id, ...branchSnap.data() });
             }
@@ -98,13 +98,8 @@ function InvoiceDetailsContent() {
         total: (service.price || 0) * 1.05,
         status: "Pending",
         paymentStatus: "Pending",
-        createdAt: service.createdAt || new Date(),
-        branch: {
-          name: branch.name || service.branchId,
-          location: branch.location || "-",
-          contactNumber: branch.contactNumber || "-",
-          branchEmail: branch.branchEmail || "-",
-        },
+        createdAt: new Date(),
+        updatedAt: new Date(),
       };
       await addDoc(invoicesRef, invoiceData);
     };
@@ -122,86 +117,6 @@ function InvoiceDetailsContent() {
       }, 500);
     }
   }, [loading, shouldPrint, router]);
-
-  const handleStatusUpdate = async (newStatus: string, type: "status" | "payment") => {
-    if (!service) return;
-
-    try {
-      const invoicesRef = collection(db, "invoices");
-      const q = query(invoicesRef, where("serviceId", "==", service.id));
-      const existing = await getDocs(q);
-
-      if (!existing.empty) {
-        const invoiceDoc = existing.docs[0];
-        const updateData = type === "status" ? { status: newStatus } : { paymentStatus: newStatus };
-        await updateDoc(doc(db, "invoices", invoiceDoc.id), updateData);
-
-        if (type === "status") {
-          setInvoiceStatus(newStatus);
-        } else {
-          setPaymentStatus(newStatus);
-        }
-      }
-    } catch (error) {
-      console.error("Error updating invoice status:", error);
-    }
-  };
-
-  const handleEditToggle = () => {
-    // Always initialize editable data when toggling
-    setEditableItems([...items]);
-    setEditableDiscount(discount);
-    setEditableTax(tax);
-    setEditableAdvance(0);
-    setIsEditing(!isEditing);
-  };
-
-  const handleItemUpdate = (index: number, field: string, value: string | number) => {
-    const updatedItems = [...editableItems];
-    updatedItems[index] = { ...updatedItems[index], [field]: value };
-    setEditableItems(updatedItems);
-  };
-
-  const handleAddItem = () => {
-    setEditableItems([...editableItems, { name: "", variation: "", price: 0, qty: 1 }]);
-  };
-
-  const handleRemoveItem = (index: number) => {
-    if (editableItems.length > 1) {
-      const updatedItems = editableItems.filter((_, i) => i !== index);
-      setEditableItems(updatedItems);
-    }
-  };
-
-  const handleSaveInvoice = async () => {
-    if (!service) return;
-
-    try {
-      const invoicesRef = collection(db, "invoices");
-      const q = query(invoicesRef, where("serviceId", "==", service.id));
-      const existing = await getDocs(q);
-
-      if (!existing.empty) {
-        const invoiceDoc = existing.docs[0];
-        const total = subtotal - editableDiscount + editableTax - editableAdvance;
-        
-        const updateData = {
-          status: invoiceStatus,
-          paymentStatus,
-          discount: editableDiscount,
-          tax: editableTax,
-          advance: editableAdvance,
-          total,
-          updatedAt: new Date(),
-        };
-        
-        await updateDoc(doc(db, "invoices", invoiceDoc.id), updateData);
-        // Don't exit edit mode - keep the form visible
-      }
-    } catch (error) {
-      console.error("Error updating invoice:", error);
-    }
-  };
 
   if (loading)
     return (
@@ -222,7 +137,7 @@ function InvoiceDetailsContent() {
           </div>
           <h3 className="text-xl font-semibold text-gray-900 mb-2">Service not found</h3>
           <p className="text-gray-600 mb-6">The service you&apos;re looking for doesn&apos;t exist.</p>
-          <button onClick={() => router.push("/invoices")} className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+          <button onClick={handleBackToInvoices} className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
             Back to Invoices
           </button>
         </div>
@@ -233,7 +148,6 @@ function InvoiceDetailsContent() {
   const branchName = branch?.name || service.branchId;
   const branchLocation = branch?.location || "-";
   const branchContact = branch?.contactNumber || "-";
-  // const branchEmail = branch?.branchEmail || "-";
 
   const invoiceId = id;
   const invoiceDate = createdAt ? new Date(createdAt.seconds ? createdAt.seconds * 1000 : createdAt.nanoseconds).toLocaleDateString() : "-";
@@ -263,11 +177,171 @@ function InvoiceDetailsContent() {
 
   // Use editable values when editing, otherwise use default values
   const items = isEditing ? editableItems : defaultItems;
-  const subtotal = isEditing ? editableItems.reduce((sum, item) => sum + (item.price * item.qty), 0) : defaultSubtotal;
+  const subtotal = isEditing ? editableItems.reduce((sum, item) => sum + item.price * item.qty, 0) : defaultSubtotal;
   const discount = isEditing ? editableDiscount : defaultDiscount;
   const tax = isEditing ? editableTax : defaultTax;
   const advance = isEditing ? editableAdvance : 0;
-  const total = isEditing ? (subtotal - discount + tax - advance) : defaultTotal;
+  const total = isEditing ? subtotal - discount + tax - advance : defaultTotal;
+  const otherInfo = "Thank you for choosing our services! We appreciate your business.";
+
+  const handleBackToInvoices = useCallback(() => {
+    router.push("/invoices");
+  }, [router]);
+
+  const handlePrintInvoice = useCallback(() => {
+    router.push(`/invoices/details?id=${serviceId}&print=1`);
+  }, [router, serviceId]);
+
+  const handleStatusUpdate = useCallback(async (newStatus: string, type: "status" | "payment") => {
+    try {
+      if (type === "status") {
+        setInvoiceStatus(newStatus);
+      } else {
+        setPaymentStatus(newStatus);
+      }
+    } catch (error) {
+      // Handle error silently or show user feedback
+    }
+  }, []);
+
+  const handleDiscountChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setEditableDiscount(parseFloat(e.target.value) || 0);
+  }, []);
+
+  const handleTaxChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setEditableTax(parseFloat(e.target.value) || 0);
+  }, []);
+
+  const handleAdvanceChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setEditableAdvance(parseFloat(e.target.value) || 0);
+  }, []);
+
+  const handleEditToggle = useCallback(() => {
+    // Always initialize editable data when toggling
+    setEditableItems([...defaultItems]);
+    setEditableDiscount(defaultDiscount);
+    setEditableTax(defaultTax);
+    setEditableAdvance(0);
+    setIsEditing(!isEditing);
+  }, [defaultItems, defaultDiscount, defaultTax, isEditing]);
+
+  const handleItemUpdate = useCallback(
+    (index: number, field: string, value: string | number) => {
+      const updatedItems = [...editableItems];
+      updatedItems[index] = { ...updatedItems[index], [field]: value };
+      setEditableItems(updatedItems);
+    },
+    [editableItems]
+  );
+
+  const handleAddItem = useCallback(() => {
+    setEditableItems([...editableItems, { name: "", variation: "", price: 0, qty: 1 }]);
+  }, [editableItems]);
+
+  const handleRemoveItem = useCallback(
+    (index: number) => {
+      if (editableItems.length > 1) {
+        const updatedItems = editableItems.filter((_, i) => i !== index);
+        setEditableItems(updatedItems);
+      }
+    },
+    [editableItems]
+  );
+
+  const handleSaveInvoice = useCallback(async () => {
+    if (!service) return;
+
+    try {
+      const invoicesRef = collection(db, "invoices");
+      const q = query(invoicesRef, where("serviceId", "==", service.id));
+      const existing = await getDocs(q);
+
+      if (!existing.empty) {
+        const invoiceDoc = existing.docs[0];
+        const total = subtotal - editableDiscount + editableTax - editableAdvance;
+
+        const updateData = {
+          status: invoiceStatus,
+          paymentStatus,
+          discount: editableDiscount,
+          tax: editableTax,
+          advance: editableAdvance,
+          total,
+          updatedAt: new Date(),
+        };
+
+        await updateDoc(doc(db, "invoices", invoiceDoc.id), updateData);
+        // Don't exit edit mode - keep the form visible
+      }
+    } catch (error) {
+      // Handle error silently or show user feedback
+    }
+  }, [service, subtotal, editableDiscount, editableTax, editableAdvance, invoiceStatus, paymentStatus]);
+
+  if (loading)
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading invoice...</p>
+        </div>
+      </div>
+    );
+
+  if (!service)
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-24 h-24 bg-red-100 rounded-full flex items-center justify-center mb-6 mx-auto">
+            <FaTimesCircle className="h-12 w-12 text-red-600" />
+          </div>
+          <h3 className="text-xl font-semibold text-gray-900 mb-2">Service not found</h3>
+          <p className="text-gray-600 mb-6">The service you&apos;re looking for doesn&apos;t exist.</p>
+          <button onClick={handleBackToInvoices} className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+            Back to Invoices
+          </button>
+        </div>
+      </div>
+    );
+
+  const { id, name, price, createdAt, customer, device } = service;
+  const branchName = branch?.name || service.branchId;
+  const branchLocation = branch?.location || "-";
+  const branchContact = branch?.contactNumber || "-";
+
+  const invoiceId = id;
+  const invoiceDate = createdAt ? new Date(createdAt.seconds ? createdAt.seconds * 1000 : createdAt.nanoseconds).toLocaleDateString() : "-";
+  const dueDate = "-";
+  const from = {
+    name: branchName,
+    phone: branchContact,
+    address: branchLocation,
+  };
+  const billFor = {
+    name: customer?.name || "-",
+    phone: customer?.phone || "-",
+    address: customer?.email || "-",
+  };
+  const defaultItems = [
+    {
+      name,
+      variation: device ? `${device.brand} ${device.model}` : "-",
+      price: price || 0,
+      qty: 1,
+    },
+  ];
+  const defaultSubtotal = price || 0;
+  const defaultDiscount = 0;
+  const defaultTax = defaultSubtotal * 0.05;
+  const defaultTotal = defaultSubtotal - defaultDiscount + defaultTax;
+
+  // Use editable values when editing, otherwise use default values
+  const items = isEditing ? editableItems : defaultItems;
+  const subtotal = isEditing ? editableItems.reduce((sum, item) => sum + item.price * item.qty, 0) : defaultSubtotal;
+  const discount = isEditing ? editableDiscount : defaultDiscount;
+  const tax = isEditing ? editableTax : defaultTax;
+  const advance = isEditing ? editableAdvance : 0;
+  const total = isEditing ? subtotal - discount + tax - advance : defaultTotal;
   const otherInfo = "Thank you for choosing our services! We appreciate your business.";
 
   return (
@@ -275,7 +349,7 @@ function InvoiceDetailsContent() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
-          <button onClick={() => router.push("/invoices")} className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors">
+          <button onClick={handleBackToInvoices} className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
@@ -292,20 +366,13 @@ function InvoiceDetailsContent() {
               <FaDownload className="w-3 h-3" />
               Download PDF
             </button>
-            <button onClick={() => router.push(`/invoices/details?id=${serviceId}&print=1`)} className="flex items-center gap-3 bg-gray-100 text-gray-700 font-normal px-4 py-2 text-sm rounded-lg hover:bg-gray-200 transition-colors">
+            <button onClick={handlePrintInvoice} className="flex items-center gap-3 bg-gray-100 text-gray-700 font-normal px-4 py-2 text-sm rounded-lg hover:bg-gray-200 transition-colors">
               <FaPrint className="w-3 h-3" />
               Print Invoice
             </button>
-            <button 
-              onClick={handleEditToggle}
-              className={`flex items-center gap-3 font-normal px-4 py-2 text-sm rounded-lg transition-colors ${
-                isEditing 
-                  ? 'bg-orange-600 text-white hover:bg-orange-700' 
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
+            <button onClick={handleEditToggle} className={`flex items-center gap-3 font-normal px-4 py-2 text-sm rounded-lg transition-colors ${isEditing ? "bg-orange-600 text-white hover:bg-orange-700" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}>
               <FaEdit className="w-3 h-3" />
-              {isEditing ? 'Cancel Edit' : 'Edit Invoice'}
+              {isEditing ? "Cancel Edit" : "Edit Invoice"}
             </button>
           </div>
         </div>
@@ -427,8 +494,7 @@ function InvoiceDetailsContent() {
                       <div>{otherInfo}</div>
                     </div>
                     <div className="flex flex-col items-center md:items-end">
-                      <div className="h-20 w-48 border-b- border-gray-400 mb-2 flex items-end justify-center">
-                      </div>
+                      <div className="h-20 w-48 border-b- border-gray-400 mb-2 flex items-end justify-center"></div>
                       <div className="text-gray-700 text-sm">Authorized Signature</div>
                       <div className="text-gray-500 text-xs mt-1">{invoiceDate}</div>
                     </div>
@@ -482,48 +548,27 @@ function InvoiceDetailsContent() {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
                       </svg>
                     </div>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={editableDiscount}
-                      onChange={(e) => setEditableDiscount(parseFloat(e.target.value) || 0)}
-                      className="flex-1 border border-gray-300 rounded px-2 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-green-500"
-                      placeholder="Discount"
-                    />
+                    <input type="number" step="0.01" value={editableDiscount} onChange={handleDiscountChange} className="flex-1 border border-gray-300 rounded px-2 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-green-500" placeholder="Discount" />
                     <span className="text-green-600 font-medium text-xs">₹</span>
                   </div>
-                  
+
                   <div className="flex items-center gap-2">
                     <div className="w-4 h-4 bg-blue-100 rounded flex items-center justify-center">
                       <svg className="w-2.5 h-2.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                       </svg>
                     </div>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={editableTax}
-                      onChange={(e) => setEditableTax(parseFloat(e.target.value) || 0)}
-                      className="flex-1 border border-gray-300 rounded px-2 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      placeholder="Tax"
-                    />
+                    <input type="number" step="0.01" value={editableTax} onChange={handleTaxChange} className="flex-1 border border-gray-300 rounded px-2 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500" placeholder="Tax" />
                     <span className="text-blue-600 font-medium text-xs">₹</span>
                   </div>
-                  
+
                   <div className="flex items-center gap-2">
                     <div className="w-4 h-4 bg-purple-100 rounded flex items-center justify-center">
                       <svg className="w-2.5 h-2.5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
                       </svg>
                     </div>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={editableAdvance}
-                      onChange={(e) => setEditableAdvance(parseFloat(e.target.value) || 0)}
-                      className="flex-1 border border-gray-300 rounded px-2 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-purple-500"
-                      placeholder="Advance"
-                    />
+                    <input type="number" step="0.01" value={editableAdvance} onChange={handleAdvanceChange} className="flex-1 border border-gray-300 rounded px-2 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-purple-500" placeholder="Advance" />
                     <span className="text-purple-600 font-medium text-xs">₹</span>
                   </div>
                 </div>
@@ -558,10 +603,7 @@ function InvoiceDetailsContent() {
               </div>
 
               {/* Save Button */}
-              <button
-                onClick={handleSaveInvoice}
-                className="w-full bg-blue-600 text-white font-medium py-2 px-3 rounded text-xs hover:bg-blue-700 transition-colors"
-              >
+              <button onClick={handleSaveInvoice} className="w-full bg-blue-600 text-white font-medium py-2 px-3 rounded text-xs hover:bg-blue-700 transition-colors">
                 Save Changes
               </button>
             </div>

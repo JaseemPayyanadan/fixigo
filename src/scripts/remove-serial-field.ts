@@ -1,16 +1,17 @@
 import { collection, doc, getDocs, updateDoc } from "firebase/firestore";
 
 import { db } from "../lib/firebase";
+import { logger } from "../lib/logger";
 
 async function removeSerialField() {
-  console.log("Starting cleanup: Remove serial field from all services");
+  logger.info("Starting cleanup: Remove serial field from all services");
 
   try {
     // Get all services
     const servicesRef = collection(db, "services");
     const querySnapshot = await getDocs(servicesRef);
 
-    console.log(`Found ${querySnapshot.size} services to process`);
+    logger.info(`Found ${querySnapshot.size} services to process`);
 
     let cleanedCount = 0;
     let errorCount = 0;
@@ -21,7 +22,7 @@ async function removeSerialField() {
 
         // Check if the service has a device with serial field
         if (data.device && data.device.serial !== undefined) {
-          console.log(`Cleaning service ${docSnapshot.id}: removing serial field`);
+          logger.info(`Cleaning service ${docSnapshot.id}: removing serial field`);
 
           // Remove the serial field completely
           await updateDoc(doc(db, "services", docSnapshot.id), {
@@ -29,32 +30,32 @@ async function removeSerialField() {
           });
 
           cleanedCount++;
-          console.log(`✅ Successfully cleaned service ${docSnapshot.id}`);
+          logger.info(`✅ Successfully cleaned service ${docSnapshot.id}`);
         } else {
-          console.log(`Service ${docSnapshot.id} has no serial field, skipping`);
+          logger.info(`Service ${docSnapshot.id} has no serial field, skipping`);
         }
       } catch (error) {
-        console.error(`❌ Error cleaning service ${docSnapshot.id}:`, error);
+        logger.error(`❌ Error cleaning service ${docSnapshot.id}:`, { error: String(error) });
         errorCount++;
       }
     }
 
-    console.log(`\nCleanup completed!`);
-    console.log(`✅ Successfully cleaned: ${cleanedCount} services`);
-    console.log(`❌ Errors: ${errorCount} services`);
-    console.log(`📊 Total processed: ${querySnapshot.size} services`);
+    logger.info(`\nCleanup completed!`);
+    logger.info(`✅ Successfully cleaned: ${cleanedCount} services`);
+    logger.info(`❌ Errors: ${errorCount} services`);
+    logger.info(`📊 Total processed: ${querySnapshot.size} services`);
   } catch (error) {
-    console.error("Cleanup failed:", error);
+    logger.error("Cleanup failed:", { error: String(error) });
   }
 }
 
 // Run the cleanup
 removeSerialField()
   .then(() => {
-    console.log("Cleanup script completed");
+    logger.info("Cleanup script completed");
     process.exit(0);
   })
   .catch((error) => {
-    console.error("Cleanup script failed:", error);
+    logger.error("Cleanup script failed:", { error: String(error) });
     process.exit(1);
   });

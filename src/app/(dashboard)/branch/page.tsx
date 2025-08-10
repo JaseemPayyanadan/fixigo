@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import Link from "next/link";
 
@@ -81,6 +81,20 @@ export default function BranchPage() {
 
     fetchTechnicians();
   }, [branches, shopId]);
+
+  const handleDeleteBranch = useCallback(
+    (branch: { id: string }) => {
+      if (branch.id) {
+        deleteBranch(branch.id);
+      }
+    },
+    [deleteBranch]
+  );
+
+  const handleClearFilters = useCallback(() => {
+    setSearch("");
+    setStatusFilter("All");
+  }, []);
 
   // Check if user has proper access
   if (!user) {
@@ -214,10 +228,7 @@ export default function BranchPage() {
                 onChange: setStatusFilter,
               },
             ]}
-            onClear={() => {
-              setSearch("");
-              setStatusFilter("All");
-            }}
+            onClear={handleClearFilters}
             showClear={true}
           />
         </div>
@@ -225,7 +236,7 @@ export default function BranchPage() {
 
       {/* Content */}
       <div className="flex-1">
-        {user?.role === "shop_admin" && <ShopAdminBranchList branches={filteredBranches} loading={loading} error={error} shopId={shopId} onDeleteBranch={(branch) => branch.id && deleteBranch(branch.id)} />}
+        {user?.role === "shop_admin" && <ShopAdminBranchList branches={filteredBranches} loading={loading} error={error} shopId={shopId} onDeleteBranch={handleDeleteBranch} />}
         {user?.role === "branch_admin" && <BranchAdminBranchList branches={filteredBranches} loading={loading} error={error} shopId={shopId} />}
         {user?.role === "technician" && <TechnicianBranchList branches={filteredBranches} loading={loading} error={error} shopId={shopId} />}
       </div>
