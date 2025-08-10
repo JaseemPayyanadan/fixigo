@@ -7,6 +7,11 @@ import BaseServiceList from "./components/BaseServiceList";
 const ServiceList: React.FC<ServiceListProps> = (props) => {
   const { user } = props;
 
+  // Handle null user case
+  if (!user) {
+    return <BaseServiceList {...props} />;
+  }
+
   // Render role-specific list based on user role
   switch (user.role) {
     case "shop_admin":

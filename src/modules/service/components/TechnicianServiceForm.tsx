@@ -12,7 +12,7 @@ import {
 
 const TechnicianServiceForm: React.FC<ServiceFormProps> = (props) => {
   const { user, branchId } = props;
-  const fieldConfig = getFormFieldConfig(user);
+  const fieldConfig = user ? getFormFieldConfig(user) : null;
 
   // Custom fields for technician (minimal)
   const customFields = (

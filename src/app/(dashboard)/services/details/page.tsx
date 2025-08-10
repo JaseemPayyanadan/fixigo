@@ -5,6 +5,9 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { db } from "@/lib/firebase";
 import { doc, getDoc, updateDoc, deleteDoc, collection, getDocs, query, where } from "firebase/firestore";
 import { useUser } from "@/hooks";
+import { useBranches } from "@/hooks/useBranches";
+import { useTechnicians } from "@/hooks/useTechnicians";
+import { authUserToUser } from "@/lib/auth";
 import ServiceForm from "@/modules/service/ServiceForm";
 import type { Branch, Technician } from "@/types";
 import {  
@@ -150,6 +153,7 @@ function ServiceDetailsPage() {
   const searchParams = useSearchParams();
   const serviceId = searchParams.get("id");
   const { user } = useUser();
+  const convertedUser = user ? authUserToUser(user) : null;
   const [service, setService] = useState<Service | null>(null);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [technicians, setTechnicians] = useState<Technician[]>([]);
@@ -431,7 +435,7 @@ function ServiceDetailsPage() {
           </div>
 
           <ServiceForm
-            key={`service-form-${branchId}`}
+            key={editing ? 'editing' : 'viewing'}
             onSubmit={handleEdit}
             loading={loading}
             editing={true}
@@ -439,11 +443,8 @@ function ServiceDetailsPage() {
             branches={branches}
             branchId={branchId}
             setBranchId={setBranchId}
-            isShopAdmin={user?.role === "shop_admin"}
-            isBranchAdmin={user?.role === "branch_admin"}
-            userBranchId={user?.branchId}
+            user={convertedUser}
             shopId={user?.shopId}
-            user={user}
             initialData={{
               customer: {
                 name: service.customer?.name || "",

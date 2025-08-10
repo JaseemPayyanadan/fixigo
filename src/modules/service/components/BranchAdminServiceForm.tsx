@@ -13,7 +13,7 @@ import {
 
 const BranchAdminServiceForm: React.FC<ServiceFormProps> = (props) => {
   const { user, shopId, branchId } = props;
-  const fieldConfig = getFormFieldConfig(user);
+  const fieldConfig = user ? getFormFieldConfig(user) : null;
   
   // Fetch technicians for the current branch only
   const { technicians, loading: techniciansLoading } = useTechnicians(shopId, branchId);

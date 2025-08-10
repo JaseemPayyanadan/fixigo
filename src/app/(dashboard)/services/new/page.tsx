@@ -6,9 +6,11 @@ import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { useUser } from "@/hooks";
 import { useBranches } from "@/hooks/useBranches";
 import ServiceForm from "@/modules/service/ServiceForm";
+import { authUserToUser } from "@/lib/auth";
 
 export default function NewServicePage() {
   const { user, loading: userLoading } = useUser();
+  const convertedUser = user ? authUserToUser(user) : null;
   const shopId = user?.shopId || "";
   const isShopAdmin = user?.role === "shop_admin";
   const isBranchAdmin = user?.role === "branch_admin";
@@ -123,7 +125,7 @@ export default function NewServicePage() {
           branches={branches}
           branchId={branchId}
           setBranchId={setBranchId}
-          user={user}
+          user={convertedUser}
           shopId={shopId}
         />
       </div>

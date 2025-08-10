@@ -45,6 +45,8 @@ const BaseServiceList: React.FC<BaseServiceListProps> = ({
   
   // Filter and sort services based on user role and permissions
   const filteredServices = useMemo(() => {
+    if (!user) return [];
+    
     let accessibleServices = services.filter(service => canAccessService(service, user));
     
     // Apply search filter
@@ -146,7 +148,13 @@ const BaseServiceList: React.FC<BaseServiceListProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredServices.map((service) => {
           const displayInfo = getServiceDisplayInfo(service, branches, technicians);
-          const actions = getServiceActions(service, user);
+          const actions = user ? getServiceActions(service, user) : {
+            canEdit: false,
+            canDelete: false,
+            canAssign: false,
+            canUpdateStatus: false,
+            canViewDetails: true
+          };
           
           return (
             <div key={service.id} className="group relative">

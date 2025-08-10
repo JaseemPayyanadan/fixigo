@@ -10,8 +10,7 @@ import {
   TruckIcon,
   MagnifyingGlassIcon,
   ChevronUpIcon,
-  ChevronDownIcon,
-  ExclamationIcon
+  ChevronDownIcon
 } from "@heroicons/react/24/outline";
 
 // Validation Functions
@@ -148,7 +147,7 @@ export const getServicePriorityConfig = (priority: string) => {
     "medium": { 
       label: "Medium", 
       color: "bg-yellow-100 text-yellow-800 border-yellow-200",
-      icon: ExclamationIcon
+      icon: ExclamationTriangleIcon
     },
     "high": { 
       label: "High", 
