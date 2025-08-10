@@ -1,17 +1,8 @@
-import type { Service, Branch, Technician, User } from "@/types";
-import type { ServiceValidationErrors, ServiceActions, ServiceDisplayInfo, ServiceFilters } from "./types";
-import { 
-  ClockIcon, 
-  CheckCircleIcon, 
-  ExclamationTriangleIcon, 
-  XCircleIcon,
-  PauseIcon,
-  CubeIcon,
-  TruckIcon,
-  MagnifyingGlassIcon,
-  ChevronUpIcon,
-  ChevronDownIcon
-} from "@heroicons/react/24/outline";
+import type { Branch, Service, Technician, User } from "@/types";
+
+import { CheckCircleIcon, ChevronDownIcon, ChevronUpIcon, ClockIcon, CubeIcon, ExclamationTriangleIcon, MagnifyingGlassIcon, PauseIcon, TruckIcon, XCircleIcon } from "@heroicons/react/24/outline";
+
+import type { ServiceActions, ServiceDisplayInfo, ServiceFilters, ServiceValidationErrors } from "./types";
 
 // Validation Functions
 export const validateServiceForm = (data: any): ServiceValidationErrors => {
@@ -59,21 +50,21 @@ export const validateServiceForm = (data: any): ServiceValidationErrors => {
 
 // Formatting Functions
 export const formatServicePrice = (price: number): string => {
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(price);
 };
 
 export const formatServiceDate = (date: Date): string => {
-  return new Intl.DateTimeFormat('en-IN', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
+  return new Intl.DateTimeFormat("en-IN", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
   }).format(date);
 };
 
@@ -81,7 +72,7 @@ export const getServiceAge = (date: Date): string => {
   const now = new Date();
   const diffTime = Math.abs(now.getTime() - date.getTime());
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  
+
   if (diffDays === 1) return "1 day ago";
   if (diffDays < 7) return `${diffDays} days ago`;
   if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
@@ -92,75 +83,75 @@ export const getServiceAge = (date: Date): string => {
 // Status and Priority Functions
 export const getServiceStatusConfig = (status: string) => {
   const statusMap: Record<string, { label: string; color: string; icon: React.ComponentType<{ className?: string }> }> = {
-    "pending": { 
-      label: "Pending", 
+    pending: {
+      label: "Pending",
       color: "bg-yellow-100 text-yellow-800 border-yellow-200",
-      icon: ClockIcon
+      icon: ClockIcon,
     },
-    "in_progress": { 
-      label: "In Progress", 
+    in_progress: {
+      label: "In Progress",
       color: "bg-blue-100 text-blue-800 border-blue-200",
-      icon: ExclamationTriangleIcon
+      icon: ExclamationTriangleIcon,
     },
-    "completed": { 
-      label: "Completed", 
+    completed: {
+      label: "Completed",
       color: "bg-green-100 text-green-800 border-green-200",
-      icon: CheckCircleIcon
+      icon: CheckCircleIcon,
     },
-    "cancelled": { 
-      label: "Cancelled", 
+    cancelled: {
+      label: "Cancelled",
       color: "bg-red-100 text-red-800 border-red-200",
-      icon: XCircleIcon
+      icon: XCircleIcon,
     },
-    "on_hold": { 
-      label: "On Hold", 
+    on_hold: {
+      label: "On Hold",
       color: "bg-orange-100 text-orange-800 border-orange-200",
-      icon: PauseIcon
+      icon: PauseIcon,
     },
-    "awaiting_parts": { 
-      label: "Awaiting Parts", 
+    awaiting_parts: {
+      label: "Awaiting Parts",
       color: "bg-purple-100 text-purple-800 border-purple-200",
-      icon: CubeIcon
+      icon: CubeIcon,
     },
-    "ready_for_pickup": { 
-      label: "Ready for Pickup", 
+    ready_for_pickup: {
+      label: "Ready for Pickup",
       color: "bg-indigo-100 text-indigo-800 border-indigo-200",
-      icon: TruckIcon
+      icon: TruckIcon,
     },
-    "quality_check": { 
-      label: "Quality Check", 
+    quality_check: {
+      label: "Quality Check",
       color: "bg-pink-100 text-pink-800 border-pink-200",
-      icon: MagnifyingGlassIcon
-    }
+      icon: MagnifyingGlassIcon,
+    },
   };
-  
+
   return statusMap[status.toLowerCase()] || statusMap["pending"];
 };
 
 export const getServicePriorityConfig = (priority: string) => {
   const priorityMap: Record<string, { label: string; color: string; icon: React.ComponentType<{ className?: string }> }> = {
-    "low": { 
-      label: "Low", 
+    low: {
+      label: "Low",
       color: "bg-gray-100 text-gray-800 border-gray-200",
-      icon: ChevronDownIcon
+      icon: ChevronDownIcon,
     },
-    "medium": { 
-      label: "Medium", 
+    medium: {
+      label: "Medium",
       color: "bg-yellow-100 text-yellow-800 border-yellow-200",
-      icon: ExclamationTriangleIcon
+      icon: ExclamationTriangleIcon,
     },
-    "high": { 
-      label: "High", 
+    high: {
+      label: "High",
       color: "bg-orange-100 text-orange-800 border-orange-200",
-      icon: ChevronUpIcon
+      icon: ChevronUpIcon,
     },
-    "urgent": { 
-      label: "Urgent", 
+    urgent: {
+      label: "Urgent",
       color: "bg-red-100 text-red-800 border-red-200",
-      icon: ExclamationTriangleIcon
-    }
+      icon: ExclamationTriangleIcon,
+    },
   };
-  
+
   return priorityMap[priority.toLowerCase()] || priorityMap["medium"];
 };
 
@@ -169,12 +160,9 @@ export const getServiceActions = (service: Service, user: User): ServiceActions 
   const isShopAdmin = user.role === "shop_admin";
   const isBranchAdmin = user.role === "branch_admin";
   const isTechnician = user.role === "technician";
-  
+
   // Check if user owns the service (for technicians)
-  const isServiceOwner = isTechnician && (
-    service.assignedTechnicianId === user.id || 
-    (service as any).technician_id === user.id
-  );
+  const isServiceOwner = isTechnician && (service.assignedTechnicianId === user.id || (service as any).technician_id === user.id);
 
   return {
     canEdit: isShopAdmin || isBranchAdmin || isServiceOwner,
@@ -198,8 +186,7 @@ export const canAccessService = (service: Service, user: User): boolean => {
 
   // Technician can access assigned services or services they created
   if (isTechnician) {
-    const isAssigned = service.assignedTechnicianId === user.id || 
-                      (service as any).technician_id === user.id;
+    const isAssigned = service.assignedTechnicianId === user.id || (service as any).technician_id === user.id;
     const isCreated = (service as any).created_by === user.id;
     return isAssigned || isCreated;
   }
@@ -209,7 +196,7 @@ export const canAccessService = (service: Service, user: User): boolean => {
 
 // Filtering Functions
 export const filterServices = (services: Service[], filters: ServiceFilters): Service[] => {
-  return services.filter(service => {
+  return services.filter((service) => {
     // Status filter
     if (filters.status && filters.status !== "All" && service.status !== filters.status) {
       return false;
@@ -221,9 +208,7 @@ export const filterServices = (services: Service[], filters: ServiceFilters): Se
     }
 
     // Technician filter
-    if (filters.assignedTechnicianId && 
-        service.assignedTechnicianId !== filters.assignedTechnicianId &&
-        (service as any).technician_id !== filters.assignedTechnicianId) {
+    if (filters.assignedTechnicianId && service.assignedTechnicianId !== filters.assignedTechnicianId && (service as any).technician_id !== filters.assignedTechnicianId) {
       return false;
     }
 
@@ -235,7 +220,7 @@ export const filterServices = (services: Service[], filters: ServiceFilters): Se
     // Search filter
     if (filters.search) {
       const searchTerm = filters.search.toLowerCase();
-      const matchesSearch = 
+      const matchesSearch =
         service.name.toLowerCase().includes(searchTerm) ||
         service.description.toLowerCase().includes(searchTerm) ||
         service.customer.name.toLowerCase().includes(searchTerm) ||
@@ -243,7 +228,7 @@ export const filterServices = (services: Service[], filters: ServiceFilters): Se
         service.device.brand.toLowerCase().includes(searchTerm) ||
         service.device.model.toLowerCase().includes(searchTerm) ||
         service.device.imei.includes(searchTerm);
-      
+
       if (!matchesSearch) return false;
     }
 
@@ -251,33 +236,33 @@ export const filterServices = (services: Service[], filters: ServiceFilters): Se
   });
 };
 
-export const sortServices = (services: Service[], field: string, direction: 'asc' | 'desc'): Service[] => {
+export const sortServices = (services: Service[], field: string, direction: "asc" | "desc"): Service[] => {
   return [...services].sort((a, b) => {
     let aValue: any;
     let bValue: any;
 
     switch (field) {
-      case 'createdAt':
+      case "createdAt":
         aValue = a.createdAt;
         bValue = b.createdAt;
         break;
-      case 'updatedAt':
+      case "updatedAt":
         aValue = a.updatedAt;
         bValue = b.updatedAt;
         break;
-      case 'name':
+      case "name":
         aValue = a.name.toLowerCase();
         bValue = b.name.toLowerCase();
         break;
-      case 'price':
+      case "price":
         aValue = a.price;
         bValue = b.price;
         break;
-      case 'status':
+      case "status":
         aValue = a.status;
         bValue = b.status;
         break;
-      case 'priority':
+      case "priority":
         aValue = a.priority;
         bValue = b.priority;
         break;
@@ -285,7 +270,7 @@ export const sortServices = (services: Service[], field: string, direction: 'asc
         return 0;
     }
 
-    if (direction === 'asc') {
+    if (direction === "asc") {
       return aValue > bValue ? 1 : -1;
     } else {
       return aValue < bValue ? 1 : -1;
@@ -294,19 +279,12 @@ export const sortServices = (services: Service[], field: string, direction: 'asc
 };
 
 // Display Info Functions
-export const getServiceDisplayInfo = (
-  service: Service, 
-  branches: Branch[], 
-  technicians: Technician[]
-): ServiceDisplayInfo => {
+export const getServiceDisplayInfo = (service: Service, branches: Branch[], technicians: Technician[]): ServiceDisplayInfo => {
   const statusConfig = getServiceStatusConfig(service.status);
   const priorityConfig = getServicePriorityConfig(service.priority);
-  
-  const branch = branches.find(b => b.id === service.branchId);
-  const technician = technicians.find(t => 
-    t.id === service.assignedTechnicianId || 
-    t.id === (service as any).technician_id
-  );
+
+  const branch = branches.find((b) => b.id === service.branchId);
+  const technician = technicians.find((t) => t.id === service.assignedTechnicianId || t.id === (service as any).technician_id);
 
   return {
     statusColor: statusConfig.color,
@@ -333,6 +311,6 @@ export const getFormFieldConfig = (user: User) => {
     showPrioritySelection: isShopAdmin || isBranchAdmin,
     showEstimatedDuration: isShopAdmin || isBranchAdmin,
     autoAssignTechnician: isTechnician,
-    readOnlyFields: isTechnician ? ['branchId', 'technician_id'] : [],
+    readOnlyFields: isTechnician ? ["branchId", "technician_id"] : [],
   };
 };
