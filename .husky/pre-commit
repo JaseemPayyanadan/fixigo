@@ -1,0 +1,20 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# 🚀 Fixigo Pre-commit Hook
+# This hook automatically runs before every commit to ensure code quality
+
+echo "🔍 Running pre-commit validation..."
+
+# Run the pre-commit script
+npm run pre-commit
+
+# If the script fails, the commit will be blocked
+if [ $? -ne 0 ]; then
+    echo "❌ Pre-commit validation failed!"
+    echo "Please fix all issues before committing."
+    echo "See CODING_RULES.md for guidance."
+    exit 1
+fi
+
+echo "✅ Pre-commit validation passed!"
