@@ -6,4 +6,5 @@ export { useServices } from './useServices';
 export { useInvoices } from './useInvoices';
 export { useTasks } from './useTasks';
 export { useDashboardStats } from './useDashboardStats';
-export { usePermissions } from './usePermissions'; 
+export { usePermissions } from './usePermissions';
+export { useNavigation } from './useNavigation'; 
