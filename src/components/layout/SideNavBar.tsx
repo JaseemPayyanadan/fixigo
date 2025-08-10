@@ -59,20 +59,6 @@ const navItems = [
     description: "Manage technical staff",
     roles: ["shop_admin", "branch_admin"]
   },
-  // { 
-  //   label: "Reports", 
-  //   href: "/reports", 
-  //   icon: DocumentChartBarIcon,
-  //   description: "View business reports",
-  //   roles: ["shop_admin"]
-  // },
-  // { 
-  //   label: "Analytics", 
-  //   href: "/analytics", 
-  //   icon: ChartBarIcon,
-  //   description: "Business analytics",
-  //   roles: ["shop_admin"]
-  // },
   { 
     label: "Settings", 
     href: "/settings", 
@@ -89,34 +75,31 @@ export function SideNavBar() {
   const { collapsed, setCollapsed } = useSidebar();
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
 
-  // const isShopAdmin = user?.role === "shop_admin";
-  // const isBranchAdmin = user?.role === "branch_admin";
-
   return (
-    <aside className={`hidden md:flex  h-full flex-col fixed top-0 left-0 bg-white border-r border-gray-200 z-40 transition-all duration-300 ${
-      collapsed ? "w-16" : "w-64"
+    <aside className={`hidden md:flex h-full flex-col fixed top-0 left-0 bg-white border-r border-gray-100 z-40 transition-all duration-200 ${
+      collapsed ? "w-14" : "w-60"
     }`}>
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-6 border-b border-gray-100">
+      <div className="flex items-center justify-between px-3 py-3 border-b border-gray-100">
         {!collapsed && (
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center">
+          <div className="flex items-center gap-2.5">
+            <div className="w-7 h-7 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center">
               <span className="text-white font-bold text-sm">F</span>
             </div>
-            <span className="text-xl font-bold text-gray-900 tracking-tight">Fixigo</span>
+            <span className="text-lg font-bold text-gray-900 tracking-tight">Fixigo</span>
           </div>
         )}
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors duration-200"
+          className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors duration-200"
         >
-          {collapsed ? <ChevronRightIcon className="h-5 w-5" /> : <XMarkIcon className="h-5 w-5" />}
+          {collapsed ? <ChevronRightIcon className="h-4 w-4" /> : <XMarkIcon className="h-4 w-4" />}
         </button>
       </div>
 
       {/* Navigation */}
-      <div className="flex flex-col flex-1 py-6">
-        <nav className="flex flex-col gap-1">
+      <div className="flex flex-col flex-1 py-3">
+        <nav className="flex flex-col gap-0.5">
           {navItems.map((item) => {
             // Skip items not accessible to current user role
             if (!item.roles.includes(user?.role || "")) return null;
@@ -130,13 +113,13 @@ export function SideNavBar() {
                   onClick={() => router.push(item.href)}
                   onMouseEnter={() => setHoveredItem(item.href)}
                   onMouseLeave={() => setHoveredItem(null)}
-                  className={`w-full flex items-center gap-3 px-3 py-3 text-base font-medium transition-all duration-200 focus:outline-none group ${
+                  className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-sm font-medium transition-all duration-200 focus:outline-none group ${
                     isActive 
                       ? "bg-blue-50 text-blue-700 border-l-2 border-blue-600" 
                       : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
                   }`}
                 >
-                  <Icon className={`h-5 w-5 transition-colors duration-200 ${
+                  <Icon className={`h-4 w-4 transition-colors duration-200 ${
                     isActive ? "text-blue-600" : "text-gray-400 group-hover:text-gray-600"
                   }`} />
                   {!collapsed && <span>{item.label}</span>}
@@ -144,7 +127,7 @@ export function SideNavBar() {
 
                 {/* Tooltip for collapsed state */}
                 {collapsed && hoveredItem === item.href && (
-                  <div className="absolute left-full ml-2 px-3 py-2 bg-gray-900 text-white text-sm rounded-lg shadow-lg z-50 whitespace-nowrap">
+                  <div className="absolute left-full ml-2 px-2.5 py-2 bg-gray-900 text-white text-sm rounded-lg shadow-lg z-50 whitespace-nowrap">
                     <div className="font-medium">{item.label}</div>
                     <div className="text-gray-300 text-xs">{item.description}</div>
                   </div>
@@ -160,13 +143,13 @@ export function SideNavBar() {
                 onClick={() => router.push("/invoices")}
                 onMouseEnter={() => setHoveredItem("/invoices")}
                 onMouseLeave={() => setHoveredItem(null)}
-                className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg text-base font-medium transition-all duration-200 focus:outline-none group ${
+                className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-md text-sm font-medium transition-all duration-200 focus:outline-none group ${
                   pathname.startsWith("/invoices")
-                    ? "bg-blue-50 text-blue-700 border-r-2 border-blue-600"
+                    ? "bg-blue-50 text-blue-700 border-l-2 border-blue-600"
                     : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
                 }`}
               >
-                <DocumentTextIcon className={`h-5 w-5 transition-colors duration-200 ${
+                <DocumentTextIcon className={`h-4 w-4 transition-colors duration-200 ${
                   pathname.startsWith("/invoices") ? "text-blue-600" : "text-gray-400 group-hover:text-gray-600"
                 }`} />
                 {!collapsed && <span>Invoices</span>}
@@ -174,17 +157,14 @@ export function SideNavBar() {
 
               {/* Tooltip for collapsed state */}
               {collapsed && hoveredItem === "/invoices" && (
-                <div className="absolute left-full ml-2 px-3 py-2 bg-gray-900 text-white text-sm rounded-lg shadow-lg z-50 whitespace-nowrap">
+                <div className="absolute left-full ml-2 px-2.5 py-2 bg-gray-900 text-white text-sm rounded-lg shadow-lg z-50 whitespace-nowrap">
                   <div className="font-medium">Invoices</div>
                   <div className="text-gray-300 text-xs">Manage invoices and payments</div>
                 </div>
               )}
             </div>
           )}
-
-
         </nav>
-
       </div>
     </aside>
   );

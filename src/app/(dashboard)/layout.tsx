@@ -35,9 +35,9 @@ export default function DashboardLayout({
     <>
       {!hideNav && <SideNavBar />}
       {!hideNav && <AppBar />}
-      <main className={`main-content transition-all duration-300 ${
+      <main className={`main-content transition-all duration-200 ${
         !hideNav 
-          ? `pt-16 md:pb-16 ${collapsed ? "md:pl-16" : "md:pl-64"}` 
+          ? `pt-14 md:pb-14 ${collapsed ? "md:pl-14" : "md:pl-60"}` 
           : ""
       }`}>
         {children}

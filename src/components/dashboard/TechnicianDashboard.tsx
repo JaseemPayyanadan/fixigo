@@ -15,10 +15,14 @@ import { useDashboardData } from '@/hooks/useDashboardData';
 import { 
   DashboardHeader, 
   DashboardLoadingState, 
-  MetricsGrid, 
+  EnhancedMetricsGrid, 
   RecentServicesCard,
   DashboardMetric,
-  DashboardErrorBoundary
+  DashboardErrorBoundary,
+  CompactDashboardLayout,
+  CompactDashboardHeader,
+  CompactDashboardContent,
+  CompactErrorState
 } from './shared/DashboardComponents';
 import { formatCurrency } from './shared/DashboardUtils';
 import { collection, query, where, getDocs } from 'firebase/firestore';
@@ -194,7 +198,7 @@ export default function TechnicianDashboard() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full mx-auto mb-3"></div>
           <p className="text-sm text-gray-600">Loading user data...</p>
@@ -206,7 +210,7 @@ export default function TechnicianDashboard() {
   // Check if user is a technician
   if (user.role !== "technician") {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center max-w-sm mx-auto px-4">
           <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
             <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -222,37 +226,28 @@ export default function TechnicianDashboard() {
 
   return (
     <DashboardErrorBoundary>
-      <div className="min-h-screen bg-white">
+      <CompactDashboardLayout>
         {/* Header */}
-        <div className="border-b border-gray-100 bg-white sticky top-0 z-10">
-          <div className="px-6 py-4">
-            <DashboardHeader 
-              title="Dashboard" 
-              subtitle="Welcome back, {name}"
-              user={user}
-            />
-          </div>
-        </div>
+        <CompactDashboardHeader>
+          <DashboardHeader 
+            title="Technician Dashboard" 
+            subtitle="Welcome back, {name}"
+            user={user}
+          />
+        </CompactDashboardHeader>
 
         {/* Content */}
-        <div className="p-6 space-y-6">
+        <CompactDashboardContent>
           {/* Loading State */}
           {(isLoading || technicianServicesLoading) && <DashboardLoadingState message="Loading your services..." />}
 
           {/* Error States */}
           {servicesError && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-              <div className="flex items-center">
-                <svg className="h-5 w-5 text-red-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                </svg>
-                <p className="text-red-800 text-sm">Services: {servicesError}</p>
-              </div>
-            </div>
+            <CompactErrorState message={`Services: ${servicesError}`} />
           )}
 
           {/* Metrics Grid */}
-          <MetricsGrid metrics={dashboardMetrics} />
+          <EnhancedMetricsGrid metrics={dashboardMetrics} columns={6} />
 
           {/* My Services */}
           <RecentServicesCard 
@@ -265,8 +260,8 @@ export default function TechnicianDashboard() {
             createLink={undefined}
             onRetry={handleServicesRetry}
           />
-        </div>
-      </div>
+        </CompactDashboardContent>
+      </CompactDashboardLayout>
     </DashboardErrorBoundary>
   );
 }

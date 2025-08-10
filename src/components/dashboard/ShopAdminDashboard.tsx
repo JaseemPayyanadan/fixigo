@@ -15,10 +15,14 @@ import { useUser } from '@/hooks/useUser';
 import { 
   DashboardHeader, 
   DashboardLoadingState, 
-  MetricsGrid, 
+  EnhancedMetricsGrid, 
   RecentServicesCard,
   DashboardMetric,
-  DashboardErrorBoundary
+  DashboardErrorBoundary,
+  UltraCompactDashboardLayout,
+  UltraCompactDashboardHeader,
+  UltraCompactDashboardContent,
+  CompactErrorState
 } from './shared/DashboardComponents';
 import { formatCurrency } from './shared/DashboardUtils';
 
@@ -123,7 +127,7 @@ export default function ShopAdminDashboard() {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full mx-auto mb-3"></div>
+          <div className="animate-spin w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full mx-auto mb-2"></div>
           <p className="text-sm text-gray-600">Loading user data...</p>
         </div>
       </div>
@@ -132,41 +136,30 @@ export default function ShopAdminDashboard() {
 
   return (
     <DashboardErrorBoundary>
-      <div className="min-h-screen bg-white">
+      <UltraCompactDashboardLayout>
         {/* Header */}
-        <div className="border-b border-gray-100 bg-white sticky top-0 z-10">
-          <div className="px-6 py-4">
-            <DashboardHeader 
-              title="Dashboard" 
-              subtitle="Welcome back, {name}"
-              user={user}
-            />
-          </div>
-        </div>
+        <UltraCompactDashboardHeader>
+          <DashboardHeader 
+            title="Dashboard" 
+            subtitle="Welcome back, {name}"
+            user={user}
+          />
+        </UltraCompactDashboardHeader>
 
         {/* Content */}
-        <div className="p-6 space-y-6">
+        <UltraCompactDashboardContent>
           {/* Loading State */}
           {isLoading && <DashboardLoadingState />}
 
           {/* Error States */}
           {(servicesError || branchesError || techniciansError) && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-              <div className="flex items-center">
-                <svg className="h-5 w-5 text-red-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                </svg>
-                <p className="text-red-800 text-sm">
-                  {servicesError && `Services: ${servicesError}`}
-                  {branchesError && `Branches: ${branchesError}`}
-                  {techniciansError && `Technicians: ${techniciansError}`}
-                </p>
-              </div>
-            </div>
+            <CompactErrorState 
+              message={`${servicesError ? `Services: ${servicesError}` : ''} ${branchesError ? `Branches: ${branchesError}` : ''} ${techniciansError ? `Technicians: ${techniciansError}` : ''}`.trim()}
+            />
           )}
 
           {/* Metrics Grid */}
-          <MetricsGrid metrics={dashboardMetrics} />
+          <EnhancedMetricsGrid metrics={dashboardMetrics} columns={8} />
 
           {/* Recent Services */}
           <RecentServicesCard 
@@ -179,8 +172,8 @@ export default function ShopAdminDashboard() {
             createLink="/services/new"
             onRetry={handleServicesRetry}
           />
-        </div>
-      </div>
+        </UltraCompactDashboardContent>
+      </UltraCompactDashboardLayout>
     </DashboardErrorBoundary>
   );
 }
