@@ -81,12 +81,12 @@ const SideNavBar = React.memo(function SideNavBar() {
   const filteredNavItems = useMemo(() => {
     if (!user?.role) return [];
     return navItems.filter(item => item.roles.includes(user.role));
-  }, [user?.role]);
+  }, [user]);
 
   // Memoize invoices visibility
   const showInvoices = useMemo(() => {
     return user && (user.role === "shop_admin" || user.role === "branch_admin");
-  }, [user?.role]);
+  }, [user]);
 
   // Memoize event handlers
   const handleCollapseToggle = useCallback(() => {

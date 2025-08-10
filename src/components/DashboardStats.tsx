@@ -4,13 +4,12 @@ import React from 'react';
 import { 
   HiOfficeBuilding, 
   HiUserGroup, 
-  HiClipboardList, 
+  HiBriefcase, 
   HiCurrencyDollar, 
-  HiTrendingUp, 
   HiClock, 
   HiCheckCircle, 
   HiStar,
-  HiExclamationTriangle
+  HiExclamationCircle
 } from "react-icons/hi";
 
 interface DashboardStatsProps {
@@ -81,7 +80,7 @@ export default function DashboardStats({ metrics, isLoading, error }: DashboardS
     return (
       <div className="bg-red-50 border border-red-200 rounded-lg p-4">
         <div className="flex items-center">
-          <HiExclamationTriangle className="h-5 w-5 text-red-600 mr-2" />
+          <HiExclamationCircle className="h-5 w-5 text-red-600 mr-2" />
           <p className="text-red-800 text-sm">Error loading dashboard stats: {error}</p>
         </div>
       </div>
@@ -115,7 +114,7 @@ export default function DashboardStats({ metrics, isLoading, error }: DashboardS
     {
       label: 'Total Services',
       value: metrics.totalServices,
-      icon: HiClipboardList,
+      icon: HiBriefcase,
       color: 'text-green-600',
       bgColor: 'bg-green-100',
       description: 'All services'
@@ -161,7 +160,7 @@ export default function DashboardStats({ metrics, isLoading, error }: DashboardS
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="p-1.5 rounded-md bg-indigo-100">
-                <HiTrendingUp className="h-3.5 w-3.5 text-indigo-600" />
+                <HiStar className="h-3.5 w-3.5 text-indigo-600" />
               </div>
               <span className="text-sm font-medium text-gray-900">Active Services</span>
             </div>

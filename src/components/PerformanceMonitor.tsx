@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 
 interface PerformanceMonitorProps {
   enabled?: boolean;
@@ -45,7 +45,7 @@ export function PerformanceMonitor({ enabled = false, threshold = 16 }: Performa
 
     try {
       observer.observe({ entryTypes: ['measure'] });
-    } catch (error) {
+    } catch {
       // PerformanceObserver not supported in all environments
       console.warn('PerformanceObserver not supported');
     }
