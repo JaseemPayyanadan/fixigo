@@ -1,7 +1,7 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 
-import { collection, query, where, getDocs, orderBy } from "firebase/firestore";
+import { collection, getDocs, orderBy, query, where } from "firebase/firestore";
 
 import { db } from "@/lib/firebase";
 import { logger } from "@/lib/logger";
@@ -14,7 +14,6 @@ export interface DashboardStats {
   pendingServices: number;
   totalTechnicians: number;
   totalBranches: number;
-  totalInvoices: number;
   totalRevenue: number;
   customerSatisfaction: number;
   recentServices: Array<{
@@ -48,96 +47,49 @@ export function useDashboardStats(shopId?: string, branchId?: string) {
 
         let services: any[] = [];
         let technicians: any[] = [];
-        let invoices: any[] = [];
         let branches: any[] = [];
 
         if (branchId) {
           // Fetch data for specific branch using new flat structure
-          const servicesQuery = query(
-            collection(db, "services"),
-            where("shopId", "==", shopId),
-            where("branchId", "==", branchId),
-            orderBy("createdAt", "desc")
-          );
+          const servicesQuery = query(collection(db, "services"), where("shopId", "==", shopId), where("branchId", "==", branchId), orderBy("createdAt", "desc"));
           const servicesSnapshot = await getDocs(servicesQuery);
-          services = servicesSnapshot.docs.map(doc => ({
+          services = servicesSnapshot.docs.map((doc) => ({
             id: doc.id,
-            ...doc.data()
+            ...doc.data(),
           }));
 
-          const techniciansQuery = query(
-            collection(db, "technicians"),
-            where("shopId", "==", shopId),
-            where("branchId", "==", branchId),
-            orderBy("createdAt", "desc")
-          );
+          const techniciansQuery = query(collection(db, "technicians"), where("shopId", "==", shopId), where("branchId", "==", branchId), orderBy("createdAt", "desc"));
           const techniciansSnapshot = await getDocs(techniciansQuery);
-          technicians = techniciansSnapshot.docs.map(doc => ({
+          technicians = techniciansSnapshot.docs.map((doc) => ({
             id: doc.id,
-            ...doc.data()
-          }));
-
-          const invoicesQuery = query(
-            collection(db, "invoices"),
-            where("shopId", "==", shopId),
-            where("branchId", "==", branchId),
-            orderBy("createdAt", "desc")
-          );
-          const invoicesSnapshot = await getDocs(invoicesQuery);
-          invoices = invoicesSnapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
+            ...doc.data(),
           }));
 
           // For branch-specific view, we only have 1 branch
           branches = [{ id: branchId }];
         } else {
           // Fetch data across all branches in the shop using new flat structure
-          const branchesQuery = query(
-            collection(db, "branches"),
-            where("shopId", "==", shopId),
-            orderBy("createdAt", "desc")
-          );
+          const branchesQuery = query(collection(db, "branches"), where("shopId", "==", shopId), orderBy("createdAt", "desc"));
           const branchesSnapshot = await getDocs(branchesQuery);
-          branches = branchesSnapshot.docs.map(doc => ({
+          branches = branchesSnapshot.docs.map((doc) => ({
             id: doc.id,
-            ...doc.data()
+            ...doc.data(),
           }));
 
           // Aggregate services from all branches using new flat structure
-          const servicesQuery = query(
-            collection(db, "services"),
-            where("shopId", "==", shopId),
-            orderBy("createdAt", "desc")
-          );
+          const servicesQuery = query(collection(db, "services"), where("shopId", "==", shopId), orderBy("createdAt", "desc"));
           const servicesSnapshot = await getDocs(servicesQuery);
-          services = servicesSnapshot.docs.map(doc => ({
+          services = servicesSnapshot.docs.map((doc) => ({
             id: doc.id,
-            ...doc.data()
+            ...doc.data(),
           }));
 
           // Aggregate technicians from all branches using new flat structure
-          const techniciansQuery = query(
-            collection(db, "technicians"),
-            where("shopId", "==", shopId),
-            orderBy("createdAt", "desc")
-          );
+          const techniciansQuery = query(collection(db, "technicians"), where("shopId", "==", shopId), orderBy("createdAt", "desc"));
           const techniciansSnapshot = await getDocs(techniciansQuery);
-          technicians = techniciansSnapshot.docs.map(doc => ({
+          technicians = techniciansSnapshot.docs.map((doc) => ({
             id: doc.id,
-            ...doc.data()
-          }));
-
-          // Aggregate invoices from all branches using new flat structure
-          const invoicesQuery = query(
-            collection(db, "invoices"),
-            where("shopId", "==", shopId),
-            orderBy("createdAt", "desc")
-          );
-          const invoicesSnapshot = await getDocs(invoicesQuery);
-          invoices = invoicesSnapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
+            ...doc.data(),
           }));
         }
 
@@ -147,16 +99,15 @@ export function useDashboardStats(shopId?: string, branchId?: string) {
         const pendingServices = services.filter((service: Record<string, unknown>) => service.status === "pending" || service.status === "in_progress").length;
         const totalTechnicians = technicians.length;
         const totalBranches = branches.length;
-        const totalInvoices = invoices.length;
-        const totalRevenue = invoices.reduce((sum: number, invoice: Record<string, unknown>) => sum + (Number(invoice.total) || 0), 0);
+        const totalRevenue = services.reduce((sum: number, service: Record<string, unknown>) => sum + (Number(service.totalPrice) || 0), 0);
         const customerSatisfaction = completedServices > 0 ? (completedServices / totalServices) * 100 : 0;
 
         const recentServices = services.slice(0, 5).map((service: Record<string, unknown>) => ({
-          id: String(service.id || ''),
+          id: String(service.id || ""),
           name: String(service.name || "Unknown Service"),
           status: String(service.status || "pending"),
           customer: String((service.customer as Record<string, unknown>)?.name || "Unknown Customer"),
-          createdAt: (service.createdAt as { toDate?: () => Date })?.toDate?.() || new Date()
+          createdAt: (service.createdAt as { toDate?: () => Date })?.toDate?.() || new Date(),
         }));
 
         const calculatedStats: DashboardStats = {
@@ -165,10 +116,9 @@ export function useDashboardStats(shopId?: string, branchId?: string) {
           pendingServices,
           totalTechnicians,
           totalBranches,
-          totalInvoices,
           totalRevenue,
           customerSatisfaction,
-          recentServices
+          recentServices,
         };
 
         setStats(calculatedStats);
@@ -180,7 +130,7 @@ export function useDashboardStats(shopId?: string, branchId?: string) {
           userId: user.id,
           role: user.role,
           shopId: user.shopId,
-          ...(user.branchId && { branchId: user.branchId })
+          ...(user.branchId && { branchId: user.branchId }),
         });
       } finally {
         setLoading(false);
@@ -191,4 +141,4 @@ export function useDashboardStats(shopId?: string, branchId?: string) {
   }, [user, shopId, branchId]);
 
   return { stats, loading, error };
-} 
+}

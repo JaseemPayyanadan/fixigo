@@ -3,7 +3,7 @@ interface ValidationRule {
   minLength?: number;
   maxLength?: number;
   pattern?: RegExp;
-  custom?: (value: string) => string | null;
+  custom?: (value: any) => string | null;
 }
 
 interface ValidationSchema {
@@ -22,30 +22,44 @@ export class Validator {
     this.schema = schema;
   }
 
-  validate(data: Record<string, string>): ValidationResult {
+  validate(data: Record<string, any>): ValidationResult {
     const errors: Record<string, string> = {};
 
     for (const [field, rules] of Object.entries(this.schema)) {
       const value = data[field] || "";
       const fieldErrors: string[] = [];
 
-      // Required validation
-      if (rules.required && !value.trim()) {
-        fieldErrors.push(`${field} is required`);
+      // Required validation - handle different data types
+      if (rules.required) {
+        if (typeof value === "string") {
+          if (!value.trim()) {
+            fieldErrors.push(`${field} is required`);
+          }
+        } else if (typeof value === "number") {
+          if (isNaN(value) || value === 0) {
+            fieldErrors.push(`${field} is required`);
+          }
+        } else if (Array.isArray(value)) {
+          if (value.length === 0) {
+            fieldErrors.push(`${field} is required`);
+          }
+        } else if (!value) {
+          fieldErrors.push(`${field} is required`);
+        }
       }
 
-      // Min length validation
-      if (rules.minLength && value.length < rules.minLength) {
+      // Min length validation - only for strings
+      if (rules.minLength && typeof value === "string" && value.length < rules.minLength) {
         fieldErrors.push(`${field} must be at least ${rules.minLength} characters`);
       }
 
-      // Max length validation
-      if (rules.maxLength && value.length > rules.maxLength) {
+      // Max length validation - only for strings
+      if (rules.maxLength && typeof value === "string" && value.length > rules.maxLength) {
         fieldErrors.push(`${field} must be no more than ${rules.maxLength} characters`);
       }
 
-      // Pattern validation
-      if (rules.pattern && !rules.pattern.test(value)) {
+      // Pattern validation - only for strings
+      if (rules.pattern && typeof value === "string" && !rules.pattern.test(value)) {
         fieldErrors.push(`${field} format is invalid`);
       }
 
@@ -108,124 +122,4 @@ export function validatePassword(password: string): boolean {
 
 export function validateStrongPassword(password: string): boolean {
   return patterns.password.test(password);
-}
-
-// Invoice-specific validation rules
-export const invoiceValidationRules = {
-  customerName: { required: true, minLength: 2, maxLength: 100 },
-  customerEmail: { required: true, pattern: patterns.email },
-  customerPhone: { required: true, pattern: patterns.phone },
-  amount: {
-    required: true,
-    custom: (value: string) => {
-      const num = parseFloat(value);
-      return isNaN(num) || num < 0 ? "Amount must be a positive number" : null;
-    },
-  },
-  tax: {
-    custom: (value: string) => {
-      const num = parseFloat(value);
-      return isNaN(num) || num < 0 ? "Tax must be a positive number" : null;
-    },
-  },
-  total: {
-    required: true,
-    custom: (value: string) => {
-      const num = parseFloat(value);
-      return isNaN(num) || num < 0 ? "Total must be a positive number" : null;
-    },
-  },
-  discount: {
-    custom: (value: string) => {
-      const num = parseFloat(value);
-      return isNaN(num) || num < 0 ? "Discount must be a positive number" : null;
-    },
-  },
-  advance: {
-    custom: (value: string) => {
-      const num = parseFloat(value);
-      return isNaN(num) || num < 0 ? "Advance must be a positive number" : null;
-    },
-  },
-  dueDate: {
-    required: true,
-    custom: (value: string) => {
-      const date = new Date(value);
-      return isNaN(date.getTime()) ? "Invalid due date" : null;
-    },
-  },
-  items: {
-    required: true,
-    custom: (value: any) => {
-      if (!Array.isArray(value) || value.length === 0) {
-        return "At least one item is required";
-      }
-      for (const item of value) {
-        if (!item.name || !item.quantity || !item.unitPrice) {
-          return "All items must have name, quantity, and unit price";
-        }
-        if (item.quantity <= 0 || item.unitPrice < 0) {
-          return "Quantity and unit price must be positive";
-        }
-      }
-      return null;
-    },
-  },
-};
-
-// Invoice validation function
-export function validateInvoice(invoice: any): ValidationResult {
-  const validator = new Validator(invoiceValidationRules);
-  return validator.validate(invoice);
-}
-
-// Calculate invoice totals
-export function calculateInvoiceTotals(items: any[], discount: number = 0, tax: number = 0, advance: number = 0) {
-  const subtotal = items.reduce((sum, item) => {
-    const quantity = item.quantity || item.qty || 1;
-    const unitPrice = item.unitPrice || item.price || 0;
-    return sum + quantity * unitPrice;
-  }, 0);
-
-  const totalAfterDiscount = subtotal - discount;
-  const totalAfterTax = totalAfterDiscount + tax;
-  const finalTotal = totalAfterTax - advance;
-
-  return {
-    subtotal,
-    totalAfterDiscount,
-    totalAfterTax,
-    finalTotal,
-    discount,
-    tax,
-    advance,
-  };
-}
-
-// Validate invoice status transitions
-export function validateStatusTransition(currentStatus: string, newStatus: string): boolean {
-  const validTransitions: Record<string, string[]> = {
-    draft: ["sent", "cancelled"],
-    sent: ["paid", "overdue", "cancelled"],
-    paid: ["refunded"],
-    overdue: ["paid", "cancelled"],
-    cancelled: [],
-    Pending: ["paid", "cancelled"], // Legacy status
-  };
-
-  return validTransitions[currentStatus]?.includes(newStatus) || false;
-}
-
-// Validate payment status transitions
-export function validatePaymentStatusTransition(currentStatus: string, newStatus: string): boolean {
-  const validTransitions: Record<string, string[]> = {
-    pending: ["paid", "failed", "partial"],
-    paid: ["refunded"],
-    failed: ["pending"],
-    partial: ["paid", "refunded"],
-    refunded: [],
-    Pending: ["paid", "failed", "partial"], // Legacy status
-  };
-
-  return validTransitions[currentStatus]?.includes(newStatus) || false;
 }

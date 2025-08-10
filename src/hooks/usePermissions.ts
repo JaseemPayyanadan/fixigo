@@ -1,22 +1,6 @@
 "use client";
 import { authUserToUser } from "@/lib/auth";
-import { 
-  getUserPermissions, 
-  PermissionUtils, 
-  hasPermission, 
-  hasAnyPermission, 
-  hasAllPermissions, 
-  hasRole, 
-  hasAnyRole,
-  hasRoleLevel,
-  canAccessShop,
-  canAccessBranch,
-  canViewResource,
-  canManageResource,
-  canDeleteResource,
-  CRUD_PERMISSIONS,
-  PERMISSION_ACTIONS
-} from "@/lib/rbac";
+import { canAccessBranch, canAccessShop, canDeleteResource, canManageResource, canViewResource, CRUD_PERMISSIONS, getUserPermissions, hasAllPermissions, hasAnyPermission, hasAnyRole, hasPermission, hasRole, hasRoleLevel, PERMISSION_ACTIONS, PermissionUtils } from "@/lib/rbac";
 import type { Permission, Role } from "@/types";
 
 import { useUser } from "./useUser";
@@ -60,9 +44,6 @@ export function usePermissions() {
       canManageService: () => false,
       canViewService: () => false,
       canDeleteService: () => false,
-      canManageInvoice: () => false,
-      canViewInvoice: () => false,
-      canDeleteInvoice: () => false,
       canManageTask: () => false,
       canViewTask: () => false,
       canDeleteTask: () => false,
@@ -114,9 +95,6 @@ export function usePermissions() {
     canManageService: () => PERMISSION_ACTIONS.canManageService(userForPermissions),
     canViewService: () => PERMISSION_ACTIONS.canViewService(userForPermissions),
     canDeleteService: () => PERMISSION_ACTIONS.canDeleteService(userForPermissions),
-    canManageInvoice: () => PERMISSION_ACTIONS.canManageInvoice(userForPermissions),
-    canViewInvoice: () => PERMISSION_ACTIONS.canViewInvoice(userForPermissions),
-    canDeleteInvoice: () => PERMISSION_ACTIONS.canDeleteInvoice(userForPermissions),
     canManageTask: () => PERMISSION_ACTIONS.canManageTask(userForPermissions),
     canViewTask: () => PERMISSION_ACTIONS.canViewTask(userForPermissions),
     canDeleteTask: () => PERMISSION_ACTIONS.canDeleteTask(userForPermissions),
@@ -128,4 +106,4 @@ export function usePermissions() {
     canManageSetting: () => PERMISSION_ACTIONS.canManageSetting(userForPermissions),
     canViewSetting: () => PERMISSION_ACTIONS.canViewSetting(userForPermissions),
   };
-} 
+}

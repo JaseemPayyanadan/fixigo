@@ -339,7 +339,6 @@ function ServiceDetailsPage() {
   const handleGoBack = useCallback(() => router.back(), [router]);
   const handleReload = useCallback(() => window.location.reload(), []);
   const handleToggleShowHistory = useCallback(() => setShowHistory((prev) => !prev), []);
-  const handleGenerateInvoice = useCallback(() => router.push(`/invoices/details?id=${service?.id}`), [router, service?.id]);
   const handleCancelEdit = useCallback(() => setEditing(false), []);
   const handleEditClick = useCallback(() => setEditing(true), []);
   const handlePrint = useCallback(() => window.print(), []);
@@ -466,9 +465,9 @@ function ServiceDetailsPage() {
               <MdEdit className="w-4 h-4" />
               Edit
             </button>
-            <button onClick={handleGenerateInvoice} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors">
-              <MdReceipt className="w-4 h-4" />
-              Generate Invoice
+            <button onClick={handlePrint} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors">
+              <MdPrint className="w-4 h-4" />
+              Print Details
             </button>
           </div>
         </div>
@@ -784,17 +783,13 @@ function ServiceDetailsPage() {
                   <MdEdit className="w-4 h-4 text-blue-600" />
                   <span className="text-sm font-medium">Edit Service</span>
                 </button>
-                <button onClick={handleGenerateInvoice} className="w-full flex items-center gap-2 p-3 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
-                  <MdReceipt className="w-4 h-4 text-green-600" />
-                  <span className="text-sm font-medium">Generate Invoice</span>
+                <button onClick={handlePrint} className="w-full flex items-center gap-2 p-3 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
+                  <MdPrint className="w-4 h-4 text-orange-600" />
+                  <span className="text-sm font-medium">Print Details</span>
                 </button>
                 <button onClick={handleToggleShowHistory} className="w-full flex items-center gap-2 p-3 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
                   <MdHistory className="w-4 h-4 text-purple-600" />
                   <span className="text-sm font-medium">View History</span>
-                </button>
-                <button onClick={handlePrint} className="w-full flex items-center gap-2 p-3 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
-                  <MdPrint className="w-4 h-4 text-orange-600" />
-                  <span className="text-sm font-medium">Print Details</span>
                 </button>
               </div>
             </div>

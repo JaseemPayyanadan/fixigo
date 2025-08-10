@@ -1,5 +1,4 @@
 "use client";
-import React from "react";
 
 import { usePermissions } from "@/hooks/usePermissions";
 import { useUser } from "@/hooks/useUser";
@@ -10,17 +9,11 @@ export default function RBACDemo() {
   const { user, loading } = useUser();
   const {
     permissions,
+    accessibleResources,
     hasElevatedPermissions,
     canManageUsers,
     isShopAdminOrHigher,
     isBranchAdminOrHigher,
-    userScope,
-    hasPermission,
-    hasRole,
-    canCreate,
-    canRead,
-    canUpdate,
-    canDelete,
     canManageShop,
     canViewShop,
     canDeleteShop,
@@ -33,9 +26,6 @@ export default function RBACDemo() {
     canManageService,
     canViewService,
     canDeleteService,
-    canManageInvoice,
-    canViewInvoice,
-    canDeleteInvoice,
     canManageTask,
     canViewTask,
     canDeleteTask,
@@ -76,9 +66,7 @@ export default function RBACDemo() {
       <div className="max-w-7xl mx-auto px-4 py-8">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-4">Role-Based Access Control Demo</h1>
-          <p className="text-gray-600 max-w-2xl mx-auto">
-            This page demonstrates the role-based access control system. You can see your current permissions and test different access levels.
-          </p>
+          <p className="text-gray-600 max-w-2xl mx-auto">This page demonstrates the role-based access control system. You can see your current permissions and test different access levels.</p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -197,21 +185,6 @@ export default function RBACDemo() {
               </div>
 
               <div>
-                <h3 className="font-medium text-gray-900 mb-2">Invoice Permissions</h3>
-                <div className="space-y-2 text-sm">
-                  <div>
-                    <span className="font-medium">Can manage invoice:</span> {canManageInvoice() ? "Yes" : "No"}
-                  </div>
-                  <div>
-                    <span className="font-medium">Can view invoice:</span> {canViewInvoice() ? "Yes" : "No"}
-                  </div>
-                  <div>
-                    <span className="font-medium">Can delete invoice:</span> {canDeleteInvoice() ? "Yes" : "No"}
-                  </div>
-                </div>
-              </div>
-
-              <div>
                 <h3 className="font-medium text-gray-900 mb-2">Task Permissions</h3>
                 <div className="space-y-2 text-sm">
                   <div>
@@ -318,4 +291,4 @@ export default function RBACDemo() {
       </div>
     </div>
   );
-} 
+}

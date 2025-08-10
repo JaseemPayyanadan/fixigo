@@ -141,11 +141,6 @@ const SideNavBar = React.memo(() => {
     return navItems.filter((item) => item.roles.includes(user.role));
   }, [user]);
 
-  // Memoize invoices visibility
-  const showInvoices = useMemo(() => {
-    return user && (user.role === "shop_admin" || user.role === "branch_admin");
-  }, [user]);
-
   // Enhanced memoization with more granular dependencies
   const memoizedPathname = useMemo(() => pathname, [pathname]);
   const memoizedCollapsed = useMemo(() => collapsed, [collapsed]);
@@ -235,36 +230,6 @@ const SideNavBar = React.memo(() => {
     [memoizedPathname, memoizedCollapsed, memoizedHoveredItem, handleNavigation, handleMouseEnter, handleMouseLeave]
   );
 
-  // Memoize invoices button rendering
-  const renderInvoicesButton = useCallback(() => {
-    if (!showInvoices) return null;
-
-    const isActive = memoizedPathname.startsWith("/invoices");
-
-    return (
-      <div className="relative" data-href="/invoices" style={{ contain: "layout style paint" }}>
-        <button
-          onClick={() => handleNavigation("/invoices")}
-          onMouseEnter={() => handleMouseEnter("/invoices")}
-          onMouseLeave={handleMouseLeave}
-          className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-md text-sm font-medium transition-all duration-200 focus:outline-none group ${isActive ? "bg-blue-50 text-blue-700 border-l-2 border-blue-600" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"}`}
-          style={{ contain: "layout style" }}
-        >
-          <DocumentTextIcon className={`h-4 w-4 transition-colors duration-200 ${isActive ? "text-blue-600" : "text-gray-400 group-hover:text-gray-600"}`} />
-          {!memoizedCollapsed && <span>Invoices</span>}
-        </button>
-
-        {/* Optimized tooltip */}
-        {memoizedCollapsed && memoizedHoveredItem === "/invoices" && (
-          <div className="absolute left-full ml-2 px-2.5 py-2 bg-gray-900 text-white text-sm rounded-lg shadow-lg z-50 whitespace-nowrap" style={{ contain: "layout style paint" }}>
-            <div className="font-medium">Invoices</div>
-            <div className="text-gray-300 text-xs">Manage invoices and payments</div>
-          </div>
-        )}
-      </div>
-    );
-  }, [showInvoices, memoizedPathname, memoizedCollapsed, memoizedHoveredItem, handleNavigation, handleMouseEnter, handleMouseLeave]);
-
   // Memoize header rendering
   const renderHeader = useCallback(
     () => (
@@ -296,7 +261,6 @@ const SideNavBar = React.memo(() => {
         <div ref={navContainerRef} className="flex flex-col flex-1 py-3" style={{ contain: "layout style" }}>
           <nav className="flex flex-col gap-0.5">
             {filteredNavItems.map(renderNavItem)}
-            {renderInvoicesButton()}
           </nav>
         </div>
       </aside>

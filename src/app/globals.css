@@ -1,61 +1,16 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-/* Custom styles for invoice printing */
-@media print {
-  /* Hide navigation and other UI elements when printing */
-  aside, nav, button, .no-print {
-    display: none !important;
-  }
-  
-  /* Ensure invoice takes full page */
-  body {
-    margin: 0 !important;
-    padding: 0 !important;
-    background: white !important;
-  }
-  
-  /* Invoice specific print styles */
-  .invoice-print {
-    background: white !important;
-    box-shadow: none !important;
-    border: 1px solid #ccc !important;
-    margin: 0 !important;
-    padding: 20px !important;
-  }
-  
-  /* Ensure text is readable */
-  * {
-    color: black !important;
-    background: white !important;
-  }
-  
-  /* Hide sidebar when printing */
-  .sidebar-print {
-    display: none !important;
-  }
-  
-  /* Ensure proper page breaks */
-  .page-break {
-    page-break-before: always;
-  }
-  
-  /* Don't break inside important elements */
-  .no-break {
-    page-break-inside: avoid;
-  }
-}
-
 /* Custom font for signature */
 @font-face {
-  font-family: 'Signature';
-  src: url('data:font/woff2;base64,d09GMgABAAAAAA...') format('woff2');
+  font-family: "Signature";
+  src: url("data:font/woff2;base64,d09GMgABAAAAAA...") format("woff2");
   font-weight: normal;
   font-style: normal;
 }
 
 .font-signature {
-  font-family: 'Signature', cursive;
+  font-family: "Signature", cursive;
 }
 
 /* Smooth transitions */
@@ -101,29 +56,32 @@
 /* Mobile-specific improvements */
 @media (max-width: 768px) {
   /* Improve touch targets */
-  button, [role="button"] {
+  button,
+  [role="button"] {
     min-height: 44px;
     min-width: 44px;
   }
-  
+
   /* Better spacing for mobile */
   .p-6 {
     padding: 1rem;
   }
-  
+
   /* Improve text readability */
   .text-xs {
     font-size: 0.75rem;
     line-height: 1rem;
   }
-  
+
   /* Better card spacing */
   .space-y-4 > * + * {
     margin-top: 1rem;
   }
-  
+
   /* Improve form inputs on mobile */
-  input, select, textarea {
+  input,
+  select,
+  textarea {
     font-size: 16px; /* Prevents zoom on iOS */
   }
 }
@@ -133,7 +91,7 @@
   .safe-area-bottom {
     padding-bottom: max(0.25rem, env(safe-area-inset-bottom));
   }
-  
+
   .safe-area-top {
     padding-top: max(1rem, env(safe-area-inset-top));
   }
@@ -154,17 +112,17 @@
     /* Minimal padding for safe area */
     /* padding-bottom: env(safe-area-inset-bottom); */
   }
-  
+
   /* Ensure main content doesn't overlap with bottom nav */
   .main-content {
     padding-bottom: calc(4rem + env(safe-area-inset-bottom));
   }
-  
+
   /* Handle Android gesture navigation */
   .safe-area-bottom {
     padding-bottom: max(0.25rem, env(safe-area-inset-bottom));
   }
-  
+
   .safe-area-top {
     padding-top: max(1rem, env(safe-area-inset-top));
   }

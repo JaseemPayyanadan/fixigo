@@ -9,7 +9,7 @@ export interface Notification {
   title: string;
   message: string;
   type: "info" | "success" | "warning" | "error";
-  category: "service" | "invoice" | "task" | "system" | "user";
+  category: "service" | "task" | "system" | "user";
   read: boolean;
   actionUrl?: string;
   createdAt: Date;
@@ -23,7 +23,6 @@ export interface NotificationPreferences {
   sms: boolean;
   categories: {
     service: boolean;
-    invoice: boolean;
     task: boolean;
     system: boolean;
     user: boolean;
@@ -198,41 +197,6 @@ export class NotificationService {
       category: "service",
       read: false,
       actionUrl: `/services/${serviceId}`,
-    });
-  }
-
-  /**
-   * Create invoice-related notifications
-   */
-  static async createInvoiceNotification(userId: string, invoiceId: string, action: "created" | "paid" | "overdue", amount: number): Promise<void> {
-    const notifications = {
-      created: {
-        title: "New Invoice Created",
-        message: `Invoice for $${amount} has been created`,
-        type: "info" as const,
-      },
-      paid: {
-        title: "Invoice Paid",
-        message: `Invoice for $${amount} has been paid`,
-        type: "success" as const,
-      },
-      overdue: {
-        title: "Invoice Overdue",
-        message: `Invoice for $${amount} is overdue`,
-        type: "warning" as const,
-      },
-    };
-
-    const notification = notifications[action];
-
-    await this.createNotification({
-      userId,
-      title: notification.title,
-      message: notification.message,
-      type: notification.type,
-      category: "invoice",
-      read: false,
-      actionUrl: `/invoices/${invoiceId}`,
     });
   }
 

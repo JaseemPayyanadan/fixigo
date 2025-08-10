@@ -16,9 +16,6 @@ export type Permission =
   | "service:read"
   | "service:write"
   | "service:delete"
-  | "invoice:read"
-  | "invoice:write"
-  | "invoice:delete"
   | "task:read"
   | "task:write"
   | "task:delete"
@@ -28,8 +25,7 @@ export type Permission =
   | "report:read"
   | "report:write"
   | "setting:read"
-  | "setting:write"
-  | "dashboard:read";
+  | "setting:write";
 
 // Role hierarchy and permissions mapping
 export interface RolePermissions {
@@ -171,73 +167,34 @@ export interface Service {
   updatedAt: Date;
 }
 
-export interface Invoice {
-  id: string;
-  serviceId: string;
-  customerName: string;
-  customerEmail: string;
-  customerPhone: string;
-  amount: number;
-  tax: number;
-  total: number;
-  discount?: number;
-  advance?: number;
-  status: "draft" | "sent" | "paid" | "overdue" | "cancelled" | "Pending";
-  paymentStatus: "pending" | "paid" | "failed" | "partial" | "refunded" | "Pending";
-  paymentMethod?: string;
-  paymentDate?: Date;
-  dueDate: Date;
-  paidDate?: Date;
-  notes?: string;
-  shopId: string; // Parent shop ID
-  branchId: string; // Parent branch ID
-  items: Array<{
-    name: string;
-    description?: string;
-    quantity: number;
-    unitPrice: number;
-    total: number;
-    variation?: string;
-    qty?: number; // Legacy field for backward compatibility
-    price?: number; // Legacy field for backward compatibility
-  }>;
-  // Legacy fields for backward compatibility
-  customer?: {
-    name?: string;
-    phone?: string;
-    email?: string;
-    address?: string;
-  };
-  device?: {
-    type?: string;
-    brand?: string;
-    model?: string;
-    imei?: string;
-    color?: string;
-    issue?: string;
-  };
-  subtotal?: number; // Legacy field
-  createdAt: Date;
-  updatedAt: Date;
-}
-
 export interface Task {
   id: string;
   title: string;
   description: string;
-  status: "pending" | "in_progress" | "completed" | "cancelled" | "on_hold";
-  priority: "low" | "medium" | "high" | "urgent";
-  assignedTechnicianId: string;
-  serviceId?: string;
+  status: TaskStatus;
+  priority: Priority;
+  assignedTo: string;
+  assignedBy: string;
+  shopId: string;
+  branchId: string;
   dueDate: Date;
-  completedDate?: Date;
-  notes?: string;
-  shopId: string; // Parent shop ID
-  branchId: string; // Parent branch ID
-  estimatedHours?: number;
-  actualHours?: number;
   createdAt: Date;
   updatedAt: Date;
+  completedAt?: Date;
+  notes?: string[];
+  attachments?: string[];
+  estimatedDuration?: number;
+  actualDuration?: number;
+  tags?: string[];
+  category?: string;
+  dependencies?: string[];
+  progress?: number;
+  qualityScore?: number;
+  customerFeedback?: {
+    rating: number;
+    comment?: string;
+    date: Date;
+  };
 }
 
 // Form types
@@ -324,14 +281,9 @@ export type ServiceStatus = "pending" | "in_progress" | "completed" | "cancelled
 // Service priority levels
 export type ServicePriority = "low" | "medium" | "high" | "urgent";
 
-// Payment status for invoices
 export type PaymentStatus = "pending" | "paid" | "failed" | "partial" | "refunded";
 
-// Invoice status
-export type InvoiceStatus = "draft" | "sent" | "paid" | "overdue" | "cancelled";
-
-// User status
-export type UserStatus = "active" | "inactive" | "suspended";
+export type UserStatus = "active" | "inactive";
 
 // Branch status
 export type BranchStatus = "active" | "inactive" | "maintenance";
@@ -343,3 +295,6 @@ export interface Device {
   color?: string;
   type?: string;
 }
+
+export type TaskStatus = "pending" | "in_progress" | "completed" | "cancelled" | "on_hold";
+export type Priority = "low" | "medium" | "high" | "urgent";

@@ -16,7 +16,7 @@ export const metadata = {
     template: "%s | Fixigo",
   },
   description: "Professional service management platform",
-  keywords: ["service management", "technicians", "branches", "invoices"],
+  keywords: ["service management", "technicians", "branches", "business management"],
   authors: [{ name: "Fixigo Team" }],
   creator: "Fixigo",
   openGraph: {

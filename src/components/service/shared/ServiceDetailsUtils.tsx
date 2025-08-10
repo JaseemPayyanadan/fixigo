@@ -1,23 +1,14 @@
-import React from 'react';
+import React from "react";
 
-import type { Service, Technician, Branch } from '@/types';
+import type { Branch, Service, Technician } from "@/types";
 
-import { 
-  getServiceStatusConfig, 
-  getServicePriorityConfig, 
-  formatServicePrice,
-  getServiceAge,
-  getTechnicianDisplayInfo
-} from './ServiceUtils';
+import { formatServicePrice, getServiceAge, getServicePriorityConfig, getServiceStatusConfig, getTechnicianDisplayInfo } from "./ServiceUtils";
 
 // Service details loading state
-export const ServiceDetailsLoadingState: React.FC<{ 
+export const ServiceDetailsLoadingState: React.FC<{
   message?: string;
   className?: string;
-}> = ({ 
-  message = "Loading service details...",
-  className = ""
-}) => (
+}> = ({ message = "Loading service details...", className = "" }) => (
   <div className={`min-h-screen bg-gray-50 flex items-center justify-center ${className}`}>
     <div className="text-center">
       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4" aria-hidden="true" />
@@ -27,17 +18,12 @@ export const ServiceDetailsLoadingState: React.FC<{
 );
 
 // Service details error state
-export const ServiceDetailsErrorState: React.FC<{ 
+export const ServiceDetailsErrorState: React.FC<{
   message: string;
   onRetry?: () => void;
   onGoBack?: () => void;
   className?: string;
-}> = ({ 
-  message, 
-  onRetry,
-  onGoBack,
-  className = ""
-}) => (
+}> = ({ message, onRetry, onGoBack, className = "" }) => (
   <div className={`min-h-screen bg-gray-50 flex items-center justify-center ${className}`}>
     <div className="text-center">
       <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4" aria-hidden="true">
@@ -49,18 +35,12 @@ export const ServiceDetailsErrorState: React.FC<{
       <p className="text-gray-600 mb-4">{message}</p>
       <div className="flex items-center justify-center gap-3">
         {onRetry && (
-          <button
-            onClick={onRetry}
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
-          >
+          <button onClick={onRetry} className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors">
             Try Again
           </button>
         )}
         {onGoBack && (
-          <button
-            onClick={onGoBack}
-            className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors"
-          >
+          <button onClick={onGoBack} className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors">
             Go Back
           </button>
         )}
@@ -70,20 +50,14 @@ export const ServiceDetailsErrorState: React.FC<{
 );
 
 // Service status badge component
-export const ServiceStatusBadge: React.FC<{ 
+export const ServiceStatusBadge: React.FC<{
   status: string;
   className?: string;
-}> = ({ 
-  status, 
-  className = "" 
-}) => {
+}> = ({ status, className = "" }) => {
   const statusConfig = getServiceStatusConfig(status);
-  
+
   return (
-    <div 
-      className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium ${statusConfig.color} ${className}`}
-      title={statusConfig.description}
-    >
+    <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium ${statusConfig.color} ${className}`} title={statusConfig.description}>
       <div className="w-2 h-2 rounded-full bg-current opacity-75" />
       {statusConfig.label}
     </div>
@@ -91,20 +65,14 @@ export const ServiceStatusBadge: React.FC<{
 };
 
 // Service priority badge component
-export const ServicePriorityBadge: React.FC<{ 
+export const ServicePriorityBadge: React.FC<{
   priority: string;
   className?: string;
-}> = ({ 
-  priority, 
-  className = "" 
-}) => {
+}> = ({ priority, className = "" }) => {
   const priorityConfig = getServicePriorityConfig(priority);
-  
+
   return (
-    <div 
-      className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium ${priorityConfig.color} ${className}`}
-      title={priorityConfig.description}
-    >
+    <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium ${priorityConfig.color} ${className}`} title={priorityConfig.description}>
       <div className="w-2 h-2 rounded-full bg-current opacity-75" />
       {priorityConfig.label}
     </div>
@@ -112,17 +80,12 @@ export const ServicePriorityBadge: React.FC<{
 };
 
 // Service information card component
-export const ServiceInfoCard: React.FC<{ 
+export const ServiceInfoCard: React.FC<{
   title: string;
   icon: React.ReactNode;
   children: React.ReactNode;
   className?: string;
-}> = ({ 
-  title, 
-  icon, 
-  children, 
-  className = "" 
-}) => (
+}> = ({ title, icon, children, className = "" }) => (
   <div className={`bg-white rounded-xl shadow-sm border border-gray-100 p-6 ${className}`}>
     <h2 className="font-semibold text-lg mb-4 flex items-center gap-2">
       {icon}
@@ -133,29 +96,17 @@ export const ServiceInfoCard: React.FC<{
 );
 
 // Service details header component
-export const ServiceDetailsHeader: React.FC<{ 
+export const ServiceDetailsHeader: React.FC<{
   service: Service;
   onBack: () => void;
   onEdit: () => void;
   onDelete: () => void;
-  onGenerateInvoice: () => void;
   className?: string;
-}> = ({ 
-  service, 
-  onBack, 
-  onEdit, 
-  onDelete, 
-  onGenerateInvoice,
-  className = "" 
-}) => (
+}> = ({ service, onBack, onEdit, onDelete, className = "" }) => (
   <div className={`bg-white rounded-xl shadow-sm border border-gray-100 p-6 ${className}`}>
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-4">
-        <button 
-          onClick={onBack}
-          className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
-          aria-label="Go back"
-        >
+        <button onClick={onBack} className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2" aria-label="Go back">
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
@@ -166,35 +117,17 @@ export const ServiceDetailsHeader: React.FC<{
         </div>
       </div>
       <div className="flex items-center gap-3">
-        <button
-          onClick={onDelete}
-          className="flex items-center gap-2 px-4 py-2 border border-red-300 text-red-600 bg-white rounded-lg font-medium hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors"
-          aria-label="Delete service"
-        >
+        <button onClick={onDelete} className="flex items-center gap-2 px-4 py-2 border border-red-300 text-red-600 bg-white rounded-lg font-medium hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors" aria-label="Delete service">
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
           </svg>
           Delete
         </button>
-        <button
-          onClick={onEdit}
-          className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 bg-white rounded-lg font-medium hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors"
-          aria-label="Edit service"
-        >
+        <button onClick={onEdit} className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 bg-white rounded-lg font-medium hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors" aria-label="Edit service">
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
           </svg>
           Edit
-        </button>
-        <button
-          onClick={onGenerateInvoice}
-          className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
-          aria-label="Generate invoice"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-          </svg>
-          Generate Invoice
         </button>
       </div>
     </div>
@@ -202,23 +135,16 @@ export const ServiceDetailsHeader: React.FC<{
 );
 
 // Service status management component
-export const ServiceStatusManagement: React.FC<{ 
+export const ServiceStatusManagement: React.FC<{
   status: string;
   onStatusChange: (status: string) => void;
   updating: boolean;
   lastUpdated?: Date;
   createdAt?: Date;
   className?: string;
-}> = ({ 
-  status, 
-  onStatusChange, 
-  updating, 
-  lastUpdated, 
-  createdAt,
-  className = "" 
-}) => {
+}> = ({ status, onStatusChange, updating, lastUpdated, createdAt, className = "" }) => {
   const statusConfig = getServiceStatusConfig(status);
-  
+
   return (
     <div className={`bg-white rounded-xl shadow-sm border border-gray-100 p-6 ${className}`}>
       <div className="flex items-center justify-between">
@@ -227,13 +153,7 @@ export const ServiceStatusManagement: React.FC<{
             <div className="w-2 h-2 rounded-full bg-current opacity-75" />
             {statusConfig.label}
           </div>
-          <select
-            value={status}
-            onChange={(e) => onStatusChange(e.target.value)}
-            disabled={updating}
-            className="border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-            aria-label="Change service status"
-          >
+          <select value={status} onChange={(e) => onStatusChange(e.target.value)} disabled={updating} className="border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50" aria-label="Change service status">
             <option value="pending">Pending</option>
             <option value="in_progress">In Progress</option>
             <option value="completed">Completed</option>
@@ -260,20 +180,16 @@ export const ServiceStatusManagement: React.FC<{
 };
 
 // Get service display information
-export const getServiceDisplayInfo = (
-  service: Service, 
-  technicians: Technician[], 
-  branches: Branch[]
-) => {
-  const branchName = branches.find(b => b.id === service.branchId)?.name || service.branchId;
+export const getServiceDisplayInfo = (service: Service, technicians: Technician[], branches: Branch[]) => {
+  const branchName = branches.find((b) => b.id === service.branchId)?.name || service.branchId;
   const technicianInfo = service.assignedTechnicianId ? getTechnicianDisplayInfo(service.assignedTechnicianId, technicians) : null;
-  
+
   return {
     branchName,
     technicianInfo,
     formattedPrice: formatServicePrice(service.price),
     serviceAge: service.createdAt ? getServiceAge(service.createdAt) : null,
-    lastUpdated: service.updatedAt ? getServiceAge(service.updatedAt) : null
+    lastUpdated: service.updatedAt ? getServiceAge(service.updatedAt) : null,
   };
 };
 

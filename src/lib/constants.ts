@@ -8,7 +8,6 @@ export const NAV_ITEMS = {
   SERVICES: "/services",
   TECHNICIANS: "/technicians",
   BRANCHES: "/branch",
-  INVOICES: "/invoices",
   MY_TASKS: "/my-tasks",
   PROFILE: "/profile",
 } as const;
@@ -27,13 +26,6 @@ export const SERVICE_STATUS = {
   IN_PROGRESS: "in_progress",
   COMPLETED: "completed",
   CANCELLED: "cancelled",
-} as const;
-
-export const INVOICE_STATUS = {
-  DRAFT: "draft",
-  SENT: "sent",
-  PAID: "paid",
-  OVERDUE: "overdue",
 } as const;
 
 export const TASK_STATUS = {
@@ -61,7 +53,6 @@ export const API_ENDPOINTS = {
   BRANCHES: "/api/branches",
   TECHNICIANS: "/api/technicians",
   SERVICES: "/api/services",
-  INVOICES: "/api/invoices",
   TASKS: "/api/tasks",
 } as const;
 
@@ -108,4 +99,4 @@ export const SUCCESS_MESSAGES = {
   DELETED: "Deleted successfully",
   LOGIN_SUCCESS: "Logged in successfully",
   LOGOUT_SUCCESS: "Logged out successfully",
-} as const; 
+} as const;

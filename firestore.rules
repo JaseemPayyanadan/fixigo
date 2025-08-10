@@ -31,11 +31,6 @@ service cloud.firestore {
       allow read, write, delete: if isMigrationMode();
     }
 
-    // Invoices collection
-    match /invoices/{invoiceId} {
-      allow read, write, delete: if isMigrationMode();
-    }
-
     // Tasks collection
     match /tasks/{taskId} {
       allow read, write, delete: if isMigrationMode();
@@ -70,12 +65,8 @@ service cloud.firestore {
       allow read, write, delete: if isMigrationMode();
     }
 
-    match /shops/{shopId}/branches/{branchId}/invoices/{invoiceId} {
-      allow read, write, delete: if isMigrationMode();
-    }
-
     match /shops/{shopId}/branches/{branchId}/tasks/{taskId} {
       allow read, write, delete: if isMigrationMode();
     }
   }
-} 
+}

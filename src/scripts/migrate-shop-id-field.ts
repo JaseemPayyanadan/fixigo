@@ -7,7 +7,7 @@ async function migrateShopIdField() {
 
   try {
     // Collections to migrate
-    const collections = ["services", "branches", "technicians", "invoices", "tasks"];
+    const collections = ["services", "technicians", "tasks"];
 
     for (const collectionName of collections) {
       console.log(`\n🔄 Migrating ${collectionName} collection...`);
@@ -83,7 +83,7 @@ async function migrateBranchIdField() {
 
   try {
     // Collections that have branch_id field
-    const collections = ["services", "technicians", "invoices", "tasks"];
+    const collections = ["services", "technicians", "tasks"];
 
     for (const collectionName of collections) {
       console.log(`\n🔄 Migrating ${collectionName} collection branch_id -> branchId...`);
