@@ -32,6 +32,12 @@ export default function RBACDemo() {
     canManageUser,
     canViewUser,
     canDeleteUser,
+    hasRole,
+    hasPermission,
+    canCreate,
+    canRead,
+    canUpdate,
+    canDelete,
   } = usePermissions();
 
   if (loading) {
@@ -115,7 +121,7 @@ export default function RBACDemo() {
                 <span className="font-medium">Is Branch Admin or Higher:</span> {isBranchAdminOrHigher ? "Yes" : "No"}
               </div>
               <div>
-                <span className="font-medium">User Scope:</span> {userScope || "None"}
+                <span className="font-medium">User Scope:</span> {user.branchId ? "Branch Level" : user.shopId ? "Shop Level" : "System Level"}
               </div>
             </div>
           </div>

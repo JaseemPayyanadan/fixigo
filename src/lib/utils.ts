@@ -307,30 +307,17 @@ export async function measureAsyncTime<T>(fn: () => Promise<T>, label: string): 
   return result;
 }
 
-// Invoice data transformation utilities
-export function transformFirestoreInvoiceData(docData: any, docId: string): any {
+// Service data transformation utilities
+export function transformFirestoreServiceData(docData: any, docId: string): any {
   try {
-    // Handle both new and legacy invoice structures
-    const baseInvoice = {
+    // Handle both new and legacy service structures
+    const baseService = {
       id: docId,
-      serviceId: docData.serviceId || "",
-      customerName: docData.customerName || docData.customer?.name || "",
-      customerEmail: docData.customerEmail || docData.customer?.email || "",
-      customerPhone: docData.customerPhone || docData.customer?.phone || "",
-      amount: docData.amount || docData.subtotal || 0,
+      name: docData.name || "",
+      description: docData.description || "",
+      price: docData.price || 0,
       tax: docData.tax || 0,
-      total: docData.total || 0,
-      discount: docData.discount || 0,
-      advance: docData.advance || 0,
-      status: docData.status || "draft",
-      paymentStatus: docData.paymentStatus || "pending",
-      paymentMethod: docData.paymentMethod || "",
-      paymentDate: docData.paymentDate?.toDate?.() || docData.paymentDate || null,
-      dueDate: docData.dueDate?.toDate?.() || docData.dueDate || new Date(),
-      paidDate: docData.paidDate?.toDate?.() || docData.paidDate || null,
-      notes: docData.notes || "",
-      shopId: docData.shopId || "",
-      branchId: docData.branchId || "",
+      status: docData.status || "active",
       createdAt: docData.createdAt?.toDate?.() || docData.createdAt || new Date(),
       updatedAt: docData.updatedAt?.toDate?.() || docData.updatedAt || new Date(),
     };
@@ -338,106 +325,52 @@ export function transformFirestoreInvoiceData(docData: any, docId: string): any 
     // Transform items array to ensure consistency
     const items = (docData.items || []).map((item: any) => ({
       name: item.name || "",
-      description: item.description || item.variation || "",
-      quantity: item.quantity || item.qty || 1,
-      unitPrice: item.unitPrice || item.price || 0,
-      total: item.total || (item.quantity || item.qty || 1) * (item.unitPrice || item.price || 0),
-      variation: item.variation || "",
-      qty: item.qty || item.quantity || 1,
-      price: item.price || item.unitPrice || 0,
+      description: item.description || "",
+      price: item.price || 0,
+      tax: item.tax || 0,
+      quantity: item.quantity || 1,
+      total: item.total || (item.price || 0) * (item.quantity || 1),
     }));
 
-    // Handle legacy customer and device fields
-    const customer = docData.customer
-      ? {
-          name: docData.customer.name || "",
-          phone: docData.customer.phone || "",
-          email: docData.customer.email || "",
-          address: docData.customer.address || "",
-        }
-      : undefined;
-
-    const device = docData.device
-      ? {
-          type: docData.device.type || "",
-          brand: docData.device.brand || "",
-          model: docData.device.model || "",
-          imei: docData.device.imei || "",
-          color: docData.device.color || "",
-          issue: docData.device.issue || "",
-        }
-      : undefined;
-
     return {
-      ...baseInvoice,
+      ...baseService,
       items,
-      customer,
-      device,
-      subtotal: docData.subtotal || baseInvoice.amount,
     };
   } catch (error) {
-    logger.error("Error transforming invoice data", { error, docData, docId });
-    throw new Error("Failed to transform invoice data");
+    logger.error("Error transforming service data", { error, docData, docId });
+    throw new Error("Failed to transform service data");
   }
 }
 
-export function normalizeInvoiceStatus(status: string): string {
+export function normalizeServiceStatus(status: string): string {
   const statusMap: Record<string, string> = {
-    Pending: "pending",
-    pending: "pending",
-    Sent: "sent",
-    sent: "sent",
-    Paid: "paid",
-    paid: "paid",
-    Overdue: "overdue",
-    overdue: "overdue",
-    Cancelled: "cancelled",
-    cancelled: "cancelled",
-    Draft: "draft",
-    draft: "draft",
+    Active: "active",
+    active: "active",
+    Inactive: "inactive",
+    inactive: "inactive",
   };
 
-  return statusMap[status] || "draft";
+  return statusMap[status] || "active";
 }
 
-export function normalizePaymentStatus(status: string): string {
-  const statusMap: Record<string, string> = {
-    Pending: "pending",
-    pending: "pending",
-    Paid: "paid",
-    paid: "paid",
-    Failed: "failed",
-    failed: "failed",
-    Partial: "partial",
-    partial: "partial",
-    Refunded: "refunded",
-    refunded: "refunded",
-  };
-
-  return statusMap[status] || "pending";
-}
-
-export function sanitizeInvoiceData(data: any): any {
+export function sanitizeServiceData(data: any): any {
   // Remove undefined values and ensure proper types
-  const sanitized: any = {};
+  const sanitized: Record<string, any> = {};
 
   Object.entries(data).forEach(([key, value]) => {
     if (value !== undefined && value !== null) {
-      if (key === "amount" || key === "tax" || key === "total" || key === "discount" || key === "advance") {
+      if (key === "price" || key === "tax") {
         sanitized[key] = Math.max(0, Number(value) || 0);
       } else if (key === "items" && Array.isArray(value)) {
         sanitized[key] = value.map((item: any) => ({
           name: String(item.name || ""),
           description: item.description ? String(item.description) : undefined,
-          quantity: Math.max(1, Number(item.quantity || item.qty || 1)),
-          unitPrice: Math.max(0, Number(item.unitPrice || item.price || 0)),
-          total: Math.max(0, Number(item.total || 0)),
-          variation: item.variation ? String(item.variation) : undefined,
+          price: Math.max(0, Number(item.price || 0)),
+          tax: Math.max(0, Number(item.tax || 0)),
+          quantity: Math.max(1, Number(item.quantity || 1)),
         }));
-      } else if (key === "dueDate" || key === "paymentDate" || key === "paidDate") {
-        sanitized[key] = value instanceof Date ? value : new Date(value);
       } else {
-        sanitized[key] = value;
+        sanitized[key] = value as any;
       }
     }
   });

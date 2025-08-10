@@ -25,7 +25,8 @@ export type Permission =
   | "report:read"
   | "report:write"
   | "setting:read"
-  | "setting:write";
+  | "setting:write"
+  | "dashboard:read";
 
 // Role hierarchy and permissions mapping
 export interface RolePermissions {

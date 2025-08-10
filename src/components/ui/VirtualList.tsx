@@ -111,17 +111,7 @@ export const withVirtualScrolling = <P extends object>(
   }
 ) => {
   const WrappedComponent = React.memo((props: P) => {
-    return (
-      <VirtualList
-        items={[]} // This will be overridden by the actual component
-        height={0} // This will be overridden by the actual component
-        itemHeight={options.itemHeight}
-        overscan={options.overscan}
-        renderItem={() => null} // This will be overridden by the actual component
-      >
-        <Component {...props} />
-      </VirtualList>
-    );
+    return <Component {...props} />;
   });
 
   WrappedComponent.displayName = `withVirtualScrolling(${Component.displayName || Component.name})`;

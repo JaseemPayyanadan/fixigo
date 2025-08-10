@@ -4,13 +4,11 @@ import { db } from "./firebase";
 import { logger } from "./logger";
 
 // New collection names for normalized structure
-const COLLECTIONS = {
-  USERS: "users",
+export const COLLECTIONS = {
   SHOPS: "shops",
   BRANCHES: "branches",
   TECHNICIANS: "technicians",
   SERVICES: "services",
-  INVOICES: "invoices",
   TASKS: "tasks",
   CUSTOMERS: "customers",
   PARTS: "parts",
@@ -24,7 +22,6 @@ interface MigrationStats {
   branches: number;
   technicians: number;
   services: number;
-  invoices: number;
   tasks: number;
   customers: number;
   errors: string[];
@@ -37,7 +34,6 @@ export class FirestoreMigration {
     branches: 0,
     technicians: 0,
     services: 0,
-    invoices: 0,
     tasks: 0,
     customers: 0,
     errors: [],
@@ -65,13 +61,10 @@ export class FirestoreMigration {
       // Step 5: Migrate services from branch subcollections to flat structure
       await this.migrateServices();
 
-      // Step 6: Migrate invoices from branch subcollections to flat structure
-      await this.migrateInvoices();
-
-      // Step 7: Migrate tasks from branch subcollections to flat structure
+      // Step 6: Migrate tasks from branch subcollections to flat structure
       await this.migrateTasks();
 
-      // Step 8: Extract customers from services
+      // Step 7: Extract customers from services
       await this.extractCustomers();
 
       logger.info("Migration completed successfully", {
@@ -80,7 +73,6 @@ export class FirestoreMigration {
         branches: this.stats.branches,
         technicians: this.stats.technicians,
         services: this.stats.services,
-        invoices: this.stats.invoices,
         tasks: this.stats.tasks,
         customers: this.stats.customers,
         errorCount: this.stats.errors.length,
@@ -310,57 +302,6 @@ export class FirestoreMigration {
   }
 
   /**
-   * Migrate invoices from branch subcollections to flat structure
-   */
-  private async migrateInvoices(): Promise<void> {
-    logger.info("Migrating invoices from branch subcollections to flat structure");
-
-    try {
-      const branchesSnapshot = await getDocs(collection(db, COLLECTIONS.BRANCHES));
-
-      for (const branchDoc of branchesSnapshot.docs) {
-        const branchData = branchDoc.data();
-
-        try {
-          // Check if branch has shopId
-          if (!branchData.shopId) {
-            logger.warn(`Branch ${branchDoc.id} has no shopId, skipping invoices migration`);
-            continue;
-          }
-
-          // Get invoices subcollection
-          const invoicesSnapshot = await getDocs(collection(db, COLLECTIONS.SHOPS, branchData.shopId, "branches", branchDoc.id, "invoices"));
-
-          for (const invoiceDoc of invoicesSnapshot.docs) {
-            const invoiceData = invoiceDoc.data();
-
-            // Create invoice in flat structure
-            await setDoc(doc(db, COLLECTIONS.INVOICES, invoiceDoc.id), {
-              ...invoiceData,
-              id: invoiceDoc.id,
-              shopId: branchData.shopId,
-              branchId: branchDoc.id,
-              createdAt: invoiceData.createdAt || Timestamp.now(),
-              updatedAt: Timestamp.now(),
-            });
-
-            this.stats.invoices++;
-          }
-        } catch (error) {
-          logger.warn(`Error migrating invoices for branch ${branchDoc.id}`, { error: String(error) });
-          this.stats.errors.push(`Invoices for branch ${branchDoc.id} migration error: ${error}`);
-        }
-      }
-
-      logger.info(`Migrated ${this.stats.invoices} invoices`);
-    } catch (error) {
-      const errorMessage = `Invoices migration error: ${error}`;
-      this.stats.errors.push(errorMessage);
-      logger.error("Error migrating invoices", { error: error as Error });
-    }
-  }
-
-  /**
    * Migrate tasks from branch subcollections to flat structure
    */
   private async migrateTasks(): Promise<void> {
@@ -488,13 +429,6 @@ export class FirestoreMigration {
                 await deleteDoc(doc(db, COLLECTIONS.SHOPS, shopId, "branches", branchId, "services", serviceDoc.id));
               }
 
-              // Delete invoices subcollection
-              const invoicesSnapshot = await getDocs(collection(db, COLLECTIONS.SHOPS, shopId, "branches", branchId, "invoices"));
-
-              for (const invoiceDoc of invoicesSnapshot.docs) {
-                await deleteDoc(doc(db, COLLECTIONS.SHOPS, shopId, "branches", branchId, "invoices", invoiceDoc.id));
-              }
-
               // Delete tasks subcollection
               const tasksSnapshot = await getDocs(collection(db, COLLECTIONS.SHOPS, shopId, "branches", branchId, "tasks"));
 
@@ -533,7 +467,6 @@ export class FirestoreMigration {
         branches: await this.validateCollection(COLLECTIONS.BRANCHES),
         technicians: await this.validateCollection(COLLECTIONS.TECHNICIANS),
         services: await this.validateCollection(COLLECTIONS.SERVICES),
-        invoices: await this.validateCollection(COLLECTIONS.INVOICES),
         tasks: await this.validateCollection(COLLECTIONS.TASKS),
         customers: await this.validateCollection(COLLECTIONS.CUSTOMERS),
       };
@@ -546,7 +479,6 @@ export class FirestoreMigration {
         branches: validationResults.branches,
         technicians: validationResults.technicians,
         services: validationResults.services,
-        invoices: validationResults.invoices,
         tasks: validationResults.tasks,
         customers: validationResults.customers,
       });
