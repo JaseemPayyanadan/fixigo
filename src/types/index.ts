@@ -16,9 +16,7 @@ export type Permission =
   | "service:read"
   | "service:write"
   | "service:delete"
-  | "task:read"
-  | "task:write"
-  | "task:delete"
+
   | "user:read"
   | "user:write"
   | "user:delete"
@@ -168,35 +166,7 @@ export interface Service {
   updatedAt: Date;
 }
 
-export interface Task {
-  id: string;
-  title: string;
-  description: string;
-  status: TaskStatus;
-  priority: Priority;
-  assignedTo: string;
-  assignedBy: string;
-  shopId: string;
-  branchId: string;
-  dueDate: Date;
-  createdAt: Date;
-  updatedAt: Date;
-  completedAt?: Date;
-  notes?: string[];
-  attachments?: string[];
-  estimatedDuration?: number;
-  actualDuration?: number;
-  tags?: string[];
-  category?: string;
-  dependencies?: string[];
-  progress?: number;
-  qualityScore?: number;
-  customerFeedback?: {
-    rating: number;
-    comment?: string;
-    date: Date;
-  };
-}
+
 
 // Form types
 export interface LoginFormData {
@@ -297,5 +267,5 @@ export interface Device {
   type?: string;
 }
 
-export type TaskStatus = "pending" | "in_progress" | "completed" | "cancelled" | "on_hold";
+
 export type Priority = "low" | "medium" | "high" | "urgent";

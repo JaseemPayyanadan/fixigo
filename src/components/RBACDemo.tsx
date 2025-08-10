@@ -26,9 +26,7 @@ export default function RBACDemo() {
     canManageService,
     canViewService,
     canDeleteService,
-    canManageTask,
-    canViewTask,
-    canDeleteTask,
+
     canManageUser,
     canViewUser,
     canDeleteUser,
@@ -190,20 +188,7 @@ export default function RBACDemo() {
                 </div>
               </div>
 
-              <div>
-                <h3 className="font-medium text-gray-900 mb-2">Task Permissions</h3>
-                <div className="space-y-2 text-sm">
-                  <div>
-                    <span className="font-medium">Can manage task:</span> {canManageTask() ? "Yes" : "No"}
-                  </div>
-                  <div>
-                    <span className="font-medium">Can view task:</span> {canViewTask() ? "Yes" : "No"}
-                  </div>
-                  <div>
-                    <span className="font-medium">Can delete task:</span> {canDeleteTask() ? "Yes" : "No"}
-                  </div>
-                </div>
-              </div>
+
 
               <div>
                 <h3 className="font-medium text-gray-900 mb-2">User Permissions</h3>

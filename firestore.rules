@@ -1,72 +1,93 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Temporary migration access - allow all access during migration
-    function isMigrationMode() {
-      return true; // Temporarily allow all access for migration
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    function isShopOwner(shopId) {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/shops/$(shopId)) &&
+        resource.data.ownerId == request.auth.uid;
+    }
+
+    function isBranchAdmin(branchId) {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/branches/$(branchId)) &&
+        resource.data.adminId == request.auth.uid;
+    }
+
+    function isTechnician(technicianId) {
+      return isAuthenticated() &&
+        request.auth.uid == technicianId;
     }
 
     // Users collection
     match /users/{userId} {
-      allow read, write, delete: if isMigrationMode();
+      allow read: if isAuthenticated() && (isOwner(userId) || isShopOwner(resource.data.shopId));
+      allow write: if isAuthenticated() && isOwner(userId);
+      allow delete: if false; // Prevent user deletion
     }
 
     // Shops collection
     match /shops/{shopId} {
-      allow read, write, delete: if isMigrationMode();
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && isShopOwner(shopId);
+      allow delete: if false; // Prevent shop deletion
     }
 
     // Branches collection
     match /branches/{branchId} {
-      allow read, write, delete: if isMigrationMode();
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && (isShopOwner(resource.data.shopId) || isBranchAdmin(branchId));
+      allow delete: if false; // Prevent branch deletion
     }
 
     // Technicians collection
     match /technicians/{technicianId} {
-      allow read, write, delete: if isMigrationMode();
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && (isTechnician(technicianId) || isBranchAdmin(resource.data.branchId));
+      allow delete: if false; // Prevent technician deletion
     }
 
     // Services collection
     match /services/{serviceId} {
-      allow read, write, delete: if isMigrationMode();
-    }
-
-    // Tasks collection
-    match /tasks/{taskId} {
-      allow read, write, delete: if isMigrationMode();
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && (isTechnician(resource.data.assignedTo) || isBranchAdmin(resource.data.branchId));
+      allow delete: if false; // Prevent service deletion
     }
 
     // Customers collection
     match /customers/{customerId} {
-      allow read, write, delete: if isMigrationMode();
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && isBranchAdmin(resource.data.branchId);
+      allow delete: if false; // Prevent customer deletion
     }
 
     // Parts collection
     match /parts/{partId} {
-      allow read, write, delete: if isMigrationMode();
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && isBranchAdmin(resource.data.branchId);
+      allow delete: if false; // Prevent part deletion
     }
 
     // Notifications collection
     match /notifications/{notificationId} {
-      allow read, write, delete: if isMigrationMode();
+      allow read: if isAuthenticated() && isOwner(resource.data.userId);
+      allow write: if isAuthenticated() && isOwner(resource.data.userId);
+      allow delete: if isAuthenticated() && isOwner(resource.data.userId);
     }
 
     // Audit logs collection (read-only for admins)
     match /audit_logs/{logId} {
-      allow read, write, delete: if isMigrationMode();
-    }
-
-    // Legacy subcollections (for backward compatibility during migration)
-    match /shops/{shopId}/branches/{branchId} {
-      allow read, write, delete: if isMigrationMode();
-    }
-
-    match /shops/{shopId}/branches/{branchId}/services/{serviceId} {
-      allow read, write, delete: if isMigrationMode();
-    }
-
-    match /shops/{shopId}/branches/{branchId}/tasks/{taskId} {
-      allow read, write, delete: if isMigrationMode();
+      allow read: if isAuthenticated() && (isShopOwner(resource.data.shopId) || isBranchAdmin(resource.data.branchId));
+      allow write: if false; // System only
+      allow delete: if false; // Never delete audit logs
     }
   }
 }

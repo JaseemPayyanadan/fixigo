@@ -337,7 +337,7 @@ export function transformFirestoreServiceData(docData: any, docId: string): any 
       items,
     };
   } catch (error) {
-    logger.error("Error transforming service data", { error, docData, docId });
+    logger.error("Error transforming service data", { error: error instanceof Error ? error.message : String(error), docData, docId });
     throw new Error("Failed to transform service data");
   }
 }

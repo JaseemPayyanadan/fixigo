@@ -3,13 +3,12 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 import { usePathname } from "next/navigation";
 
-import { BriefcaseIcon, BuildingOfficeIcon, ChevronRightIcon, ClipboardDocumentListIcon, Cog6ToothIcon, DocumentTextIcon, HomeIcon, UserGroupIcon, UserIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import { BriefcaseIcon, BuildingOfficeIcon, ChevronRightIcon, Cog6ToothIcon, HomeIcon, UserGroupIcon, UserIcon, XMarkIcon } from "@heroicons/react/24/outline";
 
 import { PerformanceMonitor } from "@/components/PerformanceMonitor";
 import { useSidebar } from "@/contexts/SidebarContext";
 import { useNavigation } from "@/hooks/useNavigation";
 import { useUser } from "@/hooks/useUser";
-
 
 // Enhanced navigation items with preloading hints
 const navItems = [
@@ -31,15 +30,7 @@ const navItems = [
     preload: true,
     prefetch: true,
   },
-  {
-    label: "My Tasks",
-    href: "/my-tasks",
-    icon: ClipboardDocumentListIcon,
-    description: "View assigned tasks",
-    roles: ["technician"],
-    preload: false,
-    prefetch: true,
-  },
+
   {
     label: "My Profile",
     href: "/profile",
@@ -79,48 +70,34 @@ const navItems = [
 ];
 
 // Performance-optimized navigation item component
-const NavItem = React.memo(({
-  item,
-  isActive,
-  collapsed,
-  hoveredItem,
-  onNavigate,
-  onMouseEnter,
-  onMouseLeave,
-}: {
-  item: (typeof navItems)[0];
-  isActive: boolean;
-  collapsed: boolean;
-  hoveredItem: string | null;
-  onNavigate: (href: string) => void;
-  onMouseEnter: (href: string) => void;
-  onMouseLeave: () => void;
-}) => {
-  const Icon = item.icon;
+const NavItem = React.memo(
+  ({ item, isActive, collapsed, hoveredItem, onNavigate, onMouseEnter, onMouseLeave }: { item: (typeof navItems)[0]; isActive: boolean; collapsed: boolean; hoveredItem: string | null; onNavigate: (href: string) => void; onMouseEnter: (href: string) => void; onMouseLeave: () => void }) => {
+    const Icon = item.icon;
 
-  return (
-    <div className="relative" style={{ contain: "layout style paint" }}>
-      <button
-        onClick={() => onNavigate(item.href)}
-        onMouseEnter={() => onMouseEnter(item.href)}
-        onMouseLeave={onMouseLeave}
-        className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-sm font-medium transition-all duration-200 focus:outline-none group ${isActive ? "bg-blue-50 text-blue-700 border-l-2 border-blue-600" : "text-gray-600 hover:bg-gray-100 cursor-pointer hover:text-gray-900"}`}
-        style={{ contain: "layout style" }}
-      >
-        <Icon className={`h-4 w-4 transition-colors duration-200 ${isActive ? "text-blue-600" : "text-gray-400 group-hover:text-gray-600"}`} />
-        {!collapsed && <span>{item.label}</span>}
-      </button>
+    return (
+      <div className="relative" style={{ contain: "layout style paint" }}>
+        <button
+          onClick={() => onNavigate(item.href)}
+          onMouseEnter={() => onMouseEnter(item.href)}
+          onMouseLeave={onMouseLeave}
+          className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-sm font-medium transition-all duration-200 focus:outline-none group ${isActive ? "bg-blue-50 text-blue-700 border-l-2 border-blue-600" : "text-gray-600 hover:bg-gray-100 cursor-pointer hover:text-gray-900"}`}
+          style={{ contain: "layout style" }}
+        >
+          <Icon className={`h-4 w-4 transition-colors duration-200 ${isActive ? "text-blue-600" : "text-gray-400 group-hover:text-gray-600"}`} />
+          {!collapsed && <span>{item.label}</span>}
+        </button>
 
-      {/* Optimized tooltip with intersection observer */}
-      {collapsed && hoveredItem === item.href && (
-        <div className="absolute left-full ml-2 px-2.5 py-2 bg-gray-900 text-white text-sm rounded-lg shadow-lg z-50 whitespace-nowrap" style={{ contain: "layout style paint" }}>
-          <div className="font-medium">{item.label}</div>
-          <div className="text-gray-300 text-xs">{item.description}</div>
-        </div>
-      )}
-    </div>
-  );
-});
+        {/* Optimized tooltip with intersection observer */}
+        {collapsed && hoveredItem === item.href && (
+          <div className="absolute left-full ml-2 px-2.5 py-2 bg-gray-900 text-white text-sm rounded-lg shadow-lg z-50 whitespace-nowrap" style={{ contain: "layout style paint" }}>
+            <div className="font-medium">{item.label}</div>
+            <div className="text-gray-300 text-xs">{item.description}</div>
+          </div>
+        )}
+      </div>
+    );
+  }
+);
 
 NavItem.displayName = "NavItem";
 
@@ -259,9 +236,7 @@ const SideNavBar = React.memo(() => {
 
         {/* Navigation with intersection observer */}
         <div ref={navContainerRef} className="flex flex-col flex-1 py-3" style={{ contain: "layout style" }}>
-          <nav className="flex flex-col gap-0.5">
-            {filteredNavItems.map(renderNavItem)}
-          </nav>
+          <nav className="flex flex-col gap-0.5">{filteredNavItems.map(renderNavItem)}</nav>
         </div>
       </aside>
     </>

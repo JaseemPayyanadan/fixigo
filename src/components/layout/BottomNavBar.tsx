@@ -1,48 +1,43 @@
 "use client";
-import React, { useState } from "react";
+import { useState } from "react";
 
 import { usePathname, useRouter } from "next/navigation";
 
-import { HomeIcon, BriefcaseIcon, BuildingOfficeIcon, UserGroupIcon, UserIcon, ClipboardDocumentListIcon, Bars3Icon, XMarkIcon } from "@heroicons/react/24/outline";
+import { Bars3Icon, BriefcaseIcon, BuildingOfficeIcon, HomeIcon, UserGroupIcon, UserIcon, XMarkIcon } from "@heroicons/react/24/outline";
 
 import { useUser } from "@/hooks/useUser";
 
 const navItems = [
-  { 
-    label: "Dashboard", 
-    href: "/dashboard", 
+  {
+    label: "Dashboard",
+    href: "/dashboard",
     icon: HomeIcon,
-    roles: ["shop_admin", "branch_admin", "technician"]
+    roles: ["shop_admin", "branch_admin", "technician"],
   },
-  { 
-    label: "Services", 
-    href: "/services", 
+  {
+    label: "Services",
+    href: "/services",
     icon: BriefcaseIcon,
-    roles: ["shop_admin", "branch_admin", "technician"]
+    roles: ["shop_admin", "branch_admin", "technician"],
   },
-  { 
-    label: "My Tasks", 
-    href: "/my-tasks", 
-    icon: ClipboardDocumentListIcon,
-    roles: ["technician"]
-  },
-  { 
-    label: "My Profile", 
-    href: "/profile", 
+
+  {
+    label: "My Profile",
+    href: "/profile",
     icon: UserIcon,
-    roles: ["technician"]
+    roles: ["technician"],
   },
-  { 
-    label: "Branches", 
-    href: "/branch", 
+  {
+    label: "Branches",
+    href: "/branch",
     icon: BuildingOfficeIcon,
-    roles: ["shop_admin"]
+    roles: ["shop_admin"],
   },
-  { 
-    label: "Technicians", 
-    href: "/technicians", 
+  {
+    label: "Technicians",
+    href: "/technicians",
     icon: UserGroupIcon,
-    roles: ["shop_admin", "branch_admin"]
+    roles: ["shop_admin", "branch_admin"],
   },
 ];
 
@@ -53,12 +48,10 @@ export function BottomNavBar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   // Filter navigation items based on user role
-  const filteredNavItems = navItems.filter(item => 
-    item.roles.includes(user?.role || "")
-  );
+  const filteredNavItems = navItems.filter((item) => item.roles.includes(user?.role || ""));
 
   // Get active item
-  const activeItem = filteredNavItems.find(item => pathname.startsWith(item.href));
+  const activeItem = filteredNavItems.find((item) => pathname.startsWith(item.href));
 
   const handleNavigation = (href: string) => {
     router.push(href);
@@ -76,14 +69,7 @@ export function BottomNavBar() {
         <div className="flex items-center justify-around h-12 px-2">
           {/* More Menu Button (if more than 4 items) */}
           {filteredNavItems.length > 4 && (
-            <button
-              onClick={toggleMenu}
-              className={`flex flex-col items-center justify-center px-2 py-1 rounded-md transition-colors ${
-                isMenuOpen 
-                  ? "text-blue-600" 
-                  : "text-slate-600 hover:text-blue-600"
-              }`}
-            >
+            <button onClick={toggleMenu} className={`flex flex-col items-center justify-center px-2 py-1 rounded-md transition-colors ${isMenuOpen ? "text-blue-600" : "text-slate-600 hover:text-blue-600"}`}>
               <Bars3Icon className="w-5 h-5 mb-0.5" />
               <span className="text-xs font-medium">More</span>
             </button>
@@ -94,15 +80,7 @@ export function BottomNavBar() {
             const isActive = pathname.startsWith(item.href);
             const Icon = item.icon;
             return (
-              <button
-                key={item.href}
-                onClick={() => handleNavigation(item.href)}
-                className={`flex flex-col items-center justify-center px-2 py-1 rounded-md transition-colors ${
-                  isActive 
-                    ? "text-blue-600" 
-                    : "text-slate-600 hover:text-blue-600"
-                }`}
-              >
+              <button key={item.href} onClick={() => handleNavigation(item.href)} className={`flex flex-col items-center justify-center px-2 py-1 rounded-md transition-colors ${isActive ? "text-blue-600" : "text-slate-600 hover:text-blue-600"}`}>
                 <Icon className="w-5 h-5 mb-0.5" />
                 <span className="text-xs font-medium">{item.label}</span>
               </button>
@@ -115,38 +93,24 @@ export function BottomNavBar() {
       {isMenuOpen && filteredNavItems.length > 4 && (
         <div className="fixed inset-0 z-40 md:hidden">
           {/* Backdrop */}
-          <div 
-            className="absolute inset-0 bg-black bg-opacity-30"
-            onClick={() => setIsMenuOpen(false)}
-          />
-          
+          <div className="absolute inset-0 bg-black bg-opacity-30" onClick={() => setIsMenuOpen(false)} />
+
           {/* Menu Panel */}
           <div className="absolute bottom-16 left-4 right-4 bg-white rounded-lg shadow-lg border border-slate-200 overflow-hidden">
             <div className="p-3">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-semibold text-slate-900">More Options</h3>
-                <button
-                  onClick={() => setIsMenuOpen(false)}
-                  className="p-1 text-slate-400 hover:text-slate-600"
-                >
+                <button onClick={() => setIsMenuOpen(false)} className="p-1 text-slate-400 hover:text-slate-600">
                   <XMarkIcon className="w-4 h-4" />
                 </button>
               </div>
-              
+
               <div className="space-y-1">
                 {filteredNavItems.slice(4).map((item) => {
                   const isActive = pathname.startsWith(item.href);
                   const Icon = item.icon;
                   return (
-                    <button
-                      key={item.href}
-                      onClick={() => handleNavigation(item.href)}
-                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${
-                        isActive 
-                          ? "bg-blue-50 text-blue-600" 
-                          : "text-slate-700 hover:bg-slate-50"
-                      }`}
-                    >
+                    <button key={item.href} onClick={() => handleNavigation(item.href)} className={`w-full flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${isActive ? "bg-blue-50 text-blue-600" : "text-slate-700 hover:bg-slate-50"}`}>
                       <Icon className="w-4 h-4" />
                       <span className="text-sm font-medium">{item.label}</span>
                     </button>
@@ -159,4 +123,4 @@ export function BottomNavBar() {
       )}
     </>
   );
-} 
+}

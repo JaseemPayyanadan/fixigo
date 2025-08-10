@@ -220,9 +220,12 @@ export function monitorWebVitals(): void {
       const fidObserver = new PerformanceObserver((list) => {
         const entries = list.getEntries();
         entries.forEach((entry) => {
-          const fid = entry.processingStart - entry.startTime;
-          if (fid > 100) {
-            console.warn(`🚨 Slow FID detected: ${fid.toFixed(2)}ms`);
+          // Check if processingStart exists (PerformanceEventTiming interface)
+          if ('processingStart' in entry) {
+            const fid = (entry as any).processingStart - entry.startTime;
+            if (fid > 100) {
+              console.warn(`🚨 Slow FID detected: ${fid.toFixed(2)}ms`);
+            }
           }
         });
       });

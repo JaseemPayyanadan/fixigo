@@ -1,26 +1,11 @@
-import React, { useState } from "react";
+import { useState } from "react";
 
 import { useRouter } from "next/navigation";
 
-import { 
-  UserIcon, 
-  EnvelopeIcon, 
-  PhoneIcon, 
-  BuildingOfficeIcon, 
-  CheckCircleIcon, 
-  XCircleIcon, 
-  PencilIcon, 
-  TrashIcon, 
-  EyeIcon,
-  ExclamationTriangleIcon,
-  StarIcon,
-  ClockIcon,
-  WrenchScrewdriverIcon,
-  MapPinIcon
-} from "@heroicons/react/24/outline";
+import { BuildingOfficeIcon, CheckCircleIcon, ClockIcon, EnvelopeIcon, ExclamationTriangleIcon, EyeIcon, MapPinIcon, PencilIcon, PhoneIcon, StarIcon, TrashIcon, UserIcon, WrenchScrewdriverIcon, XCircleIcon } from "@heroicons/react/24/outline";
 
 import { PermissionGuard } from "@/components";
-import { Technician, Branch } from "@/types";
+import { Branch, Technician } from "@/types";
 
 interface TechnicianListProps {
   technicians: Technician[];
@@ -35,8 +20,8 @@ export default function TechnicianList({ technicians, onDelete, branches }: Tech
 
   // Helper function to get branch name by ID
   const getBranchName = (branchId: string) => {
-    if (!branchId || branchId.trim() === '') return 'No Branch Assigned';
-    const branch = branches.find(b => b.id === branchId);
+    if (!branchId || branchId.trim() === "") return "No Branch Assigned";
+    const branch = branches.find((b) => b.id === branchId);
     return branch ? branch.name : `Branch ${branchId.slice(0, 8)}...`;
   };
 
@@ -44,31 +29,31 @@ export default function TechnicianList({ technicians, onDelete, branches }: Tech
   const getTechnicianMetrics = (technician: Technician) => {
     const isOnline = Math.random() > 0.3; // Mock online status
     const lastActive = new Date(Date.now() - Math.random() * 86400000); // Mock last active
-    
+
     return {
       isOnline,
       lastActive,
-      status: technician.status || 'active',
+      status: technician.status || "active",
       completedServices: technician.completedServices || Math.floor(Math.random() * 50) + 10,
       rating: technician.rating || (Math.random() * 2 + 3).toFixed(1),
-      currentTasks: Math.floor(Math.random() * 5),
-      experience: technician.experience || Math.floor(Math.random() * 10) + 1
+
+      experience: technician.experience || Math.floor(Math.random() * 10) + 1,
     };
   };
 
   // Helper function to get status color
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'active':
-        return 'bg-green-100 text-green-800 border-green-200';
-      case 'inactive':
-        return 'bg-gray-100 text-gray-800 border-gray-200';
-      case 'busy':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'offline':
-        return 'bg-red-100 text-red-800 border-red-200';
+      case "active":
+        return "bg-green-100 text-green-800 border-green-200";
+      case "inactive":
+        return "bg-gray-100 text-gray-800 border-gray-200";
+      case "busy":
+        return "bg-yellow-100 text-yellow-800 border-yellow-200";
+      case "offline":
+        return "bg-red-100 text-red-800 border-red-200";
       default:
-        return 'bg-blue-100 text-blue-800 border-blue-200';
+        return "bg-blue-100 text-blue-800 border-blue-200";
     }
   };
 
@@ -77,7 +62,7 @@ export default function TechnicianList({ technicians, onDelete, branches }: Tech
     const stars = [];
     const fullStars = Math.floor(rating);
     const hasHalfStar = rating % 1 !== 0;
-    
+
     for (let i = 0; i < 5; i++) {
       if (i < fullStars) {
         stars.push(<StarIcon key={i} className="w-4 h-4 text-yellow-400 fill-current" />);
@@ -97,12 +82,7 @@ export default function TechnicianList({ technicians, onDelete, branches }: Tech
           <UserIcon className="h-12 w-12 text-blue-600" />
         </div>
         <h3 className="text-xl font-semibold text-gray-900 mb-2">No technicians found</h3>
-        <p className="text-gray-600 mb-6 max-w-md">
-          {technicians.length === 0 
-            ? "Technicians help you manage service requests efficiently. Add your first technician to get started."
-            : "No technicians match your current filters. Try adjusting your search criteria."
-          }
-        </p>
+        <p className="text-gray-600 mb-6 max-w-md">{technicians.length === 0 ? "Technicians help you manage service requests efficiently. Add your first technician to get started." : "No technicians match your current filters. Try adjusting your search criteria."}</p>
         <div className="flex items-center gap-2 text-sm text-gray-500">
           <ExclamationTriangleIcon className="w-4 h-4" />
           <span>Start building your team</span>
@@ -118,7 +98,7 @@ export default function TechnicianList({ technicians, onDelete, branches }: Tech
         <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
           <h3 className="text-lg font-semibold text-gray-900">Technician Team</h3>
           <p className="text-sm text-gray-600">
-            {technicians.length} technician{technicians.length !== 1 ? 's' : ''} found
+            {technicians.length} technician{technicians.length !== 1 ? "s" : ""} found
           </p>
         </div>
         <div className="overflow-x-auto">
@@ -142,13 +122,11 @@ export default function TechnicianList({ technicians, onDelete, branches }: Tech
                       <div className="flex items-center">
                         <div className="w-12 h-12 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-lg flex items-center justify-center mr-4 relative">
                           <UserIcon className="w-6 h-6 text-blue-600" />
-                          {metrics.isOnline && (
-                            <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full border-2 border-white"></div>
-                          )}
+                          {metrics.isOnline && <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full border-2 border-white"></div>}
                         </div>
                         <div>
                           <div className="flex items-center gap-2">
-                            <div className="text-sm font-semibold text-gray-900">{tech.name || 'Unknown Technician'}</div>
+                            <div className="text-sm font-semibold text-gray-900">{tech.name || "Unknown Technician"}</div>
                           </div>
                           {tech.skills && tech.skills.length > 0 && (
                             <div className="flex gap-1 mt-1">
@@ -157,11 +135,7 @@ export default function TechnicianList({ technicians, onDelete, branches }: Tech
                                   {skill}
                                 </span>
                               ))}
-                              {tech.skills.length > 2 && (
-                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
-                                  +{tech.skills.length - 2}
-                                </span>
-                              )}
+                              {tech.skills.length > 2 && <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">+{tech.skills.length - 2}</span>}
                             </div>
                           )}
                         </div>
@@ -182,9 +156,7 @@ export default function TechnicianList({ technicians, onDelete, branches }: Tech
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
                         <BuildingOfficeIcon className="w-4 h-4 text-gray-400" />
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
-                          {getBranchName(tech.branchId)}
-                        </span>
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">{getBranchName(tech.branchId)}</span>
                       </div>
                     </td>
                     <td className="px-6 py-4">
@@ -208,35 +180,20 @@ export default function TechnicianList({ technicians, onDelete, branches }: Tech
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getStatusColor(metrics.status)}`}>
-                          {metrics.isOnline ? (
-                            <CheckCircleIcon className="w-3 h-3 mr-1" />
-                          ) : (
-                            <XCircleIcon className="w-3 h-3 mr-1" />
-                          )}
-                          {metrics.isOnline ? 'Online' : 'Offline'}
-                        </span>
-                        <span className="text-xs text-gray-500">
-                          {metrics.currentTasks} tasks
+                          {metrics.isOnline ? <CheckCircleIcon className="w-3 h-3 mr-1" /> : <XCircleIcon className="w-3 h-3 mr-1" />}
+                          {metrics.isOnline ? "Online" : "Offline"}
                         </span>
                       </div>
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
                         <PermissionGuard permissions={["technician:read"]} fallback={null}>
-                          <button
-                            className="p-2 text-gray-400 hover:text-blue-600 transition-colors rounded-lg hover:bg-blue-50"
-                            onClick={() => setSelectedTechnician(tech)}
-                            title="View details"
-                          >
+                          <button className="p-2 text-gray-400 hover:text-blue-600 transition-colors rounded-lg hover:bg-blue-50" onClick={() => setSelectedTechnician(tech)} title="View details">
                             <EyeIcon className="w-4 h-4" />
                           </button>
                         </PermissionGuard>
                         <PermissionGuard permissions={["technician:write"]} fallback={null}>
-                          <button
-                            className="p-2 text-gray-400 hover:text-blue-600 transition-colors rounded-lg hover:bg-blue-50"
-                            onClick={() => router.push(`/technicians/edit?id=${tech.id}`)}
-                            title="Edit technician"
-                          >
+                          <button className="p-2 text-gray-400 hover:text-blue-600 transition-colors rounded-lg hover:bg-blue-50" onClick={() => router.push(`/technicians/edit?id=${tech.id}`)} title="Edit technician">
                             <PencilIcon className="w-4 h-4" />
                           </button>
                         </PermissionGuard>
@@ -268,7 +225,7 @@ export default function TechnicianList({ technicians, onDelete, branches }: Tech
         <div className="px-4 py-4 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
           <h3 className="text-lg font-semibold text-gray-900">Technician Team</h3>
           <p className="text-sm text-gray-600">
-            {technicians.length} technician{technicians.length !== 1 ? 's' : ''} found
+            {technicians.length} technician{technicians.length !== 1 ? "s" : ""} found
           </p>
         </div>
         <div className="p-4 space-y-4">
@@ -280,9 +237,7 @@ export default function TechnicianList({ technicians, onDelete, branches }: Tech
                   <div className="flex items-center gap-3">
                     <div className="w-12 h-12 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-lg flex items-center justify-center relative">
                       <UserIcon className="w-6 h-6 text-blue-600" />
-                      {metrics.isOnline && (
-                        <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-400 rounded-full border-2 border-white"></div>
-                      )}
+                      {metrics.isOnline && <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-400 rounded-full border-2 border-white"></div>}
                     </div>
                     <div>
                       <h4 className="text-lg font-semibold text-gray-900">{tech.name}</h4>
@@ -291,16 +246,12 @@ export default function TechnicianList({ technicians, onDelete, branches }: Tech
                   </div>
                   <div className="flex items-center gap-2">
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getStatusColor(metrics.status)}`}>
-                      {metrics.isOnline ? (
-                        <CheckCircleIcon className="w-3 h-3 mr-1" />
-                      ) : (
-                        <XCircleIcon className="w-3 h-3 mr-1" />
-                      )}
-                      {metrics.isOnline ? 'Online' : 'Offline'}
+                      {metrics.isOnline ? <CheckCircleIcon className="w-3 h-3 mr-1" /> : <XCircleIcon className="w-3 h-3 mr-1" />}
+                      {metrics.isOnline ? "Online" : "Offline"}
                     </span>
                   </div>
                 </div>
-                
+
                 <div className="space-y-3 mb-4">
                   <div className="flex items-center gap-2 text-sm text-gray-600">
                     <PhoneIcon className="w-4 h-4 text-gray-400" />
@@ -342,22 +293,14 @@ export default function TechnicianList({ technicians, onDelete, branches }: Tech
                           {skill}
                         </span>
                       ))}
-                      {tech.skills.length > 3 && (
-                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
-                          +{tech.skills.length - 3}
-                        </span>
-                      )}
+                      {tech.skills.length > 3 && <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">+{tech.skills.length - 3}</span>}
                     </div>
                   </div>
                 )}
-                
+
                 <div className="flex gap-2 pt-4 border-t border-gray-100">
                   <PermissionGuard permissions={["technician:read"]} fallback={null}>
-                    <button
-                      className="flex-1 px-3 py-2 text-blue-600 hover:text-blue-900 font-medium text-sm transition-colors border border-blue-200 rounded-lg hover:bg-blue-50 flex items-center justify-center gap-1"
-                      onClick={() => setSelectedTechnician(tech)}
-                      title="View details"
-                    >
+                    <button className="flex-1 px-3 py-2 text-blue-600 hover:text-blue-900 font-medium text-sm transition-colors border border-blue-200 rounded-lg hover:bg-blue-50 flex items-center justify-center gap-1" onClick={() => setSelectedTechnician(tech)} title="View details">
                       <EyeIcon className="w-4 h-4" />
                       View
                     </button>
@@ -400,14 +343,11 @@ export default function TechnicianList({ technicians, onDelete, branches }: Tech
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold text-gray-900">Technician Details</h3>
-                <button
-                  onClick={() => setSelectedTechnician(null)}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
-                >
+                <button onClick={() => setSelectedTechnician(null)} className="text-gray-400 hover:text-gray-600 transition-colors">
                   <XCircleIcon className="w-6 h-6" />
                 </button>
               </div>
-              
+
               <div className="space-y-4">
                 <div className="flex items-center gap-3">
                   <div className="w-16 h-16 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-lg flex items-center justify-center">
@@ -424,7 +364,7 @@ export default function TechnicianList({ technicians, onDelete, branches }: Tech
                     <PhoneIcon className="w-4 h-4 text-gray-400" />
                     <span>{selectedTechnician.phone}</span>
                   </div>
-                  
+
                   <div className="flex items-center gap-2 text-sm text-gray-600">
                     <BuildingOfficeIcon className="w-4 h-4 text-gray-400" />
                     <span>Branch: {getBranchName(selectedTechnician.branchId)}</span>
@@ -462,4 +402,4 @@ export default function TechnicianList({ technicians, onDelete, branches }: Tech
       )}
     </>
   );
-} 
+}

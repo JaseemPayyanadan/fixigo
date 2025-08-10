@@ -31,9 +31,6 @@ export const ROLE_PERMISSIONS: Record<Role, RolePermissions> = {
       "service:read",
       "service:write",
       "service:delete",
-      "task:read",
-      "task:write",
-      "task:delete",
       "user:read",
       "user:write",
       "user:delete",
@@ -45,7 +42,7 @@ export const ROLE_PERMISSIONS: Record<Role, RolePermissions> = {
   },
   branch_admin: {
     role: "branch_admin",
-    permissions: ["dashboard:read", "branch:read", "branch:write", "technician:read", "technician:write", "service:read", "service:write", "task:read", "task:write", "user:read", "report:read", "setting:read"],
+    permissions: ["dashboard:read", "branch:read", "branch:write", "technician:read", "technician:write", "service:read", "service:write", "user:read", "report:read", "setting:read"],
     inheritsFrom: ["shop_admin"],
   },
   technician: {
@@ -54,8 +51,6 @@ export const ROLE_PERMISSIONS: Record<Role, RolePermissions> = {
       "dashboard:read",
       "service:read",
       "service:write",
-      "task:read",
-      "task:write",
       "user:read", // Allow technicians to read their own user data
       // Allow technicians to read their own data
     ],
@@ -164,8 +159,7 @@ export function canManageResource(user: User, resourceType: string, resourceData
       return hasPermission(user, "technician:write") && canAccessBranch(user, resourceData?.branchId || "");
     case "service":
       return hasPermission(user, "service:write") && canAccessBranch(user, resourceData?.branchId || "");
-    case "task":
-      return hasPermission(user, "task:write") && canAccessBranch(user, resourceData?.branchId || "");
+
     case "user":
       return hasPermission(user, "user:write") && canAccessShop(user, resourceData?.shopId || "");
     default:
@@ -184,8 +178,7 @@ export function canViewResource(user: User, resourceType: string, resourceData?:
       return hasPermission(user, "technician:read") && canAccessBranch(user, resourceData?.branchId || "");
     case "service":
       return hasPermission(user, "service:read") && canAccessBranch(user, resourceData?.branchId || "");
-    case "task":
-      return hasPermission(user, "task:read") && canAccessBranch(user, resourceData?.branchId || "");
+
     case "user":
       return hasPermission(user, "user:read") && canAccessShop(user, resourceData?.shopId || "");
     default:
@@ -204,8 +197,7 @@ export function canDeleteResource(user: User, resourceType: string, resourceData
       return hasPermission(user, "technician:delete") && canAccessBranch(user, resourceData?.branchId || "");
     case "service":
       return hasPermission(user, "service:delete") && canAccessBranch(user, resourceData?.branchId || "");
-    case "task":
-      return hasPermission(user, "task:delete") && canAccessBranch(user, resourceData?.branchId || "");
+
     case "user":
       return hasPermission(user, "user:delete") && canAccessShop(user, resourceData?.shopId || "");
     default:
@@ -278,9 +270,6 @@ export const PERMISSION_ACTIONS = {
   canDeleteService: (user: User) => hasPermission(user, "service:delete"),
 
   // Task management
-  canManageTask: (user: User) => hasPermission(user, "task:write"),
-  canViewTask: (user: User) => hasPermission(user, "task:read"),
-  canDeleteTask: (user: User) => hasPermission(user, "task:delete"),
 
   // User management
   canManageUser: (user: User) => hasPermission(user, "user:write"),
@@ -333,7 +322,7 @@ export const PermissionUtils = {
     if (hasPermission(user, "branch:read")) resources.push("branch");
     if (hasPermission(user, "technician:read")) resources.push("technician");
     if (hasPermission(user, "service:read")) resources.push("service");
-    if (hasPermission(user, "task:read")) resources.push("task");
+
     if (hasPermission(user, "user:read")) resources.push("user");
     if (hasPermission(user, "report:read")) resources.push("report");
     if (hasPermission(user, "setting:read")) resources.push("setting");

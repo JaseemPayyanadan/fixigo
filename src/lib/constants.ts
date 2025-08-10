@@ -8,7 +8,7 @@ export const NAV_ITEMS = {
   SERVICES: "/services",
   TECHNICIANS: "/technicians",
   BRANCHES: "/branch",
-  MY_TASKS: "/my-tasks",
+
   PROFILE: "/profile",
 } as const;
 
@@ -28,11 +28,7 @@ export const SERVICE_STATUS = {
   CANCELLED: "cancelled",
 } as const;
 
-export const TASK_STATUS = {
-  PENDING: "pending",
-  IN_PROGRESS: "in_progress",
-  COMPLETED: "completed",
-} as const;
+
 
 export const PRIORITY_LEVELS = {
   LOW: "low",
@@ -53,7 +49,7 @@ export const API_ENDPOINTS = {
   BRANCHES: "/api/branches",
   TECHNICIANS: "/api/technicians",
   SERVICES: "/api/services",
-  TASKS: "/api/tasks",
+
 } as const;
 
 // Pagination constants

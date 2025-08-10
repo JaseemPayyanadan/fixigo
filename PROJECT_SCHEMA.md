@@ -2,7 +2,7 @@
 
 ## 🎯 Overview
 
-Fixigo is a comprehensive service management system for businesses with multiple branches and technicians. The database has been migrated from a nested subcollection structure to a normalized flat structure for better performance and scalability.
+Fixigo is a comprehensive service management system for businesses with multiple branches and technicians. The database uses a normalized flat structure for optimal performance and scalability.
 
 ## 📊 Current Database Structure
 
@@ -25,6 +25,7 @@ Fixigo is a comprehensive service management system for businesses with multiple
 ## 🏗️ Detailed Schema
 
 ### **1. Users Collection**
+
 ```typescript
 /users/{userId}
 {
@@ -44,6 +45,7 @@ Fixigo is a comprehensive service management system for businesses with multiple
 ```
 
 ### **2. Shops Collection**
+
 ```typescript
 /shops/{shopId}
 {
@@ -78,6 +80,7 @@ Fixigo is a comprehensive service management system for businesses with multiple
 ```
 
 ### **3. Branches Collection**
+
 ```typescript
 /branches/{branchId}
 {
@@ -95,6 +98,7 @@ Fixigo is a comprehensive service management system for businesses with multiple
 ```
 
 ### **4. Technicians Collection**
+
 ```typescript
 /technicians/{technicianId}
 {
@@ -129,6 +133,7 @@ Fixigo is a comprehensive service management system for businesses with multiple
 ```
 
 ### **5. Services Collection**
+
 ```typescript
 /services/{serviceId}
 {
@@ -180,6 +185,7 @@ Fixigo is a comprehensive service management system for businesses with multiple
 ```
 
 ### **6. Invoices Collection**
+
 ```typescript
 /invoices/{invoiceId}
 {
@@ -215,6 +221,7 @@ Fixigo is a comprehensive service management system for businesses with multiple
 ```
 
 ### **7. Tasks Collection**
+
 ```typescript
 /tasks/{taskId}
 {
@@ -238,6 +245,7 @@ Fixigo is a comprehensive service management system for businesses with multiple
 ```
 
 ### **8. Customers Collection**
+
 ```typescript
 /customers/{customerId}
 {
@@ -253,6 +261,7 @@ Fixigo is a comprehensive service management system for businesses with multiple
 ```
 
 ### **9. Parts Collection**
+
 ```typescript
 /parts/{partId}
 {
@@ -271,6 +280,7 @@ Fixigo is a comprehensive service management system for businesses with multiple
 ```
 
 ### **10. Notifications Collection**
+
 ```typescript
 /notifications/{notificationId}
 {
@@ -287,6 +297,7 @@ Fixigo is a comprehensive service management system for businesses with multiple
 ```
 
 ### **11. Audit Logs Collection**
+
 ```typescript
 /audit_logs/{logId}
 {
@@ -306,27 +317,43 @@ Fixigo is a comprehensive service management system for businesses with multiple
 ## 🔐 Security Rules Structure
 
 ### **Role-Based Access Control (RBAC)**
+
 - **Shop Admin**: Full access to shop and all branches
 - **Branch Admin**: Access only to assigned branch
 - **Technician**: Access only to assigned branch and own data
 
 ### **Permission System**
+
 ```typescript
-type Permission = 
-  | "shop:read" | "shop:write" | "shop:delete"
-  | "branch:read" | "branch:write" | "branch:delete"
-  | "technician:read" | "technician:write" | "technician:delete"
-  | "service:read" | "service:write" | "service:delete"
-  | "invoice:read" | "invoice:write" | "invoice:delete"
-  | "task:read" | "task:write" | "task:delete"
-  | "user:read" | "user:write" | "user:delete"
-  | "report:read" | "report:write"
-  | "setting:read" | "setting:write";
+type Permission =
+  | "shop:read"
+  | "shop:write"
+  | "shop:delete"
+  | "branch:read"
+  | "branch:write"
+  | "branch:delete"
+  | "technician:read"
+  | "technician:write"
+  | "technician:delete"
+  | "service:read"
+  | "service:write"
+  | "service:delete"
+  | "invoice:read"
+  | "invoice:write"
+  | "invoice:delete"
+  | "user:read"
+  | "user:write"
+  | "user:delete"
+  | "report:read"
+  | "report:write"
+  | "setting:read"
+  | "setting:write";
 ```
 
 ## 📈 Performance Optimizations
 
 ### **Composite Indexes**
+
 - **Users**: `shopId + role + status`, `shopId + branchId + role`
 - **Branches**: `shopId + status + createdAt`, `managerId + status`
 - **Technicians**: `shopId + branchId + status`, `shopId + rating`
@@ -335,28 +362,15 @@ type Permission =
 - **Tasks**: `shopId + branchId + status`, `assignedTechnicianId + status`
 
 ### **Query Performance**
+
 - **Before**: 3-5 nested queries per operation
 - **After**: 1 direct query per operation
 - **Improvement**: 70-80% faster queries
 
-## 🔄 Migration History
-
-### **Phase 1: Enhanced Firestore (Completed)**
-- ✅ Migrated from nested subcollections to flat structure
-- ✅ Implemented comprehensive security rules
-- ✅ Deployed optimized composite indexes
-- ✅ Created migration and validation scripts
-- ✅ Updated application hooks for new structure
-
-### **Phase 2: PostgreSQL Migration (Future)**
-- 🔄 Set up PostgreSQL with Supabase/Firebase
-- 🔄 Implement data synchronization
-- 🔄 Gradual migration of read operations
-- 🔄 Full migration with zero downtime
-
 ## 🛠️ Application Integration
 
 ### **Updated Hooks**
+
 ```typescript
 // useTechnicians Hook
 const { technicians, loading, error, createTechnician, updateTechnician, deleteTechnician, getTechnicianStats } = useTechnicians(shopId, branchId);
@@ -369,31 +383,26 @@ const { invoices, loading, error, createInvoice, updateInvoice, deleteInvoice } 
 ```
 
 ### **Query Examples**
+
 ```typescript
 // Old nested query
-const servicesQuery = query(
-  collection(db, "shops", shopId, "branches", branchId, "services"),
-  where("status", "==", "pending")
-);
+const servicesQuery = query(collection(db, "shops", shopId, "branches", branchId, "services"), where("status", "==", "pending"));
 
 // New flat query
-const servicesQuery = query(
-  collection(db, "services"),
-  where("shopId", "==", shopId),
-  where("branchId", "==", branchId),
-  where("status", "==", "pending")
-);
+const servicesQuery = query(collection(db, "services"), where("shopId", "==", shopId), where("branchId", "==", branchId), where("status", "==", "pending"));
 ```
 
 ## 📊 Scalability Metrics
 
 ### **Current Capacity**
+
 - **Concurrent Users**: 10,000+
 - **Data Size**: 100GB+
 - **Query Response**: <500ms average
 - **Index Efficiency**: 95% hit rate
 
 ### **Performance Improvements**
+
 - **Query Speed**: 70-80% faster
 - **Memory Usage**: 40% reduction
 - **Index Creation**: 6x faster
@@ -402,13 +411,16 @@ const servicesQuery = query(
 ## 🎯 Business Logic
 
 ### **User Roles & Permissions**
+
 1. **Shop Admin**
+
    - Full access to shop and all branches
    - Can create/manage branches
    - Can assign branch managers
    - Can view all reports and analytics
 
 2. **Branch Admin**
+
    - Access only to assigned branch
    - Can manage technicians in their branch
    - Can create/manage services and invoices
@@ -421,6 +433,7 @@ const servicesQuery = query(
    - Can view assigned tasks
 
 ### **Service Workflow**
+
 1. **Service Creation** → Branch Admin creates service request
 2. **Assignment** → Service assigned to technician
 3. **Progress Updates** → Technician updates service status
@@ -431,6 +444,7 @@ const servicesQuery = query(
 ## 🔮 Future Enhancements
 
 ### **Advanced Features**
+
 - **Real-time Analytics**: Live dashboards and reporting
 - **Machine Learning**: Predictive maintenance and service recommendations
 - **Mobile Optimization**: Offline capabilities and mobile-first design
@@ -438,13 +452,14 @@ const servicesQuery = query(
 - **Advanced Notifications**: Push notifications and email alerts
 
 ### **Database Evolution**
-- **Phase 2**: PostgreSQL migration for enterprise features
+
+- **Phase 2**: PostgreSQL for enterprise features
 - **Advanced Indexing**: Full-text search and geospatial queries
 - **Data Archiving**: Automated data archiving for compliance
 - **Backup & Recovery**: Enhanced backup strategies
 
 ---
 
-**Schema Version**: 2.0.0  
-**Last Updated**: August 2024  
-**Migration Status**: Phase 1 Complete ✅ 
+**Schema Version**: 2.0.0
+**Last Updated**: August 2024
+**Status**: Phase 1 Complete ✅

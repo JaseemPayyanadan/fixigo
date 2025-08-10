@@ -23,10 +23,10 @@ interface TechnicianProfile {
 }
 
 interface WorkStats {
-  totalTasks: number;
-  completedTasks: number;
-  inProgressTasks: number;
-  pendingTasks: number;
+  totalServices: number;
+  completedServices: number;
+  inProgressServices: number;
+  pendingServices: number;
   totalEarnings: number;
   averageRating?: number;
 }
@@ -36,10 +36,10 @@ export default function ProfilePage() {
   const router = useRouter();
   const [profile, setProfile] = useState<TechnicianProfile | null>(null);
   const [workStats, setWorkStats] = useState<WorkStats>({
-    totalTasks: 0,
-    completedTasks: 0,
-    inProgressTasks: 0,
-    pendingTasks: 0,
+    totalServices: 0,
+    completedServices: 0,
+    inProgressServices: 0,
+    pendingServices: 0,
     totalEarnings: 0,
   });
   const [loading, setLoading] = useState(true);
@@ -97,20 +97,20 @@ export default function ProfilePage() {
             const services = servicesSnapshot.docs.map((doc) => doc.data());
 
             const stats: WorkStats = {
-              totalTasks: services.length,
-              completedTasks: services.filter((s) => (s as Record<string, unknown>).status === "Completed").length,
-              inProgressTasks: services.filter((s) => (s as Record<string, unknown>).status === "In Progress").length,
-              pendingTasks: services.filter((s) => (s as Record<string, unknown>).status === "To Do").length,
+              totalServices: services.length,
+              completedServices: services.filter((s) => (s as Record<string, unknown>).status === "Completed").length,
+              inProgressServices: services.filter((s) => (s as Record<string, unknown>).status === "In Progress").length,
+              pendingServices: services.filter((s) => (s as Record<string, unknown>).status === "To Do").length,
               totalEarnings: services.filter((s) => (s as Record<string, unknown>).status === "Completed").reduce((sum: number, s) => sum + (Number((s as Record<string, unknown>).price) || 0), 0),
             };
 
             setWorkStats(stats);
           } else {
             setWorkStats({
-              totalTasks: 0,
-              completedTasks: 0,
-              inProgressTasks: 0,
-              pendingTasks: 0,
+              totalServices: 0,
+              completedServices: 0,
+              inProgressServices: 0,
+              pendingServices: 0,
               totalEarnings: 0,
             });
           }
@@ -354,8 +354,8 @@ export default function ProfilePage() {
                         <HiClipboardList className="w-5 h-5 text-blue-600" />
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-gray-600">Total Tasks</p>
-                        <p className="text-2xl font-bold text-gray-900">{workStats.totalTasks}</p>
+                                                  <p className="text-sm font-medium text-gray-600">Total Services</p>
+                        <p className="text-2xl font-bold text-gray-900">{workStats.totalServices}</p>
                       </div>
                     </div>
                   </div>
@@ -368,7 +368,7 @@ export default function ProfilePage() {
                       </div>
                       <div>
                         <p className="text-sm font-medium text-gray-600">Completed</p>
-                        <p className="text-2xl font-bold text-gray-900">{workStats.completedTasks}</p>
+                        <p className="text-2xl font-bold text-gray-900">{workStats.completedServices}</p>
                       </div>
                     </div>
                   </div>
@@ -381,7 +381,7 @@ export default function ProfilePage() {
                       </div>
                       <div>
                         <p className="text-sm font-medium text-gray-600">In Progress</p>
-                        <p className="text-2xl font-bold text-gray-900">{workStats.inProgressTasks}</p>
+                        <p className="text-2xl font-bold text-gray-900">{workStats.inProgressServices}</p>
                       </div>
                     </div>
                   </div>
@@ -394,7 +394,7 @@ export default function ProfilePage() {
                       </div>
                       <div>
                         <p className="text-sm font-medium text-gray-600">Pending</p>
-                        <p className="text-2xl font-bold text-gray-900">{workStats.pendingTasks}</p>
+                        <p className="text-2xl font-bold text-gray-900">{workStats.pendingServices}</p>
                       </div>
                     </div>
                   </div>

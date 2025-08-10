@@ -1,5 +1,8 @@
-Rules used by the migration agent
+# Rules for development
+
 - Use Next 14 App Router + strict TypeScript
 - Keep Tailwind classes unchanged unless obsolete
 - No `any`; add explicit types
 - Reusable markup must live in /src/components
+- Follow React best practices and hooks rules
+- Maintain clean, readable code structure

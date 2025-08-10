@@ -44,9 +44,7 @@ export function usePermissions() {
       canManageService: () => false,
       canViewService: () => false,
       canDeleteService: () => false,
-      canManageTask: () => false,
-      canViewTask: () => false,
-      canDeleteTask: () => false,
+
       canManageUser: () => false,
       canViewUser: () => false,
       canDeleteUser: () => false,
@@ -95,9 +93,7 @@ export function usePermissions() {
     canManageService: () => PERMISSION_ACTIONS.canManageService(userForPermissions),
     canViewService: () => PERMISSION_ACTIONS.canViewService(userForPermissions),
     canDeleteService: () => PERMISSION_ACTIONS.canDeleteService(userForPermissions),
-    canManageTask: () => PERMISSION_ACTIONS.canManageTask(userForPermissions),
-    canViewTask: () => PERMISSION_ACTIONS.canViewTask(userForPermissions),
-    canDeleteTask: () => PERMISSION_ACTIONS.canDeleteTask(userForPermissions),
+
     canManageUser: () => PERMISSION_ACTIONS.canManageUser(userForPermissions),
     canViewUser: () => PERMISSION_ACTIONS.canViewUser(userForPermissions),
     canDeleteUser: () => PERMISSION_ACTIONS.canDeleteUser(userForPermissions),
