@@ -4,7 +4,7 @@ import { useCallback, useState } from "react";
 import { FaDownload, FaEdit, FaEye, FaEyeSlash, FaPrint, FaShare, FaTrash } from "react-icons/fa";
 
 import type { Invoice } from "@/types";
-import { LoadingSpinner } from "./LoadingSpinner";
+import LoadingSpinner from "./LoadingSpinner";
 
 interface InvoiceDetailsProps {
   invoice: Invoice;
@@ -133,7 +133,7 @@ export function InvoiceDetails({ invoice, loading = false, onDelete, onStatusCha
   };
 
   // Calculate payment progress
-  const paymentProgress = invoice.advance > 0 ? (invoice.advance / invoice.total) * 100 : 0;
+  const paymentProgress = (invoice.advance || 0) > 0 ? ((invoice.advance || 0) / invoice.total) * 100 : 0;
 
   if (loading) {
     return (

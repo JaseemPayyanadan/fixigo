@@ -318,7 +318,7 @@ function InvoiceDetailsContent() {
             <FaTimesCircle className="h-12 w-12 text-red-600" />
           </div>
           <h3 className="text-xl font-semibold text-gray-900 mb-2">Invoice not found</h3>
-          <p className="text-gray-600 mb-6">The invoice you're looking for doesn't exist.</p>
+          <p className="text-gray-600 mb-6">The invoice you&apos;re looking for doesn&apos;t exist.</p>
           <button onClick={handleBackToInvoices} className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
             Back to Invoices
           </button>

@@ -4,7 +4,7 @@ import { useCallback, useMemo, useState } from "react";
 import { FaDownload, FaEdit, FaEye, FaSearch, FaSort, FaTrash } from "react-icons/fa";
 
 import type { Invoice } from "@/types";
-import { LoadingSpinner } from "./LoadingSpinner";
+import LoadingSpinner from "./LoadingSpinner";
 
 interface InvoiceListProps {
   invoices: Invoice[];

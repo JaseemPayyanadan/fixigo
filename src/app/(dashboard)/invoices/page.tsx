@@ -286,7 +286,7 @@ function InvoicesContent() {
           <div className="flex flex-col lg:flex-row gap-4">
             {/* Search */}
             <div className="flex-1">
-              <SearchFilter placeholder="Search by customer name, email, or phone..." value={searchTerm} onChange={setSearchTerm} />
+              <SearchFilter placeholder="Search by customer name, email, or phone..." search={searchTerm} onSearchChange={setSearchTerm} />
             </div>
 
             {/* Status Filter */}
