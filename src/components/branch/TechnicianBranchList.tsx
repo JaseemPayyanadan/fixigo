@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from "react";
-import { Branch } from "../../types";
-import { db } from "../../lib/firebase";
-import { collection, getDocs, where, query, getDoc, doc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
+
 import { BuildingOfficeIcon, PhoneIcon, EnvelopeIcon, UserGroupIcon, EyeIcon } from "@heroicons/react/24/outline";
+import { collection, getDocs, where, query, getDoc, doc } from "firebase/firestore";
+
+import { db } from "../../lib/firebase";
+import { Branch } from "../../types";
 
 interface TechnicianBranchListProps {
   branches: Branch[];
@@ -15,12 +17,7 @@ interface TechnicianBranchListProps {
   onDeleteBranch?: (branch: Branch) => void;
 }
 
-export const TechnicianBranchList: React.FC<TechnicianBranchListProps> = ({ 
-  branches, 
-  loading, 
-  error, 
-  shopId
-}) => {
+export const TechnicianBranchList: React.FC<TechnicianBranchListProps> = ({ branches, loading, error, shopId }) => {
   const [techniciansByBranch, setTechniciansByBranch] = useState<Record<string, string[]>>({});
   const router = useRouter();
 
@@ -29,10 +26,10 @@ export const TechnicianBranchList: React.FC<TechnicianBranchListProps> = ({
       if (!branches.length || !shopId) {
         return;
       }
-      
+
       try {
         const byBranch: Record<string, string[]> = {};
-        
+
         // Fetch technicians from branch members array for each branch
         for (const branch of branches) {
           try {
@@ -40,9 +37,9 @@ export const TechnicianBranchList: React.FC<TechnicianBranchListProps> = ({
             if (branchDoc.exists()) {
               const branchData = branchDoc.data();
               const members = branchData.members || [];
-              
+
               const technicianNames: string[] = [];
-              
+
               // Fetch user names for each technician
               for (const member of members) {
                 if (member.role === "technician" && member.userId) {
@@ -59,14 +56,11 @@ export const TechnicianBranchList: React.FC<TechnicianBranchListProps> = ({
                     } catch {
                       // Direct access failed, try query method
                     }
-                    
+
                     // Method 2: Try query method
-                    const userQuery = query(
-                      collection(db, "users"),
-                      where("uid", "==", member.userId)
-                    );
+                    const userQuery = query(collection(db, "users"), where("uid", "==", member.userId));
                     const userSnapshot = await getDocs(userQuery);
-                    
+
                     if (!userSnapshot.empty) {
                       const userData = userSnapshot.docs[0].data();
                       const userName = userData.name || "Unknown User";
@@ -85,7 +79,7 @@ export const TechnicianBranchList: React.FC<TechnicianBranchListProps> = ({
                   }
                 }
               }
-              
+
               byBranch[branch.id] = technicianNames;
             } else {
               byBranch[branch.id] = [];
@@ -94,7 +88,7 @@ export const TechnicianBranchList: React.FC<TechnicianBranchListProps> = ({
             byBranch[branch.id] = [];
           }
         }
-        
+
         setTechniciansByBranch(byBranch);
       } catch {
         setTechniciansByBranch({});
@@ -104,16 +98,16 @@ export const TechnicianBranchList: React.FC<TechnicianBranchListProps> = ({
   }, [branches, shopId]);
 
   // Helper function to get the correct field values
-  const getBranchField = (branch: Branch, field: 'location' | 'phone' | 'email') => {
+  const getBranchField = (branch: Branch, field: "location" | "phone" | "email") => {
     switch (field) {
-      case 'location':
-        return branch.location || 'No location';
-      case 'phone':
-        return branch.phone || 'No phone';
-      case 'email':
-        return branch.email || 'No email';
+      case "location":
+        return branch.location || "No location";
+      case "phone":
+        return branch.phone || "No phone";
+      case "email":
+        return branch.email || "No email";
       default:
-        return '';
+        return "";
     }
   };
 
@@ -191,11 +185,11 @@ export const TechnicianBranchList: React.FC<TechnicianBranchListProps> = ({
                     <div className="space-y-1">
                       <div className="flex items-center text-sm text-gray-900">
                         <PhoneIcon className="w-4 h-4 text-gray-400 mr-2" />
-                        {getBranchField(branch, 'phone')}
+                        {getBranchField(branch, "phone")}
                       </div>
                       <div className="flex items-center text-sm text-gray-900">
                         <EnvelopeIcon className="w-4 h-4 text-gray-400 mr-2" />
-                        {getBranchField(branch, 'email')}
+                        {getBranchField(branch, "email")}
                       </div>
                     </div>
                   </td>
@@ -203,35 +197,25 @@ export const TechnicianBranchList: React.FC<TechnicianBranchListProps> = ({
                     <div className="flex items-center">
                       <UserGroupIcon className="w-4 h-4 text-gray-400 mr-2" />
                       <span className="text-sm text-gray-900">
-                        {techniciansByBranch[branch.id]?.length || 0} {techniciansByBranch[branch.id]?.length === 1 ? 'technician' : 'technicians'}
+                        {techniciansByBranch[branch.id]?.length || 0} {techniciansByBranch[branch.id]?.length === 1 ? "technician" : "technicians"}
                       </span>
                     </div>
                     {techniciansByBranch[branch.id]?.length > 0 && (
                       <div className="text-xs text-gray-500 mt-1">
-                        {techniciansByBranch[branch.id]?.slice(0, 2).join(', ')}
+                        {techniciansByBranch[branch.id]?.slice(0, 2).join(", ")}
                         {techniciansByBranch[branch.id]?.length > 2 && ` +${techniciansByBranch[branch.id]?.length - 2} more`}
                       </div>
                     )}
                   </td>
                   <td className="px-6 py-4">
-                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                      branch.status === 'active' 
-                        ? 'bg-green-100 text-green-800' 
-                        : 'bg-red-100 text-red-800'
-                    }`}>
-                      <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${
-                        branch.status === 'active' ? 'bg-green-400' : 'bg-red-400'
-                      }`}></span>
+                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${branch.status === "active" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
+                      <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${branch.status === "active" ? "bg-green-400" : "bg-red-400"}`}></span>
                       {branch.status}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex items-center justify-end gap-2">
-                      <button
-                        className="text-gray-400 hover:text-blue-600 transition-colors"
-                        onClick={() => branch.id && router.push(`/branch/edit?id=${branch.id}`)}
-                        title="View branch details"
-                      >
+                      <button className="text-gray-400 hover:text-blue-600 transition-colors" onClick={() => branch.id && router.push(`/branch/edit?id=${branch.id}`)} title="View branch details">
                         <EyeIcon className="w-4 h-4" />
                       </button>
                     </div>
@@ -258,46 +242,37 @@ export const TechnicianBranchList: React.FC<TechnicianBranchListProps> = ({
                     <p className="text-xs text-gray-500">Your Work Location</p>
                   </div>
                 </div>
-                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                  branch.status === 'active' 
-                    ? 'bg-green-100 text-green-800' 
-                    : 'bg-red-100 text-red-800'
-                }`}>
-                  <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${
-                    branch.status === 'active' ? 'bg-green-400' : 'bg-red-400'
-                  }`}></span>
+                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${branch.status === "active" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
+                  <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${branch.status === "active" ? "bg-green-400" : "bg-red-400"}`}></span>
                   {branch.status}
                 </span>
               </div>
-              
+
               <div className="space-y-2 mb-3">
                 <div className="flex items-center text-xs text-gray-600">
                   <PhoneIcon className="w-3 h-3 text-gray-400 mr-2" />
-                  <span>{getBranchField(branch, 'phone')}</span>
+                  <span>{getBranchField(branch, "phone")}</span>
                 </div>
                 <div className="flex items-center text-xs text-gray-600">
                   <EnvelopeIcon className="w-3 h-3 text-gray-400 mr-2" />
-                  <span>{getBranchField(branch, 'email')}</span>
+                  <span>{getBranchField(branch, "email")}</span>
                 </div>
                 <div className="flex items-center text-xs text-gray-600">
                   <UserGroupIcon className="w-3 h-3 text-gray-400 mr-2" />
                   <span>
-                    {techniciansByBranch[branch.id]?.length || 0} {techniciansByBranch[branch.id]?.length === 1 ? 'technician' : 'technicians'}
+                    {techniciansByBranch[branch.id]?.length || 0} {techniciansByBranch[branch.id]?.length === 1 ? "technician" : "technicians"}
                   </span>
                 </div>
                 {techniciansByBranch[branch.id]?.length > 0 && (
                   <div className="text-xs text-gray-500 ml-5">
-                    {techniciansByBranch[branch.id]?.slice(0, 2).join(', ')}
+                    {techniciansByBranch[branch.id]?.slice(0, 2).join(", ")}
                     {techniciansByBranch[branch.id]?.length > 2 && ` +${techniciansByBranch[branch.id]?.length - 2} more`}
                   </div>
                 )}
               </div>
-              
+
               <div className="flex gap-2 pt-3 border-t border-gray-100">
-                <button
-                  className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-blue-600 hover:text-blue-700 text-xs font-medium transition-colors border border-blue-200 rounded-md hover:bg-blue-50"
-                  onClick={() => branch.id && router.push(`/branch/edit?id=${branch.id}`)}
-                >
+                <button className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-blue-600 hover:text-blue-700 text-xs font-medium transition-colors border border-blue-200 rounded-md hover:bg-blue-50" onClick={() => branch.id && router.push(`/branch/edit?id=${branch.id}`)}>
                   <EyeIcon className="w-3 h-3" />
                   View Details
                 </button>

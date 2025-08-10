@@ -1,9 +1,11 @@
-import React, { useEffect, useState } from "react";
-import { Branch } from "../../types";
-import { db } from "../../lib/firebase";
-import { collection, getDocs, where, query, getDoc, doc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
+import React, { useEffect, useState } from "react";
+
+import { collection, doc, getDoc, getDocs, query, where } from "firebase/firestore";
+
 import { useUser } from "../../hooks/useUser";
+import { db } from "../../lib/firebase";
+import { Branch } from "../../types";
 
 interface BranchListProps {
   branches: Branch[];
@@ -20,17 +22,15 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, loading, error
   const router = useRouter();
   const { user } = useUser();
 
-
-
   useEffect(() => {
     const fetchTechnicians = async () => {
       if (!branches.length || !shopId) {
         return;
       }
-      
+
       try {
         const byBranch: Record<string, string[]> = {};
-        
+
         // Fetch technicians from branch members array for each branch
         for (const branch of branches) {
           try {
@@ -38,9 +38,9 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, loading, error
             if (branchDoc.exists()) {
               const branchData = branchDoc.data();
               const members = branchData.members || [];
-              
+
               const technicianNames: string[] = [];
-              
+
               // Fetch user names for each technician
               for (const member of members) {
                 if (member.role === "technician" && member.userId) {
@@ -57,14 +57,11 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, loading, error
                     } catch (directError) {
                       // Direct access failed, try query method
                     }
-                    
+
                     // Method 2: Try query method
-                    const userQuery = query(
-                      collection(db, "users"),
-                      where("uid", "==", member.userId)
-                    );
+                    const userQuery = query(collection(db, "users"), where("uid", "==", member.userId));
                     const userSnapshot = await getDocs(userQuery);
-                    
+
                     if (!userSnapshot.empty) {
                       const userData = userSnapshot.docs[0].data();
                       const userName = userData.name || "Unknown User";
@@ -83,7 +80,7 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, loading, error
                   }
                 }
               }
-              
+
               byBranch[branch.id] = technicianNames;
             } else {
               byBranch[branch.id] = [];
@@ -92,7 +89,7 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, loading, error
             byBranch[branch.id] = [];
           }
         }
-        
+
         setTechniciansByBranch(byBranch);
       } catch (error) {
         setTechniciansByBranch({});
@@ -102,16 +99,16 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, loading, error
   }, [branches, shopId]);
 
   // Helper function to get the correct field values
-  const getBranchField = (branch: Branch, field: 'location' | 'phone' | 'email') => {
+  const getBranchField = (branch: Branch, field: "location" | "phone" | "email") => {
     switch (field) {
-      case 'location':
-        return branch.location || 'No location';
-      case 'phone':
-        return branch.phone || 'No phone';
-      case 'email':
-        return branch.email || 'No email';
+      case "location":
+        return branch.location || "No location";
+      case "phone":
+        return branch.phone || "No phone";
+      case "email":
+        return branch.email || "No email";
       default:
-        return '';
+        return "";
     }
   };
 
@@ -152,10 +149,7 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, loading, error
         <h3 className="text-xl font-semibold text-gray-900 mb-2">No branches yet</h3>
         <p className="text-gray-600 mb-6 max-w-md">Branches help you organize your business locations. Get started by adding your first branch to manage multiple locations.</p>
         {onAddBranch && (
-          <button
-            onClick={onAddBranch}
-            className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 font-semibold shadow-lg transition-all duration-200 transform hover:scale-105 flex items-center gap-2"
-          >
+          <button onClick={onAddBranch} className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 font-semibold shadow-lg transition-all duration-200 transform hover:scale-105 flex items-center gap-2">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
             </svg>
@@ -194,24 +188,18 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, loading, error
                       </div>
                       <div>
                         <div className="text-sm font-semibold text-gray-900">{branch.name}</div>
-                        <div className="text-xs text-gray-500">Branch ID: {branch.id ? branch.id.slice(0, 8) + '...' : 'N/A'}</div>
+                        <div className="text-xs text-gray-500">Branch ID: {branch.id ? branch.id.slice(0, 8) + "..." : "N/A"}</div>
                       </div>
                     </div>
                   </td>
                   <td className="px-6 py-4">
-                    <div className="text-sm text-gray-900">
-                      {getBranchField(branch, 'location')}
-                    </div>
+                    <div className="text-sm text-gray-900">{getBranchField(branch, "location")}</div>
                   </td>
                   <td className="px-6 py-4">
-                    <div className="text-sm text-gray-900">
-                      {getBranchField(branch, 'phone')}
-                    </div>
+                    <div className="text-sm text-gray-900">{getBranchField(branch, "phone")}</div>
                   </td>
                   <td className="px-6 py-4">
-                    <div className="text-sm text-gray-900">
-                      {getBranchField(branch, 'email')}
-                    </div>
+                    <div className="text-sm text-gray-900">{getBranchField(branch, "email")}</div>
                   </td>
                   <td className="px-6 py-4">
                     <div className="text-sm text-gray-900">
@@ -219,7 +207,7 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, loading, error
                         <div className="space-y-1">
                           <div className="flex items-center gap-2">
                             <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full font-medium">
-                              {techniciansByBranch[branch.id]?.length} {techniciansByBranch[branch.id]?.length === 1 ? 'technician' : 'technicians'}
+                              {techniciansByBranch[branch.id]?.length} {techniciansByBranch[branch.id]?.length === 1 ? "technician" : "technicians"}
                             </span>
                           </div>
                           <div className="text-gray-600 text-xs">
@@ -229,11 +217,7 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, loading, error
                                 <span>{name}</span>
                               </div>
                             ))}
-                            {techniciansByBranch[branch.id]?.length > 3 && (
-                              <div className="text-gray-400 italic">
-                                +{techniciansByBranch[branch.id]?.length - 3} more
-                              </div>
-                            )}
+                            {techniciansByBranch[branch.id]?.length > 3 && <div className="text-gray-400 italic">+{techniciansByBranch[branch.id]?.length - 3} more</div>}
                           </div>
                         </div>
                       ) : (
@@ -247,24 +231,14 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, loading, error
                     </div>
                   </td>
                   <td className="px-6 py-4">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      branch.status === 'active' 
-                        ? 'bg-green-100 text-green-800' 
-                        : 'bg-red-100 text-red-800'
-                    }`}>
-                      <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${
-                        branch.status === 'active' ? 'bg-green-400' : 'bg-red-400'
-                      }`}></span>
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${branch.status === "active" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
+                      <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${branch.status === "active" ? "bg-green-400" : "bg-red-400"}`}></span>
                       {branch.status}
                     </span>
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-2">
-                      <button
-                        className="text-blue-600 hover:text-blue-900 font-medium text-sm transition-colors"
-                        onClick={() => branch.id && router.push(`/branch/edit?id=${branch.id}`)}
-                        title="Edit branch"
-                      >
+                      <button className="text-blue-600 hover:text-blue-900 font-medium text-sm transition-colors" onClick={() => branch.id && router.push(`/branch/edit?id=${branch.id}`)} title="Edit branch">
                         Edit
                       </button>
                       {onDeleteBranch && (
@@ -307,40 +281,44 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, loading, error
                   </div>
                   <div>
                     <h4 className="text-lg font-semibold text-gray-900">{branch.name}</h4>
-                    <p className="text-sm text-gray-500">{getBranchField(branch, 'location')}</p>
+                    <p className="text-sm text-gray-500">{getBranchField(branch, "location")}</p>
                   </div>
                 </div>
-                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                  branch.status === 'active' 
-                    ? 'bg-green-100 text-green-800' 
-                    : 'bg-red-100 text-red-800'
-                }`}>
-                  <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${
-                    branch.status === 'active' ? 'bg-green-400' : 'bg-red-400'
-                  }`}></span>
+                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${branch.status === "active" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
+                  <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${branch.status === "active" ? "bg-green-400" : "bg-red-400"}`}></span>
                   {branch.status}
                 </span>
               </div>
-              
+
               <div className="space-y-2 mb-4">
                 <div className="flex items-center gap-2 text-sm text-gray-600">
                   <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
+                    />
                   </svg>
-                  <span className="font-medium">{getBranchField(branch, 'phone')}</span>
+                  <span className="font-medium">{getBranchField(branch, "phone")}</span>
                 </div>
                 <div className="flex items-center gap-2 text-sm text-gray-600">
                   <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                   </svg>
-                  <span className="font-medium">{getBranchField(branch, 'email')}</span>
+                  <span className="font-medium">{getBranchField(branch, "email")}</span>
                 </div>
                 <div className="flex items-center gap-2 text-sm text-gray-600">
                   <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+                    />
                   </svg>
                   <span className="font-medium">
-                    {techniciansByBranch[branch.id]?.length || 0} {techniciansByBranch[branch.id]?.length === 1 ? 'technician' : 'technicians'}
+                    {techniciansByBranch[branch.id]?.length || 0} {techniciansByBranch[branch.id]?.length === 1 ? "technician" : "technicians"}
                   </span>
                 </div>
                 {techniciansByBranch[branch.id]?.length > 0 ? (
@@ -351,11 +329,7 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, loading, error
                         <span>{name}</span>
                       </div>
                     ))}
-                    {techniciansByBranch[branch.id]?.length > 3 && (
-                      <div className="text-gray-400 italic">
-                        +{techniciansByBranch[branch.id]?.length - 3} more
-                      </div>
-                    )}
+                    {techniciansByBranch[branch.id]?.length > 3 && <div className="text-gray-400 italic">+{techniciansByBranch[branch.id]?.length - 3} more</div>}
                   </div>
                 ) : (
                   <div className="text-xs text-gray-400 ml-6">
@@ -366,13 +340,9 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, loading, error
                   </div>
                 )}
               </div>
-              
+
               <div className="flex gap-2 pt-4 border-t border-gray-100">
-                <button
-                  className="flex-1 px-4 py-2 text-blue-600 hover:text-blue-900 font-medium text-sm transition-colors border border-blue-200 rounded-lg hover:bg-blue-50"
-                  onClick={() => branch.id && router.push(`/branch/edit?id=${branch.id}`)}
-                  title="Edit branch"
-                >
+                <button className="flex-1 px-4 py-2 text-blue-600 hover:text-blue-900 font-medium text-sm transition-colors border border-blue-200 rounded-lg hover:bg-blue-50" onClick={() => branch.id && router.push(`/branch/edit?id=${branch.id}`)} title="Edit branch">
                   Edit
                 </button>
                 {onDeleteBranch && (
@@ -395,4 +365,4 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, loading, error
       </div>
     </>
   );
-}; 
+};

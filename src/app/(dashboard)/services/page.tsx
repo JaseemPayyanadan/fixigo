@@ -1,15 +1,17 @@
 "use client";
-import React, { useState, useEffect, useMemo } from "react";
-import { collection, getDocs, query, orderBy, where } from "firebase/firestore";
-import { db } from "../../../lib/firebase";
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+
+import { CheckCircleIcon, ClockIcon, DevicePhoneMobileIcon, PlusIcon } from "@heroicons/react/24/outline";
+import { collection, getDocs, orderBy, query, where } from "firebase/firestore";
+
+import { PermissionGuard, RoleGuard } from "../../../components";
+import { BranchAdminServiceList, ShopAdminServiceList, TechnicianServiceList } from "../../../components/service";
+import { SearchFilter } from "../../../components/ui";
 import { useUser } from "../../../hooks";
 import { useBranches } from "../../../hooks/useBranches";
 import { useTechnicians } from "../../../hooks/useTechnicians";
-import { RoleGuard, PermissionGuard } from "../../../components";
-import { ShopAdminServiceList, BranchAdminServiceList, TechnicianServiceList } from "../../../components/service";
-import { SearchFilter } from "../../../components/ui";
-import { PlusIcon, ClockIcon, CheckCircleIcon, CurrencyDollarIcon, DevicePhoneMobileIcon } from "@heroicons/react/24/outline";
-import Link from "next/link";
+import { db } from "../../../lib/firebase";
 import type { Service } from "../../../types";
 
 // Local interface for compatibility with service list components
@@ -51,7 +53,6 @@ function ServicesContent() {
   const { branches } = useBranches(user?.shopId);
   const { technicians } = useTechnicians(user?.shopId, user?.branchId);
 
-  
   const [services, setServices] = useState<ServiceListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -63,12 +64,12 @@ function ServicesContent() {
       const statusMap: Record<string, Service["status"]> = {
         "To Do": "pending",
         "In Progress": "in_progress",
-        "Completed": "completed",
-        "Pending": "pending",
-        "Cancelled": "cancelled",
+        Completed: "completed",
+        Pending: "pending",
+        Cancelled: "cancelled",
         "Awaiting Parts": "awaiting_parts",
         "On Hold": "on_hold",
-        "Ready for Pickup": "ready_for_pickup"
+        "Ready for Pickup": "ready_for_pickup",
       };
       return statusMap[status] || "pending";
     };
@@ -87,17 +88,17 @@ function ServicesContent() {
         name: data.customer?.name || "",
         phone: data.customer?.phone || "",
         email: data.customer?.email || "",
-        address: data.customer?.address
+        address: data.customer?.address,
       },
       device: {
         type: data.device?.type || "Unknown",
         brand: data.device?.brand || "",
         model: data.device?.model || "",
         imei: data.device?.imei || "",
-        color: data.device?.color
+        color: data.device?.color,
       },
       createdAt: data.createdAt?.toDate() || new Date(),
-      updatedAt: data.updatedAt?.toDate() || new Date()
+      updatedAt: data.updatedAt?.toDate() || new Date(),
     };
   };
 
@@ -116,12 +117,12 @@ function ServicesContent() {
       device: {
         brand: service.device.brand,
         model: service.device.model,
-        imei: service.device.imei || ""
+        imei: service.device.imei || "",
       },
       customer: {
         name: service.customer.name,
-        phone: service.customer.phone
-      }
+        phone: service.customer.phone,
+      },
     };
   };
 
@@ -139,22 +140,13 @@ function ServicesContent() {
         try {
           // Build query based on user role and access level
           let servicesQuery;
-          
+
           if (user.branchId) {
             // Branch admin or technician - only show services for their branch
-            servicesQuery = query(
-              collection(db, "services"),
-              where("shopId", "==", user.shopId),
-              where("branchId", "==", user.branchId),
-              orderBy("createdAt", "desc")
-            );
+            servicesQuery = query(collection(db, "services"), where("shopId", "==", user.shopId), where("branchId", "==", user.branchId), orderBy("createdAt", "desc"));
           } else {
             // Shop admin - show all services for the shop
-            servicesQuery = query(
-              collection(db, "services"),
-              where("shopId", "==", user.shopId),
-              orderBy("createdAt", "desc")
-            );
+            servicesQuery = query(collection(db, "services"), where("shopId", "==", user.shopId), orderBy("createdAt", "desc"));
           }
 
           const querySnapshot = await getDocs(servicesQuery);
@@ -171,36 +163,31 @@ function ServicesContent() {
             const technicianQuery = query(collection(db, "technicians"), where("created_by", "==", user.id));
             const technicianSnapshot = await getDocs(technicianQuery);
             const technicianDoc = technicianSnapshot.docs[0];
-            
+
             if (technicianDoc) {
               const technicianId = technicianDoc.id;
-              console.log('Services page - Found technician document ID:', technicianId);
-              
-              allServices = allServicesData.filter(service => {
+              console.log("Services page - Found technician document ID:", technicianId);
+
+              allServices = allServicesData.filter((service) => {
                 // Check for assignment - look for technician_id in the raw data
-                const rawData = querySnapshot.docs.find(doc => doc.id === service.id)?.data() as any;
+                const rawData = querySnapshot.docs.find((doc) => doc.id === service.id)?.data() as any;
                 const isAssigned = rawData?.technician_id === technicianId || service.assignedTechnicianId === technicianId;
-                
+
                 // Check for creation - look for created_by in the raw data
-                const isCreated = 
-                  rawData?.created_by?.id === user.id || 
-                  rawData?.created_by?.id === user.uid ||
-                  rawData?.created_by?.uid === user.uid ||
-                  rawData?.created_by?.uid === user.id;
-                
+                const isCreated = rawData?.created_by?.id === user.id || rawData?.created_by?.id === user.uid || rawData?.created_by?.uid === user.uid || rawData?.created_by?.uid === user.id;
+
                 return isAssigned || isCreated;
               });
             } else {
-              console.log('Services page - No technician document found for UID:', user.id);
+              console.log("Services page - No technician document found for UID:", user.id);
               allServices = [];
             }
           } else {
             allServices = allServicesData;
           }
-          
         } catch (error) {
           console.error("Error fetching services:", error);
-          
+
           // Fallback: try to get all services and filter in memory
           try {
             const servicesRef = collection(db, "services");
@@ -210,28 +197,28 @@ function ServicesContent() {
               const data = { id: doc.id, ...doc.data() };
               return transformServiceData(data);
             });
-            
+
             console.log("Fallback - Total services:", allServicesData.length);
-            allServices = allServicesData.filter(service => 
-              service.shopId === user.shopId
-            );
+            allServices = allServicesData.filter((service) => service.shopId === user.shopId);
             console.log("Fallback - Filtered services:", allServices.length);
           } catch (fallbackError) {
             console.error("Fallback error:", fallbackError);
           }
         }
-        
+
         // Transform to ServiceListItem for display
         console.log("Final services count:", allServices.length);
         const serviceListItems = allServices.map(transformToServiceListItem);
-        console.log("ServiceListItem details:", serviceListItems.map(item => ({
-          id: item.id,
-          name: item.name,
-          technician_id: item.technician_id,
-          status: item.status
-        })));
+        console.log(
+          "ServiceListItem details:",
+          serviceListItems.map((item) => ({
+            id: item.id,
+            name: item.name,
+            technician_id: item.technician_id,
+            status: item.status,
+          }))
+        );
         setServices(serviceListItems);
-        
       } catch (error) {
         console.error("Error fetching services:", error);
       } finally {
@@ -244,8 +231,9 @@ function ServicesContent() {
 
   // Filtered services
   const filteredServices = useMemo(() => {
-    return services.filter(service => {
-      const matchesSearch = !search || 
+    return services.filter((service) => {
+      const matchesSearch =
+        !search ||
         service.name?.toLowerCase().includes(search.toLowerCase()) ||
         service.description?.toLowerCase().includes(search.toLowerCase()) ||
         service.device?.model?.toLowerCase().includes(search.toLowerCase()) ||
@@ -253,9 +241,9 @@ function ServicesContent() {
         service.device?.imei?.toLowerCase().includes(search.toLowerCase()) ||
         service.customer?.name?.toLowerCase().includes(search.toLowerCase()) ||
         service.customer?.phone?.toLowerCase().includes(search.toLowerCase());
-      
+
       const matchesStatus = statusFilter === "All" || service.status === statusFilter;
-      
+
       return matchesSearch && matchesStatus;
     });
   }, [services, search, statusFilter]);
@@ -263,19 +251,17 @@ function ServicesContent() {
   // Calculate stats
   const stats = useMemo(() => {
     const total = services.length;
-    const completed = services.filter(s => s.status === "Completed").length;
-    const inProgress = services.filter(s => s.status === "In Progress").length;
-    const pending = services.filter(s => s.status === "To Do" || s.status === "Pending").length;
-    const totalRevenue = services
-      .filter(s => s.status === "Completed")
-      .reduce((sum, s) => sum + (s.price || 0), 0);
+    const completed = services.filter((s) => s.status === "Completed").length;
+    const inProgress = services.filter((s) => s.status === "In Progress").length;
+    const pending = services.filter((s) => s.status === "To Do" || s.status === "Pending").length;
+    const totalRevenue = services.filter((s) => s.status === "Completed").reduce((sum, s) => sum + (s.price || 0), 0);
 
     return {
       total,
       completed,
       inProgress,
       pending,
-      totalRevenue
+      totalRevenue,
     };
   }, [services]);
 
@@ -305,10 +291,7 @@ function ServicesContent() {
             <p className="text-slate-500 text-sm">Manage service requests</p>
           </div>
           <PermissionGuard permissions={["service:write"]} fallback={null}>
-            <Link
-              href="/services/new"
-              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-            >
+            <Link href="/services/new" className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium">
               <PlusIcon className="w-4 h-4" />
               New Service
             </Link>
@@ -371,9 +354,9 @@ function ServicesContent() {
                   key: "status",
                   label: "Status",
                   value: statusFilter,
-                  options: STATUS_OPTIONS.map(status => ({ value: status, label: status })),
-                  onChange: setStatusFilter
-                }
+                  options: STATUS_OPTIONS.map((status) => ({ value: status, label: status })),
+                  onChange: setStatusFilter,
+                },
               ]}
               onClear={clearFilters}
               showClear={true}
@@ -382,36 +365,10 @@ function ServicesContent() {
         </div>
 
         {/* Services List */}
-        {user?.role === "shop_admin" && (
-          <ShopAdminServiceList
-            services={filteredServices}
-            branches={branches}
-            technicians={technicians}
-            loading={loading}
-            search={search}
-          />
-        )}
-        {user?.role === "branch_admin" && (
-          <BranchAdminServiceList
-            services={filteredServices}
-            branches={branches}
-            technicians={technicians}
-            loading={loading}
-            search={search}
-          />
-        )}
-        {user?.role === "technician" && (
-          <TechnicianServiceList
-            services={filteredServices}
-            branches={branches}
-            technicians={technicians}
-            loading={loading}
-            search={search}
-            user={user}
-          />
-        )}
-
-        </div>
+        {user?.role === "shop_admin" && <ShopAdminServiceList services={filteredServices} branches={branches} technicians={technicians} loading={loading} search={search} />}
+        {user?.role === "branch_admin" && <BranchAdminServiceList services={filteredServices} branches={branches} technicians={technicians} loading={loading} search={search} />}
+        {user?.role === "technician" && <TechnicianServiceList services={filteredServices} branches={branches} technicians={technicians} loading={loading} search={search} user={user} />}
       </div>
-    );
-} 
+    </div>
+  );
+}
