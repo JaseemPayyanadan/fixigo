@@ -85,7 +85,7 @@ function ServicesContent() {
       priority: data.priority || "medium",
       shopId: data.shopId || "",
       branchId: data.branchId || "",
-      estimatedDuration: data.estimatedDuration || 60,
+
       customer: {
         name: data.customer?.name || "",
         phone: data.customer?.phone || "",

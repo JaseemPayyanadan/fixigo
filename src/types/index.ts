@@ -142,7 +142,7 @@ export interface Service {
   assignedTechnicianId?: string;
   shopId: string; // Parent shop ID
   branchId: string; // Parent branch ID
-  estimatedDuration: number; // in minutes
+
   actualDuration?: number; // in minutes
   scheduledDate?: Date;
   completedDate?: Date;

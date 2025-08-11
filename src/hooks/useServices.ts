@@ -50,7 +50,7 @@ export function useServices(shopId?: string, branchId?: string) {
             shopId: data.shopId || "",
       branchId: data.branchId || "",
       price: data.price || 0,
-      estimatedDuration: data.estimatedDuration || 0,
+
       actualDuration: data.actualDuration || 0,
       assignedTechnicianId: data.assignedTechnicianId || data.technician_id || "",
       estimatedCompletion: data.estimatedCompletion?.toDate() || new Date(),

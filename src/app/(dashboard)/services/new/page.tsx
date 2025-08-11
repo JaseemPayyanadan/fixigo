@@ -59,7 +59,7 @@ export default function NewServicePage() {
     );
   }
 
-  const handleAdd = async (data: { service: { name: string; description: string; price: string; branchId: string; technician_id?: string }; customer: { name: string; phone?: string; place?: string }; device: { brand: string; model: string; imei: string; color: string } }) => {
+  const handleAdd = async (data: { service: { name: string; description: string; price: string; branchId: string; technician_id?: string; priority?: string }; customer: { name: string; phone?: string; place?: string }; device: { brand: string; model: string; imei: string; color: string } }) => {
     setError(null);
     if (!data.service.name.trim() || !data.service.price || !shopId) {
       setError("Name, price, and shop are required.");
@@ -78,6 +78,7 @@ export default function NewServicePage() {
         shopId,
         branchId: data.service.branchId || "",
         technician_id: data.service.technician_id || (user?.role === "technician" ? user.id : ""),
+        priority: data.service.priority || "medium",
         customer: data.customer,
         device: data.device, // color included
         created_by: { role: user?.role || "", name: user?.name || "" },

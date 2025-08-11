@@ -21,7 +21,6 @@ export interface ServiceFormData {
     branchId: string;
     technician_id?: string;
     priority?: string;
-    estimatedDuration?: number;
   };
 }
 
@@ -38,7 +37,7 @@ export interface ServiceFormProps {
   initialData?: {
     customer?: { name: string; phone: string; place?: string };
     device?: { brand: string; model: string; imei: string; color: string; type?: string };
-    service?: { name: string; description: string; price: string; technician_id?: string; branchId?: string; priority?: string; estimatedDuration?: number };
+    service?: { name: string; description: string; price: string; technician_id?: string; branchId?: string; priority?: string };
   };
   onCancelEdit?: () => void;
 }

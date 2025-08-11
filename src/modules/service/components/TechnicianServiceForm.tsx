@@ -2,10 +2,7 @@
 import React from "react";
 
 import { 
-  BuildingOfficeIcon, 
-  UserGroupIcon, 
-  ExclamationTriangleIcon,
-  ClockIcon
+  UserGroupIcon
 } from "@heroicons/react/24/outline";
 
 import type { ServiceFormProps } from "../types";

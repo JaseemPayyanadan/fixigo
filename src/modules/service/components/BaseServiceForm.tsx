@@ -46,8 +46,7 @@ const BaseServiceForm: React.FC<BaseServiceFormProps> = ({
     price: "", 
     branchId: "",
     technician_id: "",
-    priority: "medium",
-    estimatedDuration: 60
+    priority: "medium"
   });
   
   const [formErrors, setFormErrors] = useState<ServiceValidationErrors>({});
@@ -93,6 +92,16 @@ const BaseServiceForm: React.FC<BaseServiceFormProps> = ({
     }
   }, [fieldConfig.autoAssignTechnician, user?.id, editing]);
 
+  // Set branchId when it's available
+  useEffect(() => {
+    if (branchId && !editing) {
+      setService(prev => ({
+        ...prev,
+        branchId: branchId
+      }));
+    }
+  }, [branchId, editing]);
+
   // Handle input changes
   const handleCustomerChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -126,6 +135,8 @@ const BaseServiceForm: React.FC<BaseServiceFormProps> = ({
     e.preventDefault();
     
     const formData = { customer, device, service };
+    console.log('Form submission - formData:', formData);
+    
     const errors = validateServiceForm(formData);
     
     if (Object.keys(errors).length > 0) {

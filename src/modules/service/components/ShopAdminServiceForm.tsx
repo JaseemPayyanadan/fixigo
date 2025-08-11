@@ -1,14 +1,7 @@
 "use client";
 import React from "react";
 
-import { 
-  BuildingOfficeIcon, 
-  UserGroupIcon, 
-  ExclamationTriangleIcon,
-  ClockIcon
-} from "@heroicons/react/24/outline";
 
-import TextInput from "@/components/ui/TextInput";
 import { useTechnicians } from "@/hooks/useTechnicians";
 
 import type { ServiceFormProps } from "../types";
@@ -58,7 +51,7 @@ const ShopAdminServiceForm: React.FC<ServiceFormProps> = (props) => {
           <select
             id="technician_id"
             name="technician_id"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full px-2 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           >
             <option value="">Select a technician</option>
             {technicians.map((technician) => (
@@ -73,8 +66,8 @@ const ShopAdminServiceForm: React.FC<ServiceFormProps> = (props) => {
         </div>
       </div>
 
-      {/* Priority and Duration */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {/* Priority */}
+      <div className="grid grid-cols-1 gap-6">
         <div>
           <label htmlFor="priority" className="block text-sm font-medium text-gray-700 mb-2">
             Priority Level
@@ -82,28 +75,14 @@ const ShopAdminServiceForm: React.FC<ServiceFormProps> = (props) => {
           <select
             id="priority"
             name="priority"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            defaultValue="medium"
+            className="w-full px-2 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
           >
             <option value="low">Low</option>
-            <option value="medium" selected>Medium</option>
+            <option value="medium">Medium</option>
             <option value="high">High</option>
             <option value="urgent">Urgent</option>
           </select>
-        </div>
-
-        <div>
-          <label htmlFor="estimatedDuration" className="block text-sm font-medium text-gray-700 mb-2">
-            Estimated Duration (minutes)
-          </label>
-          <input
-            type="number"
-            id="estimatedDuration"
-            name="estimatedDuration"
-            min="15"
-            step="15"
-            defaultValue="60"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          />
         </div>
       </div>
     </div>

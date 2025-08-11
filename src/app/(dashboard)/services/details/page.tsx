@@ -27,7 +27,7 @@ interface Service {
   status?: string;
   technician_id?: string;
   priority?: string;
-  estimatedDuration?: number;
+
   actualDuration?: number;
   scheduledDate?: Date;
   completedDate?: Date;
@@ -147,7 +147,7 @@ function ServiceDetailsPage() {
             status: data.status || "To Do",
             technician_id: data.technician_id || "",
             priority: data.priority || "medium",
-            estimatedDuration: data.estimatedDuration || 60,
+    
             actualDuration: data.actualDuration || 0,
             scheduledDate: data.scheduledDate?.toDate(),
             completedDate: data.completedDate?.toDate(),
@@ -300,7 +300,9 @@ function ServiceDetailsPage() {
   };
 
   const getTechnicianName = (technicianId: string) => {
-    const technician = technicians.find((t) => t.id === technicianId);
+    const technician = technicians.find(
+      (t) => t.id === technicianId || t.userId === technicianId || (t as any).created_by === technicianId
+    );
     return technician?.name || "Not assigned";
   };
 
@@ -548,10 +550,7 @@ function ServiceDetailsPage() {
                   <div className="text-slate-500 text-sm mb-1">Assigned Technician</div>
                   <div className="font-medium text-slate-900">{service.technician_id ? getTechnicianName(service.technician_id) : "Not assigned"}</div>
                 </div>
-                <div>
-                  <div className="text-slate-500 text-sm mb-1">Estimated Duration</div>
-                  <div className="font-medium text-slate-900">{formatDuration(service.estimatedDuration || 60)}</div>
-                </div>
+
                 {service.actualDuration && (
                   <div>
                     <div className="text-slate-500 text-sm mb-1">Actual Duration</div>
