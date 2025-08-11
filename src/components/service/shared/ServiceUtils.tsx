@@ -1,340 +1,412 @@
-import React from 'react';
+import { 
+  CheckCircleIcon, 
+  ClockIcon, 
+  ExclamationTriangleIcon, 
+  PauseIcon, 
+  TruckIcon, 
+  XCircleIcon,
+  CubeIcon,
+  UserIcon
+} from "@heroicons/react/24/outline";
 
-import type { Service, Technician } from '@/types';
+import type { Branch, Service, Technician, User } from "@/types";
+import type { ServiceActions, ServiceFilters, ServiceSortOptions, ServiceDisplayInfo, ServiceStats, ServiceValidationErrors } from "./types";
 
-// Status configuration with improved accessibility
+// Service Status Configuration
 export const SERVICE_STATUS_CONFIG = {
   pending: { 
     label: "Pending", 
-    color: "bg-gray-100 text-gray-800",
-    description: "Service is waiting to be started"
+    color: "bg-yellow-100 text-yellow-800 border-yellow-200",
+    icon: ClockIcon,
+    description: "Service request created, waiting to be assigned"
   },
   in_progress: { 
     label: "In Progress", 
-    color: "bg-blue-100 text-blue-800",
-    description: "Service is currently being worked on"
+    color: "bg-blue-100 text-blue-800 border-blue-200",
+    icon: ExclamationTriangleIcon,
+    description: "Work on the service has begun"
   },
   completed: { 
     label: "Completed", 
-    color: "bg-green-100 text-green-800",
-    description: "Service has been finished successfully"
+    color: "bg-green-100 text-green-800 border-green-200",
+    icon: CheckCircleIcon,
+    description: "Service has been completed successfully"
   },
   cancelled: { 
     label: "Cancelled", 
-    color: "bg-red-100 text-red-800",
+    color: "bg-red-100 text-red-800 border-red-200",
+    icon: XCircleIcon,
     description: "Service has been cancelled"
   },
   on_hold: { 
     label: "On Hold", 
-    color: "bg-orange-100 text-orange-800",
+    color: "bg-orange-100 text-orange-800 border-orange-200",
+    icon: PauseIcon,
     description: "Service is temporarily paused"
   },
   awaiting_parts: { 
     label: "Awaiting Parts", 
-    color: "bg-purple-100 text-purple-800",
+    color: "bg-purple-100 text-purple-800 border-purple-200",
+    icon: CubeIcon,
     description: "Waiting for required parts to arrive"
   },
   ready_for_pickup: { 
     label: "Ready for Pickup", 
-    color: "bg-indigo-100 text-indigo-800",
-    description: "Service is complete and ready for customer pickup"
+    color: "bg-emerald-100 text-emerald-800 border-emerald-200",
+    icon: TruckIcon,
+    description: "Service completed, ready for customer pickup"
   },
   quality_check: { 
     label: "Quality Check", 
-    color: "bg-pink-100 text-pink-800",
-    description: "Service is undergoing final quality inspection"
+    color: "bg-indigo-100 text-indigo-800 border-indigo-200",
+    icon: CheckCircleIcon,
+    description: "Service undergoing final quality inspection"
   }
 } as const;
 
-// Priority configuration
+// Service Priority Configuration
 export const SERVICE_PRIORITY_CONFIG = {
   low: { 
     label: "Low", 
-    color: "bg-green-100 text-green-800",
-    description: "Low priority service"
+    color: "text-green-600 bg-green-50 border-green-200",
+    icon: "🟢",
+    description: "Standard priority service"
   },
   medium: { 
     label: "Medium", 
-    color: "bg-yellow-100 text-yellow-800",
-    description: "Medium priority service"
+    color: "text-yellow-600 bg-yellow-50 border-yellow-200",
+    icon: "🟡",
+    description: "Normal priority service"
   },
   high: { 
     label: "High", 
-    color: "bg-orange-100 text-orange-800",
+    color: "text-orange-600 bg-orange-50 border-orange-200",
+    icon: "🟠",
     description: "High priority service"
   },
   urgent: { 
     label: "Urgent", 
-    color: "bg-red-100 text-red-800",
+    color: "text-red-600 bg-red-50 border-red-200",
+    icon: "🔴",
     description: "Urgent service requiring immediate attention"
   }
 } as const;
 
-// Get status configuration with fallback
-export const getServiceStatusConfig = (status: string) => {
-  const normalizedStatus = status.toLowerCase().replace(/\s+/g, '_');
-  return SERVICE_STATUS_CONFIG[normalizedStatus as keyof typeof SERVICE_STATUS_CONFIG] || 
-         SERVICE_STATUS_CONFIG.pending;
+// Get service status configuration
+export const getServiceStatusConfig = (status: keyof typeof SERVICE_STATUS_CONFIG) => {
+  return SERVICE_STATUS_CONFIG[status] || SERVICE_STATUS_CONFIG.pending;
 };
 
-// Get priority configuration with fallback
-export const getServicePriorityConfig = (priority: string) => {
-  const normalizedPriority = priority.toLowerCase();
-  return SERVICE_PRIORITY_CONFIG[normalizedPriority as keyof typeof SERVICE_PRIORITY_CONFIG] || 
-         SERVICE_PRIORITY_CONFIG.medium;
+// Get service priority configuration
+export const getServicePriorityConfig = (priority: keyof typeof SERVICE_PRIORITY_CONFIG) => {
+  return SERVICE_PRIORITY_CONFIG[priority] || SERVICE_PRIORITY_CONFIG.medium;
 };
 
-// Get technician name from technician ID
-export const getTechnicianName = (technicianId: string, technicians: Technician[]): string => {
-  if (!technicianId || !technicians || technicians.length === 0) {
-    return `Tech #${technicianId?.slice(-8) || 'Unknown'}`;
-  }
-  
-  const technician = technicians.find(tech => tech.id === technicianId);
-  return technician ? technician.name : `Tech #${technicianId.slice(-8)}`;
-};
-
-// Get technician display info (name and phone)
-export const getTechnicianDisplayInfo = (technicianId: string, technicians: Technician[]): { name: string; phone?: string } => {
-  if (!technicianId || !technicians || technicians.length === 0) {
-    return { name: `Tech #${technicianId?.slice(-8) || 'Unknown'}` };
-  }
-  
-  const technician = technicians.find(tech => tech.id === technicianId);
-  return technician ? { name: technician.name, phone: technician.phone } : { name: `Tech #${technicianId.slice(-8)}` };
-};
-
-// Format currency with proper locale and error handling
-export const formatServicePrice = (price: number, currency = 'USD'): string => {
-  if (isNaN(price) || !isFinite(price)) {
-    return '$0.00';
-  }
-  
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency,
+// Format service price
+export const formatServicePrice = (price: number): string => {
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
   }).format(price);
 };
 
-// Format service duration
-export const formatServiceDuration = (minutes: number): string => {
-  if (isNaN(minutes) || minutes < 0) {
-    return '0 min';
-  }
-  
-  if (minutes < 60) {
-    return `${minutes} min`;
-  }
-  
-  const hours = Math.floor(minutes / 60);
-  const remainingMinutes = minutes % 60;
-  
-  if (remainingMinutes === 0) {
-    return `${hours}h`;
-  }
-  
-  return `${hours}h ${remainingMinutes}m`;
+// Format service date
+export const formatServiceDate = (date: Date): string => {
+  return new Intl.DateTimeFormat("en-IN", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
 };
 
-// Get service age (how long ago it was created)
-export const getServiceAge = (createdAt: Date): string => {
+// Get service age (time since creation)
+export const getServiceAge = (date: Date): string => {
   const now = new Date();
-  const diffInMs = now.getTime() - createdAt.getTime();
-  const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
-  
-  if (diffInDays === 0) {
-    return 'Today';
-  } else if (diffInDays === 1) {
-    return 'Yesterday';
-  } else if (diffInDays < 7) {
-    return `${diffInDays} days ago`;
-  } else if (diffInDays < 30) {
-    const weeks = Math.floor(diffInDays / 7);
-    return `${weeks} week${weeks > 1 ? 's' : ''} ago`;
-  } else {
-    const months = Math.floor(diffInDays / 30);
-    return `${months} month${months > 1 ? 's' : ''} ago`;
-  }
+  const diffTime = Math.abs(now.getTime() - date.getTime());
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+  if (diffDays === 1) return "1 day ago";
+  if (diffDays < 7) return `${diffDays} days ago`;
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
+  if (diffDays < 365) return `${Math.floor(diffDays / 30)} months ago`;
+  return `${Math.floor(diffDays / 365)} years ago`;
 };
 
-// Filter services by search term
-export const filterServicesBySearch = (services: Service[], search: string): Service[] => {
-  if (!search.trim()) return services;
+// Get technician display information
+export const getTechnicianDisplayInfo = (technicianId: string | undefined, technicians: Technician[]): string => {
+  if (!technicianId) return "Unassigned";
   
-  const searchTerm = search.toLowerCase().trim();
+  const technician = technicians.find(t => t.id === technicianId);
+  return technician ? technician.name : "Unknown Technician";
+};
+
+// Get branch display information
+export const getBranchDisplayInfo = (branchId: string | undefined, branches: Branch[]): string => {
+  if (!branchId) return "Unknown Branch";
   
+  const branch = branches.find(b => b.id === branchId);
+  return branch ? branch.name : "Unknown Branch";
+};
+
+// Service permissions and actions
+
+
+// Get service actions based on user role and service ownership
+export const getServiceActions = (service: Service, user: User): ServiceActions => {
+  const isAssignedTechnician = service.assignedTechnicianId === user.id;
+  const isShopAdmin = user.role === "shop_admin";
+  const isBranchAdmin = user.role === "branch_admin";
+  const isTechnician = user.role === "technician";
+
+  return {
+    canEdit: isShopAdmin || isBranchAdmin || (isTechnician && isAssignedTechnician),
+    canDelete: isShopAdmin || isBranchAdmin,
+    canAssign: isShopAdmin || isBranchAdmin,
+    canUpdateStatus: isShopAdmin || isBranchAdmin || (isTechnician && isAssignedTechnician),
+    canViewDetails: true // All authenticated users can view service details
+  };
+};
+
+// Check if user can access a specific service
+export const canAccessService = (service: Service, user: User): boolean => {
+  if (!user) return false;
+  
+  // Shop admins can access all services
+  if (user.role === "shop_admin") return true;
+  
+  // Branch admins and technicians can only access services from their branch
+  if (user.branchId && service.branchId !== user.branchId) return false;
+  
+  // Technicians can only access assigned services
+  if (user.role === "technician") {
+    return service.assignedTechnicianId === user.id;
+  }
+  
+  return true;
+};
+
+// Service filtering
+
+// Filter services based on criteria
+export const filterServices = (services: Service[], filters: ServiceFilters): Service[] => {
   return services.filter(service => {
-    return (
-      service.name?.toLowerCase().includes(searchTerm) ||
-      service.description?.toLowerCase().includes(searchTerm) ||
-      service.device?.brand?.toLowerCase().includes(searchTerm) ||
-      service.device?.model?.toLowerCase().includes(searchTerm) ||
-      service.device?.imei?.toLowerCase().includes(searchTerm) ||
-      service.customer?.name?.toLowerCase().includes(searchTerm) ||
-      service.customer?.phone?.toLowerCase().includes(searchTerm) ||
-      service.customer?.email?.toLowerCase().includes(searchTerm)
-    );
+    // Status filter
+    if (filters.status && filters.status !== "all" && service.status !== filters.status) {
+      return false;
+    }
+    
+    // Priority filter
+    if (filters.priority && filters.priority !== "all" && service.priority !== filters.priority) {
+      return false;
+    }
+    
+    // Technician filter
+    if (filters.assignedTechnicianId && service.assignedTechnicianId !== filters.assignedTechnicianId) {
+      return false;
+    }
+    
+    // Branch filter
+    if (filters.branchId && service.branchId !== filters.branchId) {
+      return false;
+    }
+    
+    // Search filter
+    if (filters.search) {
+      const searchTerm = filters.search.toLowerCase();
+      const matchesSearch = 
+        service.name.toLowerCase().includes(searchTerm) ||
+        service.description.toLowerCase().includes(searchTerm) ||
+        service.customer.name.toLowerCase().includes(searchTerm) ||
+        service.customer.phone.includes(searchTerm) ||
+        service.device.brand.toLowerCase().includes(searchTerm) ||
+        service.device.model.toLowerCase().includes(searchTerm) ||
+        service.device.imei.includes(searchTerm);
+      
+      if (!matchesSearch) return false;
+    }
+    
+    // Date range filter
+    if (filters.dateRange) {
+      const serviceDate = service.createdAt;
+      if (serviceDate < filters.dateRange.start || serviceDate > filters.dateRange.end) {
+        return false;
+      }
+    }
+    
+    return true;
   });
 };
 
-// Sort services by field and direction
-export const sortServices = (
-  services: Service[], 
-  field: keyof Service, 
-  direction: 'asc' | 'desc'
-): Service[] => {
+// Service sorting
+
+
+// Sort services based on field and direction
+export const sortServices = (services: Service[], field: string, direction: "asc" | "desc"): Service[] => {
   return [...services].sort((a, b) => {
-    let aValue = a[field];
-    let bValue = b[field];
+    let aValue: any;
+    let bValue: any;
     
-    // Handle date fields
-    if (field === 'createdAt' || field === 'updatedAt') {
-      aValue = aValue instanceof Date ? aValue.getTime() : 0;
-      bValue = bValue instanceof Date ? bValue.getTime() : 0;
+    switch (field) {
+      case 'createdAt':
+        aValue = a.createdAt;
+        bValue = b.createdAt;
+        break;
+      case 'updatedAt':
+        aValue = a.updatedAt;
+        bValue = b.updatedAt;
+        break;
+      case 'name':
+        aValue = a.name.toLowerCase();
+        bValue = b.name.toLowerCase();
+        break;
+      case 'price':
+        aValue = a.price;
+        bValue = b.price;
+        break;
+      case 'status':
+        aValue = a.status;
+        bValue = b.status;
+        break;
+      case 'priority':
+        const priorityOrder = { low: 1, medium: 2, high: 3, urgent: 4 };
+        aValue = priorityOrder[a.priority as keyof typeof priorityOrder] || 2;
+        bValue = priorityOrder[b.priority as keyof typeof priorityOrder] || 2;
+        break;
+      default:
+        aValue = a.createdAt;
+        bValue = b.createdAt;
     }
     
-    // Handle string fields
-    if (typeof aValue === 'string' && typeof bValue === 'string') {
-      aValue = aValue.toLowerCase();
-      bValue = bValue.toLowerCase();
-    }
-    
-    // Handle number fields
-    if (typeof aValue === 'number' && typeof bValue === 'number') {
-      if (direction === 'asc') {
-        return aValue - bValue;
-      } else {
-        return bValue - aValue;
-      }
-    }
-    
-    // Handle string comparison
-    if (typeof aValue === 'string' && typeof bValue === 'string') {
-      if (direction === 'asc') {
-        return aValue.localeCompare(bValue);
-      } else {
-        return bValue.localeCompare(aValue);
-      }
-    }
-    
+    if (aValue < bValue) return direction === 'asc' ? -1 : 1;
+    if (aValue > bValue) return direction === 'asc' ? 1 : -1;
     return 0;
   });
 };
 
-// Loading state component for services
-export const ServiceLoadingState: React.FC<{ 
-  message?: string;
-  className?: string;
-}> = ({ 
-  message = "Loading services...",
-  className = ""
-}) => (
-  <div className={`text-center py-12 ${className}`} role="status" aria-live="polite">
-    <div className="animate-spin rounded-full border-b-2 border-blue-600 mx-auto h-8 w-8" aria-hidden="true" />
-    <p className="mt-4 text-gray-600">{message}</p>
-  </div>
-);
+// Get service display information for UI
 
-// Error state component for services
-export const ServiceErrorState: React.FC<{ 
-  message: string;
-  onRetry?: () => void;
-  className?: string;
-}> = ({ 
-  message, 
-  onRetry,
-  className = ""
-}) => (
-  <div className={`text-center py-12 ${className}`} role="alert">
-    <div className="text-red-500 mb-4" aria-hidden="true">
-      <svg className="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-      </svg>
-    </div>
-    <h3 className="text-lg font-medium text-gray-900 mb-2">Error Loading Services</h3>
-    <p className="text-sm text-gray-500 mb-4">{message}</p>
-    {onRetry && (
-      <button
-        onClick={onRetry}
-        className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
-      >
-        Try Again
-      </button>
-    )}
-  </div>
-);
 
-// Empty state component for services
-export const ServiceEmptyState: React.FC<{ 
-  search?: string;
-  onCreateNew?: () => void;
-  className?: string;
-}> = ({ 
-  search,
-  onCreateNew,
-  className = ""
-}) => (
-  <div className={`text-center py-12 ${className}`}>
-    <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4" aria-hidden="true">
-      <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-      </svg>
-    </div>
-    <h3 className="text-lg font-medium text-gray-900 mb-2">No services found</h3>
-    <p className="text-gray-500 mb-4">
-      {search ? `No services match "${search}"` : "Get started by creating your first service"}
-    </p>
-    {!search && onCreateNew && (
-      <button
-        onClick={onCreateNew}
-        className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors text-sm"
-      >
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-        </svg>
-        Create First Service
-      </button>
-    )}
-  </div>
-);
+// Get complete service display information
+export const getServiceDisplayInfo = (
+  service: Service, 
+  branches: Branch[], 
+  technicians: Technician[]
+): ServiceDisplayInfo => {
+  const statusConfig = getServiceStatusConfig(service.status as keyof typeof SERVICE_STATUS_CONFIG);
+  const priorityConfig = getServicePriorityConfig(service.priority as keyof typeof SERVICE_PRIORITY_CONFIG);
+  
+  return {
+    statusColor: statusConfig.color,
+    statusIcon: statusConfig.icon,
+    priorityColor: priorityConfig.color,
+    priorityIcon: priorityConfig.icon,
+    technicianName: getTechnicianDisplayInfo(service.assignedTechnicianId, technicians),
+    branchName: getBranchDisplayInfo(service.branchId, branches),
+    formattedPrice: formatServicePrice(service.price),
+    formattedDate: formatServiceDate(service.createdAt),
+    age: getServiceAge(service.createdAt)
+  };
+};
 
-// Service card skeleton component for loading states
-export const ServiceCardSkeleton: React.FC<{ className?: string }> = ({ className = "" }) => (
-  <div className={`bg-white rounded-lg border border-gray-200 shadow-sm p-4 animate-pulse ${className}`}>
-    <div className="flex items-start justify-between mb-3">
-      <div className="flex items-center gap-2">
-        <div className="w-8 h-8 bg-gray-200 rounded-lg"></div>
-        <div>
-          <div className="h-3 bg-gray-200 rounded w-16 mb-1"></div>
-          <div className="h-4 bg-gray-200 rounded w-20"></div>
-        </div>
-      </div>
-      <div className="h-6 bg-gray-200 rounded-full w-16"></div>
-    </div>
-    
-    <div className="space-y-2">
-      <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-      <div className="h-3 bg-gray-200 rounded w-1/2"></div>
-      <div className="h-4 bg-gray-200 rounded w-2/3"></div>
-    </div>
-    
-    <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between">
-      <div className="h-3 bg-gray-200 rounded w-12"></div>
-      <div className="h-4 bg-gray-200 rounded w-16"></div>
-    </div>
-  </div>
-);
+// Calculate service statistics
 
-// Service list skeleton component
-export const ServiceListSkeleton: React.FC<{ count?: number; className?: string }> = ({ 
-  count = 6, 
-  className = "" 
-}) => (
-  <div className={`p-4 ${className}`}>
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      {[...Array(count)].map((_, i) => (
-        <ServiceCardSkeleton key={i} />
-      ))}
-    </div>
-  </div>
-);
+
+// Get service statistics from a list of services
+export const calculateServiceStats = (services: Service[]): ServiceStats => {
+  const now = new Date();
+  let totalRevenue = 0;
+  let totalCompletionTime = 0;
+  let completedCount = 0;
+  
+  const stats = services.reduce((acc, service) => {
+    // Count by status
+    switch (service.status) {
+      case 'completed':
+        acc.completed++;
+        totalRevenue += service.price;
+        if (service.updatedAt) {
+          totalCompletionTime += now.getTime() - service.createdAt.getTime();
+          completedCount++;
+        }
+        break;
+      case 'in_progress':
+        acc.inProgress++;
+        break;
+      case 'pending':
+        acc.pending++;
+        break;
+      case 'on_hold':
+        acc.onHold++;
+        break;
+      case 'awaiting_parts':
+        acc.awaitingParts++;
+        break;
+    }
+    return acc;
+  }, {
+    total: services.length,
+    completed: 0,
+    inProgress: 0,
+    pending: 0,
+    onHold: 0,
+    awaitingParts: 0,
+    totalRevenue: 0,
+    averageCompletionTime: 0
+  });
+  
+  stats.totalRevenue = totalRevenue;
+  stats.averageCompletionTime = completedCount > 0 ? totalCompletionTime / completedCount : 0;
+  
+  return stats;
+};
+
+// Validate service form data
+
+
+// Validate service form data
+export const validateServiceForm = (data: any): ServiceValidationErrors => {
+  const errors: ServiceValidationErrors = {};
+
+  // Customer validation
+  if (!data.customer?.name?.trim()) {
+    errors.customerName = "Customer name is required";
+  }
+  if (!data.customer?.phone?.trim()) {
+    errors.customerPhone = "Customer phone is required";
+  } else if (!/^[0-9+\-\s()]{10,}$/.test(data.customer.phone)) {
+    errors.customerPhone = "Please enter a valid phone number";
+  }
+
+  // Device validation
+  if (!data.device?.brand?.trim()) {
+    errors.deviceBrand = "Device brand is required";
+  }
+  if (!data.device?.model?.trim()) {
+    errors.deviceModel = "Device model is required";
+  }
+  if (!data.device?.imei?.trim()) {
+    errors.deviceImei = "Device IMEI is required";
+  }
+
+  // Service validation
+  if (!data.service?.name?.trim()) {
+    errors.serviceName = "Service name is required";
+  }
+  if (!data.service?.description?.trim()) {
+    errors.serviceDescription = "Service description is required";
+  }
+  if (!data.service?.price?.trim()) {
+    errors.servicePrice = "Service price is required";
+  } else if (isNaN(Number(data.service.price)) || Number(data.service.price) <= 0) {
+    errors.servicePrice = "Please enter a valid price";
+  }
+  if (!data.service?.branchId?.trim()) {
+    errors.branchId = "Branch selection is required";
+  }
+
+  return errors;
+};

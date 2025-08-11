@@ -1,6 +1,7 @@
 import React from "react";
 
 import type { Branch, Service, Technician } from "@/types";
+import type { ServiceStatus, ServicePriority } from "./types";
 
 import { formatServicePrice, getServiceAge, getServicePriorityConfig, getServiceStatusConfig, getTechnicianDisplayInfo } from "./ServiceUtils";
 
@@ -51,7 +52,7 @@ export const ServiceDetailsErrorState: React.FC<{
 
 // Service status badge component
 export const ServiceStatusBadge: React.FC<{
-  status: string;
+  status: ServiceStatus;
   className?: string;
 }> = ({ status, className = "" }) => {
   const statusConfig = getServiceStatusConfig(status);
@@ -66,7 +67,7 @@ export const ServiceStatusBadge: React.FC<{
 
 // Service priority badge component
 export const ServicePriorityBadge: React.FC<{
-  priority: string;
+  priority: ServicePriority;
   className?: string;
 }> = ({ priority, className = "" }) => {
   const priorityConfig = getServicePriorityConfig(priority);
@@ -136,8 +137,8 @@ export const ServiceDetailsHeader: React.FC<{
 
 // Service status management component
 export const ServiceStatusManagement: React.FC<{
-  status: string;
-  onStatusChange: (status: string) => void;
+  status: ServiceStatus;
+  onStatusChange: (status: ServiceStatus) => void;
   updating: boolean;
   lastUpdated?: Date;
   createdAt?: Date;
@@ -153,7 +154,7 @@ export const ServiceStatusManagement: React.FC<{
             <div className="w-2 h-2 rounded-full bg-current opacity-75" />
             {statusConfig.label}
           </div>
-          <select value={status} onChange={(e) => onStatusChange(e.target.value)} disabled={updating} className="border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50" aria-label="Change service status">
+          <select value={status} onChange={(e) => onStatusChange(e.target.value as ServiceStatus)} disabled={updating} className="border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50" aria-label="Change service status">
             <option value="pending">Pending</option>
             <option value="in_progress">In Progress</option>
             <option value="completed">Completed</option>

@@ -5,12 +5,12 @@ import React, { Suspense, useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { collection, deleteDoc, doc, getDoc, getDocs, query, updateDoc, where } from "firebase/firestore";
-import { MdArrowBack, MdBuild, MdCheckCircle, MdDelete, MdDevices, MdEdit, MdFeedback, MdHistory, MdInfo, MdInventory, MdNotes, MdPerson, MdPrint, MdPriorityHigh, MdReceipt, MdRefresh, MdSchedule, MdStar, MdWarning } from "react-icons/md";
+import { MdArrowBack, MdBuild, MdCheckCircle, MdDelete, MdDevices, MdEdit, MdFeedback, MdHistory, MdInfo, MdInventory, MdNotes, MdPerson, MdPrint, MdPriorityHigh, MdRefresh, MdSchedule, MdStar, MdWarning } from "react-icons/md";
 
 import { useUser } from "@/hooks";
 import { authUserToUser } from "@/lib/auth";
 import { db } from "@/lib/firebase";
-import ServiceForm from "@/modules/service/ServiceForm";
+import ServiceForm from "@/components/service/ServiceForm";
 import type { Branch, Technician } from "@/types";
 
 interface Service {
@@ -401,6 +401,7 @@ function ServiceDetailsPage() {
             editing={true}
             error={error}
             branches={branches}
+            technicians={technicians}
             branchId={branchId}
             setBranchId={setBranchId}
             user={convertedUser}
@@ -441,210 +442,304 @@ function ServiceDetailsPage() {
   const priorityIcon = priorityIcons[service.priority || "medium"];
 
   return (
-    <div className="min-h-screen bg-white">
-      <div className="max-w-6xl mx-auto p-6">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-4">
-            <button onClick={handleGoBack} className="p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors">
-              <MdArrowBack className="w-6 h-6" />
-            </button>
-            <div>
-              <h1 className="text-2xl font-bold text-slate-900">{service.name}</h1>
-              <p className="text-slate-500">ID: #{service.id.slice(-6)}</p>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50/30">
+      <div className="max-w-7xl mx-auto p-6">
+        {/* Enhanced Header */}
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 mb-8">
+          <div className="flex items-start justify-between mb-6">
+            <div className="flex items-center gap-4">
+              <button 
+                onClick={handleGoBack} 
+                className="p-3 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-all duration-200 hover:scale-105"
+                aria-label="Go back"
+              >
+                <MdArrowBack className="w-6 h-6" />
+              </button>
+              <div className="flex-1">
+                <h1 className="text-3xl font-bold text-slate-900 mb-2">{service.name}</h1>
+                <div className="flex items-center gap-4 text-slate-600">
+                  <span className="font-mono bg-slate-100 px-3 py-1 rounded-lg text-sm">#{service.id.slice(-8)}</span>
+                  <span className="text-sm">Created {createdAt ? createdAt.toLocaleDateString('en-US', { 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                  }) : 'Unknown date'}</span>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <button 
+                onClick={handleToggleShowHistory} 
+                className="flex items-center gap-2 px-4 py-2.5 text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-all duration-200 font-medium"
+              >
+                <MdHistory className="w-4 h-4" />
+                History
+              </button>
+              <button 
+                onClick={handleEditClick} 
+                className="flex items-center gap-2 px-4 py-2.5 border border-blue-300 text-blue-700 bg-blue-50 rounded-xl font-medium hover:bg-blue-100 hover:border-blue-400 transition-all duration-200"
+              >
+                <MdEdit className="w-4 h-4" />
+                Edit
+              </button>
+              <button 
+                onClick={handlePrint} 
+                className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-all duration-200 shadow-sm hover:shadow-md"
+              >
+                <MdPrint className="w-4 h-4" />
+                Print
+              </button>
+              <button 
+                onClick={handleDelete} 
+                className="flex items-center gap-2 px-4 py-2.5 border border-red-300 text-red-600 bg-red-50 rounded-xl font-medium hover:bg-red-100 hover:border-red-400 transition-all duration-200"
+              >
+                <MdDelete className="w-4 h-4" />
+                Delete
+              </button>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <button onClick={handleToggleShowHistory} className="flex items-center gap-2 px-3 py-2 text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors">
-              <MdHistory className="w-4 h-4" />
-              History
-            </button>
-            <button onClick={handleDelete} className="flex items-center gap-2 px-3 py-2 border border-red-300 text-red-600 bg-white rounded-lg font-medium hover:bg-red-50 transition-colors">
-              <MdDelete className="w-4 h-4" />
-              Delete
-            </button>
-            <button onClick={handleEditClick} className="flex items-center gap-2 px-3 py-2 border border-slate-300 text-slate-700 bg-white rounded-lg font-medium hover:bg-slate-50 transition-colors">
-              <MdEdit className="w-4 h-4" />
-              Edit
-            </button>
-            <button onClick={handlePrint} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors">
-              <MdPrint className="w-4 h-4" />
-              Print Details
-            </button>
-          </div>
-        </div>
 
-        {/* Status and Priority */}
-        <div className="flex items-center gap-4 mb-8">
-          <div className={`${statusColor} flex items-center gap-2 px-4 py-2 rounded-lg font-semibold border`}>
-            {statusIcon}
-            {status}
-          </div>
-          <div className={`${priorityColor} flex items-center gap-1.5 px-3 py-2 rounded-lg font-semibold border`}>
-            {priorityIcon}
-            {getPriorityLabel(service.priority || "medium")}
-          </div>
-          <select value={status} onChange={handleStatusChange} disabled={updatingStatus} className="border border-slate-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 bg-white">
-            {STATUS_OPTIONS.map((opt) => (
-              <option key={opt} value={opt}>
-                {opt}
-              </option>
-            ))}
-          </select>
-          {updatingStatus && (
-            <div className="flex items-center gap-2 text-sm text-slate-500">
-              <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-200 border-t-blue-600"></div>
-              Updating...
+          {/* Enhanced Status and Priority Section */}
+          <div className="flex items-center justify-between p-6 bg-gradient-to-r from-slate-50 to-blue-50/50 rounded-xl border border-slate-200">
+            <div className="flex items-center gap-6">
+              <div className="flex items-center gap-3">
+                <div className={`${statusColor} flex items-center gap-3 px-6 py-3 rounded-xl font-semibold border shadow-sm`}>
+                  {statusIcon}
+                  <span className="text-lg">{status}</span>
+                </div>
+                <div className={`${priorityColor} flex items-center gap-2 px-4 py-2 rounded-lg font-medium border`}>
+                  {priorityIcon}
+                  {getPriorityLabel(service.priority || "medium")}
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-3">
+                <span className="text-slate-600 font-medium">Update Status:</span>
+                <select 
+                  value={status} 
+                  onChange={handleStatusChange} 
+                  disabled={updatingStatus} 
+                  className="border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 bg-white shadow-sm min-w-[180px]"
+                >
+                  {STATUS_OPTIONS.map((opt) => (
+                    <option key={opt} value={opt}>
+                      {opt}
+                    </option>
+                  ))}
+                </select>
+                {updatingStatus && (
+                  <div className="flex items-center gap-2 text-sm text-slate-600 bg-white px-3 py-2 rounded-lg border border-slate-200">
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-200 border-t-blue-600"></div>
+                    Updating...
+                  </div>
+                )}
+              </div>
             </div>
-          )}
+
+            {/* Price Display */}
+            <div className="text-right">
+              <div className="text-slate-500 text-sm font-medium mb-1">Service Price</div>
+              <div className="text-3xl font-bold text-slate-900">₹{service.price?.toLocaleString()}</div>
+            </div>
+          </div>
         </div>
 
         {/* Status History */}
         {showHistory && (
-          <div className="mb-8 p-6 bg-slate-50 rounded-xl border border-slate-200">
-            <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
-              <MdHistory className="w-5 h-5 text-blue-600" />
-              Status History
-            </h3>
-            <div className="space-y-3">
-              {statusHistory.length > 0 ? (
-                statusHistory.map((entry, index) => (
-                  <div key={`history-${entry.status}-${entry.timestamp.getTime()}-${index}`} className="flex items-center justify-between p-3 bg-white rounded-lg border border-slate-200">
-                    <div className="flex items-center gap-3">
-                      <div className={`${statusColors[entry.status]} px-3 py-1 rounded-full text-sm font-medium`}>{entry.status}</div>
-                      <span className="text-sm text-slate-600">by {entry.updatedBy}</span>
+          <div className="mb-8 bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            <div className="p-6 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-blue-50/30">
+              <h3 className="font-semibold text-xl flex items-center gap-3 text-slate-800">
+                <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                  <MdHistory className="w-5 h-5 text-blue-600" />
+                </div>
+                Status History
+              </h3>
+            </div>
+            <div className="p-6">
+              <div className="space-y-4">
+                {statusHistory.length > 0 ? (
+                  statusHistory.map((entry, index) => (
+                    <div key={`history-${entry.status}-${entry.timestamp.getTime()}-${index}`} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200 hover:bg-slate-100 transition-colors">
+                      <div className="flex items-center gap-4">
+                        <div className={`${statusColors[entry.status]} px-4 py-2 rounded-full text-sm font-semibold border`}>
+                          {entry.status}
+                        </div>
+                        <div className="flex items-center gap-2 text-slate-600">
+                          <MdPerson className="w-4 h-4 text-slate-400" />
+                          <span className="font-medium">{entry.updatedBy}</span>
+                        </div>
+                      </div>
+                      <div className="text-sm text-slate-500 bg-white px-3 py-2 rounded-lg border border-slate-200">
+                        {entry.timestamp.toLocaleString('en-US', {
+                          year: 'numeric',
+                          month: 'short',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </div>
                     </div>
-                    <span className="text-sm text-slate-500">{entry.timestamp.toLocaleString()}</span>
+                  ))
+                ) : (
+                  <div className="text-center py-12">
+                    <MdHistory className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+                    <p className="text-slate-500 text-lg font-medium">No status history available</p>
+                    <p className="text-slate-400 text-sm">Status changes will appear here</p>
                   </div>
-                ))
-              ) : (
-                <p className="text-slate-500 text-center py-4">No status history available</p>
-              )}
+                )}
+              </div>
             </div>
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 xl:grid-cols-4 gap-8">
           {/* Main Content */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className="xl:col-span-3 space-y-6">
             {/* Service Information */}
-            <div className="bg-white border border-slate-200 rounded-xl p-6">
-              <h2 className="font-semibold text-lg mb-4 flex items-center gap-2">
-                <MdBuild className="w-5 h-5 text-blue-600" />
-                Service Information
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <div className="text-slate-500 text-sm mb-1">Service Name</div>
-                  <div className="font-medium text-slate-900">{service.name}</div>
+            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-8">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
+                  <MdBuild className="w-6 h-6 text-blue-600" />
                 </div>
-                <div>
-                  <div className="text-slate-500 text-sm mb-1">Price</div>
-                  <div className="font-bold text-slate-900 text-lg">₹{service.price?.toLocaleString()}</div>
-                </div>
-                <div>
-                  <div className="text-slate-500 text-sm mb-1">Branch</div>
-                  <div className="font-medium text-slate-900">{branchName}</div>
-                </div>
-                <div>
-                  <div className="text-slate-500 text-sm mb-1">Assigned Technician</div>
-                  <div className="font-medium text-slate-900">{service.technician_id ? getTechnicianName(service.technician_id) : "Not assigned"}</div>
-                </div>
-
-                {service.actualDuration && (
+                <h2 className="font-bold text-xl text-slate-900">Service Information</h2>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-4">
                   <div>
-                    <div className="text-slate-500 text-sm mb-1">Actual Duration</div>
-                    <div className="font-medium text-slate-900">{formatDuration(service.actualDuration)}</div>
+                    <div className="text-slate-500 text-sm font-medium mb-2">Service Name</div>
+                    <div className="font-semibold text-slate-900 text-lg">{service.name}</div>
                   </div>
-                )}
+                  <div>
+                    <div className="text-slate-500 text-sm font-medium mb-2">Branch</div>
+                    <div className="font-semibold text-slate-900">{branchName}</div>
+                  </div>
+                  <div>
+                    <div className="text-slate-500 text-sm font-medium mb-2">Assigned Technician</div>
+                    <div className="font-semibold text-slate-900">
+                      {service.technician_id ? getTechnicianName(service.technician_id) : "Not assigned"}
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <div className="text-slate-500 text-sm font-medium mb-2">Price</div>
+                    <div className="font-bold text-slate-900 text-2xl">₹{service.price?.toLocaleString()}</div>
+                  </div>
+                  {service.actualDuration && (
+                    <div>
+                      <div className="text-slate-500 text-sm font-medium mb-2">Actual Duration</div>
+                      <div className="font-semibold text-slate-900 text-lg">{formatDuration(service.actualDuration)}</div>
+                    </div>
+                  )}
+                </div>
                 <div className="md:col-span-2">
-                  <div className="text-slate-500 text-sm mb-1">Description</div>
-                  <div className="font-medium text-slate-900 bg-slate-50 p-3 rounded-lg">{service.description || "No description provided"}</div>
+                  <div className="text-slate-500 text-sm font-medium mb-2">Description</div>
+                  <div className="font-medium text-slate-900 bg-slate-50 p-4 rounded-xl border border-slate-200 leading-relaxed">
+                    {service.description || "No description provided"}
+                  </div>
                 </div>
               </div>
             </div>
 
             {/* Device Information */}
-            <div className="bg-white border border-slate-200 rounded-xl p-6">
-              <h2 className="font-semibold text-lg mb-4 flex items-center gap-2">
-                <MdDevices className="w-5 h-5 text-green-600" />
-                Device Information
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <div className="text-slate-500 text-sm mb-1">Type</div>
-                  <div className="font-medium text-slate-900">{service.device?.type || "Not specified"}</div>
+            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-8">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
+                  <MdDevices className="w-6 h-6 text-green-600" />
                 </div>
-                <div>
-                  <div className="text-slate-500 text-sm mb-1">Brand</div>
-                  <div className="font-medium text-slate-900">{service.device?.brand || "Not specified"}</div>
-                </div>
-                <div>
-                  <div className="text-slate-500 text-sm mb-1">Model</div>
-                  <div className="font-medium text-slate-900">{service.device?.model || "Not specified"}</div>
-                </div>
-                <div>
-                  <div className="text-slate-500 text-sm mb-1">IMEI</div>
-                  <div className="font-medium text-slate-900 font-mono text-sm">{service.device?.imei || "Not specified"}</div>
-                </div>
-                {service.device?.color && (
+                <h2 className="font-bold text-xl text-slate-900">Device Information</h2>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-4">
                   <div>
-                    <div className="text-slate-500 text-sm mb-1">Color</div>
-                    <div className="font-medium text-slate-900">{service.device.color}</div>
+                    <div className="text-slate-500 text-sm font-medium mb-2">Type</div>
+                    <div className="font-semibold text-slate-900">{service.device?.type || "Not specified"}</div>
                   </div>
-                )}
+                  <div>
+                    <div className="text-slate-500 text-sm font-medium mb-2">Brand</div>
+                    <div className="font-semibold text-slate-900">{service.device?.brand || "Not specified"}</div>
+                  </div>
+                  <div>
+                    <div className="text-slate-500 text-sm font-medium mb-2">Model</div>
+                    <div className="font-semibold text-slate-900">{service.device?.model || "Not specified"}</div>
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <div className="text-slate-500 text-sm font-medium mb-2">IMEI</div>
+                    <div className="font-semibold text-slate-900 font-mono text-lg bg-slate-50 px-3 py-2 rounded-lg border border-slate-200">
+                      {service.device?.imei || "Not specified"}
+                    </div>
+                  </div>
+                  {service.device?.color && (
+                    <div>
+                      <div className="text-slate-500 text-sm font-medium mb-2">Color</div>
+                      <div className="font-semibold text-slate-900">{service.device.color}</div>
+                    </div>
+                  )}
+                </div>
                 {service.device?.issue && (
                   <div className="md:col-span-2">
-                    <div className="text-slate-500 text-sm mb-1">Issue Description</div>
-                    <div className="font-medium text-slate-900 bg-slate-50 p-3 rounded-lg">{service.device.issue}</div>
+                    <div className="text-slate-500 text-sm font-medium mb-2">Issue Description</div>
+                    <div className="font-medium text-slate-900 bg-slate-50 p-4 rounded-xl border border-slate-200 leading-relaxed">
+                      {service.device.issue}
+                    </div>
                   </div>
                 )}
               </div>
             </div>
 
             {/* Customer Information */}
-            <div className="bg-white border border-slate-200 rounded-xl p-6">
-              <h2 className="font-semibold text-lg mb-4 flex items-center gap-2">
-                <MdPerson className="w-5 h-5 text-purple-600" />
-                Customer Information
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <div className="text-slate-500 text-sm mb-1">Name</div>
-                  <div className="font-medium text-slate-900">{service.customer?.name || "Not specified"}</div>
+            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-8">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center">
+                  <MdPerson className="w-6 h-6 text-purple-600" />
                 </div>
-                <div>
-                  <div className="text-slate-500 text-sm mb-1">Phone</div>
-                  <div className="font-medium text-slate-900">
-                    {service.customer?.phone ? (
-                      <a href={`tel:${service.customer.phone}`} className="text-blue-600 hover:text-blue-800">
-                        {service.customer.phone}
-                      </a>
-                    ) : (
-                      "Not specified"
-                    )}
+                <h2 className="font-bold text-xl text-slate-900">Customer Information</h2>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-4">
+                  <div>
+                    <div className="text-slate-500 text-sm font-medium mb-2">Name</div>
+                    <div className="font-semibold text-slate-900 text-lg">{service.customer?.name || "Not specified"}</div>
+                  </div>
+                  <div>
+                    <div className="text-slate-500 text-sm font-medium mb-2">Phone</div>
+                    <div className="font-semibold text-slate-900">
+                      {service.customer?.phone ? (
+                        <a href={`tel:${service.customer.phone}`} className="text-blue-600 hover:text-blue-800 hover:underline transition-colors">
+                          {service.customer.phone}
+                        </a>
+                      ) : (
+                        "Not specified"
+                      )}
+                    </div>
                   </div>
                 </div>
-                <div>
-                  <div className="text-slate-500 text-sm mb-1">Email</div>
-                  <div className="font-medium text-slate-900">
-                    {service.customer?.email ? (
-                      <a href={`mailto:${service.customer.email}`} className="text-blue-600 hover:text-blue-800">
-                        {service.customer.email}
-                      </a>
-                    ) : (
-                      "Not specified"
-                    )}
+                <div className="space-y-4">
+                  <div>
+                    <div className="text-slate-500 text-sm font-medium mb-2">Email</div>
+                    <div className="font-semibold text-slate-900">
+                      {service.customer?.email ? (
+                        <a href={`mailto:${service.customer.email}`} className="text-blue-600 hover:text-blue-800 hover:underline transition-colors">
+                          {service.customer.email}
+                        </a>
+                      ) : (
+                        "Not specified"
+                      )}
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <div className="text-slate-500 text-sm mb-1">Place</div>
-                  <div className="font-medium text-slate-900">{service.customer?.place || "Not specified"}</div>
+                  <div>
+                    <div className="text-slate-500 text-sm font-medium mb-2">Place</div>
+                    <div className="font-semibold text-slate-900">{service.customer?.place || "Not specified"}</div>
+                  </div>
                 </div>
                 {service.customer?.address && (
                   <div className="md:col-span-2">
-                    <div className="text-slate-500 text-sm mb-1">Address</div>
-                    <div className="font-medium text-slate-900 bg-slate-50 p-3 rounded-lg">{service.customer.address}</div>
+                    <div className="text-slate-500 text-sm font-medium mb-2">Address</div>
+                    <div className="font-medium text-slate-900 bg-slate-50 p-4 rounded-xl border border-slate-200 leading-relaxed">
+                      {service.customer.address}
+                    </div>
                   </div>
                 )}
               </div>
@@ -652,24 +747,28 @@ function ServiceDetailsPage() {
 
             {/* Notes and Work Notes */}
             {(service.notes || (service.workNotes && service.workNotes.length > 0)) && (
-              <div className="bg-white border border-slate-200 rounded-xl p-6">
-                <h2 className="font-semibold text-lg mb-4 flex items-center gap-2">
-                  <MdNotes className="w-5 h-5 text-amber-600" />
-                  Notes & Work Notes
-                </h2>
+              <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-8">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center">
+                    <MdNotes className="w-6 h-6 text-amber-600" />
+                  </div>
+                  <h2 className="font-bold text-xl text-slate-900">Notes & Work Notes</h2>
+                </div>
                 {service.notes && (
-                  <div className="mb-4">
-                    <div className="text-slate-500 text-sm mb-1">General Notes</div>
-                    <div className="font-medium text-slate-900 bg-slate-50 p-3 rounded-lg">{service.notes}</div>
+                  <div className="mb-6">
+                    <div className="text-slate-500 text-sm font-medium mb-2">General Notes</div>
+                    <div className="font-medium text-slate-900 bg-slate-50 p-4 rounded-xl border border-slate-200 leading-relaxed">
+                      {service.notes}
+                    </div>
                   </div>
                 )}
                 {service.workNotes && service.workNotes.length > 0 && (
                   <div>
-                    <div className="text-slate-500 text-sm mb-2">Work Notes</div>
-                    <div className="space-y-2">
+                    <div className="text-slate-500 text-sm font-medium mb-3">Work Notes</div>
+                    <div className="space-y-3">
                       {service.workNotes.map((note, index) => (
-                        <div key={`worknote-${index}-${note.substring(0, 10)}`} className="bg-slate-50 p-3 rounded-lg border-l-4 border-blue-500">
-                          <div className="font-medium text-slate-900">{note}</div>
+                        <div key={`worknote-${index}-${note.substring(0, 10)}`} className="bg-blue-50 p-4 rounded-xl border-l-4 border-blue-500 hover:bg-blue-100 transition-colors">
+                          <div className="font-medium text-slate-900 leading-relaxed">{note}</div>
                         </div>
                       ))}
                     </div>
@@ -680,19 +779,21 @@ function ServiceDetailsPage() {
 
             {/* Parts Used */}
             {service.partsUsed && service.partsUsed.length > 0 && (
-              <div className="bg-white border border-slate-200 rounded-xl p-6">
-                <h2 className="font-semibold text-lg mb-4 flex items-center gap-2">
-                  <MdInventory className="w-5 h-5 text-emerald-600" />
-                  Parts Used
-                </h2>
-                <div className="space-y-3">
+              <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-8">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center">
+                    <MdInventory className="w-6 h-6 text-emerald-600" />
+                  </div>
+                  <h2 className="font-bold text-xl text-slate-900">Parts Used</h2>
+                </div>
+                <div className="space-y-4">
                   {service.partsUsed.map((part, index) => (
-                    <div key={`part-${index}-${part.name}`} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                    <div key={`part-${index}-${part.name}`} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200 hover:bg-slate-100 transition-colors">
                       <div>
-                        <div className="font-medium text-slate-900">{part.name}</div>
-                        <div className="text-sm text-slate-500">Qty: {part.quantity}</div>
+                        <div className="font-semibold text-slate-900 text-lg">{part.name}</div>
+                        <div className="text-sm text-slate-500">Quantity: {part.quantity}</div>
                       </div>
-                      <div className="font-semibold text-slate-900">₹{part.cost.toLocaleString()}</div>
+                      <div className="font-bold text-slate-900 text-xl">₹{part.cost.toLocaleString()}</div>
                     </div>
                   ))}
                 </div>
@@ -701,73 +802,79 @@ function ServiceDetailsPage() {
 
             {/* Customer Feedback */}
             {service.customerFeedback && (
-              <div className="bg-white border border-slate-200 rounded-xl p-6">
-                <h2 className="font-semibold text-lg mb-4 flex items-center gap-2">
-                  <MdFeedback className="w-5 h-5 text-yellow-600" />
-                  Customer Feedback
-                </h2>
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2">
-                    <span className="text-slate-500 text-sm">Rating:</span>
+              <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-8">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-10 h-10 bg-yellow-100 rounded-xl flex items-center justify-center">
+                    <MdFeedback className="w-6 h-6 text-yellow-600" />
+                  </div>
+                  <h2 className="font-bold text-xl text-slate-900">Customer Feedback</h2>
+                </div>
+                <div className="space-y-6">
+                  <div className="flex items-center gap-4">
+                    <span className="text-slate-600 font-medium text-lg">Rating:</span>
                     <div className="flex items-center gap-1">{renderStars(service.customerFeedback.rating)}</div>
-                    <span className="text-sm font-medium text-slate-900">({service.customerFeedback.rating}/5)</span>
+                    <span className="text-lg font-semibold text-slate-900">({service.customerFeedback.rating}/5)</span>
                   </div>
                   {service.customerFeedback.comment && (
                     <div>
-                      <div className="text-slate-500 text-sm mb-1">Comment</div>
-                      <div className="font-medium text-slate-900 bg-slate-50 p-3 rounded-lg">{service.customerFeedback.comment}</div>
+                      <div className="text-slate-500 text-sm font-medium mb-2">Comment</div>
+                      <div className="font-medium text-slate-900 bg-slate-50 p-4 rounded-xl border border-slate-200 leading-relaxed">
+                        {service.customerFeedback.comment}
+                      </div>
                     </div>
                   )}
-                  <div className="text-sm text-slate-500">Date: {service.customerFeedback.date.toLocaleDateString()}</div>
+                  <div className="text-sm text-slate-500 bg-slate-100 px-4 py-2 rounded-lg inline-block">
+                    Date: {service.customerFeedback.date.toLocaleDateString()}
+                  </div>
                 </div>
               </div>
             )}
           </div>
 
-          {/* Sidebar */}
+          {/* Enhanced Sidebar */}
           <div className="space-y-6">
             {/* Quick Info */}
-            <div className="bg-white border border-slate-200 rounded-xl p-6">
-              <h3 className="font-semibold text-lg mb-4">Quick Info</h3>
-              <div className="space-y-4">
-                <div>
-                  <div className="text-slate-500 text-sm mb-1">Created</div>
-                  <div className="font-medium text-slate-900">{createdAt ? createdAt.toLocaleDateString() : "-"}</div>
+            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6">
+              <h3 className="font-bold text-lg mb-6 text-slate-900">Quick Info</h3>
+              <div className="space-y-5">
+                <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
+                  <div className="text-slate-500 text-sm font-medium mb-2">Created</div>
+                  <div className="font-semibold text-slate-900">{createdAt ? createdAt.toLocaleDateString() : "-"}</div>
                 </div>
-                <div>
-                  <div className="text-slate-500 text-sm mb-1">Last Updated</div>
-                  <div className="font-medium text-slate-900">{updatedAt ? updatedAt.toLocaleDateString() : "-"}</div>
+                <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
+                  <div className="text-slate-500 text-sm font-medium mb-2">Last Updated</div>
+                  <div className="font-semibold text-slate-900">{updatedAt ? updatedAt.toLocaleDateString() : "-"}</div>
                 </div>
                 {service.scheduledDate && (
-                  <div>
-                    <div className="text-slate-500 text-sm mb-1">Scheduled Date</div>
-                    <div className="font-medium text-slate-900">{formatDate(service.scheduledDate)}</div>
+                  <div className="p-4 bg-blue-50 rounded-xl border border-blue-200">
+                    <div className="text-blue-600 text-sm font-medium mb-2">Scheduled Date</div>
+                    <div className="font-semibold text-blue-900">{formatDate(service.scheduledDate)}</div>
                   </div>
                 )}
                 {service.completedDate && (
-                  <div>
-                    <div className="text-slate-500 text-sm mb-1">Completed Date</div>
-                    <div className="font-medium text-slate-900">{formatDate(service.completedDate)}</div>
+                  <div className="p-4 bg-green-50 rounded-xl border border-green-200">
+                    <div className="text-green-600 text-sm font-medium mb-2">Completed Date</div>
+                    <div className="font-semibold text-green-900">{formatDate(service.completedDate)}</div>
                   </div>
                 )}
                 {service.estimatedCompletion && (
-                  <div>
-                    <div className="text-slate-500 text-sm mb-1">Estimated Completion</div>
-                    <div className="font-medium text-slate-900">{formatDate(service.estimatedCompletion)}</div>
+                  <div className="p-4 bg-amber-50 rounded-xl border border-amber-200">
+                    <div className="text-amber-600 text-sm font-medium mb-2">Estimated Completion</div>
+                    <div className="font-semibold text-amber-900">{formatDate(service.estimatedCompletion)}</div>
                   </div>
                 )}
                 {service.actualCompletion && (
-                  <div>
-                    <div className="text-slate-500 text-sm mb-1">Actual Completion</div>
-                    <div className="font-medium text-slate-900">{formatDate(service.actualCompletion)}</div>
+                  <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-200">
+                    <div className="text-emerald-600 text-sm font-medium mb-2">Actual Completion</div>
+                    <div className="font-semibold text-emerald-900">{formatDate(service.actualCompletion)}</div>
                   </div>
                 )}
                 {service.qualityScore && (
-                  <div>
-                    <div className="text-slate-500 text-sm mb-1">Quality Score</div>
+                  <div className="p-4 bg-yellow-50 rounded-xl border border-yellow-200">
+                    <div className="text-yellow-600 text-sm font-medium mb-2">Quality Score</div>
                     <div className="flex items-center gap-2">
                       <div className="flex items-center gap-1">{renderStars(Math.round(service.qualityScore))}</div>
-                      <span className="font-medium text-slate-900">({service.qualityScore}/5)</span>
+                      <span className="font-semibold text-yellow-900">({service.qualityScore}/5)</span>
                     </div>
                   </div>
                 )}
@@ -775,20 +882,35 @@ function ServiceDetailsPage() {
             </div>
 
             {/* Quick Actions */}
-            <div className="bg-white border border-slate-200 rounded-xl p-6">
-              <h3 className="font-semibold text-lg mb-4">Quick Actions</h3>
-              <div className="space-y-3">
-                <button onClick={handleEditClick} className="w-full flex items-center gap-2 p-3 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
-                  <MdEdit className="w-4 h-4 text-blue-600" />
-                  <span className="text-sm font-medium">Edit Service</span>
+            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6">
+              <h3 className="font-bold text-lg mb-6 text-slate-900">Quick Actions</h3>
+              <div className="space-y-4">
+                <button 
+                  onClick={handleEditClick} 
+                  className="w-full flex items-center gap-3 p-4 border border-blue-200 rounded-xl hover:bg-blue-50 hover:border-blue-300 transition-all duration-200 text-left group"
+                >
+                  <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center group-hover:bg-blue-200 transition-colors">
+                    <MdEdit className="w-4 h-4 text-blue-600" />
+                  </div>
+                  <span className="text-sm font-semibold text-slate-700">Edit Service</span>
                 </button>
-                <button onClick={handlePrint} className="w-full flex items-center gap-2 p-3 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
-                  <MdPrint className="w-4 h-4 text-orange-600" />
-                  <span className="text-sm font-medium">Print Details</span>
+                <button 
+                  onClick={handlePrint} 
+                  className="w-full flex items-center gap-3 p-4 border border-orange-200 rounded-xl hover:bg-orange-50 hover:border-orange-300 transition-all duration-200 text-left group"
+                >
+                  <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center group-hover:bg-orange-200 transition-colors">
+                    <MdPrint className="w-4 h-4 text-orange-600" />
+                  </div>
+                  <span className="text-sm font-semibold text-slate-700">Print Details</span>
                 </button>
-                <button onClick={handleToggleShowHistory} className="w-full flex items-center gap-2 p-3 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
-                  <MdHistory className="w-4 h-4 text-purple-600" />
-                  <span className="text-sm font-medium">View History</span>
+                <button 
+                  onClick={handleToggleShowHistory} 
+                  className="w-full flex items-center gap-3 p-4 border border-purple-200 rounded-xl hover:bg-purple-50 hover:border-purple-300 transition-all duration-200 text-left group"
+                >
+                  <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center group-hover:bg-purple-200 transition-colors">
+                    <MdHistory className="w-4 h-4 text-purple-600" />
+                  </div>
+                  <span className="text-sm font-semibold text-slate-700">View History</span>
                 </button>
               </div>
             </div>

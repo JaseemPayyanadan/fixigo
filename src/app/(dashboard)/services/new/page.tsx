@@ -6,11 +6,11 @@ import { useRouter } from "next/navigation";
 
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 
-import { useUser } from "@/hooks";
+import { useTechnicians, useUser } from "@/hooks";
 import { useBranches } from "@/hooks/useBranches";
 import { authUserToUser } from "@/lib/auth";
 import { db } from "@/lib/firebase";
-import ServiceForm from "@/modules/service/ServiceForm";
+import ServiceForm from "@/components/service/ServiceForm";
 
 export default function NewServicePage() {
   const { user, loading: userLoading } = useUser();
@@ -19,6 +19,7 @@ export default function NewServicePage() {
   const isShopAdmin = user?.role === "shop_admin";
   const isBranchAdmin = user?.role === "branch_admin";
   const { branches, loading: branchesLoading } = useBranches(shopId);
+  const { technicians, loading: techniciansLoading } = useTechnicians(shopId);
   const [branchId, setBranchId] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -116,7 +117,7 @@ export default function NewServicePage() {
         </div>
 
         {/* Form Container */}
-        <ServiceForm onSubmit={handleAdd} loading={loading || branchesLoading} error={error} branches={branches} branchId={branchId} setBranchId={setBranchId} user={convertedUser} shopId={shopId} />
+        <ServiceForm onSubmit={handleAdd} loading={loading || branchesLoading || techniciansLoading} error={error} branches={branches} branchId={branchId} setBranchId={setBranchId} user={convertedUser} shopId={shopId} technicians={technicians} />
       </div>
     </div>
   );

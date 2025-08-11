@@ -233,8 +233,17 @@ const TechnicianServiceList: React.FC<TechnicianServiceListProps> = ({
           return (
             <div key={service.id} className="group relative">
               <div 
-                className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-lg transition-all duration-300 cursor-pointer relative overflow-hidden"
+                className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm hover:shadow-lg hover:border-purple-300 hover:bg-purple-50/30 transition-all duration-300 cursor-pointer relative overflow-hidden select-none transform hover:-translate-y-1"
+                role="button"
+                tabIndex={0}
+                aria-label={`View details for service ${service.name}`}
                 onClick={() => window.location.href = `/services/details?id=${service.id}`}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    window.location.href = `/services/details?id=${service.id}`;
+                  }
+                }}
               >
                 {/* Status Badge */}
                 <div className="absolute top-4 left-4">
@@ -246,29 +255,15 @@ const TechnicianServiceList: React.FC<TechnicianServiceListProps> = ({
                 {/* Service Information */}
                 <div className="mt-8 space-y-4">
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2 line-clamp-2">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2 line-clamp-1">
                       {service.name}
                     </h3>
-                    <p className="text-sm text-gray-600 line-clamp-2">
+                    <p className="text-sm text-gray-600 line-clamp-2 leading-relaxed">
                       {service.description}
                     </p>
                   </div>
 
-                  {/* Device Information */}
-                  <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg border border-gray-100">
-                    <div className="w-8 h-8 bg-gray-200 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <span className="text-xs font-bold text-gray-600">D</span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-xs text-gray-600 font-medium mb-1">Device</div>
-                      <div className="font-semibold text-gray-900 text-sm">
-                        {service.device.brand} {service.device.model}
-                      </div>
-                      <div className="text-xs text-gray-500 font-mono">IMEI: {service.device.imei}</div>
-                    </div>
-                  </div>
-
-                  {/* Customer Information */}
+                  {/* Customer Information (First) */}
                   {service.customer && (
                     <div className="flex items-start gap-3 p-3 bg-green-50 rounded-lg border border-green-100">
                       <UserIcon className="w-5 h-5 text-green-600 mt-0.5" />
@@ -286,7 +281,21 @@ const TechnicianServiceList: React.FC<TechnicianServiceListProps> = ({
                     </div>
                   )}
 
-                  {/* Branch Information */}
+                  {/* Device Details (Second) */}
+                  <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg border border-gray-100">
+                    <div className="w-8 h-8 bg-gray-200 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <span className="text-xs font-bold text-gray-600">D</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs text-gray-600 font-medium mb-1">Device</div>
+                      <div className="font-semibold text-gray-900 text-sm">
+                        {service.device.brand} {service.device.model}
+                      </div>
+                      <div className="text-xs text-gray-500 font-mono">IMEI: {service.device.imei}</div>
+                    </div>
+                  </div>
+
+                  {/* Assigned Branch */}
                   <div className="flex items-start gap-3 p-3 bg-purple-50 rounded-lg border border-purple-100">
                     <BuildingOfficeIcon className="w-5 h-5 text-purple-600 mt-0.5" />
                     <div className="flex-1 min-w-0">
@@ -296,17 +305,17 @@ const TechnicianServiceList: React.FC<TechnicianServiceListProps> = ({
                     </div>
                   </div>
 
-                  {/* Service Assignment Status */}
-                  {service.technician_id && (
-                    <div className="flex items-start gap-3 p-2 bg-blue-50 rounded-lg border border-blue-100">
-                      <UserIcon className="w-4 h-4 text-blue-600 mt-0.5" />
-                      <div className="flex-1 min-w-0">
-                        <div className="text-xs text-blue-600 font-medium">
-                          {service.technician_id === technicianId ? "Assigned to You" : "Assigned to Another Technician"}
-                        </div>
+                  {/* Service Assignment Status (Third) */}
+                  <div className="flex items-start gap-3 p-2 bg-blue-50 rounded-lg border border-blue-100">
+                    <UserIcon className="w-4 h-4 text-blue-600 mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs text-blue-600 font-medium">
+                        {service.technician_id
+                          ? (service.technician_id === technicianId ? "Assigned to You" : "Assigned to Another Technician")
+                          : "Unassigned"}
                       </div>
                     </div>
-                  )}
+                  </div>
                 </div>
 
                 {/* Footer */}
