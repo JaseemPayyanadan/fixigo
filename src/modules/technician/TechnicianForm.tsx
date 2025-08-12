@@ -180,7 +180,7 @@ export default function TechnicianForm({
           <div>
             <h3 className="text-xl font-semibold text-gray-900">Technician Information</h3>
             <p className="text-gray-600 text-sm">
-              {editing ? "Update the technician's details" : "Enter the technician's details"}
+              {editing ? "Update the technician&apos;s details" : "Enter the technician&apos;s details"}
             </p>
           </div>
         </div>
@@ -194,7 +194,7 @@ export default function TechnicianForm({
             value={form.name}
             onChange={handleChange}
             required
-            placeholder="Enter technician's full name"
+            placeholder="Enter technician&apos;s full name"
             icon={<UserIcon className="h-5 w-5 text-gray-400" />}
             error={errors.name}
           />
