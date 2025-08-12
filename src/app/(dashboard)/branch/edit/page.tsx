@@ -4,7 +4,7 @@ import { Suspense, useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
 
 import { LoadingSpinner } from "@/components/ui";
 import { useUser } from "@/hooks";
@@ -33,6 +33,42 @@ function EditBranchContent() {
   const [formLoading, setFormLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Debug logging
+  useEffect(() => {
+    console.log("EditBranchContent mounted with:", { id, shopId, user });
+    console.log("User details:", {
+      id: user?.id,
+      email: user?.email,
+      role: user?.role,
+      shopId: user?.shopId,
+      branchId: user?.branchId,
+      onboardingCompleted: user?.onboardingCompleted
+    });
+  }, [id, shopId, user]);
+
+  // Debug function to check all branches
+  const debugBranches = useCallback(async () => {
+    if (!shopId) return;
+    
+    try {
+      console.log("=== DEBUG: Checking all branches ===");
+      
+      // Check flat structure
+      const flatQuery = query(collection(db, "branches"), where("shopId", "==", shopId));
+      const flatSnapshot = await getDocs(flatQuery);
+      console.log("Flat structure branches:", flatSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      
+      // Check nested structure
+      const nestedQuery = query(collection(db, "shops", shopId, "branches"));
+      const nestedSnapshot = await getDocs(nestedQuery);
+      console.log("Nested structure branches:", nestedSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      
+      console.log("=== END DEBUG ===");
+    } catch (error) {
+      console.error("Debug error:", error);
+    }
+  }, [shopId]);
+
   useEffect(() => {
     const fetchBranch = async () => {
       if (!shopId || !id) {
@@ -45,16 +81,60 @@ function EditBranchContent() {
       setError(null);
 
       try {
-        const docRef = doc(db, `shops/${shopId}/branches`, id as string);
+        console.log("Fetching branch:", { id, shopId });
+        
+        // Use the new flat structure: branches collection with shopId filter
+        const docRef = doc(db, "branches", id as string);
         const docSnap = await getDoc(docRef);
 
+        console.log("Branch document exists:", docSnap.exists());
+        
         if (docSnap.exists()) {
-          const branchData = { id: docSnap.id, ...docSnap.data() } as Branch;
-          setBranch(branchData);
+          const branchData = docSnap.data();
+          console.log("Branch data:", branchData);
+          console.log("Branch shopId:", branchData.shopId);
+          console.log("Current user shopId:", shopId);
+          console.log("Branch data keys:", Object.keys(branchData));
+          console.log("Branch data values:", Object.values(branchData));
+          
+          // Check if shopId exists in the branch data
+          if (!branchData.shopId) {
+            console.log("Branch has no shopId field");
+            setError("Branch data is incomplete. Please contact support.");
+            return;
+          }
+          
+          // Verify this branch belongs to the current shop
+          if (branchData.shopId !== shopId) {
+            console.log("Shop ID mismatch:", { branchShopId: branchData.shopId, userShopId: shopId });
+            setError("You don't have permission to access this branch.");
+            return;
+          }
+          const branch = { id: docSnap.id, ...branchData } as Branch;
+          console.log("Final branch object:", branch);
+          setBranch(branch);
         } else {
+          console.log("Branch document not found in flat structure, checking nested structure...");
+          
+          // Fallback: Check if branch exists in the old nested structure
+          try {
+            const nestedDocRef = doc(db, "shops", shopId, "branches", id as string);
+            const nestedDocSnap = await getDoc(nestedDocRef);
+            
+            if (nestedDocSnap.exists()) {
+              console.log("Branch found in nested structure - migration needed");
+              setError("This branch exists in the old data structure and needs to be migrated. Please contact support.");
+              return;
+            }
+          } catch (nestedError) {
+            console.log("Error checking nested structure:", nestedError);
+          }
+          
+          console.log("Branch document not found in either structure");
           setError("Branch not found. It may have been deleted or you don't have permission to access it.");
         }
       } catch (err) {
+        console.error("Error fetching branch:", err);
         setError((err as Error).message || "Failed to fetch branch. Please try again.");
       } finally {
         setLoading(false);
@@ -64,7 +144,15 @@ function EditBranchContent() {
     fetchBranch();
   }, [shopId, id]);
 
-  const handleEditBranch = useCallback(async (branchData: { name: string; location: string; phone: string; email: string }) => {
+  const handleEditBranch = useCallback(async (branchData: { 
+    name: string; 
+    location: string; 
+    phone: string; 
+    email: string;
+    managerName?: string;
+    managerEmail?: string;
+    managerPhone?: string;
+  }) => {
     if (!branch) {
       setError("No branch data available");
       return;
@@ -74,9 +162,23 @@ function EditBranchContent() {
     setError(null);
 
     try {
-      await updateBranch(branch.id, branchData);
+      // Filter out undefined values to prevent Firestore errors
+      const cleanUpdates: Partial<Branch> = {};
+      
+      if (branchData.name !== undefined) cleanUpdates.name = branchData.name;
+      if (branchData.location !== undefined) cleanUpdates.location = branchData.location;
+      if (branchData.phone !== undefined) cleanUpdates.phone = branchData.phone;
+      if (branchData.email !== undefined) cleanUpdates.email = branchData.email;
+      if (branchData.managerName !== undefined) cleanUpdates.managerName = branchData.managerName;
+      if (branchData.managerEmail !== undefined) cleanUpdates.managerEmail = branchData.managerEmail;
+      if (branchData.managerPhone !== undefined) cleanUpdates.managerPhone = branchData.managerPhone;
+
+      console.log("Updating branch with clean data:", cleanUpdates);
+      
+      await updateBranch(branch.id, cleanUpdates);
       router.push("/branch");
     } catch (err) {
+      console.error("Error updating branch:", err);
       setError((err as Error).message || "Failed to update branch. Please try again.");
     } finally {
       setFormLoading(false);
@@ -106,9 +208,36 @@ function EditBranchContent() {
           </div>
           <h2 className="text-xl font-semibold text-gray-900 mb-3">Unable to Load Branch</h2>
           <p className="text-gray-600 mb-6">{error}</p>
+          
+          {/* Additional guidance for common issues */}
+          {error.includes("permission") && (
+            <div className="text-sm text-gray-500 bg-gray-50 rounded-lg p-4 mb-6 text-left">
+              <p className="font-medium mb-2">Possible causes:</p>
+              <ul className="list-disc list-inside space-y-1">
+                <li>You're trying to access a branch from a different shop</li>
+                <li>Your account permissions have changed</li>
+                <li>The branch was moved to a different shop</li>
+              </ul>
+            </div>
+          )}
+          
+          {error.includes("not found") && (
+            <div className="text-sm text-gray-500 bg-gray-50 rounded-lg p-4 mb-6 text-left">
+              <p className="font-medium mb-2">Possible causes:</p>
+              <ul className="list-disc list-inside space-y-1">
+                <li>The branch was deleted</li>
+                <li>The branch ID in the URL is incorrect</li>
+                <li>There's a data migration issue</li>
+              </ul>
+            </div>
+          )}
+          
           <div className="flex gap-3 justify-center">
             <button onClick={handleTryAgain} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
               Try Again
+            </button>
+            <button onClick={debugBranches} className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
+              Debug Branches
             </button>
             <Link href="/branch" className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors">
               Back to Branches
@@ -168,6 +297,9 @@ function EditBranchContent() {
             location: branch.location || "",
             phone: branch.phone || "",
             email: branch.email || "",
+            managerName: branch.managerName || "",
+            managerEmail: branch.managerEmail || "",
+            managerPhone: branch.managerPhone || "",
           }}
           editing={true}
         />

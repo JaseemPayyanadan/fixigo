@@ -224,7 +224,12 @@ export const ShopAdminBranchList: React.FC<ShopAdminBranchListProps> = ({ branch
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex items-center justify-end gap-2">
-                      <button className="text-gray-400 hover:text-blue-600 transition-colors" onClick={() => branch.id && router.push(`/branch/edit?id=${branch.id}`)} title="Edit branch">
+                      <button className="text-gray-400 hover:text-blue-600 transition-colors" onClick={() => {
+                        console.log("Edit button clicked for branch:", branch);
+                        console.log("Branch ID:", branch.id);
+                        console.log("Branch structure:", branch);
+                        branch.id && router.push(`/branch/edit?id=${branch.id}`);
+                      }} title="Edit branch">
                         <PencilIcon className="w-4 h-4" />
                       </button>
                       {onDeleteBranch && (
@@ -294,7 +299,12 @@ export const ShopAdminBranchList: React.FC<ShopAdminBranchListProps> = ({ branch
               </div>
 
               <div className="flex gap-2 pt-3 border-t border-gray-100">
-                <button className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-blue-600 hover:text-blue-700 text-xs font-medium transition-colors border border-blue-200 rounded-md hover:bg-blue-50" onClick={() => branch.id && router.push(`/branch/edit?id=${branch.id}`)}>
+                <button className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-blue-600 hover:text-blue-700 text-xs font-medium transition-colors border border-blue-200 rounded-md hover:bg-blue-50" onClick={() => {
+                  console.log("Mobile edit button clicked for branch:", branch);
+                  console.log("Mobile branch ID:", branch.id);
+                  console.log("Mobile branch structure:", branch);
+                  branch.id && router.push(`/branch/edit?id=${branch.id}`);
+                }}>
                   <PencilIcon className="w-3 h-3" />
                   Edit
                 </button>

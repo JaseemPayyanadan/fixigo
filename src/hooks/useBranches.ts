@@ -63,6 +63,11 @@ export function useBranches(shopId?: string) {
 
         for (const docSnapshot of querySnapshot.docs) {
           const data = docSnapshot.data();
+          console.log("useBranches - branch document:", { id: docSnapshot.id, data });
+          console.log("useBranches - branch data keys:", Object.keys(data));
+          console.log("useBranches - branch data values:", Object.values(data));
+          console.log("useBranches - branch shopId:", data.shopId);
+          
           const branch: Branch = {
             id: docSnapshot.id,
             name: data.name || "",
@@ -74,8 +79,16 @@ export function useBranches(shopId?: string) {
             createdAt: data.createdAt?.toDate() || new Date(),
             updatedAt: data.updatedAt?.toDate() || new Date(),
           };
+          
+          // Warn about branches without shopId
+          if (!data.shopId) {
+            console.warn("useBranches - Branch without shopId:", { id: docSnapshot.id, name: data.name });
+          }
+          
           branchList.push(branch);
         }
+
+        console.log("useBranches - final branch list:", branchList);
 
         // Sort manually since we're not using orderBy in the query
         branchList.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
@@ -184,12 +197,24 @@ export function useBranches(shopId?: string) {
     }
 
     try {
+      // Filter out undefined values to prevent Firestore errors
+      const cleanUpdates: Record<string, any> = {};
+      Object.entries(updates).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          cleanUpdates[key] = value;
+        }
+      });
+
+      // Always add updatedAt
+      cleanUpdates.updatedAt = new Date();
+
+      console.log("useBranches - Updating branch with clean data:", { branchId, cleanUpdates });
+
       // New flat structure: update in top-level branches collection
       const branchRef = doc(db, "branches", branchId);
-      await updateDoc(branchRef, {
-        ...updates,
-        updatedAt: new Date(),
-      });
+      await updateDoc(branchRef, cleanUpdates);
+
+      console.log("useBranches - Branch updated successfully");
 
       // Refresh branches list
       let updatedBranches;
@@ -216,6 +241,11 @@ export function useBranches(shopId?: string) {
       const branchList: Branch[] = [];
       for (const docSnapshot of updatedBranches.docs) {
         const data = docSnapshot.data();
+        console.log("useBranches - branch document:", { id: docSnapshot.id, data });
+        console.log("useBranches - branch data keys:", Object.keys(data));
+        console.log("useBranches - branch data values:", Object.values(data));
+        console.log("useBranches - branch shopId:", data.shopId);
+        
         const branch: Branch = {
           id: docSnapshot.id,
           name: data.name || "",
@@ -227,8 +257,16 @@ export function useBranches(shopId?: string) {
           createdAt: data.createdAt?.toDate() || new Date(),
           updatedAt: data.updatedAt?.toDate() || new Date(),
         };
+        
+        // Warn about branches without shopId
+        if (!data.shopId) {
+          console.warn("useBranches - Branch without shopId:", { id: docSnapshot.id, name: data.name });
+        }
+        
         branchList.push(branch);
       }
+
+      console.log("useBranches - final branch list:", branchList);
 
       // Sort manually if we couldn't use orderBy
       branchList.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
@@ -236,7 +274,7 @@ export function useBranches(shopId?: string) {
       setBranches(branchList);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Failed to update branch";
-      logger.error("Error updating branch", { error: errorMessage });
+      logger.error("Error updating branch", { error: errorMessage, branchId, updates: JSON.stringify(updates) });
       throw new Error(errorMessage);
     }
   };

@@ -122,9 +122,9 @@ export const BranchForm: React.FC<BranchFormProps> = ({ onSubmit, loading, initi
         phone: formData.phone.trim(),
         email: formData.email.trim(),
         password: formData.password,
-        managerName: formData.managerName.trim() || undefined,
-        managerEmail: formData.managerEmail.trim() || undefined,
-        managerPhone: formData.managerPhone.trim() || undefined,
+        managerName: formData.managerName.trim() || (editing ? undefined : ""),
+        managerEmail: formData.managerEmail.trim() || (editing ? undefined : ""),
+        managerPhone: formData.managerPhone.trim() || (editing ? undefined : ""),
       });
       
       if (!editing) {

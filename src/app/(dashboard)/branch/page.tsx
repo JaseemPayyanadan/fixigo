@@ -21,6 +21,23 @@ export default function BranchPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
 
+  // Debug logging - moved to top to maintain hooks order
+  useEffect(() => {
+    console.log("Branch page - branches:", branches);
+    console.log("Branch page - filtered branches:", branches.filter((branch) => {
+      // For branch admins, only show their own branch
+      if (user?.role === "branch_admin" && user?.branchId && branch.id !== user.branchId) {
+        return false;
+      }
+
+      const matchesSearch = branch.name.toLowerCase().includes(search.toLowerCase()) || branch.location.toLowerCase().includes(search.toLowerCase());
+      const matchesStatus = statusFilter === "All" || branch.status === statusFilter;
+      return matchesSearch && matchesStatus;
+    }));
+    console.log("Branch page - user:", user);
+    console.log("Branch page - shopId:", shopId);
+  }, [branches, search, statusFilter, user, shopId]);
+
   // Fetch technicians for each branch
   useEffect(() => {
     const fetchTechnicians = async () => {
@@ -96,14 +113,38 @@ export default function BranchPage() {
     setStatusFilter("All");
   }, []);
 
-  // Check if user has proper access
+  // Filter branches - moved here to avoid recalculating in useEffect
+  const filteredBranches = branches.filter((branch) => {
+    // For branch admins, only show their own branch
+    if (user?.role === "branch_admin" && user?.branchId && branch.id !== user.branchId) {
+      return false;
+    }
+
+    const matchesSearch = branch.name.toLowerCase().includes(search.toLowerCase()) || branch.location.toLowerCase().includes(search.toLowerCase());
+    const matchesStatus = statusFilter === "All" || branch.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
+
+  // Render loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading branches...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Render access denied state
   if (!user) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center max-w-md mx-auto px-4">
           <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
             <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L13.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
             </svg>
           </div>
           <h1 className="text-2xl font-semibold text-gray-900 mb-3">Access Denied</h1>
@@ -113,14 +154,14 @@ export default function BranchPage() {
     );
   }
 
-  // Check if user has proper role and shopId
+  // Render access restricted state
   if ((user.role !== "shop_admin" && user.role !== "branch_admin" && user.role !== "technician") || !shopId) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center max-w-md mx-auto px-4">
           <div className="w-16 h-16 bg-yellow-50 rounded-full flex items-center justify-center mx-auto mb-6">
             <svg className="w-8 h-8 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L13.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
             </svg>
           </div>
           <h1 className="text-2xl font-semibold text-gray-900 mb-3">Access Restricted</h1>
@@ -138,36 +179,14 @@ export default function BranchPage() {
     );
   }
 
-  const filteredBranches = branches.filter((branch) => {
-    // For branch admins, only show their own branch
-    if (user.role === "branch_admin" && user.branchId && branch.id !== user.branchId) {
-      return false;
-    }
-
-    const matchesSearch = branch.name.toLowerCase().includes(search.toLowerCase()) || branch.location.toLowerCase().includes(search.toLowerCase());
-    const matchesStatus = statusFilter === "All" || branch.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading branches...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Show error state if there's an error
+  // Render error state
   if (error) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center max-w-md mx-auto px-4">
           <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
             <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L13.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
             </svg>
           </div>
           <h1 className="text-2xl font-semibold text-gray-900 mb-3">Error Loading Branches</h1>
