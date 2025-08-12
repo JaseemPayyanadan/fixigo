@@ -214,7 +214,7 @@ function EditBranchContent() {
             <div className="text-sm text-gray-500 bg-gray-50 rounded-lg p-4 mb-6 text-left">
               <p className="font-medium mb-2">Possible causes:</p>
               <ul className="list-disc list-inside space-y-1">
-                <li>You're trying to access a branch from a different shop</li>
+                <li>You&apos;re trying to access a branch from a different shop</li>
                 <li>Your account permissions have changed</li>
                 <li>The branch was moved to a different shop</li>
               </ul>
@@ -227,7 +227,7 @@ function EditBranchContent() {
               <ul className="list-disc list-inside space-y-1">
                 <li>The branch was deleted</li>
                 <li>The branch ID in the URL is incorrect</li>
-                <li>There's a data migration issue</li>
+                <li>There&apos;s a data migration issue</li>
               </ul>
             </div>
           )}
