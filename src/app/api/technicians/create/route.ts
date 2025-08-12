@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { collection, addDoc, setDoc, doc, query, where, getDocs } from "firebase/firestore";
+import { collection, addDoc, setDoc, doc, query, where, getDocs, updateDoc, arrayUnion } from "firebase/firestore";
 
 import { hashPassword } from "@/lib/auth";
 import { db } from "@/lib/firebase";
@@ -109,6 +109,22 @@ export async function POST(request: NextRequest) {
       createdAt: new Date(),
       updatedAt: new Date(),
     });
+
+    // Add technician to branch members array
+    try {
+      const branchRef = doc(db, "shops", shopId, "branches", branchId);
+      await updateDoc(branchRef, {
+        members: arrayUnion({ 
+          userId: userRef.id, 
+          role: "technician",
+          name: name // Include name for fallback display
+        }),
+      });
+    } catch (branchError) {
+      console.error("Error adding technician to branch members:", branchError);
+      // Don't fail the entire operation if this step fails
+      // The technician is still created, just not visible in branch list
+    }
 
     return NextResponse.json({
       success: true,

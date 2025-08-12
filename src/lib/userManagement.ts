@@ -1,4 +1,4 @@
-import { addDoc, arrayUnion, collection, doc, getDoc, updateDoc } from "firebase/firestore";
+import { addDoc, arrayUnion, collection, doc, getDoc, updateDoc, query, where, getDocs } from "firebase/firestore";
 
 import type { Role, User } from "@/types";
 
@@ -33,6 +33,94 @@ export async function addUserToBranchMembers(shopId: string, branchId: string, u
   await updateDoc(branchRef, {
     members: arrayUnion({ userId, role }),
   });
+}
+
+/**
+ * Utility function to sync existing technicians with their branch members arrays
+ * This fixes the issue where technicians exist but aren't showing in branch lists
+ */
+export async function syncTechniciansWithBranchMembers(shopId: string) {
+  try {
+    // Get all technicians for the shop
+    const techniciansRef = collection(db, "technicians");
+    const techniciansQuery = query(techniciansRef, where("shopId", "==", shopId));
+    const techniciansSnapshot = await getDocs(techniciansQuery);
+
+    const syncResults: Array<{ technicianId: string; branchId: string; success: boolean; error?: string }> = [];
+
+    for (const technicianDoc of techniciansSnapshot.docs) {
+      const technicianData = technicianDoc.data();
+      const { branchId, userId, name } = technicianData;
+
+      if (!branchId || !userId) {
+        syncResults.push({
+          technicianId: technicianDoc.id,
+          branchId: branchId || "unknown",
+          success: false,
+          error: "Missing branchId or userId"
+        });
+        continue;
+      }
+
+      try {
+        // Check if technician is already in branch members
+        const branchRef = doc(db, "shops", shopId, "branches", branchId);
+        const branchDoc = await getDoc(branchRef);
+        
+        if (!branchDoc.exists()) {
+          syncResults.push({
+            technicianId: technicianDoc.id,
+            branchId,
+            success: false,
+            error: "Branch not found"
+          });
+          continue;
+        }
+
+        const branchData = branchDoc.data();
+        const members = branchData.members || [];
+        
+        // Check if technician is already in members array
+        const isAlreadyMember = members.some((member: any) => 
+          member.userId === userId && member.role === "technician"
+        );
+
+        if (!isAlreadyMember) {
+          // Add technician to branch members array
+          await updateDoc(branchRef, {
+            members: arrayUnion({ 
+              userId, 
+              role: "technician",
+              name: name || "Unknown Technician" // Include name for fallback display
+            }),
+          });
+          
+          syncResults.push({
+            technicianId: technicianDoc.id,
+            branchId,
+            success: true
+          });
+        } else {
+          syncResults.push({
+            technicianId: technicianDoc.id,
+            branchId,
+            success: true
+          });
+        }
+      } catch (error) {
+        syncResults.push({
+          technicianId: technicianDoc.id,
+          branchId,
+          success: false,
+          error: error instanceof Error ? error.message : "Unknown error"
+        });
+      }
+    }
+
+    return syncResults;
+  } catch (error) {
+    throw new Error(`Failed to sync technicians with branch members: ${error instanceof Error ? error.message : "Unknown error"}`);
+  }
 }
 
 export class UserManagementService {

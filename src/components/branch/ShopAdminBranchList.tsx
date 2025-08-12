@@ -3,7 +3,7 @@ import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { BuildingOfficeIcon, PhoneIcon, EnvelopeIcon, UserGroupIcon, PencilIcon, TrashIcon } from "@heroicons/react/24/outline";
-import { collection, getDocs, where, query, getDoc, doc } from "firebase/firestore";
+import { collection, getDocs, where, query } from "firebase/firestore";
 
 import { db } from "../../lib/firebase";
 import { Branch } from "../../types";
@@ -31,67 +31,37 @@ export const ShopAdminBranchList: React.FC<ShopAdminBranchListProps> = ({ branch
       try {
         const byBranch: Record<string, string[]> = {};
 
-        // Fetch technicians from branch members array for each branch
+        // Fetch technicians from technicians collection for each branch
         for (const branch of branches) {
           try {
-            const branchDoc = await getDoc(doc(db, "shops", shopId, "branches", branch.id));
-            if (branchDoc.exists()) {
-              const branchData = branchDoc.data();
-              const members = branchData.members || [];
+            // Query technicians collection where branchId matches the current branch
+            const techniciansQuery = query(
+              collection(db, "technicians"),
+              where("shopId", "==", shopId),
+              where("branchId", "==", branch.id),
+              where("status", "==", "active")
+            );
+            
+            const techniciansSnapshot = await getDocs(techniciansQuery);
+            const technicianNames: string[] = [];
 
-              const technicianNames: string[] = [];
-
-              // Fetch user names for each technician
-              for (const member of members) {
-                if (member.role === "technician" && member.userId) {
-                  try {
-                    // Try to get user document directly by ID first
-                    try {
-                      const userDoc = await getDoc(doc(db, "users", member.userId));
-                      if (userDoc.exists()) {
-                        const userData = userDoc.data();
-                        const userName = userData.name || "Unknown User";
-                        technicianNames.push(userName);
-                        continue; // Skip the query method if direct access worked
-                      }
-                    } catch {
-                      // Direct access failed, try query method
-                    }
-
-                    // Method 2: Try query method
-                    const userQuery = query(collection(db, "users"), where("uid", "==", member.userId));
-                    const userSnapshot = await getDocs(userQuery);
-
-                    if (!userSnapshot.empty) {
-                      const userData = userSnapshot.docs[0].data();
-                      const userName = userData.name || "Unknown User";
-                      technicianNames.push(userName);
-                    } else {
-                      // Fallback: Use name from member data if available
-                      if (member.name) {
-                        technicianNames.push(member.name);
-                      }
-                    }
-                  } catch {
-                    // Fallback: Use name from member data if available
-                    if (member.name) {
-                      technicianNames.push(member.name);
-                    }
-                  }
-                }
+            techniciansSnapshot.forEach((doc) => {
+              const technicianData = doc.data();
+              if (technicianData.name) {
+                technicianNames.push(technicianData.name);
               }
+            });
 
-              byBranch[branch.id] = technicianNames;
-            } else {
-              byBranch[branch.id] = [];
-            }
-          } catch {
+            byBranch[branch.id] = technicianNames;
+          } catch (error) {
+            console.error(`Error fetching technicians for branch ${branch.id}:`, error);
             byBranch[branch.id] = [];
           }
         }
 
         setTechniciansByBranch(byBranch);
-      } catch {
+      } catch (error) {
+        console.error("Error fetching technicians:", error);
         setTechniciansByBranch({});
       }
     };
