@@ -217,19 +217,9 @@ export default function BranchPage() {
               <h1 className="text-2xl font-semibold text-gray-900">{user.role === "shop_admin" ? "Branches" : "Branch"}</h1>
               <p className="text-sm text-gray-600 mt-1">{user.role === "shop_admin" ? "Manage your business locations" : "View your branch information"}</p>
             </div>
-            {user.role === "shop_admin" && (
-              <Link href="/branch/new" className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                </svg>
-                Add Branch
-              </Link>
-            )}
-          </div>
-        </div>
 
         {/* Search and Filter */}
-        <div className="px-6 pb-4">
+        <div className="flex flex-row gap-5">
           <SearchFilter
             search={search}
             onSearchChange={setSearch}
@@ -250,6 +240,16 @@ export default function BranchPage() {
             onClear={handleClearFilters}
             showClear={true}
           />
+            {user.role === "shop_admin" && (
+              <Link href="/branch/new" className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+                Add Branch
+              </Link>
+            )}
+            </div>
+          </div>
         </div>
       </div>
 

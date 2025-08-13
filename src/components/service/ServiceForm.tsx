@@ -7,7 +7,12 @@ import {
   DevicePhoneMobileIcon, 
   BuildingOfficeIcon, 
   CurrencyDollarIcon,
-  XCircleIcon
+  XCircleIcon,
+  PhoneIcon,
+  MapPinIcon,
+  IdentificationIcon,
+  PaintBrushIcon,
+  WrenchIcon
 } from "@heroicons/react/24/outline";
 
 import { Button, TextInput, LoadingSpinner } from "@/components/ui";
@@ -251,9 +256,7 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-4xl mx-auto px-4">
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+    <div className="w-full">
           {/* Header */}
           <div className="px-6 py-4 border-b border-gray-200">
             <div className="flex items-center justify-between">
@@ -302,6 +305,7 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
                   error={errors.customerName}
                   required
                   placeholder="Enter customer name"
+                  icon={<UserIcon className="h-4 w-4 text-gray-400" />}
                 />
                 
                 <TextInput
@@ -311,6 +315,7 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
                   error={errors.customerPhone}
                   required
                   placeholder="Enter phone number"
+                  icon={<PhoneIcon className="h-4 w-4 text-gray-400" />}
                 />
                 
                 <TextInput
@@ -318,7 +323,8 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
                   value={formData.customer.place || ""}
                   onChange={(e) => handleInputChange("customer", "place", e.target.value)}
                   placeholder="Enter location"
-                />
+                  icon={<MapPinIcon className="h-4 w-4 text-gray-400" />}
+                  />
               </div>
             </div>
 
@@ -337,6 +343,7 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
                   error={errors.deviceBrand}
                   required
                   placeholder="e.g., Apple, Samsung"
+                  icon={<DevicePhoneMobileIcon className="h-4 w-4 text-gray-400" />}
                 />
                 
                 <TextInput
@@ -346,6 +353,7 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
                   error={errors.deviceModel}
                   required
                   placeholder="e.g., iPhone 14, Galaxy S23"
+                  icon={<DevicePhoneMobileIcon className="h-4 w-4 text-gray-400" />}
                 />
                 
                 <TextInput
@@ -355,6 +363,7 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
                   error={errors.deviceImei}
                   required
                   placeholder="Enter IMEI number"
+                  icon={<IdentificationIcon className="h-4 w-4 text-gray-400" />}
                 />
                 
                 <TextInput
@@ -362,6 +371,7 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
                   value={formData.device.color}
                   onChange={(e) => handleInputChange("device", "color", e.target.value)}
                   placeholder="e.g., Black, White"
+                  icon={<PaintBrushIcon className="h-4 w-4 text-gray-400" />}
                 />
               </div>
             </div>
@@ -381,6 +391,7 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
                   error={errors.serviceName}
                   required
                   placeholder="e.g., Screen Replacement"
+                  icon={<WrenchIcon className="h-4 w-4 text-gray-400" />}
                 />
                 
                 <div className="md:col-span-2">
@@ -391,20 +402,21 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
                     error={errors.serviceDescription}
                     required
                     placeholder="Describe the service required"
+                    icon={<BuildingOfficeIcon className="h-4 w-4 text-gray-400" />}
                   />
                 </div>
                 
                 <TextInput
-                  label="Price (₹)"
+                  label="Approximate Amount (₹)"
                   value={formData.service.price}
                   onChange={(e) => handleInputChange("service", "price", e.target.value)}
                   error={errors.servicePrice}
                   required
                   placeholder="Enter price"
+                  icon={<CurrencyDollarIcon className="h-4 w-4 text-gray-400" />}
                   type="number"
                   min="0"
                 />
-                
                 {fieldConfig.showPrioritySelector && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -507,8 +519,6 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
             </div>
           </form>
         </div>
-      </div>
-    </div>
   );
 };
 

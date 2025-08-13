@@ -34,7 +34,6 @@ function TechniciansContent() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [branchFilter, setBranchFilter] = useState<string>("all");
-  const [sortBy, setSortBy] = useState<string>("name");
 
   // Calculate stats from actual data
   const stats = useMemo(() => {
@@ -55,7 +54,7 @@ function TechniciansContent() {
     };
   }, [technicians]);
 
-  // Filter and sort technicians
+  // Filter technicians
   const filteredTechnicians = useMemo(() => {
     const filtered = technicians.filter((tech) => {
       const matchesSearch = tech.name.toLowerCase().includes(searchTerm.toLowerCase()) || tech.email.toLowerCase().includes(searchTerm.toLowerCase()) || tech.phone.includes(searchTerm);
@@ -66,24 +65,8 @@ function TechniciansContent() {
       return matchesSearch && matchesStatus && matchesBranch;
     });
 
-    // Sort technicians
-    filtered.sort((a, b) => {
-      switch (sortBy) {
-        case "name":
-          return a.name.localeCompare(b.name);
-        case "status":
-          return a.status.localeCompare(b.status);
-        case "rating":
-          return (b.rating || 0) - (a.rating || 0);
-        case "completed":
-          return (b.completedServices || 0) - (a.completedServices || 0);
-        default:
-          return a.name.localeCompare(b.name);
-      }
-    });
-
     return filtered;
-  }, [technicians, searchTerm, statusFilter, branchFilter, sortBy]);
+  }, [technicians, searchTerm, statusFilter, branchFilter]);
 
   // Handle delete technician
   const handleDelete = async (technicianId: string) => {
@@ -140,12 +123,44 @@ function TechniciansContent() {
             <h1 className="text-3xl font-bold text-gray-900 mb-2">Technicians</h1>
             <p className="text-gray-600">{user?.role === "shop_admin" ? "Manage all technicians across your business" : "Manage your team of skilled technicians"}</p>
           </div>
+
+
+        {/* Filters and Search */}
+          <div className="flex flex-col lg:flex-row gap-4">
+            {/* Search */}
+            <div className="flex-1">
+              <div className="relative">
+                <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <input type="text" placeholder="Search technicians..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+              </div>
+            </div>
+
+            {/* Status Filter */}
+            <div className="flex gap-4">
+              <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                <option value="all">All Status</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+                <option value="busy">Busy</option>
+              </select>
+
+              {/* Branch Filter */}
+              <select value={branchFilter} onChange={(e) => setBranchFilter(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                <option value="all">All Branches</option>
+                {branches?.map((branch) => (
+                  <option key={branch.id} value={branch.id}>
+                    {branch.name}
+                  </option>
+                ))}
+              </select>
+            </div>
           <PermissionGuard permissions={["technician:write"]} fallback={null}>
-            <Link href="/technicians/new" className="mt-4 sm:mt-0 inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 font-semibold shadow-lg transition-all duration-200 transform hover:scale-105">
+            <Link href="/technicians/new" className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors">
               <PlusIcon className="w-5 h-5" />
               Add Technician
             </Link>
           </PermissionGuard>
+          </div>
         </div>
 
         {/* Stats Cards */}
@@ -199,47 +214,6 @@ function TechniciansContent() {
               <div className="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center">
                 <WrenchScrewdriverIcon className="w-6 h-6 text-indigo-600" />
               </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Filters and Search */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8">
-          <div className="flex flex-col lg:flex-row gap-4">
-            {/* Search */}
-            <div className="flex-1">
-              <div className="relative">
-                <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                <input type="text" placeholder="Search technicians..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
-              </div>
-            </div>
-
-            {/* Status Filter */}
-            <div className="flex gap-4">
-              <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                <option value="all">All Status</option>
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-                <option value="busy">Busy</option>
-              </select>
-
-              {/* Branch Filter */}
-              <select value={branchFilter} onChange={(e) => setBranchFilter(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                <option value="all">All Branches</option>
-                {branches?.map((branch) => (
-                  <option key={branch.id} value={branch.id}>
-                    {branch.name}
-                  </option>
-                ))}
-              </select>
-
-              {/* Sort */}
-              <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                <option value="name">Sort by Name</option>
-                <option value="status">Sort by Status</option>
-                <option value="rating">Sort by Rating</option>
-                <option value="completed">Sort by Completed</option>
-              </select>
             </div>
           </div>
         </div>
