@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { useRouter } from "next/navigation";
 
-import { ArrowRightOnRectangleIcon, Cog6ToothIcon, MagnifyingGlassIcon, ShieldCheckIcon, UserIcon } from "@heroicons/react/24/outline";
+import { ArrowRightOnRectangleIcon, Cog6ToothIcon, ShieldCheckIcon, UserIcon } from "@heroicons/react/24/outline";
 
 import { useAuth } from "@/contexts/AuthContext";
 import { useSidebar } from "@/contexts/SidebarContext";
@@ -13,11 +13,9 @@ import NotificationBell from "../NotificationBell";
 
 export function AppBar() {
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
 
   const userIconRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const searchRef = useRef<HTMLDivElement>(null);
   const { user, loading } = useUser();
   const { logout } = useAuth();
   const router = useRouter();
@@ -28,15 +26,12 @@ export function AppBar() {
       if (dropdownOpen && dropdownRef.current && !dropdownRef.current.contains(event.target as Node) && userIconRef.current && !userIconRef.current.contains(event.target as Node)) {
         setDropdownOpen(false);
       }
-      if (searchOpen && searchRef.current && !searchRef.current.contains(event.target as Node)) {
-        setSearchOpen(false);
-      }
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [dropdownOpen, searchOpen]);
+  }, [dropdownOpen]);
 
   const userInitial = user?.name ? user.name.charAt(0).toUpperCase() : "U";
 
@@ -74,22 +69,8 @@ export function AppBar() {
         </div>
       </div>
 
-      {/* Center Section - Search */}
-      <div className="hidden md:flex flex-1 max-w-md">
-        <div className="relative w-full" ref={searchRef}>
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <MagnifyingGlassIcon className="h-4 w-4 text-gray-400" />
-          </div>
-          <input type="text" placeholder="Search services, customers, or technicians..." className="w-full pl-9 pr-3 py-1.5 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200 bg-gray-50 hover:bg-white text-sm" />
-        </div>
-      </div>
-
-      {/* Mobile Search Toggle */}
-      <div className="md:hidden">
-        <button onClick={() => setSearchOpen(!searchOpen)} className="p-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors duration-200">
-          <MagnifyingGlassIcon className="h-5 w-5" />
-        </button>
-      </div>
+      {/* Center Section - Spacer */}
+      <div className="hidden md:flex flex-1"></div>
 
       {/* Right Section - Actions & User */}
       <div className="flex items-center gap-2 md:gap-3">
@@ -158,18 +139,6 @@ export function AppBar() {
           )}
         </div>
       </div>
-
-      {/* Mobile Search Overlay */}
-      {searchOpen && (
-        <div className="md:hidden absolute top-full left-0 right-0 bg-white border-b border-gray-200 p-3 shadow-lg">
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <MagnifyingGlassIcon className="h-4 w-4 text-gray-400" />
-            </div>
-            <input type="text" placeholder="Search..." className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" autoFocus />
-          </div>
-        </div>
-      )}
     </header>
   );
 }
