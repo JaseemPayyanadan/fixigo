@@ -210,7 +210,7 @@ export const useServiceActions = (services: Service[], user: User) => {
         if (!service) return false;
         return user.role === 'shop_admin' || 
                user.role === 'branch_admin' || 
-               (user.role === 'technician' && service.assignedTechnicianId === user.id);
+               (user.role === 'technician' && service.technician_id === user.id);
       case 'delete':
         return user.role === 'shop_admin' || user.role === 'branch_admin';
       case 'assign':
@@ -219,7 +219,7 @@ export const useServiceActions = (services: Service[], user: User) => {
         if (!service) return false;
         return user.role === 'shop_admin' || 
                user.role === 'branch_admin' || 
-               (user.role === 'technician' && service.assignedTechnicianId === user.id);
+               (user.role === 'technician' && service.technician_id === user.id);
       default:
         return false;
     }

@@ -29,7 +29,11 @@ export default function NewServicePage() {
     if (isBranchAdmin && user?.branchId) {
       setBranchId(user.branchId);
     }
-  }, [isBranchAdmin, user?.branchId]);
+    // For technicians, automatically set their assigned branch
+    if (user?.role === "technician" && user?.branchId) {
+      setBranchId(user.branchId);
+    }
+  }, [isBranchAdmin, user?.branchId, user?.role]);
 
   // Show loading state while user data is being fetched
   if (userLoading) {
@@ -70,6 +74,10 @@ export default function NewServicePage() {
       setError("Branch selection is required for shop admin.");
       return;
     }
+    
+    // For technicians, always use their assigned branch
+    const finalBranchId = user?.role === "technician" && user?.branchId ? user.branchId : data.service.branchId;
+    
     setLoading(true);
     try {
       await addDoc(collection(db, "services"), {
@@ -77,7 +85,7 @@ export default function NewServicePage() {
         description: data.service.description,
         price: Number(data.service.price),
         shopId,
-        branchId: data.service.branchId || "",
+        branchId: finalBranchId,
         technician_id: data.service.technician_id || (user?.role === "technician" ? user.id : ""),
         priority: data.service.priority || "medium",
         customer: data.customer,
@@ -85,7 +93,7 @@ export default function NewServicePage() {
         created_by: { role: user?.role || "", name: user?.name || "" },
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
-        status: "To Do",
+        status: "pending",
       });
       router.push("/services");
     } catch (err: unknown) {

@@ -20,14 +20,12 @@ interface Service {
   price: number;
   shopId: string;
   branchId: string;
+  technician_id?: string;
+  priority: string;
+  status: string;
   created_by?: { role: string; name: string };
   createdAt: Date;
   updatedAt: Date;
-  paymentStatus?: string;
-  status?: string;
-  technician_id?: string;
-  priority?: string;
-
   actualDuration?: number;
   scheduledDate?: Date;
   completedDate?: Date;
@@ -124,55 +122,80 @@ function ServiceDetailsPage() {
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [statusHistory, setStatusHistory] = useState<StatusHistory[]>([]);
   const [showHistory, setShowHistory] = useState(false);
+  const [statusUpdateSuccess, setStatusUpdateSuccess] = useState(false);
+  const [editLoading, setEditLoading] = useState(false);
 
   useEffect(() => {
     if (!serviceId) return;
+
     const fetchService = async () => {
-      setLoading(true);
       try {
-        const docSnap = await getDoc(doc(db, "services", serviceId));
-        if (docSnap.exists()) {
-          const data = docSnap.data();
+        const serviceDoc = await getDoc(doc(db, "services", serviceId));
+        if (serviceDoc.exists()) {
+          const data = serviceDoc.data();
+          
+          console.log("🔍 Raw service data from Firestore:", {
+            id: serviceDoc.id,
+            name: data.name,
+            branchId: data.branchId,
+            technician_id: data.technician_id,
+            shopId: data.shopId,
+            allFields: Object.keys(data)
+          });
+          
           const serviceData: Service = {
-            id: docSnap.id,
-            name: data.name || "",
-            description: data.description || "",
-            price: data.price || 0,
-            shopId: data.shopId || "",
-            branchId: data.branchId || "",
-            created_by: data.created_by,
-            createdAt: data.createdAt?.toDate() || new Date(),
-            updatedAt: data.updatedAt?.toDate() || new Date(),
-            paymentStatus: data.paymentStatus,
-            status: data.status || "To Do",
-            technician_id: data.technician_id || "",
+            id: serviceDoc.id,
+            name: data.name,
+            description: data.description,
+            price: data.price,
+            shopId: data.shopId,
+            branchId: data.branchId,
+            status: data.status || "pending",
             priority: data.priority || "medium",
-    
-            actualDuration: data.actualDuration || 0,
+            customer: data.customer || { name: "", phone: "", email: "" },
+            device: data.device || { brand: "", model: "", imei: "", color: "", type: "" },
+            technician_id: data.technician_id || "",
+            actualDuration: data.actualDuration,
             scheduledDate: data.scheduledDate?.toDate(),
             completedDate: data.completedDate?.toDate(),
-            notes: data.notes || "",
-            workNotes: data.workNotes || [],
-            partsUsed: data.partsUsed || [],
+            notes: data.notes,
+            workNotes: data.workNotes,
+            partsUsed: data.partsUsed,
             customerFeedback: data.customerFeedback
               ? {
-                  ...data.customerFeedback,
+                  rating: data.customerFeedback.rating,
+                  comment: data.customerFeedback.comment,
                   date: data.customerFeedback.date?.toDate() || new Date(),
                 }
               : undefined,
             qualityScore: data.qualityScore,
             estimatedCompletion: data.estimatedCompletion?.toDate(),
             actualCompletion: data.actualCompletion?.toDate(),
-            device: data.device || {},
-            customer: data.customer || {},
+            createdAt: data.createdAt?.toDate() || new Date(),
+            updatedAt: data.updatedAt?.toDate() || new Date(),
           };
           setService(serviceData);
           setStatus(serviceData.status || "To Do");
-          setBranchId(serviceData.branchId);
+          
+          console.log("✅ Final service object:", {
+            id: serviceData.id,
+            name: serviceData.name,
+            branchId: serviceData.branchId,
+            technician_id: serviceData.technician_id,
+            status: serviceData.status
+          });
+          
+          // For technicians, always use their assigned branch
+          if (user?.role === "technician" && user?.branchId) {
+            setBranchId(user.branchId);
+          } else {
+            setBranchId(serviceData.branchId);
+          }
         } else {
           setError("Service not found");
         }
       } catch (err) {
+        console.error("Error fetching service:", err);
         setError(err instanceof Error ? err.message : "Failed to fetch service");
       } finally {
         setLoading(false);
@@ -190,8 +213,9 @@ function ServiceDetailsPage() {
           ...doc.data(),
         })) as Branch[];
         setBranches(branchesData);
-      } catch {
-        // Error fetching branches
+      } catch (err) {
+        console.error("Error fetching branches:", err);
+        // Could set error state here if needed
       }
     };
 
@@ -205,26 +229,51 @@ function ServiceDetailsPage() {
           id: doc.id,
           ...doc.data(),
         })) as Technician[];
+        
+        console.log("🔍 Fetched technicians:", {
+          total: techniciansData.length,
+          technicians: techniciansData.map(t => ({
+            id: t.id,
+            name: t.name,
+            userId: t.userId,
+            shopId: t.shopId,
+            branchId: t.branchId
+          }))
+        });
+        
         setTechnicians(techniciansData);
-      } catch {
-        // Error fetching technicians
+      } catch (err) {
+        console.error("Error fetching technicians:", err);
+        // Could set error state here if needed
       }
     };
 
     fetchService();
     fetchBranches();
     fetchTechnicians();
-  }, [serviceId, user?.shopId]);
+  }, [serviceId, user?.shopId, user?.role, user?.branchId]);
 
   const handleEdit = async (data: { service: { name: string; description: string; price: string; branchId: string; technician_id?: string }; customer: { name: string; phone?: string; place?: string }; device: { brand: string; model: string; imei: string; color: string } }) => {
     setError(null);
-    setLoading(true);
+    setEditLoading(true);
+    
+    console.log("🔍 handleEdit received data:", {
+      service: data.service,
+      customer: data.customer,
+      device: data.device,
+      userRole: user?.role,
+      userBranchId: user?.branchId
+    });
+    
     try {
+      // For technicians, always use their assigned branch
+      const finalBranchId = user?.role === "technician" && user?.branchId ? user.branchId : data.service.branchId;
+      
       const updateData = {
         name: data.service.name,
         description: data.service.description,
         price: Number(data.service.price),
-        branchId: data.service.branchId,
+        branchId: finalBranchId,
         technician_id: data.service.technician_id || (user?.role === "technician" ? user.id : ""),
         customer: data.customer,
         device: data.device,
@@ -232,29 +281,32 @@ function ServiceDetailsPage() {
         updatedAt: new Date(),
       };
 
+      console.log("🔍 Updating service with data:", updateData);
+
       await updateDoc(doc(db, "services", serviceId!), updateData);
 
       setService((prev) =>
         prev
           ? {
               ...prev,
-              ...data.service,
+              name: data.service.name,
+              description: data.service.description,
               price: Number(data.service.price),
               customer: data.customer,
               device: data.device,
-              branchId: data.service.branchId,
+              branchId: finalBranchId,
               technician_id: data.service.technician_id || (user?.role === "technician" ? user.id : ""),
               status,
               updatedAt: new Date(),
-              createdAt: prev.createdAt,
             }
           : null
       );
       setEditing(false);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : String(err));
+      console.error("Error updating service:", err);
+      setError(err instanceof Error ? err.message : "Failed to update service");
     } finally {
-      setLoading(false);
+      setEditLoading(false);
     }
   };
 
@@ -265,7 +317,8 @@ function ServiceDetailsPage() {
       await deleteDoc(doc(db, "services", serviceId!));
       router.push("/services");
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : String(err));
+      console.error("Error deleting service:", err);
+      setError(err instanceof Error ? err.message : "Failed to delete service");
     } finally {
       setLoading(false);
     }
@@ -291,8 +344,12 @@ function ServiceDetailsPage() {
           updatedBy: user?.name || "Unknown",
         };
         setStatusHistory((prev) => [historyEntry, ...prev]);
-      } catch {
+        setStatusUpdateSuccess(true);
+        setTimeout(() => setStatusUpdateSuccess(false), 3000); // Hide success message after 3 seconds
+      } catch (err) {
+        console.error("Error updating status:", err);
         setStatus(service?.status || "To Do"); // Revert on error
+        setError("Failed to update status. Please try again.");
       } finally {
         setUpdatingStatus(false);
       }
@@ -300,10 +357,45 @@ function ServiceDetailsPage() {
   };
 
   const getTechnicianName = (technicianId: string) => {
+    if (!technicianId) return "Not assigned";
+    
+    const technician = technicians.find((t) => t.id === technicianId || t.userId === technicianId);
+    
+    return technician?.name || `Unknown Technician (${technicianId})`;
+  };
+
+  const getAssignedTechnicianInfo = () => {
+    if (!service) return { name: "Not assigned", id: null, technician: null };
+    
+    // Use only technician_id field
+    const technicianId = service.technician_id;
+    
+    console.log("🔍 Debug getAssignedTechnicianInfo:", {
+      serviceId: service.id,
+      technician_id: technicianId,
+      totalTechnicians: technicians.length,
+      technicianIds: technicians.map(t => ({ id: t.id, name: t.name, userId: t.userId }))
+    });
+    
+    if (!technicianId) {
+      return { name: "Not assigned", id: null, technician: null };
+    }
+    
     const technician = technicians.find(
-      (t) => t.id === technicianId || t.userId === technicianId || (t as any).created_by === technicianId
+      (t) => t.id === technicianId || t.userId === technicianId
     );
-    return technician?.name || "Not assigned";
+    
+    console.log("🔍 Technician lookup result:", {
+      technicianId,
+      found: !!technician,
+      technician: technician ? { id: technician.id, name: technician.name } : null
+    });
+    
+    return {
+      name: technician?.name || `Unknown Technician (${technicianId})`,
+      id: technicianId,
+      technician: technician
+    };
   };
 
   const formatDuration = (minutes: number) => {
@@ -397,7 +489,7 @@ function ServiceDetailsPage() {
           <ServiceForm
             key={editing ? "editing" : "viewing"}
             onSubmit={handleEdit}
-            loading={loading}
+            loading={editLoading}
             editing={true}
             error={error}
             branches={branches}
@@ -406,26 +498,38 @@ function ServiceDetailsPage() {
             setBranchId={setBranchId}
             user={convertedUser}
             shopId={user?.shopId}
-            initialData={{
-              customer: {
-                name: service.customer?.name || "",
-                phone: service.customer?.phone || "",
-                place: service.customer?.place || "",
-              },
-              device: {
-                brand: typeof service.device?.brand === "string" ? service.device.brand : "",
-                model: typeof service.device?.model === "string" ? service.device.model : "",
-                imei: typeof service.device?.imei === "string" ? service.device.imei : "",
-                color: typeof (service.device as Record<string, unknown>)?.color === "string" ? ((service.device as Record<string, unknown>).color as string) : "",
-              },
-              service: {
-                name: service.name,
-                description: service.description,
-                price: String(service.price),
-                technician_id: service.technician_id || "",
-                branchId: service.branchId || "",
-              },
-            }}
+            initialData={(() => {
+              const initialData = {
+                customer: {
+                  name: service.customer?.name || "",
+                  phone: service.customer?.phone || "",
+                  place: service.customer?.place || "",
+                },
+                device: {
+                  brand: typeof service.device?.brand === "string" ? service.device.brand : "",
+                  model: typeof service.device?.model === "string" ? service.device.model : "",
+                  imei: typeof service.device?.imei === "string" ? service.device.imei : "",
+                  color: typeof (service.device as Record<string, unknown>)?.color === "string" ? ((service.device as Record<string, unknown>).color as string) : "",
+                },
+                service: {
+                  name: service.name,
+                  description: service.description,
+                  price: String(service.price),
+                  technician_id: service.technician_id || "",
+                  branchId: service.branchId || "",
+                },
+              };
+              
+              console.log("🔍 ServiceForm initialData:", {
+                service: initialData.service,
+                customer: initialData.customer,
+                device: initialData.device,
+                branches: branches.length,
+                technicians: technicians.length
+              });
+              
+              return initialData;
+            })()}
             onCancelEdit={handleCancelEdit}
           />
         </div>
@@ -533,6 +637,12 @@ function ServiceDetailsPage() {
                     Updating...
                   </div>
                 )}
+                {statusUpdateSuccess && (
+                  <div className="flex items-center gap-2 text-sm text-green-600 bg-white px-3 py-2 rounded-lg border border-green-200">
+                    <MdCheckCircle className="w-4 h-4" />
+                    Status updated successfully!
+                  </div>
+                )}
               </div>
             </div>
 
@@ -616,7 +726,19 @@ function ServiceDetailsPage() {
                   <div>
                     <div className="text-slate-500 text-sm font-medium mb-2">Assigned Technician</div>
                     <div className="font-semibold text-slate-900">
-                      {service.technician_id ? getTechnicianName(service.technician_id) : "Not assigned"}
+                      {(() => {
+                        const techInfo = getAssignedTechnicianInfo();
+                        return (
+                          <div className="space-y-1">
+                            <div>{techInfo.name}</div>
+                            {techInfo.id && (
+                              <div className="text-xs text-slate-500 font-mono bg-slate-100 px-2 py-1 rounded border">
+                                ID: {techInfo.id}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
                 </div>
@@ -701,49 +823,74 @@ function ServiceDetailsPage() {
                 <div className="space-y-4">
                   <div>
                     <div className="text-slate-500 text-sm font-medium mb-2">Name</div>
-                    <div className="font-semibold text-slate-900 text-lg">{service.customer?.name || "Not specified"}</div>
+                    <div className="font-semibold text-slate-900">{service.customer?.name || "Not specified"}</div>
                   </div>
                   <div>
                     <div className="text-slate-500 text-sm font-medium mb-2">Phone</div>
-                    <div className="font-semibold text-slate-900">
-                      {service.customer?.phone ? (
-                        <a href={`tel:${service.customer.phone}`} className="text-blue-600 hover:text-blue-800 hover:underline transition-colors">
-                          {service.customer.phone}
-                        </a>
-                      ) : (
-                        "Not specified"
-                      )}
-                    </div>
+                    <div className="font-semibold text-slate-900">{service.customer?.phone || "Not specified"}</div>
                   </div>
                 </div>
                 <div className="space-y-4">
-                  <div>
-                    <div className="text-slate-500 text-sm font-medium mb-2">Email</div>
-                    <div className="font-semibold text-slate-900">
-                      {service.customer?.email ? (
-                        <a href={`mailto:${service.customer.email}`} className="text-blue-600 hover:text-blue-800 hover:underline transition-colors">
-                          {service.customer.email}
-                        </a>
-                      ) : (
-                        "Not specified"
+                  {service.customer?.email && (
+                    <div>
+                      <div className="text-slate-500 text-sm font-medium mb-2">Email</div>
+                      <div className="font-semibold text-slate-900">{service.customer.email}</div>
+                    </div>
+                  )}
+                  {service.customer?.address && (
+                    <div>
+                      <div className="text-slate-500 text-sm font-medium mb-2">Address</div>
+                      <div className="font-semibold text-slate-900">{service.customer.address}</div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Technician Information */}
+            {(() => {
+              const techInfo = getAssignedTechnicianInfo();
+              if (!techInfo.id) return null;
+              
+              return (
+                <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-8">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-10 h-10 bg-orange-100 rounded-xl flex items-center justify-center">
+                      <MdPerson className="w-6 h-6 text-orange-600" />
+                    </div>
+                    <h2 className="font-bold text-xl text-slate-900">Assigned Technician</h2>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="space-y-4">
+                      <div>
+                        <div className="text-slate-500 text-sm font-medium mb-2">Name</div>
+                        <div className="font-semibold text-slate-900">{techInfo.name}</div>
+                      </div>
+                      <div>
+                        <div className="text-slate-500 text-sm font-medium mb-2">Technician ID</div>
+                        <div className="font-mono text-slate-900 bg-slate-100 px-3 py-2 rounded-lg border">
+                          {techInfo.id}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="space-y-4">
+                      {techInfo.technician?.phone && (
+                        <div>
+                          <div className="text-slate-500 text-sm font-medium mb-2">Phone</div>
+                          <div className="font-semibold text-slate-900">{techInfo.technician.phone}</div>
+                        </div>
+                      )}
+                      {techInfo.technician?.email && (
+                        <div>
+                          <div className="text-slate-500 text-sm font-medium mb-2">Email</div>
+                          <div className="font-semibold text-slate-900">{techInfo.technician.email}</div>
+                        </div>
                       )}
                     </div>
                   </div>
-                  <div>
-                    <div className="text-slate-500 text-sm font-medium mb-2">Place</div>
-                    <div className="font-semibold text-slate-900">{service.customer?.place || "Not specified"}</div>
-                  </div>
                 </div>
-                {service.customer?.address && (
-                  <div className="md:col-span-2">
-                    <div className="text-slate-500 text-sm font-medium mb-2">Address</div>
-                    <div className="font-medium text-slate-900 bg-slate-50 p-4 rounded-xl border border-slate-200 leading-relaxed">
-                      {service.customer.address}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
+              );
+            })()}
 
             {/* Notes and Work Notes */}
             {(service.notes || (service.workNotes && service.workNotes.length > 0)) && (

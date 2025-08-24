@@ -12,7 +12,7 @@ import { useUser } from "./useUser";
 export interface ServiceFilters {
   status?: string;
   priority?: string;
-  assignedTechnicianId?: string;
+  technician_id?: string;
   search?: string;
 }
 
@@ -52,7 +52,7 @@ export function useServices(shopId?: string, branchId?: string) {
       price: data.price || 0,
 
       actualDuration: data.actualDuration || 0,
-      assignedTechnicianId: data.assignedTechnicianId || data.technician_id || "",
+      technician_id: data.technician_id || "",
       estimatedCompletion: data.estimatedCompletion?.toDate() || new Date(),
       actualCompletion: data.actualCompletion?.toDate() || new Date(),
       workNotes: data.workNotes || [],
@@ -72,7 +72,11 @@ export function useServices(shopId?: string, branchId?: string) {
       setLoading(true);
       setError(null);
 
-      console.log('useServices Debug:', queryParams);
+      console.log('🔍 useServices Debug:', {
+        ...queryParams,
+        userRole: user.role,
+        userBranchId: user.branchId
+      });
 
       let q;
       let querySnapshot;
@@ -80,7 +84,7 @@ export function useServices(shopId?: string, branchId?: string) {
       try {
         if (shopId && branchId) {
           // Query services for specific branch
-          console.log('Querying services for branch:', { shopId, branchId });
+          console.log('🔍 Querying services for branch:', { shopId, branchId });
           q = query(
             collection(db, "services"),
             where("shopId", "==", shopId),
@@ -89,23 +93,25 @@ export function useServices(shopId?: string, branchId?: string) {
           );
         } else if (shopId) {
           // Query all services for the shop (shop admin only)
-          console.log('Querying services for shop:', { shopId });
+          console.log('🔍 Querying services for shop:', { shopId, userRole: user.role });
           q = query(
             collection(db, "services"),
             where("shopId", "==", shopId),
             orderBy("createdAt", "desc")
           );
         } else {
-          console.log('No shopId provided, returning empty services');
+          console.log('❌ No shopId provided, returning empty services');
           setServices([]);
           setLoading(false);
           return;
         }
 
         querySnapshot = await getDocs(q);
-        console.log('Services query result:', {
+        console.log('📋 Services query result:', {
           totalDocs: querySnapshot.docs.length,
-          firstDoc: querySnapshot.docs[0]?.data()
+          firstDoc: querySnapshot.docs[0]?.data(),
+          userRole: user.role,
+          userBranchId: user.branchId
         });
 
         // If no results, try with legacy field names
@@ -144,12 +150,38 @@ export function useServices(shopId?: string, branchId?: string) {
         return;
       }
 
-      const serviceList: Service[] = querySnapshot.docs.map(docSnapshot => {
-        const data = docSnapshot.data();
-        return transformServiceData(docSnapshot, data);
-      });
+        // Transform and filter services
+        const transformedServices: Service[] = [];
+        
+        for (const docSnapshot of querySnapshot.docs) {
+          try {
+            const data = docSnapshot.data();
+            console.log('🔧 Processing service document:', {
+              id: docSnapshot.id,
+              branchId: data.branchId,
+              technician_id: data.technician_id,
+              created_by: data.created_by,
+              userRole: user.role,
+              userBranchId: user.branchId
+            });
+            
+            const service = transformServiceData(docSnapshot, data);
+            transformedServices.push(service);
+          } catch (error) {
+            console.error('💥 Error transforming service:', docSnapshot.id, error);
+          }
+        }
 
-      setServices(serviceList);
+        console.log('✅ Final transformed services:', {
+          total: transformedServices.length,
+          sample: transformedServices.slice(0, 2).map(s => ({
+            id: s.id,
+            branchId: s.branchId,
+            technician_id: s.technician_id
+          }))
+        });
+
+        setServices(transformedServices);
       setLoading(false);
     } catch (error: any) {
       console.error('Unexpected error in fetchServices:', error);

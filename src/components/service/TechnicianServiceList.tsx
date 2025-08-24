@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 
 import Link from 'next/link';
 
@@ -12,9 +12,6 @@ import {
   ClockIcon, 
   CurrencyDollarIcon 
 } from '@heroicons/react/24/outline';
-import { collection, query, where, getDocs } from 'firebase/firestore';
-
-import { db } from '@/lib/firebase';
 
 interface ServiceListItem {
   id: string;
@@ -138,47 +135,41 @@ const TechnicianServiceList: React.FC<TechnicianServiceListProps> = ({
   onEdit, 
   onDelete 
 }) => {
-  const [technicianId, setTechnicianId] = useState<string | null>(null);
-  const [technicianLoading, setTechnicianLoading] = useState(true);
-
-  // Fetch technician document ID for the current user
-  useEffect(() => {
-    const fetchTechnicianId = async () => {
-      if (!user || user.role !== "technician") {
-        setTechnicianId(null);
-        setTechnicianLoading(false);
-        return;
-      }
-
-      try {
-        setTechnicianLoading(true);
-        
-        // Get the technician document to find the correct ID
-        const technicianQuery = query(collection(db, "technicians"), where("created_by", "==", user.id));
-        const technicianSnapshot = await getDocs(technicianQuery);
-        const technicianDoc = technicianSnapshot.docs[0];
-        
-        if (technicianDoc) {
-          setTechnicianId(technicianDoc.id);
-        } else {
-          setTechnicianId(null);
-        }
-      } catch (error) {
-        console.error("Error fetching technician ID:", error);
-        setTechnicianId(null);
-      } finally {
-        setTechnicianLoading(false);
-      }
-    };
-
-    fetchTechnicianId();
-  }, [user]);
+  // Console logging for debugging
+  console.log("🔍 TechnicianServiceList Debug Info:", {
+    user: {
+      id: user?.id,
+      role: user?.role,
+      branchId: user?.branchId,
+      shopId: user?.shopId
+    },
+    services: {
+      total: services?.length || 0,
+      sample: services?.slice(0, 2) || []
+    },
+    branches: {
+      total: branches?.length || 0,
+      sample: branches?.slice(0, 2) || []
+    },
+    loading,
+    search
+  });
 
   // Filter services based on search
   const filteredServices = React.useMemo(() => {
-    if (!search) return services;
+    console.log("🔍 Filtering services:", {
+      totalServices: services?.length || 0,
+      searchTerm: search,
+      userRole: user?.role,
+      userBranchId: user?.branchId
+    });
+
+    if (!search) {
+      console.log("📋 No search term, returning all services");
+      return services;
+    }
     
-    return services.filter(service => 
+    const filtered = services.filter(service => 
       service.name.toLowerCase().includes(search.toLowerCase()) ||
       service.description.toLowerCase().includes(search.toLowerCase()) ||
       service.customer.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -187,7 +178,15 @@ const TechnicianServiceList: React.FC<TechnicianServiceListProps> = ({
       service.device.model.toLowerCase().includes(search.toLowerCase()) ||
       service.device.imei.includes(search)
     );
-  }, [services, search]);
+    
+    console.log("🔍 Search filtering results:", {
+      originalCount: services?.length || 0,
+      filteredCount: filtered.length,
+      searchTerm: search
+    });
+    
+    return filtered;
+  }, [services, search, user?.role, user?.branchId]);
 
   // Get branch name by ID
   const getBranchName = (branchId: string): string => {
@@ -195,7 +194,8 @@ const TechnicianServiceList: React.FC<TechnicianServiceListProps> = ({
     return branch?.name || 'Unknown Branch';
   };
 
-  if (loading || technicianLoading) {
+  if (loading) {
+    console.log("⏳ Showing loading state:", { loading });
     return (
       <div className="space-y-4">
         {[...Array(3)].map((_, i) => (
@@ -210,18 +210,40 @@ const TechnicianServiceList: React.FC<TechnicianServiceListProps> = ({
   }
 
   if (filteredServices.length === 0) {
+    console.log("📭 No services found:", {
+      totalServices: services?.length || 0,
+      filteredServices: filteredServices?.length || 0,
+      search,
+      userRole: user?.role,
+      userBranchId: user?.branchId
+    });
     return (
       <div className="text-center py-12">
         <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
           <UserIcon className="w-8 h-8 text-gray-400" />
         </div>
         <h3 className="text-lg font-medium text-gray-900 mb-2">No services found</h3>
-        <p className="text-gray-500">
-          {search ? `No services match "${search}"` : "You don't have any assigned services yet."}
+        <p className="text-gray-500 mb-4">
+          {search ? `No services match "${search}"` : "No services available for this technician"}
         </p>
+        {!search && (
+          <div className="text-sm text-gray-400 space-y-1">
+            <p>Services will appear here when:</p>
+            <p>• You are assigned to services in your branch</p>
+            <p>• You create new services in your branch</p>
+            <p>• Services are created in your assigned branch</p>
+          </div>
+        )}
       </div>
     );
   }
+
+  console.log("🎯 Rendering services:", {
+    totalServices: services?.length || 0,
+    filteredServices: filteredServices?.length || 0,
+    userRole: user?.role,
+    userBranchId: user?.branchId
+  });
 
   return (
     <div className="space-y-4">
@@ -229,6 +251,16 @@ const TechnicianServiceList: React.FC<TechnicianServiceListProps> = ({
         {filteredServices.map((service) => {
           const branchName = getBranchName(service.branchId);
           const date = new Date(service.createdAt);
+          
+          console.log("🔧 Rendering service:", {
+            id: service.id,
+            name: service.name,
+            branchId: service.branchId,
+            branchName,
+            technician_id: service.technician_id,
+            userBranchId: user?.branchId,
+            status: service.status
+          });
           
           return (
             <div key={service.id} className="group relative">
@@ -305,17 +337,17 @@ const TechnicianServiceList: React.FC<TechnicianServiceListProps> = ({
                     </div>
                   </div>
 
-                  {/* Service Assignment Status (Third) */}
-                  <div className="flex items-start gap-3 p-2 bg-blue-50 rounded-lg border border-blue-100">
-                    <UserIcon className="w-4 h-4 text-blue-600 mt-0.5" />
-                    <div className="flex-1 min-w-0">
-                      <div className="text-xs text-blue-600 font-medium">
-                        {service.technician_id
-                          ? (service.technician_id === technicianId ? "Assigned to You" : "Assigned to Another Technician")
-                          : "Unassigned"}
+                  {/* Service Assignment Status */}
+                  {service.technician_id && (
+                    <div className="flex items-start gap-3 p-2 bg-blue-50 rounded-lg border border-blue-100">
+                      <UserIcon className="w-4 h-4 text-blue-600 mt-0.5" />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs text-blue-600 font-medium">
+                          {service.technician_id === user?.id || service.technician_id === user?.uid ? "Assigned to You" : "Assigned to Another Technician"}
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  )}
                 </div>
 
                 {/* Footer */}

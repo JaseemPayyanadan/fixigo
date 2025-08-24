@@ -60,13 +60,12 @@ export interface ServiceListProps {
 export interface ServiceFilters {
   status?: string;
   priority?: string;
-  assignedTechnicianId?: string;
-  search?: string;
-  branchId?: string;
+  technician_id?: string;
   dateRange?: {
     start: Date;
     end: Date;
   };
+  search?: string;
 }
 
 export interface ServiceSortOptions {

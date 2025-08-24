@@ -11,7 +11,7 @@ export const FIELD_MAPPINGS = {
   branch_id: "branchId",
 
   // Technician fields
-  technician_id: "assignedTechnicianId",
+  technician_id: "technician_id",
 
   // Service fields
   serviceName: "name",
@@ -97,7 +97,7 @@ export const FIELD_NAMES = {
   BRANCH_ID: "branchId",
 
   // Technician fields
-  TECHNICIAN_ID: "assignedTechnicianId",
+  TECHNICIAN_ID: "technician_id",
 
   // Service fields
   SERVICE_NAME: "name",

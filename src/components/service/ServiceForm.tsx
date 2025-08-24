@@ -12,7 +12,8 @@ import {
   MapPinIcon,
   IdentificationIcon,
   PaintBrushIcon,
-  WrenchIcon
+  WrenchIcon,
+  GlobeAmericasIcon
 } from "@heroicons/react/24/outline";
 
 import { Button, TextInput, LoadingSpinner } from "@/components/ui";
@@ -90,7 +91,8 @@ const getFormFieldConfig = (user: User) => {
     autoAssignTechnician: user.role === "technician",
     showPrioritySelector: user.role === "shop_admin" || user.role === "branch_admin",
     canEditAllFields: user.role === "shop_admin" || user.role === "branch_admin",
-    readOnlyFields: user.role === "technician" ? ["branchId", "technician_id"] : []
+    readOnlyFields: user.role === "technician" ? ["branchId", "technician_id"] : [],
+    hideBranchForTechnician: user.role === "technician"
   };
 
   return config;
@@ -162,7 +164,7 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
       price: "", 
       branchId: "",
       technician_id: "",
-      priority: "medium"
+      priority: "medium",
     }
   });
   
@@ -174,10 +176,16 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
   // Initialize form with initial data
   useEffect(() => {
     if (initialData) {
+      console.log("🔍 Initializing ServiceForm with data:", initialData);
       setFormData(prev => ({
         customer: { ...prev.customer, ...initialData.customer },
         device: { ...prev.device, ...initialData.device },
-        service: { ...prev.service, ...initialData.service }
+        service: { 
+          ...prev.service, 
+          ...initialData.service,
+          // Ensure technician_id is set from either field
+          technician_id: initialData.service?.technician_id || ""
+        }
       }));
     }
   }, [initialData]);
@@ -185,6 +193,7 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
   // Auto-assign technician for technicians
   useEffect(() => {
     if (fieldConfig.autoAssignTechnician && user?.id && !editing) {
+      console.log("🔧 Auto-assigning technician:", user.id);
       setFormData(prev => ({
         ...prev,
         service: { ...prev.service, technician_id: user.id }
@@ -195,12 +204,41 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
   // Set branchId when it's available
   useEffect(() => {
     if (branchId && !editing) {
+      console.log("🏢 Setting branch ID:", branchId);
       setFormData(prev => ({
         ...prev,
         service: { ...prev.service, branchId }
       }));
     }
   }, [branchId, editing]);
+
+  // For technicians, automatically set their assigned branch
+  useEffect(() => {
+    if (fieldConfig.hideBranchForTechnician && user?.branchId && !editing) {
+      console.log("🔧 Auto-setting technician branch:", user.branchId);
+      setFormData(prev => ({
+        ...prev,
+        service: { ...prev.service, branchId: user.branchId! }
+      }));
+    }
+  }, [fieldConfig.hideBranchForTechnician, user?.branchId, editing]);
+
+  // Normalize technician_id to technician doc id if initial value is user id
+  useEffect(() => {
+    const current = formData.service.technician_id;
+    if (!current || technicians.length === 0) return;
+
+    const hasExact = technicians.some(t => t.id === current);
+    if (hasExact) return;
+
+    const alt = technicians.find(t => (t as any).userId === current || (t as any).user_id === current || (t as any).created_by === current);
+    if (alt) {
+      setFormData(prev => ({
+        ...prev,
+        service: { ...prev.service, technician_id: alt.id }
+      }));
+    }
+  }, [technicians, formData.service.technician_id]);
 
   const handleInputChange = useCallback((section: keyof ServiceFormData, field: string, value: string) => {
     setFormData(prev => ({
@@ -223,8 +261,15 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     
+    console.log("🚀 Submitting service form:", {
+      formData,
+      userRole: user?.role,
+      userBranchId: user?.branchId
+    });
+    
     const validationErrors = validateForm(formData);
     if (Object.keys(validationErrors).length > 0) {
+      console.log("❌ Validation errors:", validationErrors);
       setErrors(validationErrors);
       return;
     }
@@ -233,11 +278,11 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
     try {
       await onSubmit(formData);
     } catch (err) {
-      console.error("Form submission error:", err);
+      console.error("💥 Form submission error:", err);
     } finally {
       setIsSubmitting(false);
     }
-  }, [formData, onSubmit]);
+  }, [formData, onSubmit, user?.role, user?.branchId]);
 
   const handleCancel = useCallback(() => {
     if (editing && onCancelEdit) {
@@ -379,7 +424,7 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
             {/* Service Information */}
             <div className="space-y-4">
               <div className="flex items-center gap-2">
-                <CurrencyDollarIcon className="w-5 h-5 text-gray-500" />
+                <WrenchIcon className="w-5 h-5 text-gray-500" />
                 <h2 className="text-lg font-semibold text-gray-900">Service Details</h2>
               </div>
               
@@ -439,73 +484,97 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
             </div>
 
             {/* Branch and Technician Selection */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <BuildingOfficeIcon className="w-5 h-5 text-gray-500" />
-                <h2 className="text-lg font-semibold text-gray-900">Assignment</h2>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {fieldConfig.showBranchSelector ? (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Branch
-                    </label>
-                    <select
-                      value={formData.service.branchId}
-                      onChange={(e) => {
-                        const selectedBranchId = e.target.value;
-                        setBranchId(selectedBranchId);
-                        handleInputChange("service", "branchId", selectedBranchId);
-                      }}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      required
-                    >
-                      <option value="">Select a branch</option>
-                      {branches.map((branch) => (
-                        <option key={branch.id} value={branch.id}>
-                          {branch.name}
-                        </option>
-                      ))}
-                    </select>
-                    {errors.branchId && (
-                      <p className="text-red-600 text-sm mt-1">{errors.branchId}</p>
-                    )}
-                  </div>
-                ) : (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Branch
-                    </label>
-                    <div className="px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-700">
-                      {branches.find(b => b.id === branchId)?.name || "Branch not found"}
-                    </div>
-                  </div>
-                )}
-
-                {fieldConfig.showTechnicianSelector && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Assign Technician
-                    </label>
-                    <select
-                      value={formData.service.technician_id || ""}
-                      onChange={(e) => handleInputChange("service", "technician_id", e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    >
-                      <option value="">Select a technician</option>
-                      {technicians
-                        .filter(tech => !formData.service.branchId || tech.branchId === formData.service.branchId)
-                        .map((technician) => (
-                          <option key={technician.id} value={technician.id}>
-                            {technician.name}
+            {!fieldConfig.hideBranchForTechnician && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <BuildingOfficeIcon className="w-5 h-5 text-gray-500" />
+                  <h2 className="text-lg font-semibold text-gray-900">Assignment</h2>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {fieldConfig.showBranchSelector ? (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Branch
+                      </label>
+                      <select
+                        value={formData.service.branchId}
+                        onChange={(e) => {
+                          const selectedBranchId = e.target.value;
+                          setBranchId(selectedBranchId);
+                          handleInputChange("service", "branchId", selectedBranchId);
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        required
+                      >
+                        <option value="">Select a branch</option>
+                        {branches.map((branch) => (
+                          <option key={branch.id} value={branch.id}>
+                            {branch.name}
                           </option>
                         ))}
-                    </select>
-                  </div>
-                )}
+                      </select>
+                      {errors.branchId && (
+                        <p className="text-red-600 text-sm mt-1">{errors.branchId}</p>
+                      )}
+                    </div>
+                  ) : (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Branch
+                      </label>
+                      <div className="px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-700">
+                        {branches.find(b => b.id === branchId)?.name || "Branch not found"}
+                      </div>
+                    </div>
+                  )}
+
+                  {fieldConfig.showTechnicianSelector && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Assign Technician
+                      </label>
+                      {(() => {
+                        const filteredTechnicians = technicians.filter(tech => !formData.service.branchId || tech.branchId === formData.service.branchId);
+                        console.log("🔍 Technician selector debug:", {
+                          totalTechnicians: technicians.length,
+                          selectedBranchId: formData.service.branchId,
+                          filteredTechnicians: filteredTechnicians.length,
+                          technicians: technicians.map(t => ({ id: t.id, name: t.name, branchId: t.branchId })),
+                          filtered: filteredTechnicians.map(t => ({ id: t.id, name: t.name, branchId: t.branchId }))
+                        });
+                        return (
+                          <select
+                            value={formData.service.technician_id || ""}
+                            onChange={(e) => handleInputChange("service", "technician_id", e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          >
+                            <option value="">Select a technician</option>
+                            {filteredTechnicians.map((technician) => (
+                              <option key={technician.id} value={technician.id}>
+                                {technician.name}
+                              </option>
+                            ))}
+                          </select>
+                        );
+                      })()}
+                    </div>
+                  )}
+                  
+                  {/* For technicians, show their assigned branch as read-only */}
+                  {fieldConfig.hideBranchForTechnician && user?.branchId && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Branch
+                      </label>
+                      <div className="px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-700">
+                        {branches.find(b => b.id === user.branchId)?.name || "Branch not found"}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Submit Button */}
             <div className="flex justify-end pt-6 border-t border-gray-200">

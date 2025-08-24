@@ -139,7 +139,7 @@ export interface Service {
   device: Device;
   status: "pending" | "in_progress" | "completed" | "cancelled" | "on_hold" | "awaiting_parts" | "ready_for_pickup" | "quality_check";
   priority: "low" | "medium" | "high" | "urgent";
-  assignedTechnicianId?: string;
+  technician_id?: string;
   shopId: string; // Parent shop ID
   branchId: string; // Parent branch ID
 
@@ -214,7 +214,7 @@ export interface PaginatedResponse<T> {
 export interface FilterOptions {
   status?: string;
   priority?: string;
-  assignedTo?: string;
+  technician_id?: string;
   dateRange?: {
     start: Date;
     end: Date;

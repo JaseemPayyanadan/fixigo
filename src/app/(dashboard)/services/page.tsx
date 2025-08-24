@@ -161,29 +161,56 @@ function ServicesContent() {
 
           // For technicians, filter to show only assigned services or services they created
           if (user.role === "technician") {
-            // First, get the technician document to find the correct ID
-            const technicianQuery = query(collection(db, "technicians"), where("created_by", "==", user.id));
-            const technicianSnapshot = await getDocs(technicianQuery);
-            const technicianDoc = technicianSnapshot.docs[0];
+            console.log("🔍 Filtering services for technician:", {
+              userId: user.id,
+              userUid: user.uid,
+              userBranchId: user.branchId
+            });
 
-            if (technicianDoc) {
-              const technicianId = technicianDoc.id;
-              console.log("Services page - Found technician document ID:", technicianId);
-
-              allServices = allServicesData.filter((service) => {
-                // Check for assignment - look for technician_id in the raw data
-                const rawData = querySnapshot.docs.find((doc) => doc.id === service.id)?.data() as any;
-                const isAssigned = rawData?.technician_id === technicianId || service.assignedTechnicianId === technicianId;
-
-                // Check for creation - look for created_by in the raw data
-                const isCreated = rawData?.created_by?.id === user.id || rawData?.created_by?.id === user.uid || rawData?.created_by?.uid === user.uid || rawData?.created_by?.uid === user.id;
-
-                return isAssigned || isCreated;
-              });
-            } else {
-              console.log("Services page - No technician document found for UID:", user.id);
-              allServices = [];
+            // Resolve technician document ID (canonical technicianId)
+            let technicianDocId: string | null = null;
+            try {
+              const techQuery = query(collection(db, "technicians"), where("created_by", "==", user.id));
+              const techSnap = await getDocs(techQuery);
+              technicianDocId = techSnap.docs[0]?.id || null;
+              console.log("👤 Technician document ID:", technicianDocId);
+            } catch (e) {
+              console.warn("⚠️ Failed to resolve technician document ID", e);
             }
+
+            allServices = allServicesData.filter((service) => {
+              // Get the raw data to check all possible fields
+              const rawData = querySnapshot.docs.find((doc) => doc.id === service.id)?.data() as any;
+              
+              // Check if service is in technician's assigned branch
+              const isInTechnicianBranch = service.branchId === user.branchId;
+              
+              // Check if service is assigned to this technician (prefer technicianDocId)
+              const isAssignedToTechnician =
+                (technicianDocId && (rawData?.technician_id === technicianDocId || service.assignedTechnicianId === technicianDocId)) ||
+                // Backward-compat: some records may store user id/uid instead of technician doc id
+                rawData?.technician_id === user.id ||
+                rawData?.technician_id === user.uid ||
+                service.assignedTechnicianId === user.id ||
+                service.assignedTechnicianId === user.uid;
+
+              // Check if service was created by this technician
+              const isCreatedByTechnician = 
+                rawData?.created_by?.id === user.id ||
+                rawData?.created_by?.id === user.uid ||
+                rawData?.created_by?.uid === user.id ||
+                rawData?.created_by?.uid === user.uid;
+
+              const shouldShow = isInTechnicianBranch && (isAssignedToTechnician || isCreatedByTechnician);
+              
+              return shouldShow;
+            });
+
+            console.log("✅ Technician services after filtering:", {
+              totalFetched: allServicesData.length,
+              totalFiltered: allServices.length,
+              filteredServices: allServices.map(s => ({ id: s.id, name: s.name, branchId: s.branchId, assignedTechnicianId: s.assignedTechnicianId }))
+            });
           } else {
             allServices = allServicesData;
           }
@@ -369,7 +396,33 @@ function ServicesContent() {
         {/* Services List */}
         {user?.role === "shop_admin" && <ShopAdminServiceList services={filteredServices} branches={branches} technicians={technicians} loading={loading} search={search} />}
         {user?.role === "branch_admin" && <BranchAdminServiceList services={filteredServices} branches={branches} technicians={technicians} loading={loading} search={search} />}
-        {user?.role === "technician" && <TechnicianServiceList services={filteredServices} branches={branches} technicians={technicians} loading={loading} search={search} user={user} />}
+        {user?.role === "technician" && (
+          <>
+            {console.log("🚀 Rendering TechnicianServiceList with data:", {
+              user: {
+                id: user?.id,
+                role: user?.role,
+                branchId: user?.branchId,
+                shopId: user?.shopId
+              },
+              services: {
+                total: filteredServices?.length || 0,
+                sample: filteredServices?.slice(0, 2) || []
+              },
+              branches: {
+                total: branches?.length || 0,
+                sample: branches?.slice(0, 2) || []
+              },
+              technicians: {
+                total: technicians?.length || 0,
+                sample: technicians?.slice(0, 2) || []
+              },
+              loading,
+              search
+            })}
+            <TechnicianServiceList services={filteredServices} branches={branches} technicians={technicians} loading={loading} search={search} user={user} />
+          </>
+        )}
       </div>
     </div>
   );
