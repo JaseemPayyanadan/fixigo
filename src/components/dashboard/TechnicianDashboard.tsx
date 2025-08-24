@@ -44,7 +44,7 @@ export default function TechnicianDashboard() {
           console.log("TechnicianDashboard - Found technician document ID:", technicianId);
 
           // Filter services assigned to this technician
-          const technicianServices = services.filter((service) => service.assignedTechnicianId === technicianId || (service as any).technician_id === technicianId);
+          const technicianServices = services.filter((service) => service.technician_id === technicianId || (service as any).technician_id === technicianId);
 
           setMyServices(technicianServices);
         } else {

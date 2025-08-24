@@ -61,6 +61,7 @@ export interface ServiceFilters {
   status?: string;
   priority?: string;
   technician_id?: string;
+  branchId?: string;
   dateRange?: {
     start: Date;
     end: Date;

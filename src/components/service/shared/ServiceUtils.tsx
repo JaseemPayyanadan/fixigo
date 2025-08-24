@@ -157,7 +157,7 @@ export const getBranchDisplayInfo = (branchId: string | undefined, branches: Bra
 
 // Get service actions based on user role and service ownership
 export const getServiceActions = (service: Service, user: User): ServiceActions => {
-  const isAssignedTechnician = service.assignedTechnicianId === user.id;
+  const isAssignedTechnician = service.technician_id === user.id;
   const isShopAdmin = user.role === "shop_admin";
   const isBranchAdmin = user.role === "branch_admin";
   const isTechnician = user.role === "technician";
@@ -183,7 +183,7 @@ export const canAccessService = (service: Service, user: User): boolean => {
   
   // Technicians can only access assigned services
   if (user.role === "technician") {
-    return service.assignedTechnicianId === user.id;
+    return service.technician_id === user.id;
   }
   
   return true;
@@ -205,7 +205,7 @@ export const filterServices = (services: Service[], filters: ServiceFilters): Se
     }
     
     // Technician filter
-    if (filters.assignedTechnicianId && service.assignedTechnicianId !== filters.assignedTechnicianId) {
+    if (filters.technician_id && service.technician_id !== filters.technician_id) {
       return false;
     }
     
@@ -304,7 +304,7 @@ export const getServiceDisplayInfo = (
     statusIcon: statusConfig.icon,
     priorityColor: priorityConfig.color,
     priorityIcon: priorityConfig.icon,
-    technicianName: getTechnicianDisplayInfo(service.assignedTechnicianId, technicians),
+    technicianName: getTechnicianDisplayInfo(service.technician_id, technicians),
     branchName: getBranchDisplayInfo(service.branchId, branches),
     formattedPrice: formatServicePrice(service.price),
     formattedDate: formatServiceDate(service.createdAt),

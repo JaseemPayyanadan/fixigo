@@ -183,7 +183,7 @@ export const ServiceStatusManagement: React.FC<{
 // Get service display information
 export const getServiceDisplayInfo = (service: Service, technicians: Technician[], branches: Branch[]) => {
   const branchName = branches.find((b) => b.id === service.branchId)?.name || service.branchId;
-  const technicianInfo = service.assignedTechnicianId ? getTechnicianDisplayInfo(service.assignedTechnicianId, technicians) : null;
+  const technicianInfo = service.technician_id ? getTechnicianDisplayInfo(service.technician_id, technicians) : null;
 
   return {
     branchName,
