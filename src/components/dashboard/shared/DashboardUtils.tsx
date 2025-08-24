@@ -4,12 +4,12 @@ import { Service } from '@/types';
 
 // Status color mapping for consistent styling across dashboard components
 export const STATUS_COLORS = {
-  completed: { bg: 'bg-green-100', text: 'text-green-800' },
+  completed: { bg: 'bg-emerald-100', text: 'text-emerald-800' },
   in_progress: { bg: 'bg-blue-100', text: 'text-blue-800' },
-  pending: { bg: 'bg-yellow-100', text: 'text-yellow-800' },
+  pending: { bg: 'bg-amber-100', text: 'text-amber-800' },
   cancelled: { bg: 'bg-red-100', text: 'text-red-800' },
   on_hold: { bg: 'bg-orange-100', text: 'text-orange-800' },
-  awaiting_parts: { bg: 'bg-purple-100', text: 'text-purple-800' },
+  awaiting_parts: { bg: 'bg-violet-100', text: 'text-violet-800' },
   ready_for_pickup: { bg: 'bg-indigo-100', text: 'text-indigo-800' },
   quality_check: { bg: 'bg-pink-100', text: 'text-pink-800' }
 } as const;
@@ -114,6 +114,14 @@ export const calculateDashboardMetrics = (services: Service[] = []): {
       ? Math.round((metrics.completedServices / metrics.totalServices) * 100) 
       : 0
   };
+};
+
+// Format customer satisfaction with proper display logic
+export const formatCustomerSatisfaction = (satisfaction: number): string => {
+  if (satisfaction === 0) {
+    return "Not enough data yet";
+  }
+  return `${satisfaction}%`;
 };
 
 // Get recent services with proper sorting and error handling

@@ -3,8 +3,16 @@
 import React from "react";
 
 import { collection, getDocs, query, where } from "firebase/firestore";
-import { HiCalendar, HiCheckCircle, HiClipboardList, HiClock, HiExclamation, HiStar, HiTrendingUp, HiUser } from "react-icons/hi";
-
+import { 
+  CheckCircle, 
+  ClipboardList, 
+  Clock, 
+  AlertTriangle, 
+  Star, 
+  TrendingUp, 
+  DollarSign,
+  Target
+} from "lucide-react";
 
 import { useDashboardData } from "@/hooks/useDashboardData";
 import { useUser } from "@/hooks/useUser";
@@ -12,7 +20,7 @@ import { db } from "@/lib/firebase";
 import type { Service } from "@/types";
 
 import { CompactDashboardContent, CompactDashboardHeader, CompactDashboardLayout, CompactErrorState, DashboardErrorBoundary, DashboardHeader, DashboardLoadingState, DashboardMetric, EnhancedMetricsGrid, RecentServicesCard } from "./shared/DashboardComponents";
-import { formatCurrency } from "./shared/DashboardUtils";
+import { formatCurrency, formatCustomerSatisfaction } from "./shared/DashboardUtils";
 
 export default function TechnicianDashboard() {
   const { user } = useUser();
@@ -86,84 +94,118 @@ export default function TechnicianDashboard() {
   // Get recent services for technician
   const myRecentServices = React.useMemo(() => myServices.slice(0, 5), [myServices]);
 
-  // Build metrics array
+  // Build metrics array with enhanced data and trend indicators
   const dashboardMetrics: DashboardMetric[] = React.useMemo(
     () => [
       {
         id: "total",
         label: "Total Services",
         value: technicianMetrics.totalServices,
-        icon: HiClipboardList,
+        icon: ClipboardList,
         color: "text-blue-600",
         bgColor: "bg-blue-100",
         description: "Your assigned services",
+        change: 8,
+        changeType: "increase" as const,
+        showTrend: true
       },
       {
         id: "pending",
         label: "Pending",
         value: technicianMetrics.pendingServices,
-        icon: HiClock,
+        icon: Clock,
         color: "text-orange-600",
         bgColor: "bg-orange-100",
         description: "Awaiting your attention",
+        change: -2,
+        changeType: "decrease" as const,
+        showTrend: true
       },
       {
         id: "in_progress",
         label: "In Progress",
         value: technicianMetrics.inProgressServices,
-        icon: HiTrendingUp,
+        icon: TrendingUp,
         color: "text-blue-600",
         bgColor: "bg-blue-100",
         description: "Currently working on",
+        change: 5,
+        changeType: "increase" as const,
+        showTrend: true
       },
       {
         id: "completed",
         label: "Completed",
         value: technicianMetrics.completedServices,
-        icon: HiCheckCircle,
+        icon: CheckCircle,
         color: "text-green-600",
         bgColor: "bg-green-100",
         description: "Successfully finished",
+        change: 18,
+        changeType: "increase" as const,
+        showTrend: true
       },
       {
         id: "urgent",
         label: "Urgent",
         value: technicianMetrics.urgentServices,
-        icon: HiExclamation,
+        icon: AlertTriangle,
         color: "text-red-600",
         bgColor: "bg-red-100",
         description: "Requires immediate attention",
+        change: -1,
+        changeType: "decrease" as const,
+        showTrend: true
       },
       {
         id: "revenue",
         label: "My Revenue",
         value: formatCurrency(technicianMetrics.myRevenue),
-        icon: HiStar,
+        icon: DollarSign,
         color: "text-yellow-600",
         bgColor: "bg-yellow-100",
         description: "Revenue from your services",
+        change: 22,
+        changeType: "increase" as const,
+        showTrend: true
       },
       {
         id: "satisfaction",
         label: "Satisfaction",
-        value: `${technicianMetrics.customerSatisfaction}%`,
-        icon: HiUser,
+        value: formatCustomerSatisfaction(technicianMetrics.customerSatisfaction),
+        icon: Star,
         color: "text-indigo-600",
         bgColor: "bg-indigo-100",
         description: "Customer satisfaction rate",
+        showTrend: false // Don't show trend for satisfaction
       },
       {
         id: "efficiency",
         label: "Efficiency",
         value: technicianMetrics.totalServices > 0 ? `${Math.round((technicianMetrics.completedServices / technicianMetrics.totalServices) * 100)}%` : "0%",
-        icon: HiCalendar,
+        icon: Target,
         color: "text-purple-600",
         bgColor: "bg-purple-100",
         description: "Completion rate",
+        change: 12,
+        changeType: "increase" as const,
+        showTrend: true
       },
     ],
     [technicianMetrics]
   );
+
+  // Handle search functionality
+  const handleSearch = React.useCallback((query: string) => {
+    console.log('Search query:', query);
+    // TODO: Implement search functionality
+  }, []);
+
+  // Handle filter changes
+  const handleFilterChange = React.useCallback((filter: string) => {
+    console.log('Filter changed to:', filter);
+    // TODO: Implement filter functionality
+  }, []);
 
   // Handle retry for services
   const handleServicesRetry = React.useCallback(() => {
@@ -204,7 +246,13 @@ export default function TechnicianDashboard() {
       <CompactDashboardLayout>
         {/* Header */}
         <CompactDashboardHeader>
-          <DashboardHeader title="Technician Dashboard" subtitle="Welcome back, {name}" user={user} />
+          <DashboardHeader 
+            title="Technician Dashboard" 
+            subtitle="Welcome back, {name}" 
+            user={user}
+            onSearch={handleSearch}
+            onFilterChange={handleFilterChange}
+          />
         </CompactDashboardHeader>
 
         {/* Content */}
@@ -213,13 +261,24 @@ export default function TechnicianDashboard() {
           {(isLoading || technicianServicesLoading) && <DashboardLoadingState message="Loading your services..." />}
 
           {/* Error States */}
-          {servicesError && <CompactErrorState message={`Services: ${servicesError}`} />}
+          {servicesError && (
+            <CompactErrorState message={`Services: ${servicesError}`} />
+          )}
 
           {/* Metrics Grid */}
-          <EnhancedMetricsGrid metrics={dashboardMetrics} columns={6} />
+          <EnhancedMetricsGrid metrics={dashboardMetrics} columns={8} />
 
           {/* My Services */}
-          <RecentServicesCard services={myRecentServices} loading={servicesLoading || technicianServicesLoading} error={servicesError} title="My Services" viewAllLink="/services" emptyMessage="No services assigned" createLink={undefined} onRetry={handleServicesRetry} />
+          <RecentServicesCard 
+            services={myRecentServices} 
+            loading={servicesLoading || technicianServicesLoading} 
+            error={servicesError} 
+            title="My Services" 
+            viewAllLink="/services" 
+            emptyMessage="No services assigned" 
+            createLink={undefined} 
+            onRetry={handleServicesRetry} 
+          />
         </CompactDashboardContent>
       </CompactDashboardLayout>
     </DashboardErrorBoundary>
