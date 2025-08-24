@@ -2,7 +2,7 @@
 
 import React from "react";
 
-import { HiCheckCircle, HiClipboardList, HiClock, HiCurrencyDollar, HiOfficeBuilding, HiStar, HiTrendingUp, HiUserGroup } from "react-icons/hi";
+import { HiCheckCircle, HiClipboardList, HiClock, HiOfficeBuilding, HiStar, HiTrendingUp, HiUserGroup } from "react-icons/hi";
 
 import { useDashboardData } from "@/hooks/useDashboardData";
 import { useUser } from "@/hooks/useUser";
@@ -48,7 +48,7 @@ export default function ShopAdminDashboard() {
         id: "revenue",
         label: "Total Revenue",
         value: formatCurrency(totalRevenue),
-        icon: HiCurrencyDollar,
+        icon: () => <span className="text-yellow-600 font-bold text-xl">₹</span>,
         color: "text-yellow-600",
         bgColor: "bg-yellow-100",
         description: "Total revenue across all branches",

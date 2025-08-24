@@ -6,7 +6,6 @@ import {
   HiOfficeBuilding, 
   HiUserGroup, 
   HiBriefcase, 
-  HiCurrencyDollar, 
   HiClock, 
   HiCheckCircle, 
   HiStar,
@@ -89,9 +88,9 @@ export default function DashboardStats({ metrics, isLoading, error }: DashboardS
   }
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('en-IN', {
       style: 'currency',
-      currency: 'USD',
+      currency: 'INR',
     }).format(amount);
   };
 
@@ -123,7 +122,7 @@ export default function DashboardStats({ metrics, isLoading, error }: DashboardS
     {
       label: 'Revenue',
       value: formatCurrency(metrics.totalRevenue),
-      icon: HiCurrencyDollar,
+      icon: () => <span className="text-yellow-600 font-bold text-lg">₹</span>,
       color: 'text-yellow-600',
       bgColor: 'bg-yellow-100',
       description: 'Total revenue'

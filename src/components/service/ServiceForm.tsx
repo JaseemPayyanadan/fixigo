@@ -6,7 +6,6 @@ import {
   UserIcon, 
   DevicePhoneMobileIcon, 
   BuildingOfficeIcon, 
-  CurrencyDollarIcon,
   XCircleIcon,
   PhoneIcon,
   MapPinIcon,
@@ -458,7 +457,7 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
                   error={errors.servicePrice}
                   required
                   placeholder="Enter price"
-                  icon={<CurrencyDollarIcon className="h-4 w-4 text-gray-400" />}
+                  icon={<span className="text-gray-400 font-bold">₹</span>}
                   type="number"
                   min="0"
                 />

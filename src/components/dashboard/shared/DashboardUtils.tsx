@@ -22,12 +22,12 @@ export const getStatusColor = (status: string): { bg: string; text: string } => 
 };
 
 // Format currency with proper locale
-export const formatCurrency = (amount: number, currency = 'USD'): string => {
+export const formatCurrency = (amount: number, currency = 'INR'): string => {
   if (isNaN(amount) || !isFinite(amount)) {
-    return '$0.00';
+    return '₹0.00';
   }
   
-  return new Intl.NumberFormat('en-US', {
+  return new Intl.NumberFormat('en-IN', {
     style: 'currency',
     currency,
   }).format(amount);

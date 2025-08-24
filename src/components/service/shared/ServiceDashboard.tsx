@@ -5,7 +5,6 @@ import {
   CheckCircleIcon, 
   ClockIcon, 
   ExclamationTriangleIcon,
-  CurrencyDollarIcon,
   UserGroupIcon,
   BuildingOfficeIcon,
   ChartBarIcon
@@ -131,7 +130,7 @@ const ServiceDashboard: React.FC<ServiceDashboardProps> = ({
               </p>
             </div>
             <div className="p-2 bg-emerald-100 rounded-lg">
-              <CurrencyDollarIcon className="w-6 h-6 text-emerald-600" />
+              <span className="text-emerald-600 font-bold text-lg">₹</span>
             </div>
           </div>
         </div>

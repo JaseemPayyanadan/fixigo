@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 
 import { 
   CubeIcon, 
-  CurrencyDollarIcon, 
   EyeIcon, 
   PencilIcon, 
   TrashIcon,
@@ -325,7 +324,7 @@ const BranchAdminServiceList: React.FC<BranchAdminServiceListProps> = ({
                       {date ? formatDate(date) : "-"}
                     </div>
                     <div className="flex items-center gap-1 font-bold text-gray-900 text-lg">
-                      <CurrencyDollarIcon className="w-4 h-4 text-green-600" />
+                      <span className="text-green-600 font-bold text-lg">₹</span>
                       {formatPrice(service.price)}
                     </div>
                   </div>
