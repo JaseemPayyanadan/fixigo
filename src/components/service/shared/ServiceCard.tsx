@@ -55,27 +55,21 @@ const getStatusBadgeConfig = (status: string) => {
     },
     "Pending": {
       label: "Pending",
-      color: "text-violet-700",
+      color: "text-blue-700",
       icon: PauseIcon,
-      bgColor: "bg-violet-100 border-violet-200"
+      bgColor: "bg-blue-100 border-blue-200"
     },
     "Awaiting Parts": {
       label: "Awaiting Parts",
-      color: "text-purple-700",
-      icon: ClockIcon,
-      bgColor: "bg-purple-100 border-purple-200"
-    },
-    "On Hold": {
-      label: "On Hold",
       color: "text-orange-700",
-      icon: PauseIcon,
+      icon: ClockIcon,
       bgColor: "bg-orange-100 border-orange-200"
     },
     "Ready for Pickup": {
       label: "Ready for Pickup",
-      color: "text-emerald-700",
+      color: "text-cyan-700",
       icon: CheckCircleIcon,
-      bgColor: "bg-emerald-100 border-emerald-200"
+      bgColor: "bg-cyan-100 border-cyan-200"
     },
     "Cancelled": {
       label: "Cancelled",

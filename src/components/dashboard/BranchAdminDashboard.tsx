@@ -3,49 +3,33 @@
 import React from "react";
 
 import { 
-  Users, 
   ClipboardList, 
   DollarSign, 
-  Clock, 
   CheckCircle, 
-  Star, 
-  TrendingUp, 
-  Building2 
+  TrendingUp
 } from "lucide-react";
 
 import { useDashboardData } from "@/hooks/useDashboardData";
 import { useUser } from "@/hooks/useUser";
 
 import { CompactDashboardContent, CompactDashboardHeader, CompactDashboardLayout, CompactErrorState, DashboardErrorBoundary, DashboardHeader, DashboardLoadingState, DashboardMetric, EnhancedMetricsGrid, RecentServicesCard } from "./shared/DashboardComponents";
-import { formatCurrency, formatCustomerSatisfaction } from "./shared/DashboardUtils";
+import { formatCurrency } from "./shared/DashboardUtils";
 
 export default function BranchAdminDashboard() {
   const { user } = useUser();
-  const { isLoading, metrics, totalRevenue, technicians, recentServices, servicesLoading, servicesError, techniciansError } = useDashboardData(user?.shopId, user?.branchId);
+  const { isLoading, metrics, totalRevenue, recentServices, servicesLoading, servicesError } = useDashboardData(user?.shopId, user?.branchId);
 
   // Build metrics array with enhanced data and trend indicators
   const dashboardMetrics: DashboardMetric[] = React.useMemo(
     () => [
       {
-        id: "technicians",
-        label: "Technicians",
-        value: technicians.length,
-        icon: Users,
-        color: "text-purple-600",
-        bgColor: "bg-purple-100",
-        description: "Active technicians in branch",
-        change: 3,
-        changeType: "increase" as const,
-        showTrend: true
-      },
-      {
         id: "services",
-        label: "Total Services",
-        value: metrics.totalServices,
+        label: "Services",
+        value: `${metrics.totalServices} (${metrics.pendingServices} pending)`,
         icon: ClipboardList,
         color: "text-green-600",
         bgColor: "bg-green-100",
-        description: "All services in this branch",
+        description: "Total services with pending count",
         change: 15,
         changeType: "increase" as const,
         showTrend: true
@@ -62,18 +46,7 @@ export default function BranchAdminDashboard() {
         changeType: "increase" as const,
         showTrend: true
       },
-      {
-        id: "pending",
-        label: "Pending Services",
-        value: metrics.pendingServices,
-        icon: Clock,
-        color: "text-orange-600",
-        bgColor: "bg-orange-100",
-        description: "Services awaiting attention",
-        change: -5,
-        changeType: "decrease" as const,
-        showTrend: true
-      },
+      
       {
         id: "completed",
         label: "Completed",
@@ -98,30 +71,9 @@ export default function BranchAdminDashboard() {
         changeType: "increase" as const,
         showTrend: true
       },
-      {
-        id: "customers",
-        label: "Customers",
-        value: metrics.totalCustomers,
-        icon: Building2,
-        color: "text-indigo-600",
-        bgColor: "bg-indigo-100",
-        description: "Unique customers served",
-        change: 8,
-        changeType: "increase" as const,
-        showTrend: true
-      },
-      {
-        id: "satisfaction",
-        label: "Customer Satisfaction",
-        value: formatCustomerSatisfaction(metrics.customerSatisfaction),
-        icon: Star,
-        color: "text-pink-600",
-        bgColor: "bg-pink-100",
-        description: "Branch satisfaction rate",
-        showTrend: false // Don't show trend for satisfaction
-      },
+      
     ],
-    [technicians.length, metrics, totalRevenue]
+    [metrics, totalRevenue]
   );
 
   // Handle search functionality
@@ -173,14 +125,14 @@ export default function BranchAdminDashboard() {
           {isLoading && <DashboardLoadingState />}
 
           {/* Error States */}
-          {(servicesError || techniciansError) && (
+          {(servicesError) && (
             <CompactErrorState 
-              message={`${servicesError ? `Services: ${servicesError}` : ""} ${techniciansError ? `Technicians: ${techniciansError}` : ""}`.trim()} 
+              message={`${servicesError ? `Services: ${servicesError}` : ""}`.trim()} 
             />
           )}
 
           {/* Metrics Grid */}
-          <EnhancedMetricsGrid metrics={dashboardMetrics} columns={8} />
+          <EnhancedMetricsGrid metrics={dashboardMetrics} columns={5} />
 
           {/* Recent Services */}
           <RecentServicesCard 

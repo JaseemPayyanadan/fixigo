@@ -20,7 +20,7 @@ import { db } from "@/lib/firebase";
 import type { Service } from "@/types";
 
 import { CompactDashboardContent, CompactDashboardHeader, CompactDashboardLayout, CompactErrorState, DashboardErrorBoundary, DashboardHeader, DashboardLoadingState, DashboardMetric, EnhancedMetricsGrid, RecentServicesCard } from "./shared/DashboardComponents";
-import { formatCurrency, formatCustomerSatisfaction } from "./shared/DashboardUtils";
+import { formatCurrency } from "./shared/DashboardUtils";
 
 export default function TechnicianDashboard() {
   const { user } = useUser();
@@ -172,12 +172,12 @@ export default function TechnicianDashboard() {
       {
         id: "satisfaction",
         label: "Satisfaction",
-        value: formatCustomerSatisfaction(technicianMetrics.customerSatisfaction),
+        value: `${technicianMetrics.customerSatisfaction}%`,
         icon: Star,
         color: "text-indigo-600",
         bgColor: "bg-indigo-100",
         description: "Customer satisfaction rate",
-        showTrend: false // Don't show trend for satisfaction
+        showTrend: false
       },
       {
         id: "efficiency",

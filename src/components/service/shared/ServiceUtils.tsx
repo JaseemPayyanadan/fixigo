@@ -15,20 +15,20 @@ import type { ServiceActions, ServiceFilters, ServiceSortOptions, ServiceDisplay
 // Service Status Configuration
 export const SERVICE_STATUS_CONFIG = {
   pending: { 
-    label: "Pending", 
-    color: "bg-yellow-100 text-yellow-800 border-yellow-200",
+    label: "To Do", 
+    color: "bg-blue-100 text-blue-800 border-blue-200",
     icon: ClockIcon,
     description: "Service request created, waiting to be assigned"
   },
   in_progress: { 
     label: "In Progress", 
-    color: "bg-blue-100 text-blue-800 border-blue-200",
+    color: "bg-amber-100 text-amber-800 border-amber-200",
     icon: ExclamationTriangleIcon,
     description: "Work on the service has begun"
   },
   completed: { 
     label: "Completed", 
-    color: "bg-green-100 text-green-800 border-green-200",
+    color: "bg-emerald-100 text-emerald-800 border-emerald-200",
     icon: CheckCircleIcon,
     description: "Service has been completed successfully"
   },
@@ -38,21 +38,15 @@ export const SERVICE_STATUS_CONFIG = {
     icon: XCircleIcon,
     description: "Service has been cancelled"
   },
-  on_hold: { 
-    label: "On Hold", 
-    color: "bg-orange-100 text-orange-800 border-orange-200",
-    icon: PauseIcon,
-    description: "Service is temporarily paused"
-  },
   awaiting_parts: { 
     label: "Awaiting Parts", 
-    color: "bg-purple-100 text-purple-800 border-purple-200",
+    color: "bg-orange-100 text-orange-800 border-orange-200",
     icon: CubeIcon,
     description: "Waiting for required parts to arrive"
   },
   ready_for_pickup: { 
     label: "Ready for Pickup", 
-    color: "bg-emerald-100 text-emerald-800 border-emerald-200",
+    color: "bg-cyan-100 text-cyan-800 border-cyan-200",
     icon: TruckIcon,
     description: "Service completed, ready for customer pickup"
   },

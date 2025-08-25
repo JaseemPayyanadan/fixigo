@@ -60,32 +60,27 @@ interface BranchAdminServiceListProps {
 const statusConfig: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
   "To Do": { 
     label: "To Do", 
-    color: "bg-gray-100 text-gray-800 border-gray-200",
+    color: "bg-blue-100 text-blue-800 border-blue-200",
     icon: <ClockIcon className="w-3 h-3" />
   },
   "In Progress": { 
     label: "In Progress", 
-    color: "bg-blue-100 text-blue-800 border-blue-200",
+    color: "bg-amber-100 text-amber-800 border-amber-200",
     icon: <ExclamationTriangleIcon className="w-3 h-3" />
   },
   "Awaiting Parts": { 
     label: "Awaiting Parts", 
-    color: "bg-yellow-100 text-yellow-800 border-yellow-200",
-    icon: <CubeIcon className="w-3 h-3" />
-  },
-  "On Hold": { 
-    label: "On Hold", 
     color: "bg-orange-100 text-orange-800 border-orange-200",
-    icon: <ExclamationTriangleIcon className="w-3 h-3" />
+    icon: <CubeIcon className="w-3 h-3" />
   },
   "Ready for Pickup": { 
     label: "Ready for Pickup", 
-    color: "bg-purple-100 text-purple-800 border-purple-200",
+    color: "bg-cyan-100 text-cyan-800 border-cyan-200",
     icon: <CheckCircleIcon className="w-3 h-3" />
   },
   "Completed": { 
     label: "Completed", 
-    color: "bg-green-100 text-green-800 border-green-200",
+    color: "bg-emerald-100 text-emerald-800 border-emerald-200",
     icon: <CheckCircleIcon className="w-3 h-3" />
   },
   "Cancelled": { 
@@ -95,13 +90,14 @@ const statusConfig: Record<string, { label: string; color: string; icon: React.R
   },
   "Pending": { 
     label: "Pending", 
-    color: "bg-gray-100 text-gray-800 border-gray-200",
+    color: "bg-blue-100 text-blue-800 border-blue-200",
     icon: <ClockIcon className="w-3 h-3" />
   }
 };
 
 const BranchAdminServiceList: React.FC<BranchAdminServiceListProps> = ({ 
   services, 
+  branches,
   technicians,
   loading, 
   search, 
@@ -141,6 +137,12 @@ const BranchAdminServiceList: React.FC<BranchAdminServiceListProps> = ({
   const getTechnicianInfo = useCallback((technicianId: string) => {
     return technicianMap.get(technicianId);
   }, [technicianMap]);
+
+  // Optimized branch name getter
+  const getBranchName = useCallback((branchId: string) => {
+    const branch = branches.find(b => b.id === branchId);
+    return branch?.name || "Unknown Branch";
+  }, [branches]);
 
   // Optimized date formatter
   const formatDate = useCallback((date: Date) => {
@@ -222,8 +224,17 @@ const BranchAdminServiceList: React.FC<BranchAdminServiceListProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredServices.map((service) => {
           const date = service.createdAt ? new Date(service.createdAt) : null;
-          const status = service.status || "To Do";
+          
+          // Map internal status values to display values
+          let displayStatus = service.status;
+          if (service.status === "pending") displayStatus = "To Do";
+          else if (service.status === "in_progress") displayStatus = "In Progress";
+          else if (service.status === "awaiting_parts") displayStatus = "Awaiting Parts";
+          else if (service.status === "ready_for_pickup") displayStatus = "Ready for Pickup";
+          
+          const status = displayStatus || "To Do";
           const statusInfo = statusConfig[status] || statusConfig["To Do"];
+          const branchName = getBranchName(service.branchId);
           const technicianInfo = service.technician_id ? getTechnicianInfo(service.technician_id) : null;
           
           return (
@@ -324,7 +335,6 @@ const BranchAdminServiceList: React.FC<BranchAdminServiceListProps> = ({
                       {date ? formatDate(date) : "-"}
                     </div>
                     <div className="flex items-center gap-1 font-bold text-gray-900 text-lg">
-                      <span className="text-green-600 font-bold text-lg">₹</span>
                       {formatPrice(service.price)}
                     </div>
                   </div>

@@ -159,7 +159,6 @@ export const ServiceStatusManagement: React.FC<{
             <option value="in_progress">In Progress</option>
             <option value="completed">Completed</option>
             <option value="cancelled">Cancelled</option>
-            <option value="on_hold">On Hold</option>
             <option value="awaiting_parts">Awaiting Parts</option>
             <option value="ready_for_pickup">Ready for Pickup</option>
             <option value="quality_check">Quality Check</option>

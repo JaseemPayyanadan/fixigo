@@ -3,18 +3,16 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { 
-  CheckCircleIcon, 
-  ClockIcon, 
-  DevicePhoneMobileIcon, 
+  CheckCircleIcon,
+  ClockIcon,
   PlusIcon,
   ClipboardDocumentListIcon,
-  PauseIcon
+  ExclamationTriangleIcon
 } from "@heroicons/react/24/outline";
 import { collection, getDocs, orderBy, query, where } from "firebase/firestore";
 
 import { PermissionGuard, RoleGuard } from "../../../components";
 import { BranchAdminServiceList, ShopAdminServiceList, TechnicianServiceList } from "../../../components/service";
-import { SearchFilter } from "../../../components/ui";
 import { useUser } from "../../../hooks";
 import { useBranches } from "../../../hooks/useBranches";
 import { useTechnicians } from "../../../hooks/useTechnicians";
@@ -43,14 +41,16 @@ interface ServiceListItem {
   updatedAt: Date;
 }
 
-const STATUS_OPTIONS = ["All", "To Do", "In Progress", "Awaiting Parts", "On Hold", "Ready for Pickup", "Completed", "Cancelled", "Pending"];
+const STATUS_OPTIONS = ["All", "To Do", "In Progress", "Awaiting Parts", "Ready for Pickup", "Completed", "Cancelled", "Pending"];
 
 // Status filter chips configuration
 const STATUS_FILTERS = [
   { key: "completed", label: "Completed", count: 0, color: "bg-emerald-100 text-emerald-800 border-emerald-200 hover:bg-emerald-200", icon: CheckCircleIcon },
   { key: "in_progress", label: "In Progress", count: 0, color: "bg-amber-100 text-amber-800 border-amber-200 hover:bg-amber-200", icon: ClockIcon },
   { key: "pending", label: "To Do", count: 0, color: "bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-200", icon: ClipboardDocumentListIcon },
-  { key: "on_hold", label: "Pending", count: 0, color: "bg-violet-100 text-violet-800 border-violet-200 hover:bg-violet-200", icon: PauseIcon },
+  { key: "awaiting_parts", label: "Awaiting Parts", count: 0, color: "bg-orange-100 text-orange-800 border-orange-200 hover:bg-orange-200", icon: ExclamationTriangleIcon },
+  { key: "ready_for_pickup", label: "Ready for Pickup", count: 0, color: "bg-cyan-100 text-cyan-800 border-cyan-200 hover:bg-cyan-200", icon: CheckCircleIcon },
+  { key: "cancelled", label: "Cancelled", count: 0, color: "bg-red-100 text-red-800 border-red-200 hover:bg-red-200", icon: ExclamationTriangleIcon },
 ];
 
 export default function ServicesPage() {
@@ -75,26 +75,15 @@ function ServicesContent() {
 
   // Transform legacy data to match current schema for internal use
   const transformServiceData = (data: any): Service => {
-    const mapStatus = (status: string): Service["status"] => {
-      const statusMap: Record<string, Service["status"]> = {
-        "To Do": "pending",
-        "In Progress": "in_progress",
-        Completed: "completed",
-        Pending: "pending",
-        Cancelled: "cancelled",
-        "Awaiting Parts": "awaiting_parts",
-        "On Hold": "on_hold",
-        "Ready for Pickup": "ready_for_pickup",
-      };
-      return statusMap[status] || "pending";
-    };
+    // Keep the original status value instead of transforming it
+    const status = data.status || "To Do";
 
     return {
       id: data.id,
       name: data.name || data.device?.name || "",
       description: data.description || "",
       price: data.price || 0,
-      status: mapStatus(data.status || "pending"),
+      status: status,
       priority: data.priority || "medium",
       shopId: data.shopId || "",
       branchId: data.branchId || "",
@@ -166,7 +155,13 @@ function ServicesContent() {
 
           const querySnapshot = await getDocs(servicesQuery);
           const allServicesData = querySnapshot.docs.map((doc) => {
-            const data = { id: doc.id, ...doc.data() };
+            const data = { id: doc.id, ...doc.data() } as any;
+            console.log("🔍 Raw service data from Firestore:", {
+              id: data.id,
+              name: data.name,
+              status: data.status,
+              rawData: data
+            });
             return transformServiceData(data);
           });
 
@@ -273,7 +268,10 @@ function ServicesContent() {
 
   // Filtered services
   const filteredServices = useMemo(() => {
-    return services.filter((service) => {
+    console.log("🔍 Filtering services with statusFilter:", statusFilter);
+    console.log("🔍 Total services before filtering:", services.length);
+    
+    const filtered = services.filter((service) => {
       const matchesSearch =
         !search ||
         service.name?.toLowerCase().includes(search.toLowerCase()) ||
@@ -284,54 +282,70 @@ function ServicesContent() {
         service.customer?.name?.toLowerCase().includes(search.toLowerCase()) ||
         service.customer?.phone?.toLowerCase().includes(search.toLowerCase());
 
+      // Use original display status values for filtering
       const matchesStatus = statusFilter === "All" || service.status === statusFilter;
+
+      if (statusFilter !== "All") {
+        console.log(`🔍 Service ${service.name}: status=${service.status}, matchesStatus=${matchesStatus}`);
+      }
 
       return matchesSearch && matchesStatus;
     });
+    
+    console.log("🔍 Filtered services count:", filtered.length);
+    return filtered;
   }, [services, search, statusFilter]);
-
-  // Calculate stats
-  const stats = useMemo(() => {
-    const total = services.length;
-    const completed = services.filter((s) => s.status === "Completed").length;
-    const inProgress = services.filter((s) => s.status === "In Progress").length;
-    const pending = services.filter((s) => s.status === "To Do" || s.status === "Pending").length;
-    const totalRevenue = services.filter((s) => s.status === "Completed").reduce((sum, s) => sum + (s.price || 0), 0);
-
-    return {
-      total,
-      completed,
-      inProgress,
-      pending,
-      totalRevenue,
-    };
-  }, [services]);
 
   // Get status filter chips with counts
   const statusFilterChips = useMemo(() => {
-    return STATUS_FILTERS.map(filter => ({
-      ...filter,
-      count: services.filter(s => {
+    // Debug: Log unique status values in services
+    const uniqueStatuses = [...new Set(services.map(s => s.status))];
+    console.log("🔍 Services status values:", uniqueStatuses);
+    console.log("🔍 Total services:", services.length);
+    
+    const chips = STATUS_FILTERS.map(filter => {
+      const count = services.filter(s => {
         if (filter.key === "completed") return s.status === "Completed";
         if (filter.key === "in_progress") return s.status === "In Progress";
         if (filter.key === "pending") return s.status === "To Do";
-        if (filter.key === "on_hold") return s.status === "Pending";
+        if (filter.key === "awaiting_parts") return s.status === "Awaiting Parts";
+        if (filter.key === "ready_for_pickup") return s.status === "Ready for Pickup";
+        if (filter.key === "cancelled") return s.status === "Cancelled";
         return false;
-      }).length
-    }));
+      }).length;
+      
+      console.log(`🔍 ${filter.label}: ${count} services`);
+      
+      return {
+        ...filter,
+        count
+      };
+    });
+    
+    return chips;
   }, [services]);
-
-  const clearFilters = () => {
-    setSearch("");
-    setStatusFilter("All");
-  };
 
   const handleStatusFilterClick = (statusKey: string) => {
     if (statusKey === "completed") setStatusFilter("Completed");
     else if (statusKey === "in_progress") setStatusFilter("In Progress");
     else if (statusKey === "pending") setStatusFilter("To Do");
-    else if (statusKey === "on_hold") setStatusFilter("Pending");
+    else if (statusKey === "awaiting_parts") setStatusFilter("Awaiting Parts");
+    else if (statusKey === "ready_for_pickup") setStatusFilter("Ready for Pickup");
+    else if (statusKey === "cancelled") setStatusFilter("Cancelled");
   };
+
+  // Debug: Log current state
+  console.log("🔍 Current state:", {
+    statusFilter,
+    totalServices: services.length,
+    filteredServicesCount: filteredServices.length,
+    sampleServices: filteredServices.slice(0, 2).map(s => ({ id: s.id, name: s.name, status: s.status })),
+    allServiceStatuses: [...new Set(services.map(s => s.status))],
+    statusDistribution: services.reduce((acc, s) => {
+      acc[s.status] = (acc[s.status] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>)
+  });
 
   if (!user) {
     return (
@@ -346,115 +360,69 @@ function ServicesContent() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Services</h1>
-            <p className="text-gray-600 mt-1">Manage and track service requests</p>
+    {/* Header Section - Matching Dashboard Style */}
+    <div className="bg-white p-6 shadow-sm border border-gray-100">
+      <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4">
+        <div>
+          <h1 className="text-xl font-bold text-gray-900">Services</h1>
+          <p className="text-sm text-gray-600 mt-1">
+            Welcome back, {user?.name || "User"}
+          </p>
+        </div>
+        
+        <div className="flex flex-col sm:flex-row gap-3">
+          {/* Search Bar */}
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Search by service ID, customer, or technician…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full sm:w-80 pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white hover:bg-gray-50 text-sm shadow-sm"
+            />
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
           </div>
+
+          {/* Filter Dropdown */}
+          <div className="relative">
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="appearance-none bg-white border border-gray-200 rounded-xl px-4 py-2.5 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 shadow-sm hover:bg-gray-50 cursor-pointer"
+            >
+              {STATUS_OPTIONS.map((status) => (
+                <option key={status} value={status}>{status}</option>
+              ))}
+            </select>
+            <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+              <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </div>
+          </div>
+
+          {/* New Service Button */}
           <PermissionGuard permissions={["service:write"]} fallback={null}>
             <Link 
               href="/services/new" 
-              className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all duration-200 text-sm font-semibold shadow-lg hover:shadow-xl transform hover:scale-105"
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all duration-200 text-sm font-semibold shadow-sm hover:shadow-md transform hover:scale-105"
             >
-              <PlusIcon className="w-5 h-5" />
+              <PlusIcon className="w-4 h-4" />
               New Service
             </Link>
           </PermissionGuard>
         </div>
+      </div>
+    </div>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <div 
-            className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 cursor-pointer hover:shadow-md transition-all duration-200 hover:scale-105"
-            onClick={() => setStatusFilter("All")}
-          >
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-100 rounded-xl">
-                <DevicePhoneMobileIcon className="w-6 h-6 text-blue-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
-                <p className="text-sm font-medium text-gray-600">Total Services</p>
-              </div>
-            </div>
-          </div>
-
-          <div 
-            className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 cursor-pointer hover:shadow-md transition-all duration-200 hover:scale-105"
-            onClick={() => setStatusFilter("Completed")}
-          >
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-emerald-100 rounded-xl">
-                <CheckCircleIcon className="w-6 h-6 text-emerald-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-emerald-600">{stats.completed}</p>
-                <p className="text-sm font-medium text-gray-600">Completed</p>
-              </div>
-            </div>
-          </div>
-
-          <div 
-            className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 cursor-pointer hover:shadow-md transition-all duration-200 hover:scale-105"
-            onClick={() => setStatusFilter("In Progress")}
-          >
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-amber-100 rounded-xl">
-                <ClockIcon className="w-6 h-6 text-amber-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-amber-600">{stats.inProgress}</p>
-                <p className="text-sm font-medium text-gray-600">In Progress</p>
-              </div>
-            </div>
-          </div>
-
-          <div 
-            className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 cursor-pointer hover:shadow-md transition-all duration-200 hover:scale-105"
-            onClick={() => setStatusFilter("To Do")}
-          >
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-100 rounded-xl">
-                <ClipboardDocumentListIcon className="w-6 h-6 text-blue-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-blue-600">{stats.pending}</p>
-                <p className="text-sm font-medium text-gray-600">To Do</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Search and Filters */}
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 mb-8">
-          <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center">
-            <div className="flex-1">
-              <SearchFilter
-                search={search}
-                onSearchChange={setSearch}
-                placeholder="Search services by name, description, device, or customer..."
-                filters={[
-                  {
-                    key: "status",
-                    label: "Status",
-                    value: statusFilter,
-                    options: STATUS_OPTIONS.map((status) => ({ value: status, label: status })),
-                    onChange: setStatusFilter,
-                  },
-                ]}
-                onClear={clearFilters}
-                showClear={true}
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-gray-700">Filter by:</span>
-            </div>
-          </div>
-          
-          {/* Status Filter Chips */}
-          <div className="mt-4 flex flex-wrap gap-2">
+        {/* Status Filter Chips - Moved to top */}
+        <div className="mb-8">
+          <div className="flex flex-wrap gap-2">
             {statusFilterChips.map((filter) => (
               <button
                 key={filter.key}

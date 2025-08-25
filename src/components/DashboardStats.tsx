@@ -3,25 +3,20 @@
 import React from 'react';
 
 import { 
-  HiOfficeBuilding, 
-  HiUserGroup, 
   HiBriefcase, 
-  HiClock, 
   HiCheckCircle, 
   HiStar,
-  HiExclamationCircle
+  HiExclamationCircle,
+  HiCurrencyRupee
 } from "react-icons/hi";
 
 interface DashboardStatsProps {
   metrics: {
-    totalBranches: number;
-    totalTechnicians: number;
     totalServices: number;
     totalRevenue: number;
     pendingServices: number;
     completedServices: number;
     activeServices: number;
-    customerSatisfaction: number;
   };
   isLoading?: boolean;
   error?: string | null;
@@ -68,8 +63,8 @@ const CompactMetricCard: React.FC<{
 export default function DashboardStats({ metrics, isLoading, error }: DashboardStatsProps) {
   if (isLoading) {
     return (
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
-        {Array.from({ length: 6 }).map((_, i) => (
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+        {Array.from({ length: 4 }).map((_, i) => (
           <div key={i} className="bg-gray-100 rounded-lg h-20 animate-pulse" />
         ))}
       </div>
@@ -96,44 +91,20 @@ export default function DashboardStats({ metrics, isLoading, error }: DashboardS
 
   const stats = [
     {
-      label: 'Branches',
-      value: metrics.totalBranches,
-      icon: HiOfficeBuilding,
-      color: 'text-blue-600',
-      bgColor: 'bg-blue-100',
-      description: 'Active branches'
-    },
-    {
-      label: 'Technicians',
-      value: metrics.totalTechnicians,
-      icon: HiUserGroup,
-      color: 'text-purple-600',
-      bgColor: 'bg-purple-100',
-      description: 'Active technicians'
-    },
-    {
-      label: 'Total Services',
-      value: metrics.totalServices,
+      label: 'Services',
+      value: `${metrics.totalServices} (${metrics.pendingServices} pending)`,
       icon: HiBriefcase,
       color: 'text-green-600',
       bgColor: 'bg-green-100',
-      description: 'All services'
+      description: 'Total services with pending count'
     },
     {
       label: 'Revenue',
       value: formatCurrency(metrics.totalRevenue),
-      icon: () => <span className="text-yellow-600 font-bold text-lg">₹</span>,
+      icon: HiCurrencyRupee,
       color: 'text-yellow-600',
       bgColor: 'bg-yellow-100',
       description: 'Total revenue'
-    },
-    {
-      label: 'Pending',
-      value: metrics.pendingServices,
-      icon: HiClock,
-      color: 'text-orange-600',
-      bgColor: 'bg-orange-100',
-      description: 'Awaiting attention'
     },
     {
       label: 'Completed',
@@ -146,17 +117,17 @@ export default function DashboardStats({ metrics, isLoading, error }: DashboardS
   ];
 
   return (
-    <div className="space-y-3">
-      {/* Main metrics grid */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+    <div className="space-y-4">
+      {/* Main metrics grid - optimized for 5 cards */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
         {stats.map((stat, index) => (
           <CompactMetricCard key={index} {...stat} />
         ))}
       </div>
       
-      {/* Secondary metrics row */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <div className="bg-white rounded-lg border border-gray-100 p-3">
+      {/* Secondary metrics row - single card centered */}
+      <div className="flex justify-center">
+        <div className="bg-white rounded-lg border border-gray-100 p-4 w-full max-w-md">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="p-1.5 rounded-md bg-indigo-100">
@@ -165,18 +136,6 @@ export default function DashboardStats({ metrics, isLoading, error }: DashboardS
               <span className="text-sm font-medium text-gray-900">Active Services</span>
             </div>
             <span className="text-lg font-bold text-gray-900">{metrics.activeServices}</span>
-          </div>
-        </div>
-        
-        <div className="bg-white rounded-lg border border-gray-100 p-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="p-1.5 rounded-md bg-pink-100">
-                <HiStar className="h-3.5 w-3.5 text-pink-600" />
-              </div>
-              <span className="text-sm font-medium text-gray-900">Satisfaction</span>
-            </div>
-            <span className="text-lg font-bold text-gray-900">{metrics.customerSatisfaction}%</span>
           </div>
         </div>
       </div>

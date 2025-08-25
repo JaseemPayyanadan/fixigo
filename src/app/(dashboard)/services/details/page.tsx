@@ -67,17 +67,16 @@ interface StatusHistory {
   updatedBy: string;
 }
 
-const STATUS_OPTIONS = ["To Do", "In Progress", "Completed", "Pending", "Cancelled", "Awaiting Parts", "On Hold", "Ready for Pickup"];
+const STATUS_OPTIONS = ["To Do", "In Progress", "Completed", "Pending", "Cancelled", "Awaiting Parts", "Ready for Pickup"];
 
 const statusColors: Record<string, string> = {
-  "To Do": "bg-slate-50 text-slate-700 border-slate-200",
+  "To Do": "bg-blue-50 text-blue-700 border-blue-200",
   Completed: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  "In Progress": "bg-blue-50 text-blue-700 border-blue-200",
-  Pending: "bg-amber-50 text-amber-700 border-amber-200",
+  "In Progress": "bg-amber-50 text-amber-700 border-amber-200",
+  Pending: "bg-blue-50 text-blue-700 border-blue-200",
   Cancelled: "bg-red-50 text-red-700 border-red-200",
-  "Awaiting Parts": "bg-violet-50 text-violet-700 border-violet-200",
-  "On Hold": "bg-orange-50 text-orange-700 border-orange-200",
-  "Ready for Pickup": "bg-indigo-50 text-indigo-700 border-indigo-200",
+  "Awaiting Parts": "bg-orange-50 text-orange-700 border-orange-200",
+  "Ready for Pickup": "bg-cyan-50 text-cyan-700 border-cyan-200",
 };
 
 const statusIcons: Record<string, React.ReactNode> = {
@@ -87,7 +86,6 @@ const statusIcons: Record<string, React.ReactNode> = {
   Pending: <MdSchedule className="w-4 h-4" />,
   Cancelled: <MdDelete className="w-4 h-4" />,
   "Awaiting Parts": <MdInfo className="w-4 h-4" />,
-  "On Hold": <MdWarning className="w-4 h-4" />,
   "Ready for Pickup": <MdCheckCircle className="w-4 h-4" />,
 };
 

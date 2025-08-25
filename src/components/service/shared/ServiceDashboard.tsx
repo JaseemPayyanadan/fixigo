@@ -130,7 +130,6 @@ const ServiceDashboard: React.FC<ServiceDashboardProps> = ({
               </p>
             </div>
             <div className="p-2 bg-emerald-100 rounded-lg">
-              <span className="text-emerald-600 font-bold text-lg">₹</span>
             </div>
           </div>
         </div>

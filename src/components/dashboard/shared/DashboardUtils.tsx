@@ -5,13 +5,12 @@ import { Service } from '@/types';
 // Status color mapping for consistent styling across dashboard components
 export const STATUS_COLORS = {
   completed: { bg: 'bg-emerald-100', text: 'text-emerald-800' },
-  in_progress: { bg: 'bg-blue-100', text: 'text-blue-800' },
-  pending: { bg: 'bg-amber-100', text: 'text-amber-800' },
+  in_progress: { bg: 'bg-amber-100', text: 'text-amber-800' },
+  pending: { bg: 'bg-blue-100', text: 'text-blue-800' },
   cancelled: { bg: 'bg-red-100', text: 'text-red-800' },
-  on_hold: { bg: 'bg-orange-100', text: 'text-orange-800' },
-  awaiting_parts: { bg: 'bg-violet-100', text: 'text-violet-800' },
-  ready_for_pickup: { bg: 'bg-indigo-100', text: 'text-indigo-800' },
-  quality_check: { bg: 'bg-pink-100', text: 'text-pink-800' }
+  awaiting_parts: { bg: 'bg-orange-100', text: 'text-orange-800' },
+  ready_for_pickup: { bg: 'bg-cyan-100', text: 'text-cyan-800' },
+  quality_check: { bg: 'bg-indigo-100', text: 'text-indigo-800' }
 } as const;
 
 // Get status color based on service status
@@ -54,6 +53,14 @@ export const getTimestampSeconds = (timestamp: unknown): number => {
   }
 };
 
+export interface DashboardMetrics {
+  totalServices: number;
+  pendingServices: number;
+  completedServices: number;
+  activeServices: number;
+  totalCustomers: number;
+}
+
 // Calculate dashboard metrics from services data with performance optimization
 export const calculateDashboardMetrics = (services: Service[] = []): {
   totalServices: number;
@@ -61,7 +68,6 @@ export const calculateDashboardMetrics = (services: Service[] = []): {
   completedServices: number;
   activeServices: number;
   totalCustomers: number;
-  customerSatisfaction: number;
 } => {
   if (!services || services.length === 0) {
     return {
@@ -69,8 +75,7 @@ export const calculateDashboardMetrics = (services: Service[] = []): {
       pendingServices: 0,
       completedServices: 0,
       activeServices: 0,
-      totalCustomers: 0,
-      customerSatisfaction: 0
+      totalCustomers: 0
     };
   }
 
@@ -109,19 +114,8 @@ export const calculateDashboardMetrics = (services: Service[] = []): {
     pendingServices: metrics.pendingServices,
     completedServices: metrics.completedServices,
     activeServices: metrics.activeServices,
-    totalCustomers: metrics.customerNames.size,
-    customerSatisfaction: metrics.totalServices > 0 
-      ? Math.round((metrics.completedServices / metrics.totalServices) * 100) 
-      : 0
+    totalCustomers: metrics.customerNames.size
   };
-};
-
-// Format customer satisfaction with proper display logic
-export const formatCustomerSatisfaction = (satisfaction: number): string => {
-  if (satisfaction === 0) {
-    return "Not enough data yet";
-  }
-  return `${satisfaction}%`;
 };
 
 // Get recent services with proper sorting and error handling

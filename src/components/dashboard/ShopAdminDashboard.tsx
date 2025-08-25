@@ -3,13 +3,9 @@
 import React from "react";
 
 import { 
-  Building2, 
   ClipboardList, 
-  Users, 
   TrendingUp, 
-  Clock, 
   CheckCircle, 
-  Star,
   DollarSign
 } from "lucide-react";
 
@@ -28,48 +24,24 @@ import {
   UltraCompactDashboardHeader, 
   UltraCompactDashboardLayout 
 } from "./shared/DashboardComponents";
-import { formatCurrency, formatCustomerSatisfaction } from "./shared/DashboardUtils";
+import { formatCurrency } from "./shared/DashboardUtils";
 
 export default function ShopAdminDashboard() {
   const { user } = useUser();
-  const { isLoading, metrics, totalRevenue, branches, technicians, recentServices, servicesLoading, servicesError, branchesError, techniciansError } = useDashboardData(user?.shopId);
+  const { isLoading, metrics, totalRevenue, recentServices, servicesLoading, servicesError } = useDashboardData(user?.shopId);
 
   // Build metrics array with enhanced data and trend indicators
   const dashboardMetrics: DashboardMetric[] = React.useMemo(
     () => [
       {
-        id: "branches",
-        label: "Branches",
-        value: branches.length,
-        icon: Building2,
-        color: "text-blue-600",
-        bgColor: "bg-blue-100",
-        description: "Total active branches",
-        change: 12,
-        changeType: "increase" as const,
-        showTrend: true
-      },
-      {
         id: "services",
-        label: "Total Services",
-        value: metrics.totalServices,
+        label: "Services",
+        value: `${metrics.totalServices} (${metrics.pendingServices} pending)`,
         icon: ClipboardList,
         color: "text-green-600",
         bgColor: "bg-green-100",
-        description: "All services across branches",
+        description: "Total services with pending count",
         change: 8,
-        changeType: "increase" as const,
-        showTrend: true
-      },
-      {
-        id: "technicians",
-        label: "Technicians",
-        value: technicians.length,
-        icon: Users,
-        color: "text-purple-600",
-        bgColor: "bg-purple-100",
-        description: "Active technicians",
-        change: 5,
         changeType: "increase" as const,
         showTrend: true
       },
@@ -85,18 +57,7 @@ export default function ShopAdminDashboard() {
         changeType: "increase" as const,
         showTrend: true
       },
-      {
-        id: "pending",
-        label: "Pending Services",
-        value: metrics.pendingServices,
-        icon: Clock,
-        color: "text-orange-600",
-        bgColor: "bg-orange-100",
-        description: "Services awaiting attention",
-        change: -3,
-        changeType: "decrease" as const,
-        showTrend: true
-      },
+      
       {
         id: "completed",
         label: "Completed",
@@ -121,18 +82,9 @@ export default function ShopAdminDashboard() {
         changeType: "increase" as const,
         showTrend: true
       },
-      {
-        id: "satisfaction",
-        label: "Customer Satisfaction",
-        value: formatCustomerSatisfaction(metrics.customerSatisfaction),
-        icon: Star,
-        color: "text-indigo-600",
-        bgColor: "bg-indigo-100",
-        description: "Overall satisfaction rate",
-        showTrend: false // Don't show trend for satisfaction
-      },
+      
     ],
-    [branches.length, technicians.length, metrics, totalRevenue]
+    [metrics, totalRevenue]
   );
 
   // Handle search functionality
@@ -184,14 +136,14 @@ export default function ShopAdminDashboard() {
           {isLoading && <DashboardLoadingState />}
 
           {/* Error States */}
-          {(servicesError || branchesError || techniciansError) && (
+          {(servicesError) && (
             <CompactErrorState 
-              message={`${servicesError ? `Services: ${servicesError}` : ""} ${branchesError ? `Branches: ${branchesError}` : ""} ${techniciansError ? `Technicians: ${techniciansError}` : ""}`.trim()} 
+              message={`${servicesError ? `Services: ${servicesError}` : ""}`.trim()} 
             />
           )}
 
           {/* Metrics Grid */}
-          <EnhancedMetricsGrid metrics={dashboardMetrics} columns={8} />
+          <EnhancedMetricsGrid metrics={dashboardMetrics} columns={5} />
 
           {/* Recent Services */}
           <RecentServicesCard 
