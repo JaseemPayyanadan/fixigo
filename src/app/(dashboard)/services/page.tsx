@@ -387,23 +387,7 @@ function ServicesContent() {
             </div>
           </div>
 
-          {/* Filter Dropdown */}
-          <div className="relative">
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="appearance-none bg-white border border-gray-200 rounded-xl px-4 py-2.5 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 shadow-sm hover:bg-gray-50 cursor-pointer"
-            >
-              {STATUS_OPTIONS.map((status) => (
-                <option key={status} value={status}>{status}</option>
-              ))}
-            </select>
-            <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-              <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </div>
-          </div>
+
 
           {/* New Service Button */}
           <PermissionGuard permissions={["service:write"]} fallback={null}>
@@ -420,22 +404,30 @@ function ServicesContent() {
     </div>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
-        {/* Status Filter Chips - Moved to top */}
-        <div className="mb-8">
-          <div className="flex flex-wrap gap-2">
-            {statusFilterChips.map((filter) => (
-              <button
-                key={filter.key}
-                onClick={() => handleStatusFilterClick(filter.key)}
-                className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium border transition-all duration-200 hover:scale-105 ${filter.color}`}
-              >
-                <filter.icon className="w-4 h-4" />
-                {filter.label}
-                <span className="ml-1 px-2 py-0.5 bg-white/50 rounded-full text-xs font-bold">
-                  {filter.count}
-                </span>
-              </button>
-            ))}
+        {/* Status Filter Chips - Horizontal Scroll */}
+        <div className="mb-4">
+          <div className="relative">
+            {/* Scroll indicator shadows - only show on larger screens */}
+            <div className="hidden sm:block absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-gray-50 to-transparent pointer-events-none z-10 rounded-l-lg"></div>
+            <div className="hidden sm:block absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-gray-50 to-transparent pointer-events-none z-10 rounded-r-lg"></div>
+            
+            {/* Horizontal scrollable container */}
+            <div className="overflow-x-auto scrollbar-hide">
+              <div className="flex gap-3 pb-1 min-w-max px-1">
+                {statusFilterChips.map((filter) => (
+                  <button
+                    key={filter.key}
+                    onClick={() => handleStatusFilterClick(filter.key)}
+                    className={`inline-flex items-center gap-1.5 px-2 rounded-lg text-xs font-medium border transition-all duration-200 hover:scale-105 active:scale-95 whitespace-nowrap ${filter.color}`}
+                  >
+                    {filter.label}
+                    <span className="ml-0.5 px-1.5 py-0.5 bg-white/50 rounded-full text-xs font-bold">
+                      {filter.count}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
 
@@ -470,17 +462,7 @@ function ServicesContent() {
           </>
         )}
 
-        {/* Floating New Service Button for Mobile */}
-        <PermissionGuard permissions={["service:write"]} fallback={null}>
-          <div className="fixed bottom-6 right-6 lg:hidden">
-            <Link 
-              href="/services/new" 
-              className="inline-flex items-center justify-center w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-110"
-            >
-              <PlusIcon className="w-6 h-6" />
-            </Link>
-          </div>
-        </PermissionGuard>
+
       </div>
     </div>
   );

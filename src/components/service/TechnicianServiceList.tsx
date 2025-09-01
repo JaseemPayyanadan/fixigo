@@ -1,16 +1,19 @@
 "use client";
 import React from 'react';
-
 import Link from 'next/link';
 
-import { 
-  EyeIcon, 
-  PencilIcon, 
-  TrashIcon, 
+import {  
   UserIcon, 
-  BuildingOfficeIcon, 
-  ClockIcon
+  ClockIcon,
+  DevicePhoneMobileIcon,
+  CheckCircleIcon,
+  ExclamationTriangleIcon,
+  ClipboardDocumentListIcon,
+  PauseIcon,
+  NoSymbolIcon
 } from '@heroicons/react/24/outline';
+
+import { Button, LoadingSpinner } from '@/components/ui';
 
 interface ServiceListItem {
   id: string;
@@ -78,95 +81,203 @@ interface TechnicianServiceListProps {
   technicians: Technician[];
   loading: boolean;
   search?: string;
-  user?: any; // Add user prop for technician context
+  user?: any;
   onEdit?: (service: ServiceListItem) => void;
   onDelete?: (id: string) => void;
 }
 
-// Utility function to format price
-const formatPrice = (price: number): string => {
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(price);
+// Status badge configuration with chip-style design
+const getStatusBadgeConfig = (status: string) => {
+  const statusMap: Record<string, { 
+    label: string; 
+    color: string; 
+    icon: React.ComponentType<{ className?: string }>;
+    bgColor: string;
+  }> = {
+    "Completed": {
+      label: "Completed",
+      color: "text-green-700",
+      icon: CheckCircleIcon,
+      bgColor: "bg-green-50"
+    },
+    "In Progress": {
+      label: "In Progress",
+      color: "text-blue-700",
+      icon: ExclamationTriangleIcon,
+      bgColor: "bg-blue-50"
+    },
+    "To Do": {
+      label: "To Do",
+      color: "text-blue-700",
+      icon: ClipboardDocumentListIcon,
+      bgColor: "bg-blue-50"
+    },
+    "Pending": {
+      label: "Pending",
+      color: "text-orange-700",
+      icon: PauseIcon,
+      bgColor: "bg-orange-50"
+    },
+    "Awaiting Parts": {
+      label: "Awaiting Parts",
+      color: "text-orange-700",
+      icon: ClockIcon,
+      bgColor: "bg-orange-50"
+    },
+    "Ready for Pickup": {
+      label: "Ready for Pickup",
+      color: "text-cyan-700",
+      icon: CheckCircleIcon,
+      bgColor: "bg-cyan-50"
+    },
+    "Cancelled": {
+      label: "Cancelled",
+      color: "text-red-700",
+      icon: NoSymbolIcon,
+      bgColor: "bg-red-50"
+    },
+    "Urgent": {
+      label: "Urgent",
+      color: "text-red-700",
+      icon: ExclamationTriangleIcon,
+      bgColor: "bg-red-50"
+    }
+  };
+
+  // Map internal status values to display values
+  let displayStatus = status;
+  if (status === "pending") displayStatus = "Pending";
+  else if (status === "in_progress") displayStatus = "In Progress";
+  else if (status === "awaiting_parts") displayStatus = "Awaiting Parts";
+  else if (status === "ready_for_pickup") displayStatus = "Ready for Pickup";
+
+  return statusMap[displayStatus] || statusMap["To Do"];
 };
 
-// Utility function to format date
-const formatDate = (date: Date): string => {
-  return new Intl.DateTimeFormat('en-IN', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(date);
+// Single Service Card Component (Responsive)
+const ServiceCard: React.FC<{
+  service: ServiceListItem;
+  branches: Branch[];
+  technicians: Technician[];
+  user: any;
+  onEdit?: (service: ServiceListItem) => void;
+  onDelete?: (id: string) => void;
+}> = ({ service, branches, technicians, user, onEdit, onDelete }) => {
+  const statusBadge = getStatusBadgeConfig(service.status);
+
+  const handleEdit = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    onEdit?.(service);
+  };
+
+  const handleDelete = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (window.confirm("Are you sure you want to delete this service?")) {
+      onDelete?.(service.id);
+    }
+  };
+
+  // Format currency with Indian Rupee symbol
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(amount);
+  };
+
+  return (
+    <Link href={`/services/details?id=${service.id}`} className="block">
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-lg transition-all duration-300 hover:scale-[1.02] group cursor-pointer">
+        {/* Top Bar - Service ID + Status Badge */}
+        <div className="px-6 py-4 border-b border-gray-100">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-mono text-gray-500 bg-gray-100 px-2 py-1 rounded-md">
+                #{service.id.slice(-8)}
+              </span>
+            </div>
+            
+            {/* Status Badge */}
+            <div className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold ${statusBadge.bgColor} ${statusBadge.color}`}>
+              {statusBadge.label}
+            </div>
+          </div>
+        </div>
+
+        {/* Middle - Service Issue/Summary */}
+        <div className="px-6 py-4">
+          <h3 className="text-lg font-bold text-gray-900 line-clamp-2 group-hover:text-blue-600 transition-colors">
+            {service.name || "Service Request"}
+          </h3>
+          {service.description && (
+            <p className="text-sm text-gray-600 line-clamp-2">
+              {service.description}
+            </p>
+          )}
+        </div>
+
+        {/* Details Section - 2-column grid with icons */}
+        <div className="px-6 py-4 space-y-3">
+          {/* Device Details */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                <DevicePhoneMobileIcon className="w-4 h-4 text-blue-600" />
+              </div>
+              <div className="min-w-0">
+                <p className="font-semibold text-gray-900 text-sm truncate">
+                  {service.device?.brand} {service.device?.model}
+                </p>
+                <p className="text-gray-600 text-xs truncate">
+                  IMEI: {service.device?.imei || "N/A"}
+                </p>
+              </div>
+            </div>
+
+            {/* Customer Details */}
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center flex-shrink-0">
+                <UserIcon className="w-4 h-4 text-orange-600" />
+              </div>
+              <div className="min-w-0">
+                <p className="font-semibold text-gray-900 text-sm truncate">
+                  {service.customer?.name || "Unknown Customer"}
+                </p>
+                <p className="text-gray-600 text-xs truncate">
+                  {service.customer?.phone || "No phone"}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer - Date and Amount */}
+        <div className="px-6 py-4 border-t border-gray-100 bg-gray-50/50">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm text-gray-600">
+              <ClockIcon className="w-4 h-4" />
+              <span>{service.createdAt ? new Date(service.createdAt).toLocaleDateString() : "N/A"}</span>
+            </div>
+            
+            <div className="text-right">
+              <p className="text-lg font-bold text-gray-900">
+                {formatCurrency(service.price || 0)}
+              </p>
+            </div>
+          </div>
+        </div>
+
+
+      </div>
+    </Link>
+  );
 };
 
-// Status configuration
-const statusConfig: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
-  "To Do": { 
-    label: "To Do", 
-    color: "bg-blue-100 text-blue-800 border-blue-200",
-    icon: <ClockIcon className="w-3 h-3" />
-  },
-  "In Progress": { 
-    label: "In Progress", 
-    color: "bg-amber-100 text-amber-800 border-amber-200",
-    icon: <ClockIcon className="w-3 h-3" />
-  },
-  "Awaiting Parts": { 
- 
-    label: "Awaiting Parts", 
-    color: "bg-orange-100 text-orange-800 border-orange-200",
-    icon: <ClockIcon className="w-3 h-3" />
-  },
-  "Ready for Pickup": { 
-    label: "Ready for Pickup", 
-    color: "bg-cyan-100 text-cyan-800 border-cyan-200",
-    icon: <ClockIcon className="w-3 h-3" />
-  },
-  "Completed": { 
-    label: "Completed", 
-    color: "bg-emerald-100 text-emerald-800 border-emerald-200",
-    icon: <ClockIcon className="w-3 h-3" />
-  },
-  "Cancelled": { 
-    label: "Cancelled", 
-    color: "bg-red-100 text-red-800 border-red-200",
-    icon: <ClockIcon className="w-3 h-3" />
-  },
-  "Pending": { 
-    label: "Pending", 
-    color: "bg-blue-100 text-blue-800 border-blue-200",
-    icon: <ClockIcon className="w-3 h-3" />
-  }
-};
 
-// Utility function to get status color
-const getStatusColor = (status: string): string => {
-  switch (status.toLowerCase()) {
-    case 'completed':
-      return 'bg-emerald-100 text-emerald-800 border-emerald-200';
-    case 'in progress':
-    case 'in_progress':
-      return 'bg-amber-100 text-amber-800 border-amber-200';
-    case 'pending':
-    case 'to do':
-      return 'bg-blue-100 text-blue-800 border-blue-200';
-    case 'cancelled':
-      return 'bg-red-100 text-red-800 border-red-200';
-    case 'awaiting parts':
-    case 'awaiting_parts':
-      return 'bg-orange-100 text-orange-800 border-orange-200';
-    case 'ready for pickup':
-    case 'ready_for_pickup':
-      return 'bg-cyan-100 text-cyan-800 border-cyan-200';
-    default:
-      return 'bg-gray-100 text-gray-800 border-gray-200';
-  }
-};
 
 const TechnicianServiceList: React.FC<TechnicianServiceListProps> = ({ 
   services, 
@@ -231,32 +342,20 @@ const TechnicianServiceList: React.FC<TechnicianServiceListProps> = ({
     return filtered;
   }, [services, search, user?.role, user?.branchId]);
 
-  // Get branch name by ID
-  const getBranchName = (branchId: string): string => {
-    const branch = branches.find(b => b.id === branchId);
-    return branch?.name || 'Unknown Branch';
-  };
-
-  // Get technician info by ID
-  const getTechnicianInfo = (technicianId: string): Technician | null => {
-    return technicians.find(tech => tech.id === technicianId) || null;
-  };
-
+  // Loading state
   if (loading) {
-    console.log("⏳ Showing loading state:", { loading });
     return (
       <div className="space-y-4">
-        {[...Array(3)].map((_, i) => (
-          <div key={i} className="bg-white rounded-lg border border-gray-200 p-6 animate-pulse">
-            <div className="h-4 bg-gray-200 rounded w-3/4 mb-4"></div>
-            <div className="h-3 bg-gray-200 rounded w-1/2 mb-2"></div>
-            <div className="h-3 bg-gray-200 rounded w-2/3"></div>
+        <div className="text-center py-16">
+          <LoadingSpinner size="lg" />
+          <p className="text-gray-600 mt-6 text-lg">Loading services...</p>
+          <p className="text-gray-500 mt-2 text-sm">Please wait while we fetch your service data</p>
           </div>
-        ))}
       </div>
     );
   }
 
+  // Empty state
   if (filteredServices.length === 0) {
     console.log("📭 No services found:", {
       totalServices: services?.length || 0,
@@ -266,22 +365,26 @@ const TechnicianServiceList: React.FC<TechnicianServiceListProps> = ({
       userBranchId: user?.branchId
     });
     return (
-      <div className="text-center py-12">
-        <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-          <UserIcon className="w-8 h-8 text-gray-400" />
+      <div className="text-center py-16">
+        <div className="bg-white border border-gray-200 rounded-2xl p-8 max-w-md mx-auto shadow-sm">
+          <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <DevicePhoneMobileIcon className="w-12 h-12 text-gray-400" />
         </div>
-        <h3 className="text-lg font-medium text-gray-900 mb-2">No services found</h3>
-        <p className="text-gray-500 mb-4">
+          <h3 className="text-xl font-semibold text-gray-900 mb-3">
+            No Services Found
+          </h3>
+          <p className="text-gray-600 text-sm mb-6 leading-relaxed">
           {search ? `No services match "${search}"` : "No services available for this technician"}
         </p>
         {!search && (
-          <div className="text-sm text-gray-400 space-y-1">
+            <div className="text-sm text-gray-500">
             <p>Services will appear here when:</p>
             <p>• You are assigned to services in your branch</p>
             <p>• You create new services in your branch</p>
             <p>• Services are created in your assigned branch</p>
           </div>
         )}
+        </div>
       </div>
     );
   }
@@ -293,182 +396,31 @@ const TechnicianServiceList: React.FC<TechnicianServiceListProps> = ({
     userBranchId: user?.branchId
   });
 
-  return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredServices.map((service) => {
-          const date = service.createdAt ? new Date(service.createdAt) : null;
-          
-          // Map internal status values to display values
-          let displayStatus = service.status;
-          if (service.status === "pending") displayStatus = "To Do";
-          else if (service.status === "in_progress") displayStatus = "In Progress";
-          else if (service.status === "awaiting_parts") displayStatus = "Awaiting Parts";
-          else if (service.status === "ready_for_pickup") displayStatus = "Ready for Pickup";
-          
-          const status = displayStatus || "To Do";
-          const statusInfo = statusConfig[status] || statusConfig["To Do"];
-          const branchName = getBranchName(service.branchId);
-          const technicianInfo = service.technician_id ? getTechnicianInfo(service.technician_id) : null;
-          
-          console.log("🔧 Rendering service:", {
-            id: service.id,
-            name: service.name,
-            branchId: service.branchId,
-            branchName,
-            technician_id: service.technician_id,
-            userBranchId: user?.branchId,
-            status: service.status
-          });
-          
-          return (
-            <div key={service.id} className="group relative">
-              <div 
-                className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm hover:shadow-lg hover:border-purple-300 hover:bg-purple-50/30 transition-all duration-300 cursor-pointer relative overflow-hidden select-none transform hover:-translate-y-1"
-                role="button"
-                tabIndex={0}
-                aria-label={`View details for service ${service.name}`}
-                onClick={() => window.location.href = `/services/details?id=${service.id}`}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    window.location.href = `/services/details?id=${service.id}`;
-                  }
-                }}
-              >
-                {/* Status Badge */}
-                <div className="absolute top-4 left-4">
-                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getStatusColor(service.status)}`}>
-                    {service.status}
-                  </span>
-                </div>
-
-                {/* Service Information */}
-                <div className="mt-8 space-y-4">
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2 line-clamp-1">
-                      {service.name}
-                    </h3>
-                    <p className="text-sm text-gray-600 line-clamp-2 leading-relaxed">
-                      {service.description}
-                    </p>
-                  </div>
-
-                  {/* Customer Information (First) */}
-                  {service.customer && (
-                    <div className="flex items-start gap-3 p-3 bg-green-50 rounded-lg border border-green-100">
-                      <UserIcon className="w-5 h-5 text-green-600 mt-0.5" />
-                      <div className="flex-1 min-w-0">
-                        <div className="text-xs text-green-600 font-medium mb-1">Customer</div>
-                        <div className="font-semibold text-gray-900 text-sm">
-                          {service.customer.name}
-                        </div>
-                        {service.customer.phone && (
-                          <div className="text-xs text-gray-500">
-                            {service.customer.phone}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Device Details (Second) */}
-                  <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg border border-gray-100">
-                    <div className="w-8 h-8 bg-gray-200 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <span className="text-xs font-bold text-gray-600">D</span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-xs text-gray-600 font-medium mb-1">Device</div>
-                      <div className="font-semibold text-gray-900 text-sm">
-                        {service.device.brand} {service.device.model}
-                      </div>
-                      <div className="text-xs text-gray-500 font-mono">IMEI: {service.device.imei}</div>
-                    </div>
-                  </div>
-
-                  {/* Assigned Branch */}
-                  <div className="flex items-start gap-3 p-3 bg-purple-50 rounded-lg border border-purple-100">
-                    <BuildingOfficeIcon className="w-5 h-5 text-purple-600 mt-0.5" />
-                    <div className="flex-1 min-w-0">
-                      <div className="text-xs text-purple-600 font-medium mb-1">Assigned Branch</div>
-                      <div className="font-semibold text-gray-900 text-sm">{branchName}</div>
-                    </div>
-                  </div>
-
-                  {/* Service Assignment Status */}
-                  {service.technician_id && (
-                    <div className="flex items-start gap-3 p-2 bg-blue-50 rounded-lg border border-blue-100">
-                      <UserIcon className="w-4 h-4 text-blue-600 mt-0.5" />
-                      <div className="flex-1 min-w-0">
-                        <div className="text-xs text-blue-600 font-medium">
-                          {service.technician_id === user?.id || service.technician_id === user?.uid ? "Assigned to You" : "Assigned to Another Technician"}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Footer */}
-                <div className="mt-5 pt-4 border-t border-gray-100 flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-xs text-gray-500">
-                    <ClockIcon className="w-3 h-3" />
-                    {date ? formatDate(date) : "-"}
-                  </div>
-                  <div className="flex items-center gap-1 font-bold text-gray-900 text-lg">
-                    {formatPrice(service.price)}
-                  </div>
-                </div>
+    return (
+    <div className="space-y-6">
+      {/* Responsive Grid View */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        {filteredServices.map((service) => (
+          <ServiceCard
+            key={service.id}
+            service={service}
+            branches={branches}
+            technicians={technicians}
+            user={user}
+            onEdit={onEdit}
+            onDelete={onDelete}
+          />
+        ))}
+      </div>
                 
-                {/* Click indicator - shows on hover */}
-                <div className="absolute bottom-3 left-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                  <div className="text-xs text-purple-600 font-medium bg-purple-50 px-3 py-1.5 rounded-full border border-purple-200 shadow-sm">
-                    Click to view details
-                  </div>
-                </div>
-              </div>
-
-              {/* Quick Actions - Hover */}
-              <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-y-1 group-hover:translate-y-0">
-                <div className="flex gap-1.5">
-                  <Link
-                    href={`/services/details?id=${service.id}`}
-                    className="action-button p-2 bg-white rounded-lg shadow-lg hover:bg-gray-50 transition-all duration-200 border border-gray-200 hover:shadow-xl"
-                    title="View Details"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <EyeIcon className="w-4 h-4 text-gray-600" />
-                  </Link>
-                  {onEdit && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onEdit(service);
-                      }}
-                      className="action-button p-2 bg-white rounded-lg shadow-lg hover:bg-gray-50 transition-all duration-200 border border-gray-200 hover:shadow-xl"
-                      title="Edit Service"
-                    >
-                      <PencilIcon className="w-4 h-4 text-purple-600" />
-                    </button>
-                  )}
-                  {onDelete && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (window.confirm("Are you sure you want to delete this service?")) {
-                          onDelete(service.id);
-                        }
-                      }}
-                      className="action-button p-2 bg-white rounded-lg shadow-lg hover:bg-gray-50 transition-all duration-200 border border-gray-200 hover:shadow-xl"
-                      title="Delete Service"
-                    >
-                      <TrashIcon className="w-4 h-4 text-red-600" />
-                    </button>
-                  )}
-                </div>
-              </div>
+      {/* Services Count and Summary */}
+      <div className="text-center py-6">
+        <div className="inline-flex items-center gap-2 bg-white px-6 py-3 rounded-full shadow-sm border border-gray-200">
+          <DevicePhoneMobileIcon className="w-5 h-5 text-blue-600" />
+          <p className="text-sm font-medium text-gray-700">
+            Showing {filteredServices.length} service{filteredServices.length !== 1 ? 's' : ''}
+          </p>
             </div>
-          );
-        })}
       </div>
     </div>
   );
