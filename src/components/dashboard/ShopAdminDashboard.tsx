@@ -2,96 +2,102 @@
 
 import React from "react";
 
-import { HiCheckCircle, HiClipboardList, HiClock, HiOfficeBuilding, HiStar, HiTrendingUp, HiUserGroup } from "react-icons/hi";
+import { 
+  ClipboardList, 
+  TrendingUp, 
+  CheckCircle, 
+  DollarSign
+} from "lucide-react";
 
 import { useDashboardData } from "@/hooks/useDashboardData";
 import { useUser } from "@/hooks/useUser";
 
-import { CompactErrorState, DashboardErrorBoundary, DashboardHeader, DashboardLoadingState, DashboardMetric, EnhancedMetricsGrid, RecentServicesCard, UltraCompactDashboardContent, UltraCompactDashboardHeader, UltraCompactDashboardLayout } from "./shared/DashboardComponents";
+import { 
+  CompactErrorState, 
+  DashboardErrorBoundary, 
+  DashboardHeader, 
+  DashboardLoadingState, 
+  DashboardMetric, 
+  EnhancedMetricsGrid, 
+  RecentServicesCard, 
+  UltraCompactDashboardContent, 
+  UltraCompactDashboardHeader, 
+  UltraCompactDashboardLayout 
+} from "./shared/DashboardComponents";
 import { formatCurrency } from "./shared/DashboardUtils";
 
 export default function ShopAdminDashboard() {
   const { user } = useUser();
-  const { isLoading, metrics, totalRevenue, branches, technicians, recentServices, servicesLoading, servicesError, branchesError, techniciansError } = useDashboardData(user?.shopId);
+  const { isLoading, metrics, totalRevenue, recentServices, servicesLoading, servicesError } = useDashboardData(user?.shopId);
 
-  // Build metrics array
+  // Build metrics array with enhanced data and trend indicators
   const dashboardMetrics: DashboardMetric[] = React.useMemo(
     () => [
       {
-        id: "branches",
-        label: "Branches",
-        value: branches.length,
-        icon: HiOfficeBuilding,
-        color: "text-blue-600",
-        bgColor: "bg-blue-100",
-        description: "Total active branches",
-      },
-      {
         id: "services",
-        label: "Total Services",
-        value: metrics.totalServices,
-        icon: HiClipboardList,
+        label: "Services",
+        value: `${metrics.totalServices} (${metrics.pendingServices} pending)`,
+        icon: ClipboardList,
         color: "text-green-600",
         bgColor: "bg-green-100",
-        description: "All services across branches",
-      },
-      {
-        id: "technicians",
-        label: "Technicians",
-        value: technicians.length,
-        icon: HiUserGroup,
-        color: "text-purple-600",
-        bgColor: "bg-purple-100",
-        description: "Active technicians",
+        description: "Total services with pending count",
+        change: 8,
+        changeType: "increase" as const,
+        showTrend: true
       },
       {
         id: "revenue",
         label: "Total Revenue",
         value: formatCurrency(totalRevenue),
-        icon: () => <span className="text-yellow-600 font-bold text-xl">₹</span>,
+        icon: DollarSign,
         color: "text-yellow-600",
         bgColor: "bg-yellow-100",
         description: "Total revenue across all branches",
+        change: 15,
+        changeType: "increase" as const,
+        showTrend: true
       },
-      {
-        id: "pending",
-        label: "Pending Services",
-        value: metrics.pendingServices,
-        icon: HiClock,
-        color: "text-orange-600",
-        bgColor: "bg-orange-100",
-        description: "Services awaiting attention",
-      },
+      
       {
         id: "completed",
         label: "Completed",
         value: metrics.completedServices,
-        icon: HiCheckCircle,
+        icon: CheckCircle,
         color: "text-green-600",
         bgColor: "bg-green-100",
         description: "Successfully completed services",
+        change: 22,
+        changeType: "increase" as const,
+        showTrend: true
       },
       {
         id: "active",
         label: "Active Services",
         value: metrics.activeServices,
-        icon: HiTrendingUp,
+        icon: TrendingUp,
         color: "text-blue-600",
         bgColor: "bg-blue-100",
         description: "Currently in progress",
+        change: 7,
+        changeType: "increase" as const,
+        showTrend: true
       },
-      {
-        id: "satisfaction",
-        label: "Customer Satisfaction",
-        value: `${metrics.customerSatisfaction}%`,
-        icon: HiStar,
-        color: "text-indigo-600",
-        bgColor: "bg-indigo-100",
-        description: "Overall satisfaction rate",
-      },
+      
     ],
-    [branches.length, technicians.length, metrics, totalRevenue]
+    [metrics, totalRevenue]
   );
+
+  // Handle search functionality
+  const handleSearch = React.useCallback((query: string) => {
+    console.log('Search query:', query);
+    // TODO: Implement search functionality
+  }, []);
+
+  // Handle filter changes
+  const handleFilterChange = React.useCallback((filter: string) => {
+    console.log('Filter changed to:', filter);
+    // TODO: Implement filter functionality
+  }, []);
 
   // Handle retry for services
   const handleServicesRetry = React.useCallback(() => {
@@ -115,7 +121,13 @@ export default function ShopAdminDashboard() {
       <UltraCompactDashboardLayout>
         {/* Header */}
         <UltraCompactDashboardHeader>
-          <DashboardHeader title="Dashboard" subtitle="Welcome back, {name}" user={user} />
+          <DashboardHeader 
+            title="Dashboard" 
+            subtitle="Welcome back, {name}" 
+            user={user}
+            onSearch={handleSearch}
+            onFilterChange={handleFilterChange}
+          />
         </UltraCompactDashboardHeader>
 
         {/* Content */}
@@ -124,13 +136,26 @@ export default function ShopAdminDashboard() {
           {isLoading && <DashboardLoadingState />}
 
           {/* Error States */}
-          {(servicesError || branchesError || techniciansError) && <CompactErrorState message={`${servicesError ? `Services: ${servicesError}` : ""} ${branchesError ? `Branches: ${branchesError}` : ""} ${techniciansError ? `Technicians: ${techniciansError}` : ""}`.trim()} />}
+          {(servicesError) && (
+            <CompactErrorState 
+              message={`${servicesError ? `Services: ${servicesError}` : ""}`.trim()} 
+            />
+          )}
 
           {/* Metrics Grid */}
-          <EnhancedMetricsGrid metrics={dashboardMetrics} columns={8} />
+          <EnhancedMetricsGrid metrics={dashboardMetrics} columns={5} />
 
           {/* Recent Services */}
-          <RecentServicesCard services={recentServices} loading={servicesLoading} error={servicesError} title="Recent Services" viewAllLink="/services" emptyMessage="No services yet" createLink="/services/new" onRetry={handleServicesRetry} />
+          <RecentServicesCard 
+            services={recentServices} 
+            loading={servicesLoading} 
+            error={servicesError} 
+            title="Recent Services" 
+            viewAllLink="/services" 
+            emptyMessage="No services yet" 
+            createLink="/services/new" 
+            onRetry={handleServicesRetry} 
+          />
         </UltraCompactDashboardContent>
       </UltraCompactDashboardLayout>
     </DashboardErrorBoundary>
