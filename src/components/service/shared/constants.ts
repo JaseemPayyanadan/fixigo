@@ -4,6 +4,7 @@ export const SERVICE_STATUSES = {
   IN_PROGRESS: "in_progress",
   COMPLETED: "completed",
   CANCELLED: "cancelled",
+  ON_HOLD: "on_hold",
   AWAITING_PARTS: "awaiting_parts",
   READY_FOR_PICKUP: "ready_for_pickup",
   QUALITY_CHECK: "quality_check"
@@ -43,6 +44,7 @@ export const SERVICE_STATUS_COLORS = {
   [SERVICE_STATUSES.IN_PROGRESS]: "bg-amber-100 text-amber-800 border-amber-200",
   [SERVICE_STATUSES.COMPLETED]: "bg-emerald-100 text-emerald-800 border-emerald-200",
   [SERVICE_STATUSES.CANCELLED]: "bg-red-100 text-red-800 border-red-200",
+  [SERVICE_STATUSES.ON_HOLD]: "bg-gray-100 text-gray-800 border-gray-200",
   [SERVICE_STATUSES.AWAITING_PARTS]: "bg-orange-100 text-orange-800 border-orange-200",
   [SERVICE_STATUSES.READY_FOR_PICKUP]: "bg-cyan-100 text-cyan-800 border-cyan-200",
   [SERVICE_STATUSES.QUALITY_CHECK]: "bg-indigo-100 text-indigo-800 border-indigo-200"
