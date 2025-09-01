@@ -38,6 +38,12 @@ export const SERVICE_STATUS_CONFIG = {
     icon: XCircleIcon,
     description: "Service has been cancelled"
   },
+  on_hold: { 
+    label: "On Hold", 
+    color: "bg-gray-100 text-gray-800 border-gray-200",
+    icon: PauseIcon,
+    description: "Service is temporarily paused"
+  },
   awaiting_parts: { 
     label: "Awaiting Parts", 
     color: "bg-orange-100 text-orange-800 border-orange-200",
