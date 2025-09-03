@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 
 import { Service } from "@/types";
+import { normalizeStatus } from "@/lib/statusUtils";
 
 import { ErrorState, formatCurrency, getStatusColor, LoadingSpinner } from "./DashboardUtils";
 
@@ -129,7 +130,7 @@ export const ServiceCard: React.FC<{ service: Service }> = React.memo(({ service
   };
 
   const getStatusIcon = (status: string) => {
-    const normalizedStatus = status.toLowerCase().replace(/\s+/g, '_');
+    const normalizedStatus = normalizeStatus(status);
     switch (normalizedStatus) {
       case 'pending':
         return '⏳';

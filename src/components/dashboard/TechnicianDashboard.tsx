@@ -16,8 +16,10 @@ import {
 import { useDashboardData } from "@/hooks/useDashboardData";
 import { useUser } from "@/hooks/useUser";
 import { db } from "@/lib/firebase";
+import { getStatusConfig, normalizeStatus } from "@/lib/statusUtils";
 import type { Service } from "@/types";
 import { formatCurrency } from "./shared/DashboardUtils";
+import { ServiceMetricsGauge } from "./shared";
 
 
 
@@ -27,20 +29,7 @@ import { formatCurrency } from "./shared/DashboardUtils";
 const ServiceCard: React.FC<{ service: Service; onViewDetails: (id: string) => void }> = ({ service, onViewDetails }) => {
   const [isSwiped, setIsSwiped] = useState(false);
   
-  const getStatusConfig = (status: string) => {
-    const statusMap: Record<string, { color: string; bg: string; icon: string; label: string }> = {
-      'pending': { color: 'text-orange-600', bg: 'bg-orange-100', icon: '⏳', label: 'Pending' },
-      'in_progress': { color: 'text-blue-600', bg: 'bg-blue-100', icon: '🔧', label: 'In Progress' },
-      'completed': { color: 'text-green-600', bg: 'bg-green-100', icon: '✅', label: 'Completed' },
-      'urgent': { color: 'text-red-600', bg: 'bg-red-100', icon: '🚨', label: 'Urgent' },
-      'awaiting_parts': { color: 'text-purple-600', bg: 'bg-purple-100', icon: '📦', label: 'Awaiting Parts' },
-      'on_hold': { color: 'text-gray-600', bg: 'bg-gray-100', icon: '⏸️', label: 'On Hold' },
-      'ready_for_pickup': { color: 'text-cyan-600', bg: 'bg-cyan-100', icon: '📱', label: 'Ready' },
-      'quality_check': { color: 'text-indigo-600', bg: 'bg-indigo-100', icon: '🔍', label: 'Quality Check' }
-    };
-    
-    return statusMap[status] || statusMap['pending'];
-  };
+
 
   const statusConfig = getStatusConfig(service.status);
 
@@ -154,7 +143,12 @@ export default function TechnicianDashboard() {
             totalServices: services.length,
             technicianServices: technicianServices.length,
             technicianId,
-            userId: user.id
+            userId: user.id,
+            sampleServices: technicianServices.slice(0, 3).map(s => ({
+              id: s.id,
+              status: s.status,
+              name: s.name
+            }))
           });
 
           setMyServices(technicianServices);
@@ -196,19 +190,23 @@ export default function TechnicianDashboard() {
       acc.totalServices++;
       
       // Normalize status to handle both lowercase and display formats
-      const normalizedStatus = service.status.toLowerCase().replace(/\s+/g, '_');
+      const normalizedStatus = normalizeStatus(service.status);
+      
+      console.log('🔍 Processing service status:', {
+        originalStatus: service.status,
+        normalizedStatus,
+        serviceId: service.id
+      });
       
       switch (normalizedStatus) {
         case 'pending':
         case 'to_do':
           acc.pendingServices++;
           acc.activeServices++;
-          acc.urgentServices++;
           break;
         case 'in_progress':
           acc.inProgressServices++;
           acc.activeServices++;
-          acc.urgentServices++;
           break;
         case 'awaiting_parts':
           acc.activeServices++;
@@ -228,6 +226,15 @@ export default function TechnicianDashboard() {
         case 'on_hold':
           acc.activeServices++;
           break;
+        case 'urgent':
+          acc.urgentServices++;
+          acc.activeServices++;
+          break;
+        default:
+          // For unknown statuses, treat as pending
+          acc.pendingServices++;
+          acc.activeServices++;
+          console.warn('Unknown service status:', service.status, 'for service:', service.id);
       }
       
       return acc;
@@ -238,6 +245,16 @@ export default function TechnicianDashboard() {
       completedServices: 0,
       urgentServices: 0,
       activeServices: 0,
+    });
+
+    console.log('🔍 Final technician metrics:', {
+      totalServices: metrics.totalServices,
+      pendingServices: metrics.pendingServices,
+      inProgressServices: metrics.inProgressServices,
+      completedServices: metrics.completedServices,
+      urgentServices: metrics.urgentServices,
+      activeServices: metrics.activeServices,
+      servicesCount: myServices.length
     });
 
     return metrics;
@@ -318,73 +335,9 @@ export default function TechnicianDashboard() {
           </div>
         )}
 
-        {/* Metrics Grid */}
+        {/* Service Metrics Gauge */}
         {!isLoading && !technicianServicesLoading && (
-          <div className="space-y-4">
-            {/* Priority Cards - Larger */}
-            <div className="grid grid-cols-1 gap-4">
-              {/* Total Services */}
-              <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
-                    <ClipboardList className="w-5 h-5 text-blue-600" />
-                  </div>
-                  <p className="text-sm font-medium text-gray-600">Total Services</p>
-                </div>
-                <p className="text-2xl font-bold text-gray-900">{technicianMetrics.totalServices}</p>
-                <p className="text-xs text-gray-500">Your assigned services</p>
-              </div>
-            </div>
-
-            {/* Secondary Cards - 2x3 Grid */}
-            <div className="grid grid-cols-2 gap-3">
-              {/* Pending */}
-              <div className="bg-white rounded-2xl border border-gray-100 p-3 shadow-sm">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
-                    <Clock className="w-4 h-4 text-orange-600" />
-                  </div>
-                  <p className="text-xs font-medium text-gray-600">Pending</p>
-                </div>
-                <p className="text-lg font-bold text-gray-900">{technicianMetrics.pendingServices}</p>
-              </div>
-
-              {/* In Progress */}
-              <div className="bg-white rounded-2xl border border-gray-100 p-3 shadow-sm">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <TrendingUp className="w-4 h-4 text-blue-600" />
-                  </div>
-                  <p className="text-xs font-medium text-gray-600">In Progress</p>
-                </div>
-                <p className="text-lg font-bold text-gray-900">{technicianMetrics.inProgressServices}</p>
-              </div>
-
-              {/* Completed */}
-              <div className="bg-white rounded-2xl border border-gray-100 p-3 shadow-sm">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
-                    <CheckCircle className="w-4 h-4 text-green-600" />
-                  </div>
-                  <p className="text-xs font-medium text-gray-600">Completed</p>
-                </div>
-                <p className="text-lg font-bold text-gray-900">{technicianMetrics.completedServices}</p>
-              </div>
-
-              {/* Urgent */}
-              <div className="bg-white rounded-2xl border border-gray-100 p-3 shadow-sm">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
-                    <AlertTriangle className="w-4 h-4 text-red-600" />
-                  </div>
-                  <p className="text-xs font-medium text-gray-600">Urgent</p>
-                </div>
-                <p className="text-lg font-bold text-gray-900">{technicianMetrics.urgentServices}</p>
-              </div>
-            </div>
-
-
-          </div>
+          <ServiceMetricsGauge metrics={technicianMetrics} />
         )}
 
         {/* My Services Section */}

@@ -10,6 +10,7 @@ import { MdArrowBack, MdBuild, MdCheckCircle, MdDelete, MdDevices, MdEdit, MdFee
 import { useUser } from "@/hooks";
 import { authUserToUser } from "@/lib/auth";
 import { db } from "@/lib/firebase";
+import { normalizeStatus } from "@/lib/statusUtils";
 import ServiceForm from "@/components/service/ServiceForm";
 import type { Branch, Technician } from "@/types";
 
@@ -173,6 +174,12 @@ function ServiceDetailsPage() {
             updatedAt: data.updatedAt?.toDate() || new Date(),
           };
           setService(serviceData);
+          const normalizedStatus = normalizeStatus(serviceData.status || "pending");
+          console.log('🔍 Service details status processing:', {
+            originalStatus: serviceData.status,
+            normalizedStatus,
+            serviceId: serviceData.id
+          });
           setStatus(serviceData.status || "To Do");
           
           console.log("✅ Final service object:", {

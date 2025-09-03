@@ -14,6 +14,7 @@ import {
 } from '@heroicons/react/24/outline';
 
 import { Button, LoadingSpinner } from '@/components/ui';
+import { normalizeStatus } from '@/lib/statusUtils';
 
 interface ServiceListItem {
   id: string;
@@ -145,11 +146,23 @@ const getStatusBadgeConfig = (status: string) => {
   };
 
   // Map internal status values to display values
-  let displayStatus = status;
-  if (status === "pending") displayStatus = "Pending";
-  else if (status === "in_progress") displayStatus = "In Progress";
-  else if (status === "awaiting_parts") displayStatus = "Awaiting Parts";
-  else if (status === "ready_for_pickup") displayStatus = "Ready for Pickup";
+  const normalizedStatus = normalizeStatus(status);
+  
+  // Map normalized status to display status
+  const statusDisplayMap: Record<string, string> = {
+    'pending': 'Pending',
+    'to_do': 'To Do',
+    'in_progress': 'In Progress',
+    'awaiting_parts': 'Awaiting Parts',
+    'ready_for_pickup': 'Ready for Pickup',
+    'completed': 'Completed',
+    'cancelled': 'Cancelled',
+    'urgent': 'Urgent',
+    'on_hold': 'On Hold',
+    'quality_check': 'Quality Check'
+  };
+  
+  const displayStatus = statusDisplayMap[normalizedStatus] || 'To Do';
 
   return statusMap[displayStatus] || statusMap["To Do"];
 };

@@ -1,5 +1,6 @@
 import React from 'react';
 
+import { normalizeStatus } from '@/lib/statusUtils';
 import { Service } from '@/types';
 
 // Status color mapping for consistent styling across dashboard components
@@ -84,7 +85,7 @@ export const calculateDashboardMetrics = (services: Service[] = []): {
     acc.totalServices++;
     
     // Normalize status to handle both lowercase and display formats
-    const normalizedStatus = service.status.toLowerCase().replace(/\s+/g, '_');
+    const normalizedStatus = normalizeStatus(service.status);
     
     switch (normalizedStatus) {
       case 'pending':
@@ -113,6 +114,14 @@ export const calculateDashboardMetrics = (services: Service[] = []): {
       case 'on_hold':
         acc.activeServices++; // Include on hold in active services
         break;
+      case 'urgent':
+        acc.activeServices++; // Include urgent in active services
+        break;
+      default:
+        // For unknown statuses, treat as pending
+        acc.pendingServices++;
+        acc.activeServices++;
+        console.warn('Unknown service status in DashboardUtils:', service.status, 'for service:', service.id);
     }
     
     // Track unique customers
