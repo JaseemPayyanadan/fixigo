@@ -36,7 +36,7 @@ const navItems = [
     href: "/profile",
     icon: UserIcon,
     description: "Manage your profile",
-    roles: ["technician"],
+    roles: ["shop_admin", "branch_admin", "technician"],
     preload: false,
     prefetch: false,
   },

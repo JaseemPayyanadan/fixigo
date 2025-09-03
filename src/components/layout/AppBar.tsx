@@ -115,7 +115,7 @@ export function AppBar() {
                   <span>Profile</span>
                 </button>
 
-                <button
+                {/* <button
                   className="w-full flex items-center gap-2.5 px-4 py-2.5 text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors duration-200 font-medium text-sm"
                   onClick={() => {
                     setDropdownOpen(false);
@@ -124,7 +124,7 @@ export function AppBar() {
                 >
                   <Cog6ToothIcon className="h-4 w-4" />
                   <span>Settings</span>
-                </button>
+                </button> */}
               </div>
 
               {/* Divider */}

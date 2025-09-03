@@ -3,9 +3,10 @@ import { useState } from "react";
 
 import { usePathname, useRouter } from "next/navigation";
 
-import { Bars3Icon, BriefcaseIcon, BuildingOfficeIcon, HomeIcon, UserGroupIcon, UserIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import { Bars3Icon, BuildingOfficeIcon, Cog8ToothIcon, HomeIcon, UserGroupIcon, UserIcon, XMarkIcon } from "@heroicons/react/24/outline";
 
-import { useUser } from "@/hooks/useUser";
+import { useAuth } from "@/contexts/AuthContext";
+import { Settings2Icon } from "lucide-react";
 
 const navItems = [
   {
@@ -17,7 +18,7 @@ const navItems = [
   {
     label: "Services",
     href: "/services",
-    icon: BriefcaseIcon,
+    icon: Cog8ToothIcon,
     roles: ["shop_admin", "branch_admin", "technician"],
   },
 
@@ -44,7 +45,7 @@ const navItems = [
 export function BottomNavBar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { user } = useUser();
+  const { user } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   // Filter navigation items based on user role

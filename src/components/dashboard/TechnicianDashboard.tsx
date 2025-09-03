@@ -9,7 +9,6 @@ import {
   Clock, 
   AlertTriangle, 
   TrendingUp, 
-  Search,
   ChevronRight,
   List
 } from "lucide-react";
@@ -112,8 +111,6 @@ export default function TechnicianDashboard() {
   // State for technician's services
   const [myServices, setMyServices] = React.useState<Service[]>([]);
   const [technicianServicesLoading, setTechnicianServicesLoading] = React.useState(true);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedFilter, setSelectedFilter] = useState("all");
 
   // Fetch technician's services
   React.useEffect(() => {
@@ -128,21 +125,47 @@ export default function TechnicianDashboard() {
         setTechnicianServicesLoading(true);
 
         // First, get the technician document to find the correct ID
-        const technicianQuery = query(collection(db, "technicians"), where("created_by", "==", user.id));
+        // Try both userId and created_by fields for compatibility
+        const technicianQuery = query(collection(db, "technicians"), where("userId", "==", user.id));
         const technicianSnapshot = await getDocs(technicianQuery);
-        const technicianDoc = technicianSnapshot.docs[0];
+        let technicianDoc = technicianSnapshot.docs[0];
+
+        // If not found with userId, try created_by field
+        if (!technicianDoc) {
+          const technicianQuery2 = query(collection(db, "technicians"), where("created_by", "==", user.id));
+          const technicianSnapshot2 = await getDocs(technicianQuery2);
+          technicianDoc = technicianSnapshot2.docs[0];
+        }
 
         if (technicianDoc) {
           const technicianId = technicianDoc.id;
           console.log("TechnicianDashboard - Found technician document ID:", technicianId);
 
           // Filter services assigned to this technician
-          const technicianServices = services.filter((service) => service.technician_id === technicianId || (service as any).technician_id === technicianId);
+          // Check both technician document ID and user ID for services
+          const technicianServices = services.filter((service) => 
+            service.technician_id === technicianId || 
+            service.technician_id === user.id ||
+            (service as any).technician_id === technicianId ||
+            (service as any).technician_id === user.id
+          );
+
+          console.log("TechnicianDashboard - Filtered services:", {
+            totalServices: services.length,
+            technicianServices: technicianServices.length,
+            technicianId,
+            userId: user.id
+          });
 
           setMyServices(technicianServices);
         } else {
           console.log("TechnicianDashboard - No technician document found for UID:", user.id);
-          setMyServices([]);
+          // Fallback: filter services by user ID directly
+          const technicianServices = services.filter((service) => 
+            service.technician_id === user.id || 
+            (service as any).technician_id === user.id
+          );
+          setMyServices(technicianServices);
         }
       } catch (error) {
         console.error("Error fetching technician services:", error);
@@ -155,43 +178,77 @@ export default function TechnicianDashboard() {
     fetchTechnicianServices();
   }, [user, services]);
 
-  // Calculate technician-specific metrics
+  // Calculate technician-specific metrics using the same logic as other dashboards
   const technicianMetrics = React.useMemo(() => {
-    const totalServices = myServices.length;
-    const pendingServices = myServices.filter((s) => s.status === "pending").length;
-    const inProgressServices = myServices.filter((s) => s.status === "in_progress").length;
-    const completedServices = myServices.filter((s) => s.status === "completed").length;
-    const urgentServices = myServices.filter((s) => s.status === "pending" || s.status === "in_progress").length;
+    if (!myServices || myServices.length === 0) {
+      return {
+        totalServices: 0,
+        pendingServices: 0,
+        inProgressServices: 0,
+        completedServices: 0,
+        urgentServices: 0,
+        activeServices: 0,
+      };
+    }
 
-    return {
-      totalServices,
-      pendingServices,
-      inProgressServices,
-      completedServices,
-      urgentServices,
-    };
+    // Use the same calculation logic as DashboardUtils with support for both status formats
+    const metrics = myServices.reduce((acc, service) => {
+      acc.totalServices++;
+      
+      // Normalize status to handle both lowercase and display formats
+      const normalizedStatus = service.status.toLowerCase().replace(/\s+/g, '_');
+      
+      switch (normalizedStatus) {
+        case 'pending':
+        case 'to_do':
+          acc.pendingServices++;
+          acc.activeServices++;
+          acc.urgentServices++;
+          break;
+        case 'in_progress':
+          acc.inProgressServices++;
+          acc.activeServices++;
+          acc.urgentServices++;
+          break;
+        case 'awaiting_parts':
+          acc.activeServices++;
+          break;
+        case 'quality_check':
+          acc.activeServices++;
+          break;
+        case 'ready_for_pickup':
+          acc.activeServices++;
+          break;
+        case 'completed':
+          acc.completedServices++;
+          break;
+        case 'cancelled':
+          // Cancelled services are not counted in active or completed
+          break;
+        case 'on_hold':
+          acc.activeServices++;
+          break;
+      }
+      
+      return acc;
+    }, {
+      totalServices: 0,
+      pendingServices: 0,
+      inProgressServices: 0,
+      completedServices: 0,
+      urgentServices: 0,
+      activeServices: 0,
+    });
+
+    return metrics;
   }, [myServices]);
 
 
 
-  // Filter services based on search and filter
-  const filteredServices = React.useMemo(() => {
-    let filtered = myServices;
-    
-    if (searchQuery) {
-      filtered = filtered.filter(service => 
-        service.customer?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        service.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        service.device?.model?.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-    }
-    
-    if (selectedFilter !== "all") {
-      filtered = filtered.filter(service => service.status === selectedFilter);
-    }
-    
-    return filtered.slice(0, 5); // Show only 5 recent services
-  }, [myServices, searchQuery, selectedFilter]);
+  // Get recent services (show only 5 most recent)
+  const recentServices = React.useMemo(() => {
+    return myServices.slice(0, 5);
+  }, [myServices]);
 
   const handleViewDetails = useCallback((serviceId: string) => {
     router.push(`/services/${serviceId}`);
@@ -236,36 +293,7 @@ export default function TechnicianDashboard() {
         </div>
       </div>
 
-      {/* Sticky Search & Filter Section */}
-      <div className="sticky top-24 z-10 bg-gray-50 px-4 py-3 border-b border-gray-100">
-        <div className="flex gap-3">
-          {/* Search Bar */}
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search services..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-          
-          {/* Filter Dropdown */}
-          <select
-            value={selectedFilter}
-            onChange={(e) => setSelectedFilter(e.target.value)}
-            className="px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            <option value="all">All Status</option>
-            <option value="pending">Pending</option>
-            <option value="in_progress">In Progress</option>
-            <option value="completed">Completed</option>
-            <option value="awaiting_parts">Awaiting Parts</option>
-            <option value="on_hold">On Hold</option>
-          </select>
-        </div>
-      </div>
+
 
       {/* Dashboard Content */}
       <div className="px-4 py-6 space-y-6">
@@ -372,22 +400,19 @@ export default function TechnicianDashboard() {
               </button>
             </div>
 
-            {filteredServices.length === 0 ? (
+            {recentServices.length === 0 ? (
               <div className="bg-white rounded-2xl border border-gray-100 p-8 text-center">
                 <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <ClipboardList className="w-8 h-8 text-gray-400" />
                 </div>
                 <p className="text-gray-500 font-medium mb-2">No services found</p>
                 <p className="text-sm text-gray-400">
-                  {searchQuery || selectedFilter !== "all" 
-                    ? "Try adjusting your search or filters" 
-                    : "You don't have any services assigned yet"
-                  }
+                  You don't have any services assigned yet
                 </p>
               </div>
             ) : (
               <div className="space-y-3">
-                {filteredServices.map((service) => (
+                {recentServices.map((service) => (
                   <ServiceCard
                     key={service.id}
                     service={service}
