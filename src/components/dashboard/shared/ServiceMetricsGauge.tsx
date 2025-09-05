@@ -43,17 +43,17 @@ const ServiceMetricsGauge: React.FC<ServiceMetricsGaugeProps> = ({
   const pendingOffset = -(completedLength + inProgressLength);
   
   return (
-    <div className={`bg-white rounded-2xl border border-gray-100 p-8 shadow-sm ${className}`}>
+    <div className={`bg-white rounded-2xl border border-gray-100 p-7 shadow-sm ${className}`}>
       {/* Header */}
-      <div className="text-center mb-8">
-        <h3 className="text-xl font-bold text-gray-900 mb-2">Service Progress</h3>
+      <div className="text-center mb-4">
+        {/* <h3 className="text-xl font-bold text-gray-900 mb-2">Service Progress</h3> */}
         <p className="text-sm text-gray-600">Overall completion status</p>
       </div>
       
       {/* Gauge Container */}
       <div className="flex flex-col items-center">
         {/* Semi-circular Progress Gauge */}
-        <div className="relative mb-8">
+        <div className="relative mb-3">
           <svg width={size} height={size / 2 + 30} className="overflow-visible drop-shadow-sm">
             {/* Background arc */}
             <path
@@ -119,43 +119,43 @@ const ServiceMetricsGauge: React.FC<ServiceMetricsGaugeProps> = ({
           
           {/* Center text */}
           <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <div className="text-4xl font-bold text-gray-900 mb-2">
+            <div className="text-2xl font-bold text-gray-900 mb-2">
               {completedPercentage}%
             </div>
-            <div className="text-sm text-gray-600 font-medium">
+            <div className="text-xs text-gray-600 font-medium">
               Project Completed
             </div>
           </div>
         </div>
         
         {/* Legend */}
-        <div className="flex flex-wrap justify-center gap-6 mb-6">
+        <div className="flex flex-row justify-center gap-3 w-full mb-6">
           {/* Completed */}
-          <div className="flex items-center gap-3">
-            <div className="w-4 h-4 rounded bg-emerald-500 shadow-sm"></div>
-            <span className="text-sm font-semibold text-gray-800">Task Done</span>
+          <div className="flex items-center gap-1">
+            <div className="w-3 h-3 rounded-full bg-emerald-500 shadow-sm"></div>
+            <span className="text-[10px] font-medium text-gray-800">Completed</span>
           </div>
           
           {/* In Progress */}
-          <div className="flex items-center gap-3">
-            <div className="w-4 h-4 rounded bg-blue-500 shadow-sm"></div>
-            <span className="text-sm font-semibold text-gray-800">On Progress</span>
+          <div className="flex items-center gap-1">
+            <div className="w-3 h-3 rounded-full bg-blue-500 shadow-sm"></div>
+            <span className="text-[10px] font-medium text-gray-800">On Progress</span>
           </div>
           
           {/* Pending */}
-          <div className="flex items-center gap-3">
-            <div className="w-4 h-4 rounded bg-amber-500 shadow-sm"></div>
-            <span className="text-sm font-semibold text-gray-800">Still waiting</span>
+          <div className="flex items-center gap-1">
+            <div className="w-3 h-3 rounded-full bg-amber-500 shadow-sm"></div>
+            <span className="text-[10px] font-medium text-gray-800">Still waiting</span>
           </div>
         </div>
         
         {/* Additional Stats */}
-        <div className="mt-6 grid grid-cols-2 gap-4 w-full">
-          <div className="flex items-center gap-2 text-center p-3 bg-gray-50 rounded-lg">
+        <div className="grid grid-cols-2 gap-3 w-full">
+          <div className="flex items-center gap-2 text-center p-2 bg-gray-50 rounded-lg">
             <div className="text-lg font-bold text-gray-900">{totalServices}</div>
             <div className="text-xs text-gray-600">Total Services</div>
           </div>
-          <div className="flex items-center gap-2 text-center p-3 bg-red-50 rounded-lg">
+          <div className="flex items-center gap-2 text-center p-2 bg-red-50 rounded-lg">
             <div className="text-lg font-bold text-red-600">{urgentServices}</div>
             <div className="text-xs text-gray-600">Urgent</div>
           </div>

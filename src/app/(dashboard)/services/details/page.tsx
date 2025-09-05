@@ -123,6 +123,18 @@ function ServiceDetailsPage() {
   const [showHistory, setShowHistory] = useState(false);
   const [statusUpdateSuccess, setStatusUpdateSuccess] = useState(false);
   const [editLoading, setEditLoading] = useState(false);
+  const [expandedSections, setExpandedSections] = useState({
+    serviceInfo: true,
+    deviceInfo: false,
+    customerInfo: false,
+    technicianInfo: false,
+    quickInfo: false,
+    notes: false,
+    parts: false,
+    feedback: false,
+    history: false
+  });
+  const [showDropdown, setShowDropdown] = useState(false);
 
   useEffect(() => {
     if (!serviceId) return;
@@ -441,6 +453,29 @@ function ServiceDetailsPage() {
   const handleCancelEdit = useCallback(() => setEditing(false), []);
   const handleEditClick = useCallback(() => setEditing(true), []);
   const handlePrint = useCallback(() => window.print(), []);
+  const toggleSection = useCallback((section: keyof typeof expandedSections) => {
+    setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
+  }, []);
+  const toggleDropdown = useCallback(() => {
+    setShowDropdown(prev => !prev);
+  }, []);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showDropdown) {
+        const target = event.target as Element;
+        if (!target.closest('.dropdown-container')) {
+          setShowDropdown(false);
+        }
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showDropdown]);
 
   if (loading) {
     return (
@@ -551,142 +586,627 @@ function ServiceDetailsPage() {
   const priorityIcon = priorityIcons[service.priority || "medium"];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50/30">
-      <div className="max-w-7xl mx-auto p-6">
-        {/* Enhanced Header */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 mb-8">
-          <div className="flex items-start justify-between mb-6">
-            <div className="flex items-center gap-4">
-              <button 
-                onClick={handleGoBack} 
-                className="p-3 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-all duration-200 hover:scale-105"
-                aria-label="Go back"
-              >
-                <MdArrowBack className="w-6 h-6" />
-              </button>
-              <div className="flex-1">
-                <h1 className="text-3xl font-bold text-slate-900 mb-2">{service.name}</h1>
-                <div className="flex items-center gap-4 text-slate-600">
-                  <span className="font-mono bg-slate-100 px-3 py-1 rounded-lg text-sm">#{service.id.slice(-8)}</span>
-                  <span className="text-sm">Created {createdAt ? createdAt.toLocaleDateString('en-US', { 
-                    year: 'numeric', 
-                    month: 'long', 
-                    day: 'numeric' 
-                  }) : 'Unknown date'}</span>
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <button 
-                onClick={handleToggleShowHistory} 
-                className="flex items-center gap-2 px-4 py-2.5 text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-all duration-200 font-medium"
-              >
-                <MdHistory className="w-4 h-4" />
-                History
-              </button>
-              <button 
-                onClick={handleEditClick} 
-                className="flex items-center gap-2 px-4 py-2.5 border border-blue-300 text-blue-700 bg-blue-50 rounded-xl font-medium hover:bg-blue-100 hover:border-blue-400 transition-all duration-200"
-              >
-                <MdEdit className="w-4 h-4" />
-                Edit
-              </button>
-              <button 
-                onClick={handlePrint} 
-                className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-all duration-200 shadow-sm hover:shadow-md"
-              >
-                <MdPrint className="w-4 h-4" />
-                Print
-              </button>
-              <button 
-                onClick={handleDelete} 
-                className="flex items-center gap-2 px-4 py-2.5 border border-red-300 text-red-600 bg-red-50 rounded-xl font-medium hover:bg-red-100 hover:border-red-400 transition-all duration-200"
-              >
-                <MdDelete className="w-4 h-4" />
-                Delete
-              </button>
-            </div>
+    <div className="min-h-screen bg-slate-50">
+      {/* Mobile Header - Sticky */}
+      <div className="sticky top-0 z-50 bg-white border-b border-slate-200 shadow-sm">
+        <div className="flex items-center justify-between px-4 py-3">
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={handleGoBack} 
+              className="p-2 text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors"
+              aria-label="Go back"
+            >
+              <MdArrowBack className="w-5 h-5" />
+            </button>
+            <h1 className="text-lg font-semibold text-slate-900">Service Details</h1>
           </div>
+          <div className="relative dropdown-container">
+            <button 
+              onClick={toggleDropdown}
+              className="p-2 text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors"
+              aria-label="More options"
+            >
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+              </svg>
+            </button>
+            
+            {/* Dropdown Menu */}
+            {showDropdown && (
+              <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-slate-200 py-1 z-50">
+                <button 
+                  onClick={() => {
+                    setShowDropdown(false);
+                    handleEditClick();
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-left text-slate-700 hover:bg-slate-50 transition-colors"
+                >
+                  <MdEdit className="w-4 h-4 text-blue-600" />
+                  <span className="text-sm font-medium">Edit Service</span>
+                </button>
+                <button 
+                  onClick={() => {
+                    setShowDropdown(false);
+                    handlePrint();
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-left text-slate-700 hover:bg-slate-50 transition-colors"
+                >
+                  <MdPrint className="w-4 h-4 text-slate-600" />
+                  <span className="text-sm font-medium">Print Details</span>
+                </button>
+                <button 
+                  onClick={() => {
+                    setShowDropdown(false);
+                    handleToggleShowHistory();
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-left text-slate-700 hover:bg-slate-50 transition-colors"
+                >
+                  <MdHistory className="w-4 h-4 text-slate-600" />
+                  <span className="text-sm font-medium">View History</span>
+                </button>
+                <hr className="my-1 border-slate-200" />
+                <button 
+                  onClick={() => {
+                    setShowDropdown(false);
+                    handleDelete();
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-left text-red-600 hover:bg-red-50 transition-colors"
+                >
+                  <MdDelete className="w-4 h-4 text-red-600" />
+                  <span className="text-sm font-medium">Delete Service</span>
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
 
-          {/* Enhanced Status and Priority Section */}
-          <div className="flex items-center justify-between p-6 bg-gradient-to-r from-slate-50 to-blue-50/50 rounded-xl border border-slate-200">
-            <div className="flex items-center gap-6">
-              <div className="flex items-center gap-3">
-                <div className={`${statusColor} flex items-center gap-3 px-6 py-3 rounded-xl font-semibold border shadow-sm`}>
-                  {statusIcon}
-                  <span className="text-lg">{status}</span>
-                </div>
-                <div className={`${priorityColor} flex items-center gap-2 px-4 py-2 rounded-lg font-medium border`}>
-                  {priorityIcon}
-                  {getPriorityLabel(service.priority || "medium")}
+      <div className="p-4 space-y-4">
+        {/* Service Summary Card - Hero Section */}
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+          <div className="space-y-3">
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <h2 className="text-xl font-bold text-slate-900 mb-2">{service.name}</h2>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 text-sm text-slate-600">
+                    <span className="font-mono bg-slate-100 px-2 py-1 rounded text-xs">#{service.id.slice(-8)}</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-xs text-slate-500">
+                    <div className="flex items-center gap-1">
+                      <span className="font-medium">Created:</span>
+                      <span>{createdAt ? createdAt.toLocaleDateString('en-US', { 
+                        month: 'short', 
+                        day: 'numeric',
+                        year: 'numeric'
+                      }) : 'Unknown'}</span>
+                    </div>
+                    <span>•</span>
+                    <div className="flex items-center gap-1">
+                      <span className="font-medium">Updated:</span>
+                      <span>{updatedAt ? updatedAt.toLocaleDateString('en-US', { 
+                        month: 'short', 
+                        day: 'numeric',
+                        year: 'numeric'
+                      }) : 'Unknown'}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
-              
-              <div className="flex items-center gap-3">
-                <span className="text-slate-600 font-medium">Update Status:</span>
-                <select 
-                  value={status} 
-                  onChange={handleStatusChange} 
-                  disabled={updatingStatus} 
-                  className="border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 bg-white shadow-sm min-w-[180px]"
-                >
-                  {STATUS_OPTIONS.map((opt) => (
-                    <option key={opt} value={opt}>
-                      {opt}
-                    </option>
-                  ))}
-                </select>
-                {updatingStatus && (
-                  <div className="flex items-center gap-2 text-sm text-slate-600 bg-white px-3 py-2 rounded-lg border border-slate-200">
-                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-200 border-t-blue-600"></div>
-                    Updating...
-                  </div>
-                )}
-                {statusUpdateSuccess && (
-                  <div className="flex items-center gap-2 text-sm text-green-600 bg-white px-3 py-2 rounded-lg border border-green-200">
-                    <MdCheckCircle className="w-4 h-4" />
-                    Status updated successfully!
-                  </div>
-                )}
+              <div className="text-right">
+                <div className="text-3xl font-bold text-blue-600">₹{service.price?.toLocaleString()}</div>
+                <div className="text-xs text-slate-500 mt-1">Service Price</div>
               </div>
             </div>
-
-            {/* Price Display */}
-            <div className="text-right">
-              <div className="text-slate-500 text-sm font-medium mb-1">Service Price</div>
-              <div className="text-3xl font-bold text-slate-900">₹{service.price?.toLocaleString()}</div>
+            
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className={`${statusColor} flex items-center gap-2 px-3 py-1.5 rounded-lg font-medium text-sm border`}>
+                {statusIcon}
+                <span>{status}</span>
+              </div>
+              <div className={`${priorityColor} flex items-center gap-1 px-2 py-1 rounded-md font-medium text-xs border`}>
+                {priorityIcon}
+                <span>{getPriorityLabel(service.priority || "medium")}</span>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Status History */}
-        {showHistory && (
-          <div className="mb-8 bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-            <div className="p-6 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-blue-50/30">
-              <h3 className="font-semibold text-xl flex items-center gap-3 text-slate-800">
-                <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                  <MdHistory className="w-5 h-5 text-blue-600" />
-                </div>
-                Status History
-              </h3>
+        {/* Status Update Section */}
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+          <div className="flex items-center gap-3 mb-3">
+            <span className="text-slate-600 font-medium text-sm">Update Status:</span>
+            <select 
+              value={status} 
+              onChange={handleStatusChange} 
+              disabled={updatingStatus} 
+              className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 bg-white"
+            >
+              {STATUS_OPTIONS.map((opt) => (
+                <option key={opt} value={opt}>
+                  {opt}
+                </option>
+              ))}
+            </select>
+          </div>
+          {updatingStatus && (
+            <div className="flex items-center gap-2 text-sm text-slate-600 bg-slate-50 px-3 py-2 rounded-lg">
+              <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-200 border-t-blue-600"></div>
+              Updating...
             </div>
-            <div className="p-6">
-              <div className="space-y-4">
-                {statusHistory.length > 0 ? (
-                  statusHistory.map((entry, index) => (
-                    <div key={`history-${entry.status}-${entry.timestamp.getTime()}-${index}`} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200 hover:bg-slate-100 transition-colors">
-                      <div className="flex items-center gap-4">
-                        <div className={`${statusColors[entry.status]} px-4 py-2 rounded-full text-sm font-semibold border`}>
-                          {entry.status}
-                        </div>
-                        <div className="flex items-center gap-2 text-slate-600">
-                          <MdPerson className="w-4 h-4 text-slate-400" />
-                          <span className="font-medium">{entry.updatedBy}</span>
+          )}
+          {statusUpdateSuccess && (
+            <div className="flex items-center gap-2 text-sm text-green-600 bg-green-50 px-3 py-2 rounded-lg">
+              <MdCheckCircle className="w-4 h-4" />
+              Status updated successfully!
+            </div>
+          )}
+        </div>
+
+        {/* Collapsible Sections */}
+        <div className="space-y-3">
+          {/* Service Information */}
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <button 
+              onClick={() => toggleSection('serviceInfo')}
+              className="w-full flex items-center justify-between p-4 text-left hover:bg-slate-50 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                  <MdBuild className="w-4 h-4 text-blue-600" />
+                </div>
+                <span className="font-semibold text-slate-900">Service Information</span>
+              </div>
+              <svg 
+                className={`w-5 h-5 text-slate-400 transition-transform ${expandedSections.serviceInfo ? 'rotate-180' : ''}`}
+                fill="none" 
+                stroke="currentColor" 
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            {expandedSections.serviceInfo && (
+              <div className="px-4 pb-4 space-y-3">
+                <div className="grid grid-cols-1 gap-3">
+                  <div>
+                    <div className="text-slate-500 text-xs font-medium mb-1">Service Name</div>
+                    <div className="font-semibold text-slate-900">{service.name}</div>
+                  </div>
+                  <div>
+                    <div className="text-slate-500 text-xs font-medium mb-1">Branch</div>
+                    <div className="font-semibold text-slate-900">{branchName}</div>
+                  </div>
+                  <div>
+                    <div className="text-slate-500 text-xs font-medium mb-1">Assigned Technician</div>
+                    <div className="font-semibold text-slate-900">
+                      {(() => {
+                        const techInfo = getAssignedTechnicianInfo();
+                        return (
+                          <div className="space-y-1">
+                            <div>{techInfo.name}</div>
+                            {techInfo.id && (
+                              <div className="text-xs text-slate-500 font-mono bg-slate-100 px-2 py-1 rounded">
+                                ID: {techInfo.id}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                  {service.actualDuration && (
+                    <div>
+                      <div className="text-slate-500 text-xs font-medium mb-1">Actual Duration</div>
+                      <div className="font-semibold text-slate-900">{formatDuration(service.actualDuration)}</div>
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <div className="text-slate-500 text-xs font-medium mb-1">Description</div>
+                  <div className="font-medium text-slate-900 bg-slate-50 p-3 rounded-lg border border-slate-200 text-sm leading-relaxed">
+                    {service.description || "No description provided"}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Device Information */}
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <button 
+              onClick={() => toggleSection('deviceInfo')}
+              className="w-full flex items-center justify-between p-4 text-left hover:bg-slate-50 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                  <MdDevices className="w-4 h-4 text-green-600" />
+                </div>
+                <span className="font-semibold text-slate-900">Device Information</span>
+              </div>
+              <svg 
+                className={`w-5 h-5 text-slate-400 transition-transform ${expandedSections.deviceInfo ? 'rotate-180' : ''}`}
+                fill="none" 
+                stroke="currentColor" 
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            {expandedSections.deviceInfo && (
+              <div className="px-4 pb-4 space-y-3">
+                <div className="grid grid-cols-1 gap-3">
+                  <div>
+                    <div className="text-slate-500 text-xs font-medium mb-1">Type</div>
+                    <div className="font-semibold text-slate-900">{service.device?.type || "Not specified"}</div>
+                  </div>
+                  <div>
+                    <div className="text-slate-500 text-xs font-medium mb-1">Brand</div>
+                    <div className="font-semibold text-slate-900">{service.device?.brand || "Not specified"}</div>
+                  </div>
+                  <div>
+                    <div className="text-slate-500 text-xs font-medium mb-1">Model</div>
+                    <div className="font-semibold text-slate-900">{service.device?.model || "Not specified"}</div>
+                  </div>
+                  <div>
+                    <div className="text-slate-500 text-xs font-medium mb-1">IMEI</div>
+                    <div className="font-semibold text-slate-900 font-mono bg-slate-50 px-3 py-2 rounded-lg border border-slate-200">
+                      {service.device?.imei || "Not specified"}
+                    </div>
+                  </div>
+                  {service.device?.color && (
+                    <div>
+                      <div className="text-slate-500 text-xs font-medium mb-1">Color</div>
+                      <div className="font-semibold text-slate-900">{service.device.color}</div>
+                    </div>
+                  )}
+                </div>
+                {service.device?.issue && (
+                  <div>
+                    <div className="text-slate-500 text-xs font-medium mb-1">Issue Description</div>
+                    <div className="font-medium text-slate-900 bg-slate-50 p-3 rounded-lg border border-slate-200 text-sm leading-relaxed">
+                      {service.device.issue}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Customer Information */}
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <button 
+              onClick={() => toggleSection('customerInfo')}
+              className="w-full flex items-center justify-between p-4 text-left hover:bg-slate-50 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                  <MdPerson className="w-4 h-4 text-purple-600" />
+                </div>
+                <span className="font-semibold text-slate-900">Customer Information</span>
+              </div>
+              <svg 
+                className={`w-5 h-5 text-slate-400 transition-transform ${expandedSections.customerInfo ? 'rotate-180' : ''}`}
+                fill="none" 
+                stroke="currentColor" 
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            {expandedSections.customerInfo && (
+              <div className="px-4 pb-4 space-y-3">
+                <div className="grid grid-cols-1 gap-3">
+                  <div>
+                    <div className="text-slate-500 text-xs font-medium mb-1">Name</div>
+                    <div className="font-semibold text-slate-900">{service.customer?.name || "Not specified"}</div>
+                  </div>
+                  <div>
+                    <div className="text-slate-500 text-xs font-medium mb-1">Phone</div>
+                    <div className="font-semibold text-slate-900">{service.customer?.phone || "Not specified"}</div>
+                  </div>
+                  {service.customer?.email && (
+                    <div>
+                      <div className="text-slate-500 text-xs font-medium mb-1">Email</div>
+                      <div className="font-semibold text-slate-900">{service.customer.email}</div>
+                    </div>
+                  )}
+                  {service.customer?.address && (
+                    <div>
+                      <div className="text-slate-500 text-xs font-medium mb-1">Address</div>
+                      <div className="font-semibold text-slate-900">{service.customer.address}</div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Technician Information */}
+          {(() => {
+            const techInfo = getAssignedTechnicianInfo();
+            if (!techInfo.id) return null;
+            
+            return (
+              <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <button 
+                  onClick={() => toggleSection('technicianInfo')}
+                  className="w-full flex items-center justify-between p-4 text-left hover:bg-slate-50 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
+                      <MdPerson className="w-4 h-4 text-orange-600" />
+                    </div>
+                    <span className="font-semibold text-slate-900">Assigned Technician</span>
+                  </div>
+                  <svg 
+                    className={`w-5 h-5 text-slate-400 transition-transform ${expandedSections.technicianInfo ? 'rotate-180' : ''}`}
+                    fill="none" 
+                    stroke="currentColor" 
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                {expandedSections.technicianInfo && (
+                  <div className="px-4 pb-4 space-y-3">
+                    <div className="grid grid-cols-1 gap-3">
+                      <div>
+                        <div className="text-slate-500 text-xs font-medium mb-1">Name</div>
+                        <div className="font-semibold text-slate-900">{techInfo.name}</div>
+                      </div>
+                      <div>
+                        <div className="text-slate-500 text-xs font-medium mb-1">Technician ID</div>
+                        <div className="font-mono text-slate-900 bg-slate-100 px-3 py-2 rounded-lg">
+                          {techInfo.id}
                         </div>
                       </div>
-                      <div className="text-sm text-slate-500 bg-white px-3 py-2 rounded-lg border border-slate-200">
+                      {techInfo.technician?.phone && (
+                        <div>
+                          <div className="text-slate-500 text-xs font-medium mb-1">Phone</div>
+                          <div className="font-semibold text-slate-900">{techInfo.technician.phone}</div>
+                        </div>
+                      )}
+                      {techInfo.technician?.email && (
+                        <div>
+                          <div className="text-slate-500 text-xs font-medium mb-1">Email</div>
+                          <div className="font-semibold text-slate-900">{techInfo.technician.email}</div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
+          {/* Quick Info */}
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <button 
+              onClick={() => toggleSection('quickInfo')}
+              className="w-full flex items-center justify-between p-4 text-left hover:bg-slate-50 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center">
+                  <MdInfo className="w-4 h-4 text-slate-600" />
+                </div>
+                <span className="font-semibold text-slate-900">Quick Info</span>
+              </div>
+              <svg 
+                className={`w-5 h-5 text-slate-400 transition-transform ${expandedSections.quickInfo ? 'rotate-180' : ''}`}
+                fill="none" 
+                stroke="currentColor" 
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            {expandedSections.quickInfo && (
+              <div className="px-4 pb-4 space-y-3">
+                <div className="grid grid-cols-1 gap-3">
+                  <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
+                    <div className="text-slate-500 text-xs font-medium mb-1">Created</div>
+                    <div className="font-semibold text-slate-900 text-sm">{createdAt ? createdAt.toLocaleDateString() : "-"}</div>
+                  </div>
+                  <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
+                    <div className="text-slate-500 text-xs font-medium mb-1">Last Updated</div>
+                    <div className="font-semibold text-slate-900 text-sm">{updatedAt ? updatedAt.toLocaleDateString() : "-"}</div>
+                  </div>
+                  {service.scheduledDate && (
+                    <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                      <div className="text-blue-600 text-xs font-medium mb-1">Scheduled Date</div>
+                      <div className="font-semibold text-blue-900 text-sm">{formatDate(service.scheduledDate)}</div>
+                    </div>
+                  )}
+                  {service.completedDate && (
+                    <div className="p-3 bg-green-50 rounded-lg border border-green-200">
+                      <div className="text-green-600 text-xs font-medium mb-1">Completed Date</div>
+                      <div className="font-semibold text-green-900 text-sm">{formatDate(service.completedDate)}</div>
+                    </div>
+                  )}
+                  {service.qualityScore && (
+                    <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+                      <div className="text-yellow-600 text-xs font-medium mb-1">Quality Score</div>
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1">{renderStars(Math.round(service.qualityScore))}</div>
+                        <span className="font-semibold text-yellow-900 text-sm">({service.qualityScore}/5)</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Notes and Work Notes */}
+          {(service.notes || (service.workNotes && service.workNotes.length > 0)) && (
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+              <button 
+                onClick={() => toggleSection('notes')}
+                className="w-full flex items-center justify-between p-4 text-left hover:bg-slate-50 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center">
+                    <MdNotes className="w-4 h-4 text-amber-600" />
+                  </div>
+                  <span className="font-semibold text-slate-900">Notes & Work Notes</span>
+                </div>
+                <svg 
+                  className={`w-5 h-5 text-slate-400 transition-transform ${expandedSections.notes ? 'rotate-180' : ''}`}
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              {expandedSections.notes && (
+                <div className="px-4 pb-4 space-y-3">
+                  {service.notes && (
+                    <div>
+                      <div className="text-slate-500 text-xs font-medium mb-1">General Notes</div>
+                      <div className="font-medium text-slate-900 bg-slate-50 p-3 rounded-lg border border-slate-200 text-sm leading-relaxed">
+                        {service.notes}
+                      </div>
+                    </div>
+                  )}
+                  {service.workNotes && service.workNotes.length > 0 && (
+                    <div>
+                      <div className="text-slate-500 text-xs font-medium mb-2">Work Notes</div>
+                      <div className="space-y-2">
+                        {service.workNotes.map((note, index) => (
+                          <div key={`worknote-${index}-${note.substring(0, 10)}`} className="bg-blue-50 p-3 rounded-lg border-l-4 border-blue-500">
+                            <div className="font-medium text-slate-900 text-sm leading-relaxed">{note}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Parts Used */}
+          {service.partsUsed && service.partsUsed.length > 0 && (
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+              <button 
+                onClick={() => toggleSection('parts')}
+                className="w-full flex items-center justify-between p-4 text-left hover:bg-slate-50 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center">
+                    <MdInventory className="w-4 h-4 text-emerald-600" />
+                  </div>
+                  <span className="font-semibold text-slate-900">Parts Used</span>
+                </div>
+                <svg 
+                  className={`w-5 h-5 text-slate-400 transition-transform ${expandedSections.parts ? 'rotate-180' : ''}`}
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              {expandedSections.parts && (
+                <div className="px-4 pb-4 space-y-2">
+                  {service.partsUsed.map((part, index) => (
+                    <div key={`part-${index}-${part.name}`} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-200">
+                      <div>
+                        <div className="font-semibold text-slate-900 text-sm">{part.name}</div>
+                        <div className="text-xs text-slate-500">Quantity: {part.quantity}</div>
+                      </div>
+                      <div className="font-bold text-slate-900">₹{part.cost.toLocaleString()}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Customer Feedback */}
+          {service.customerFeedback && (
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+              <button 
+                onClick={() => toggleSection('feedback')}
+                className="w-full flex items-center justify-between p-4 text-left hover:bg-slate-50 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-yellow-100 rounded-lg flex items-center justify-center">
+                    <MdFeedback className="w-4 h-4 text-yellow-600" />
+                  </div>
+                  <span className="font-semibold text-slate-900">Customer Feedback</span>
+                </div>
+                <svg 
+                  className={`w-5 h-5 text-slate-400 transition-transform ${expandedSections.feedback ? 'rotate-180' : ''}`}
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              {expandedSections.feedback && (
+                <div className="px-4 pb-4 space-y-3">
+                  <div className="flex items-center gap-3">
+                    <span className="text-slate-600 font-medium text-sm">Rating:</span>
+                    <div className="flex items-center gap-1">{renderStars(service.customerFeedback.rating)}</div>
+                    <span className="text-sm font-semibold text-slate-900">({service.customerFeedback.rating}/5)</span>
+                  </div>
+                  {service.customerFeedback.comment && (
+                    <div>
+                      <div className="text-slate-500 text-xs font-medium mb-1">Comment</div>
+                      <div className="font-medium text-slate-900 bg-slate-50 p-3 rounded-lg border border-slate-200 text-sm leading-relaxed">
+                        {service.customerFeedback.comment}
+                      </div>
+                    </div>
+                  )}
+                  <div className="text-xs text-slate-500 bg-slate-100 px-3 py-2 rounded-lg">
+                    Date: {service.customerFeedback.date.toLocaleDateString()}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Status History */}
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <button 
+              onClick={() => toggleSection('history')}
+              className="w-full flex items-center justify-between p-4 text-left hover:bg-slate-50 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                  <MdHistory className="w-4 h-4 text-blue-600" />
+                </div>
+                <span className="font-semibold text-slate-900">Status History</span>
+              </div>
+              <svg 
+                className={`w-5 h-5 text-slate-400 transition-transform ${expandedSections.history ? 'rotate-180' : ''}`}
+                fill="none" 
+                stroke="currentColor" 
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            {expandedSections.history && (
+              <div className="px-4 pb-4 space-y-2">
+                {statusHistory.length > 0 ? (
+                  statusHistory.map((entry, index) => (
+                    <div key={`history-${entry.status}-${entry.timestamp.getTime()}-${index}`} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-200">
+                      <div className="flex items-center gap-3">
+                        <div className={`${statusColors[entry.status]} px-2 py-1 rounded text-xs font-semibold border`}>
+                          {entry.status}
+                        </div>
+                        <div className="flex items-center gap-1 text-slate-600">
+                          <MdPerson className="w-3 h-3 text-slate-400" />
+                          <span className="font-medium text-xs">{entry.updatedBy}</span>
+                        </div>
+                      </div>
+                      <div className="text-xs text-slate-500 bg-white px-2 py-1 rounded border border-slate-200">
                         {entry.timestamp.toLocaleString('en-US', {
-                          year: 'numeric',
                           month: 'short',
                           day: 'numeric',
                           hour: '2-digit',
@@ -696,376 +1216,14 @@ function ServiceDetailsPage() {
                     </div>
                   ))
                 ) : (
-                  <div className="text-center py-12">
-                    <MdHistory className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-                    <p className="text-slate-500 text-lg font-medium">No status history available</p>
-                    <p className="text-slate-400 text-sm">Status changes will appear here</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 xl:grid-cols-4 gap-8">
-          {/* Main Content */}
-          <div className="xl:col-span-3 space-y-6">
-            {/* Service Information */}
-            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-8">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
-                  <MdBuild className="w-6 h-6 text-blue-600" />
-                </div>
-                <h2 className="font-bold text-xl text-slate-900">Service Information</h2>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="space-y-4">
-                  <div>
-                    <div className="text-slate-500 text-sm font-medium mb-2">Service Name</div>
-                    <div className="font-semibold text-slate-900 text-lg">{service.name}</div>
-                  </div>
-                  <div>
-                    <div className="text-slate-500 text-sm font-medium mb-2">Branch</div>
-                    <div className="font-semibold text-slate-900">{branchName}</div>
-                  </div>
-                  <div>
-                    <div className="text-slate-500 text-sm font-medium mb-2">Assigned Technician</div>
-                    <div className="font-semibold text-slate-900">
-                      {(() => {
-                        const techInfo = getAssignedTechnicianInfo();
-                        return (
-                          <div className="space-y-1">
-                            <div>{techInfo.name}</div>
-                            {techInfo.id && (
-                              <div className="text-xs text-slate-500 font-mono bg-slate-100 px-2 py-1 rounded border">
-                                ID: {techInfo.id}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })()}
-                    </div>
-                  </div>
-                </div>
-                <div className="space-y-4">
-                  <div>
-                    <div className="text-slate-500 text-sm font-medium mb-2">Price</div>
-                    <div className="font-bold text-slate-900 text-2xl">₹{service.price?.toLocaleString()}</div>
-                  </div>
-                  {service.actualDuration && (
-                    <div>
-                      <div className="text-slate-500 text-sm font-medium mb-2">Actual Duration</div>
-                      <div className="font-semibold text-slate-900 text-lg">{formatDuration(service.actualDuration)}</div>
-                    </div>
-                  )}
-                </div>
-                <div className="md:col-span-2">
-                  <div className="text-slate-500 text-sm font-medium mb-2">Description</div>
-                  <div className="font-medium text-slate-900 bg-slate-50 p-4 rounded-xl border border-slate-200 leading-relaxed">
-                    {service.description || "No description provided"}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Device Information */}
-            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-8">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
-                  <MdDevices className="w-6 h-6 text-green-600" />
-                </div>
-                <h2 className="font-bold text-xl text-slate-900">Device Information</h2>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="space-y-4">
-                  <div>
-                    <div className="text-slate-500 text-sm font-medium mb-2">Type</div>
-                    <div className="font-semibold text-slate-900">{service.device?.type || "Not specified"}</div>
-                  </div>
-                  <div>
-                    <div className="text-slate-500 text-sm font-medium mb-2">Brand</div>
-                    <div className="font-semibold text-slate-900">{service.device?.brand || "Not specified"}</div>
-                  </div>
-                  <div>
-                    <div className="text-slate-500 text-sm font-medium mb-2">Model</div>
-                    <div className="font-semibold text-slate-900">{service.device?.model || "Not specified"}</div>
-                  </div>
-                </div>
-                <div className="space-y-4">
-                  <div>
-                    <div className="text-slate-500 text-sm font-medium mb-2">IMEI</div>
-                    <div className="font-semibold text-slate-900 font-mono text-lg bg-slate-50 px-3 py-2 rounded-lg border border-slate-200">
-                      {service.device?.imei || "Not specified"}
-                    </div>
-                  </div>
-                  {service.device?.color && (
-                    <div>
-                      <div className="text-slate-500 text-sm font-medium mb-2">Color</div>
-                      <div className="font-semibold text-slate-900">{service.device.color}</div>
-                    </div>
-                  )}
-                </div>
-                {service.device?.issue && (
-                  <div className="md:col-span-2">
-                    <div className="text-slate-500 text-sm font-medium mb-2">Issue Description</div>
-                    <div className="font-medium text-slate-900 bg-slate-50 p-4 rounded-xl border border-slate-200 leading-relaxed">
-                      {service.device.issue}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Customer Information */}
-            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-8">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center">
-                  <MdPerson className="w-6 h-6 text-purple-600" />
-                </div>
-                <h2 className="font-bold text-xl text-slate-900">Customer Information</h2>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="space-y-4">
-                  <div>
-                    <div className="text-slate-500 text-sm font-medium mb-2">Name</div>
-                    <div className="font-semibold text-slate-900">{service.customer?.name || "Not specified"}</div>
-                  </div>
-                  <div>
-                    <div className="text-slate-500 text-sm font-medium mb-2">Phone</div>
-                    <div className="font-semibold text-slate-900">{service.customer?.phone || "Not specified"}</div>
-                  </div>
-                </div>
-                <div className="space-y-4">
-                  {service.customer?.email && (
-                    <div>
-                      <div className="text-slate-500 text-sm font-medium mb-2">Email</div>
-                      <div className="font-semibold text-slate-900">{service.customer.email}</div>
-                    </div>
-                  )}
-                  {service.customer?.address && (
-                    <div>
-                      <div className="text-slate-500 text-sm font-medium mb-2">Address</div>
-                      <div className="font-semibold text-slate-900">{service.customer.address}</div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Technician Information */}
-            {(() => {
-              const techInfo = getAssignedTechnicianInfo();
-              if (!techInfo.id) return null;
-              
-              return (
-                <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-8">
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="w-10 h-10 bg-orange-100 rounded-xl flex items-center justify-center">
-                      <MdPerson className="w-6 h-6 text-orange-600" />
-                    </div>
-                    <h2 className="font-bold text-xl text-slate-900">Assigned Technician</h2>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div className="space-y-4">
-                      <div>
-                        <div className="text-slate-500 text-sm font-medium mb-2">Name</div>
-                        <div className="font-semibold text-slate-900">{techInfo.name}</div>
-                      </div>
-                      <div>
-                        <div className="text-slate-500 text-sm font-medium mb-2">Technician ID</div>
-                        <div className="font-mono text-slate-900 bg-slate-100 px-3 py-2 rounded-lg border">
-                          {techInfo.id}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="space-y-4">
-                      {techInfo.technician?.phone && (
-                        <div>
-                          <div className="text-slate-500 text-sm font-medium mb-2">Phone</div>
-                          <div className="font-semibold text-slate-900">{techInfo.technician.phone}</div>
-                        </div>
-                      )}
-                      {techInfo.technician?.email && (
-                        <div>
-                          <div className="text-slate-500 text-sm font-medium mb-2">Email</div>
-                          <div className="font-semibold text-slate-900">{techInfo.technician.email}</div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })()}
-
-            {/* Notes and Work Notes */}
-            {(service.notes || (service.workNotes && service.workNotes.length > 0)) && (
-              <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-8">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center">
-                    <MdNotes className="w-6 h-6 text-amber-600" />
-                  </div>
-                  <h2 className="font-bold text-xl text-slate-900">Notes & Work Notes</h2>
-                </div>
-                {service.notes && (
-                  <div className="mb-6">
-                    <div className="text-slate-500 text-sm font-medium mb-2">General Notes</div>
-                    <div className="font-medium text-slate-900 bg-slate-50 p-4 rounded-xl border border-slate-200 leading-relaxed">
-                      {service.notes}
-                    </div>
-                  </div>
-                )}
-                {service.workNotes && service.workNotes.length > 0 && (
-                  <div>
-                    <div className="text-slate-500 text-sm font-medium mb-3">Work Notes</div>
-                    <div className="space-y-3">
-                      {service.workNotes.map((note, index) => (
-                        <div key={`worknote-${index}-${note.substring(0, 10)}`} className="bg-blue-50 p-4 rounded-xl border-l-4 border-blue-500 hover:bg-blue-100 transition-colors">
-                          <div className="font-medium text-slate-900 leading-relaxed">{note}</div>
-                        </div>
-                      ))}
-                    </div>
+                  <div className="text-center py-6">
+                    <MdHistory className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                    <p className="text-slate-500 text-sm font-medium">No status history available</p>
+                    <p className="text-slate-400 text-xs">Status changes will appear here</p>
                   </div>
                 )}
               </div>
             )}
-
-            {/* Parts Used */}
-            {service.partsUsed && service.partsUsed.length > 0 && (
-              <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-8">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center">
-                    <MdInventory className="w-6 h-6 text-emerald-600" />
-                  </div>
-                  <h2 className="font-bold text-xl text-slate-900">Parts Used</h2>
-                </div>
-                <div className="space-y-4">
-                  {service.partsUsed.map((part, index) => (
-                    <div key={`part-${index}-${part.name}`} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200 hover:bg-slate-100 transition-colors">
-                      <div>
-                        <div className="font-semibold text-slate-900 text-lg">{part.name}</div>
-                        <div className="text-sm text-slate-500">Quantity: {part.quantity}</div>
-                      </div>
-                      <div className="font-bold text-slate-900 text-xl">₹{part.cost.toLocaleString()}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Customer Feedback */}
-            {service.customerFeedback && (
-              <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-8">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-10 h-10 bg-yellow-100 rounded-xl flex items-center justify-center">
-                    <MdFeedback className="w-6 h-6 text-yellow-600" />
-                  </div>
-                  <h2 className="font-bold text-xl text-slate-900">Customer Feedback</h2>
-                </div>
-                <div className="space-y-6">
-                  <div className="flex items-center gap-4">
-                    <span className="text-slate-600 font-medium text-lg">Rating:</span>
-                    <div className="flex items-center gap-1">{renderStars(service.customerFeedback.rating)}</div>
-                    <span className="text-lg font-semibold text-slate-900">({service.customerFeedback.rating}/5)</span>
-                  </div>
-                  {service.customerFeedback.comment && (
-                    <div>
-                      <div className="text-slate-500 text-sm font-medium mb-2">Comment</div>
-                      <div className="font-medium text-slate-900 bg-slate-50 p-4 rounded-xl border border-slate-200 leading-relaxed">
-                        {service.customerFeedback.comment}
-                      </div>
-                    </div>
-                  )}
-                  <div className="text-sm text-slate-500 bg-slate-100 px-4 py-2 rounded-lg inline-block">
-                    Date: {service.customerFeedback.date.toLocaleDateString()}
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Enhanced Sidebar */}
-          <div className="space-y-6">
-            {/* Quick Info */}
-            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6">
-              <h3 className="font-bold text-lg mb-6 text-slate-900">Quick Info</h3>
-              <div className="space-y-5">
-                <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
-                  <div className="text-slate-500 text-sm font-medium mb-2">Created</div>
-                  <div className="font-semibold text-slate-900">{createdAt ? createdAt.toLocaleDateString() : "-"}</div>
-                </div>
-                <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
-                  <div className="text-slate-500 text-sm font-medium mb-2">Last Updated</div>
-                  <div className="font-semibold text-slate-900">{updatedAt ? updatedAt.toLocaleDateString() : "-"}</div>
-                </div>
-                {service.scheduledDate && (
-                  <div className="p-4 bg-blue-50 rounded-xl border border-blue-200">
-                    <div className="text-blue-600 text-sm font-medium mb-2">Scheduled Date</div>
-                    <div className="font-semibold text-blue-900">{formatDate(service.scheduledDate)}</div>
-                  </div>
-                )}
-                {service.completedDate && (
-                  <div className="p-4 bg-green-50 rounded-xl border border-green-200">
-                    <div className="text-green-600 text-sm font-medium mb-2">Completed Date</div>
-                    <div className="font-semibold text-green-900">{formatDate(service.completedDate)}</div>
-                  </div>
-                )}
-                {service.estimatedCompletion && (
-                  <div className="p-4 bg-amber-50 rounded-xl border border-amber-200">
-                    <div className="text-amber-600 text-sm font-medium mb-2">Estimated Completion</div>
-                    <div className="font-semibold text-amber-900">{formatDate(service.estimatedCompletion)}</div>
-                  </div>
-                )}
-                {service.actualCompletion && (
-                  <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-200">
-                    <div className="text-emerald-600 text-sm font-medium mb-2">Actual Completion</div>
-                    <div className="font-semibold text-emerald-900">{formatDate(service.actualCompletion)}</div>
-                  </div>
-                )}
-                {service.qualityScore && (
-                  <div className="p-4 bg-yellow-50 rounded-xl border border-yellow-200">
-                    <div className="text-yellow-600 text-sm font-medium mb-2">Quality Score</div>
-                    <div className="flex items-center gap-2">
-                      <div className="flex items-center gap-1">{renderStars(Math.round(service.qualityScore))}</div>
-                      <span className="font-semibold text-yellow-900">({service.qualityScore}/5)</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Quick Actions */}
-            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6">
-              <h3 className="font-bold text-lg mb-6 text-slate-900">Quick Actions</h3>
-              <div className="space-y-4">
-                <button 
-                  onClick={handleEditClick} 
-                  className="w-full flex items-center gap-3 p-4 border border-blue-200 rounded-xl hover:bg-blue-50 hover:border-blue-300 transition-all duration-200 text-left group"
-                >
-                  <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center group-hover:bg-blue-200 transition-colors">
-                    <MdEdit className="w-4 h-4 text-blue-600" />
-                  </div>
-                  <span className="text-sm font-semibold text-slate-700">Edit Service</span>
-                </button>
-                <button 
-                  onClick={handlePrint} 
-                  className="w-full flex items-center gap-3 p-4 border border-orange-200 rounded-xl hover:bg-orange-50 hover:border-orange-300 transition-all duration-200 text-left group"
-                >
-                  <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center group-hover:bg-orange-200 transition-colors">
-                    <MdPrint className="w-4 h-4 text-orange-600" />
-                  </div>
-                  <span className="text-sm font-semibold text-slate-700">Print Details</span>
-                </button>
-                <button 
-                  onClick={handleToggleShowHistory} 
-                  className="w-full flex items-center gap-3 p-4 border border-purple-200 rounded-xl hover:bg-purple-50 hover:border-purple-300 transition-all duration-200 text-left group"
-                >
-                  <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center group-hover:bg-purple-200 transition-colors">
-                    <MdHistory className="w-4 h-4 text-purple-600" />
-                  </div>
-                  <span className="text-sm font-semibold text-slate-700">View History</span>
-                </button>
-              </div>
-            </div>
           </div>
         </div>
       </div>
