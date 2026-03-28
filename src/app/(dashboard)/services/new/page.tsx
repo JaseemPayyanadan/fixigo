@@ -93,7 +93,7 @@ export default function NewServicePage() {
         created_by: { role: user?.role || "", name: user?.name || "" },
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
-        status: "To Do",
+        status: "pending",
       });
       router.push("/services");
     } catch (err: unknown) {

@@ -1,28 +1,99 @@
 "use client";
 
-import React from "react";
-
+import React, { useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import { 
   CheckCircle, 
   ClipboardList, 
   Clock, 
   AlertTriangle, 
-  Star, 
   TrendingUp, 
-  DollarSign,
-  Target
+  ChevronRight,
+  List
 } from "lucide-react";
 
 import { useDashboardData } from "@/hooks/useDashboardData";
 import { useUser } from "@/hooks/useUser";
 import { db } from "@/lib/firebase";
+import { getStatusConfig, normalizeStatus } from "@/lib/statusUtils";
 import type { Service } from "@/types";
-
-import { CompactDashboardContent, CompactDashboardHeader, CompactDashboardLayout, CompactErrorState, DashboardErrorBoundary, DashboardHeader, DashboardLoadingState, DashboardMetric, EnhancedMetricsGrid, RecentServicesCard } from "./shared/DashboardComponents";
 import { formatCurrency } from "./shared/DashboardUtils";
+import { ServiceMetricsGauge } from "./shared";
+
+
+
+
+
+// Enhanced Service Card with Swipe Actions
+const ServiceCard: React.FC<{ service: Service; onViewDetails: (id: string) => void }> = ({ service, onViewDetails }) => {
+  const [isSwiped, setIsSwiped] = useState(false);
+  
+
+
+  const statusConfig = getStatusConfig(service.status);
+
+  return (
+    <div className="relative bg-white rounded-2xl border border-gray-100 p-4 shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden">
+      {/* Swipe Actions Background */}
+      <div className={`absolute inset-0 bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl flex items-center justify-end pr-4 transition-transform duration-300 ${isSwiped ? 'translate-x-0' : '-translate-x-full'}`}>
+        <div className="flex gap-3">
+          <button 
+            className="p-2 bg-white/20 rounded-full text-white hover:bg-white/30 transition-colors"
+            onClick={() => onViewDetails(service.id)}
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* Service Card Content */}
+      <div className="relative z-10">
+        <div className="flex items-start justify-between mb-3">
+          <div className="flex items-center gap-3 flex-1">
+            <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center">
+              <List className="w-5 h-5 text-blue-600" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-gray-900 truncate">
+                {service.customer?.name || "Unknown Customer"}
+              </p>
+              <p className="text-xs text-gray-600 truncate">
+                {service.device?.brand || "Unknown"} {service.device?.model || "Device"}
+              </p>
+            </div>
+          </div>
+          
+          <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${statusConfig.color} ${statusConfig.bg}`}>
+            <span className="text-xs">{statusConfig.icon}</span>
+            {statusConfig.label}
+          </span>
+        </div>
+
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-gray-900">
+              {formatCurrency(service.price)}
+            </span>
+            <span className="text-xs text-gray-500">
+              • {service.name}
+            </span>
+          </div>
+          
+          <button 
+            className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
+            onClick={() => onViewDetails(service.id)}
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export default function TechnicianDashboard() {
+  const router = useRouter();
   const { user } = useUser();
   const { services, isLoading, servicesLoading, servicesError } = useDashboardData(user?.shopId, user?.branchId);
 
@@ -43,21 +114,52 @@ export default function TechnicianDashboard() {
         setTechnicianServicesLoading(true);
 
         // First, get the technician document to find the correct ID
-        const technicianQuery = query(collection(db, "technicians"), where("created_by", "==", user.id));
+        // Try both userId and created_by fields for compatibility
+        const technicianQuery = query(collection(db, "technicians"), where("userId", "==", user.id));
         const technicianSnapshot = await getDocs(technicianQuery);
-        const technicianDoc = technicianSnapshot.docs[0];
+        let technicianDoc = technicianSnapshot.docs[0];
+
+        // If not found with userId, try created_by field
+        if (!technicianDoc) {
+          const technicianQuery2 = query(collection(db, "technicians"), where("created_by", "==", user.id));
+          const technicianSnapshot2 = await getDocs(technicianQuery2);
+          technicianDoc = technicianSnapshot2.docs[0];
+        }
 
         if (technicianDoc) {
           const technicianId = technicianDoc.id;
           console.log("TechnicianDashboard - Found technician document ID:", technicianId);
 
           // Filter services assigned to this technician
-          const technicianServices = services.filter((service) => service.technician_id === technicianId || (service as any).technician_id === technicianId);
+          // Check both technician document ID and user ID for services
+          const technicianServices = services.filter((service) => 
+            service.technician_id === technicianId || 
+            service.technician_id === user.id ||
+            (service as any).technician_id === technicianId ||
+            (service as any).technician_id === user.id
+          );
+
+          console.log("TechnicianDashboard - Filtered services:", {
+            totalServices: services.length,
+            technicianServices: technicianServices.length,
+            technicianId,
+            userId: user.id,
+            sampleServices: technicianServices.slice(0, 3).map(s => ({
+              id: s.id,
+              status: s.status,
+              name: s.name
+            }))
+          });
 
           setMyServices(technicianServices);
         } else {
           console.log("TechnicianDashboard - No technician document found for UID:", user.id);
-          setMyServices([]);
+          // Fallback: filter services by user ID directly
+          const technicianServices = services.filter((service) => 
+            service.technician_id === user.id || 
+            (service as any).technician_id === user.id
+          );
+          setMyServices(technicianServices);
         }
       } catch (error) {
         console.error("Error fetching technician services:", error);
@@ -70,148 +172,104 @@ export default function TechnicianDashboard() {
     fetchTechnicianServices();
   }, [user, services]);
 
-  // Calculate technician-specific metrics
+  // Calculate technician-specific metrics using the same logic as other dashboards
   const technicianMetrics = React.useMemo(() => {
-    const totalServices = myServices.length;
-    const pendingServices = myServices.filter((s) => s.status === "pending").length;
-    const inProgressServices = myServices.filter((s) => s.status === "in_progress").length;
-    const completedServices = myServices.filter((s) => s.status === "completed").length;
-    const urgentServices = myServices.filter((s) => s.status === "pending" || s.status === "in_progress").length;
-    const myRevenue = myServices.reduce((sum, service) => sum + (service.price || 0), 0);
-    const customerSatisfaction = totalServices > 0 ? Math.round((completedServices / totalServices) * 100) : 0;
+    if (!myServices || myServices.length === 0) {
+      return {
+        totalServices: 0,
+        pendingServices: 0,
+        inProgressServices: 0,
+        completedServices: 0,
+        urgentServices: 0,
+        activeServices: 0,
+      };
+    }
 
-    return {
-      totalServices,
-      pendingServices,
-      inProgressServices,
-      completedServices,
-      urgentServices,
-      myRevenue,
-      customerSatisfaction,
-    };
+    // Use the same calculation logic as DashboardUtils with support for both status formats
+    const metrics = myServices.reduce((acc, service) => {
+      acc.totalServices++;
+      
+      // Normalize status to handle both lowercase and display formats
+      const normalizedStatus = normalizeStatus(service.status);
+      
+      console.log('🔍 Processing service status:', {
+        originalStatus: service.status,
+        normalizedStatus,
+        serviceId: service.id
+      });
+      
+      switch (normalizedStatus) {
+        case 'pending':
+        case 'to_do':
+          acc.pendingServices++;
+          acc.activeServices++;
+          break;
+        case 'in_progress':
+          acc.inProgressServices++;
+          acc.activeServices++;
+          break;
+        case 'awaiting_parts':
+          acc.activeServices++;
+          break;
+        case 'quality_check':
+          acc.activeServices++;
+          break;
+        case 'ready_for_pickup':
+          acc.activeServices++;
+          break;
+        case 'completed':
+          acc.completedServices++;
+          break;
+        case 'cancelled':
+          // Cancelled services are not counted in active or completed
+          break;
+        case 'on_hold':
+          acc.activeServices++;
+          break;
+        case 'urgent':
+          acc.urgentServices++;
+          acc.activeServices++;
+          break;
+        default:
+          // For unknown statuses, treat as pending
+          acc.pendingServices++;
+          acc.activeServices++;
+          console.warn('Unknown service status:', service.status, 'for service:', service.id);
+      }
+      
+      return acc;
+    }, {
+      totalServices: 0,
+      pendingServices: 0,
+      inProgressServices: 0,
+      completedServices: 0,
+      urgentServices: 0,
+      activeServices: 0,
+    });
+
+    console.log('🔍 Final technician metrics:', {
+      totalServices: metrics.totalServices,
+      pendingServices: metrics.pendingServices,
+      inProgressServices: metrics.inProgressServices,
+      completedServices: metrics.completedServices,
+      urgentServices: metrics.urgentServices,
+      activeServices: metrics.activeServices,
+      servicesCount: myServices.length
+    });
+
+    return metrics;
   }, [myServices]);
 
-  // Get recent services for technician
-  const myRecentServices = React.useMemo(() => myServices.slice(0, 5), [myServices]);
 
-  // Build metrics array with enhanced data and trend indicators
-  const dashboardMetrics: DashboardMetric[] = React.useMemo(
-    () => [
-      {
-        id: "total",
-        label: "Total Services",
-        value: technicianMetrics.totalServices,
-        icon: ClipboardList,
-        color: "text-blue-600",
-        bgColor: "bg-blue-100",
-        description: "Your assigned services",
-        change: 8,
-        changeType: "increase" as const,
-        showTrend: true
-      },
-      {
-        id: "pending",
-        label: "Pending",
-        value: technicianMetrics.pendingServices,
-        icon: Clock,
-        color: "text-orange-600",
-        bgColor: "bg-orange-100",
-        description: "Awaiting your attention",
-        change: -2,
-        changeType: "decrease" as const,
-        showTrend: true
-      },
-      {
-        id: "in_progress",
-        label: "In Progress",
-        value: technicianMetrics.inProgressServices,
-        icon: TrendingUp,
-        color: "text-blue-600",
-        bgColor: "bg-blue-100",
-        description: "Currently working on",
-        change: 5,
-        changeType: "increase" as const,
-        showTrend: true
-      },
-      {
-        id: "completed",
-        label: "Completed",
-        value: technicianMetrics.completedServices,
-        icon: CheckCircle,
-        color: "text-green-600",
-        bgColor: "bg-green-100",
-        description: "Successfully finished",
-        change: 18,
-        changeType: "increase" as const,
-        showTrend: true
-      },
-      {
-        id: "urgent",
-        label: "Urgent",
-        value: technicianMetrics.urgentServices,
-        icon: AlertTriangle,
-        color: "text-red-600",
-        bgColor: "bg-red-100",
-        description: "Requires immediate attention",
-        change: -1,
-        changeType: "decrease" as const,
-        showTrend: true
-      },
-      {
-        id: "revenue",
-        label: "My Revenue",
-        value: formatCurrency(technicianMetrics.myRevenue),
-        icon: DollarSign,
-        color: "text-yellow-600",
-        bgColor: "bg-yellow-100",
-        description: "Revenue from your services",
-        change: 22,
-        changeType: "increase" as const,
-        showTrend: true
-      },
-      {
-        id: "satisfaction",
-        label: "Satisfaction",
-        value: `${technicianMetrics.customerSatisfaction}%`,
-        icon: Star,
-        color: "text-indigo-600",
-        bgColor: "bg-indigo-100",
-        description: "Customer satisfaction rate",
-        showTrend: false
-      },
-      {
-        id: "efficiency",
-        label: "Efficiency",
-        value: technicianMetrics.totalServices > 0 ? `${Math.round((technicianMetrics.completedServices / technicianMetrics.totalServices) * 100)}%` : "0%",
-        icon: Target,
-        color: "text-purple-600",
-        bgColor: "bg-purple-100",
-        description: "Completion rate",
-        change: 12,
-        changeType: "increase" as const,
-        showTrend: true
-      },
-    ],
-    [technicianMetrics]
-  );
 
-  // Handle search functionality
-  const handleSearch = React.useCallback((query: string) => {
-    console.log('Search query:', query);
-    // TODO: Implement search functionality
-  }, []);
+  // Get recent services (show only 5 most recent)
+  const recentServices = React.useMemo(() => {
+    return myServices.slice(0, 5);
+  }, [myServices]);
 
-  // Handle filter changes
-  const handleFilterChange = React.useCallback((filter: string) => {
-    console.log('Filter changed to:', filter);
-    // TODO: Implement filter functionality
-  }, []);
-
-  // Handle retry for services
-  const handleServicesRetry = React.useCallback(() => {
-    // This would typically trigger a refetch
-    window.location.reload();
-  }, []);
+  const handleViewDetails = useCallback((serviceId: string) => {
+    router.push(`/services/${serviceId}`);
+  }, [router]);
 
   if (!user) {
     return (
@@ -224,7 +282,6 @@ export default function TechnicianDashboard() {
     );
   }
 
-  // Check if user is a technician
   if (user.role !== "technician") {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -242,45 +299,84 @@ export default function TechnicianDashboard() {
   }
 
   return (
-    <DashboardErrorBoundary>
-      <CompactDashboardLayout>
-        {/* Header */}
-        <CompactDashboardHeader>
-          <DashboardHeader 
-            title="Technician Dashboard" 
-            subtitle="Welcome back, {name}" 
-            user={user}
-            onSearch={handleSearch}
-            onFilterChange={handleFilterChange}
-          />
-        </CompactDashboardHeader>
+    <div className="min-h-screen bg-gray-50 pb-20">
+      {/* Dashboard Header with Today's Summary */}
+      <div className="bg-white border-b border-gray-100 sticky top-0 z-20">
+        <div className="px-4 py-4">
+          <div className="mb-3">
+            <h1 className="text-2xl font-bold text-gray-900">Technician Dashboard</h1>
+            <p className="text-sm text-gray-600">Welcome back, {user.name || 'Technician'}</p>
+          </div>
+        </div>
+      </div>
 
-        {/* Content */}
-        <CompactDashboardContent>
-          {/* Loading State */}
-          {(isLoading || technicianServicesLoading) && <DashboardLoadingState message="Loading your services..." />}
 
-          {/* Error States */}
-          {servicesError && (
-            <CompactErrorState message={`Services: ${servicesError}`} />
-          )}
 
-          {/* Metrics Grid */}
-          <EnhancedMetricsGrid metrics={dashboardMetrics} columns={8} />
+      {/* Dashboard Content */}
+      <div className="px-4 py-6 space-y-6">
+        {/* Loading State */}
+        {(isLoading || technicianServicesLoading) && (
+          <div className="text-center py-12">
+            <div className="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full mx-auto mb-3"></div>
+            <p className="text-sm text-gray-600">Loading your services...</p>
+          </div>
+        )}
 
-          {/* My Services */}
-          <RecentServicesCard 
-            services={myRecentServices} 
-            loading={servicesLoading || technicianServicesLoading} 
-            error={servicesError} 
-            title="My Services" 
-            viewAllLink="/services" 
-            emptyMessage="No services assigned" 
-            createLink={undefined} 
-            onRetry={handleServicesRetry} 
-          />
-        </CompactDashboardContent>
-      </CompactDashboardLayout>
-    </DashboardErrorBoundary>
+        {/* Error State */}
+        {servicesError && (
+          <div className="bg-red-50 border border-red-200 rounded-2xl p-4 text-center">
+            <p className="text-sm text-red-700">Error loading services: {servicesError}</p>
+            <button 
+              onClick={() => window.location.reload()}
+              className="mt-2 px-4 py-2 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700 transition-colors"
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
+        {/* Service Metrics Gauge */}
+        {!isLoading && !technicianServicesLoading && (
+          <ServiceMetricsGauge metrics={technicianMetrics} />
+        )}
+
+        {/* My Services Section */}
+        {!isLoading && !technicianServicesLoading && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-900">My Services</h2>
+              <button 
+                onClick={() => router.push('/services')}
+                className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+              >
+                View All
+              </button>
+            </div>
+
+            {recentServices.length === 0 ? (
+              <div className="bg-white rounded-2xl border border-gray-100 p-8 text-center">
+                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <ClipboardList className="w-8 h-8 text-gray-400" />
+                </div>
+                <p className="text-gray-500 font-medium mb-2">No services found</p>
+                <p className="text-sm text-gray-400">
+                  You don't have any services assigned yet
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {recentServices.map((service) => (
+                  <ServiceCard
+                    key={service.id}
+                    service={service}
+                    onViewDetails={handleViewDetails}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }

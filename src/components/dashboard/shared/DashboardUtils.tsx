@@ -1,5 +1,6 @@
 import React from 'react';
 
+import { normalizeStatus } from '@/lib/statusUtils';
 import { Service } from '@/types';
 
 // Status color mapping for consistent styling across dashboard components
@@ -83,16 +84,44 @@ export const calculateDashboardMetrics = (services: Service[] = []): {
   const metrics = services.reduce((acc, service) => {
     acc.totalServices++;
     
-    switch (service.status) {
+    // Normalize status to handle both lowercase and display formats
+    const normalizedStatus = normalizeStatus(service.status);
+    
+    switch (normalizedStatus) {
       case 'pending':
+      case 'to_do':
         acc.pendingServices++;
+        acc.activeServices++; // Include pending in active services
         break;
       case 'in_progress':
         acc.activeServices++;
         break;
+      case 'awaiting_parts':
+        acc.activeServices++; // Include awaiting parts in active services
+        break;
+      case 'quality_check':
+        acc.activeServices++; // Include quality check in active services
+        break;
+      case 'ready_for_pickup':
+        acc.activeServices++; // Include ready for pickup in active services
+        break;
       case 'completed':
         acc.completedServices++;
         break;
+      case 'cancelled':
+        // Cancelled services are not counted in active or completed
+        break;
+      case 'on_hold':
+        acc.activeServices++; // Include on hold in active services
+        break;
+      case 'urgent':
+        acc.activeServices++; // Include urgent in active services
+        break;
+      default:
+        // For unknown statuses, treat as pending
+        acc.pendingServices++;
+        acc.activeServices++;
+        console.warn('Unknown service status in DashboardUtils:', service.status, 'for service:', service.id);
     }
     
     // Track unique customers

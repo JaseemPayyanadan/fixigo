@@ -17,6 +17,7 @@ import {
 } from "@heroicons/react/24/outline";
 
 import { Button } from "@/components/ui";
+import { normalizeStatus } from "@/lib/statusUtils";
 import type { ServiceCardProps } from "./types";
 import { 
   getServiceStatusConfig, 
@@ -79,7 +80,23 @@ const getStatusBadgeConfig = (status: string) => {
     }
   };
 
-  return statusMap[status] || statusMap["To Do"];
+  // Normalize status and map to display format
+  const normalizedStatus = normalizeStatus(status);
+  const statusDisplayMap: Record<string, string> = {
+    'pending': 'Pending',
+    'to_do': 'To Do',
+    'in_progress': 'In Progress',
+    'awaiting_parts': 'Awaiting Parts',
+    'ready_for_pickup': 'Ready for Pickup',
+    'completed': 'Completed',
+    'cancelled': 'Cancelled',
+    'urgent': 'Urgent',
+    'on_hold': 'On Hold',
+    'quality_check': 'Quality Check'
+  };
+  
+  const displayStatus = statusDisplayMap[normalizedStatus] || 'To Do';
+  return statusMap[displayStatus] || statusMap["To Do"];
 };
 
 const ServiceCard: React.FC<ServiceCardProps> = ({
