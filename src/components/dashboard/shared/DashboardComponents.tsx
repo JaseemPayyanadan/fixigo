@@ -126,7 +126,7 @@ export const ServiceCard: React.FC<{ service: Service }> = React.memo(({ service
   const DeviceIcon = getDeviceIcon(service.device?.type);
   
   const handleClick = () => {
-    router.push(`/services/${service.id}`);
+    router.push(`/services/details?id=${service.id}`);
   };
 
   const getStatusIcon = (status: string) => {
