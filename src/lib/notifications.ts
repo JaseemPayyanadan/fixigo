@@ -196,7 +196,7 @@ export class NotificationService {
       type: notification.type,
       category: "service",
       read: false,
-      actionUrl: `/services/${serviceId}`,
+      actionUrl: `/services/details?id=${serviceId}`,
     });
   }
 

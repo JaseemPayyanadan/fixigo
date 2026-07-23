@@ -268,7 +268,7 @@ export default function TechnicianDashboard() {
   }, [myServices]);
 
   const handleViewDetails = useCallback((serviceId: string) => {
-    router.push(`/services/${serviceId}`);
+    router.push(`/services/details?id=${serviceId}`);
   }, [router]);
 
   if (!user) {
