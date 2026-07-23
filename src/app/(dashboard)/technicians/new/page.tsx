@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import { RoleGuard, PermissionGuard } from "@/components";
 import { useUser } from "@/hooks";
 import { useBranches } from "@/hooks/useBranches";
-import { useTechnicians } from "@/hooks/useTechnicians";
 import TechnicianForm from "@/modules/technician/TechnicianForm";
 
 export default function NewTechnicianPage() {
@@ -25,7 +24,6 @@ function NewTechnicianContent() {
   const branchId = user?.branchId || "";
   const userRole = user?.role as "shop_admin" | "branch_admin";
   const { branches } = useBranches(shopId);
-  const { } = useTechnicians(shopId, branchId);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
