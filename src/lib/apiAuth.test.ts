@@ -1,12 +1,30 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi, beforeEach } from "vitest";
+
+import { verifyToken } from "@/lib/auth";
+import type { AuthUser } from "@/lib/auth";
+
+vi.mock("next/headers", () => ({
+  cookies: vi.fn(),
+}));
+
+vi.mock("@/lib/auth", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/auth")>("@/lib/auth");
+  return {
+    ...actual,
+    verifyToken: vi.fn(),
+  };
+});
+
+import { cookies } from "next/headers";
 
 import {
   ApiError,
   assertCanReadTechnician,
   assertCanWriteTechnician,
   listScopeFor,
+  requireUser,
+  toErrorResponse,
 } from "@/lib/apiAuth";
-import type { AuthUser } from "@/lib/auth";
 
 function user(overrides: Partial<AuthUser> = {}): AuthUser {
   return {
@@ -89,6 +107,24 @@ describe("assertCanReadTechnician", () => {
     const tech = user({ role: "technician", branchId: "branch-2" });
     expect(() => assertCanReadTechnician(tech, target)).toThrow(ApiError);
   });
+
+  it("denies a shop mismatch", () => {
+    expect(() =>
+      assertCanReadTechnician(user(), { shopId: "shop-2", branchId: "branch-1" })
+    ).toThrow(ApiError);
+
+    try {
+      assertCanReadTechnician(user(), { shopId: "shop-2", branchId: "branch-1" });
+      expect.unreachable("should have thrown");
+    } catch (error) {
+      expect((error as ApiError).status).toBe(403);
+    }
+  });
+
+  it("allows a branch admin reading within their own branch", () => {
+    const branchAdmin = user({ role: "branch_admin", branchId: "branch-1" });
+    expect(() => assertCanReadTechnician(branchAdmin, target)).not.toThrow();
+  });
 });
 
 describe("listScopeFor", () => {
@@ -113,5 +149,77 @@ describe("listScopeFor", () => {
 
   it("always takes shopId from the session, never the request", () => {
     expect(listScopeFor(user()).shopId).toBe("shop-1");
+  });
+});
+
+describe("requireUser", () => {
+  beforeEach(() => {
+    vi.mocked(cookies).mockReset();
+    vi.mocked(verifyToken).mockReset();
+  });
+
+  it("throws a 401 ApiError when the session cookie is absent", async () => {
+    vi.mocked(cookies).mockResolvedValue({
+      get: vi.fn().mockReturnValue(undefined),
+    } as unknown as Awaited<ReturnType<typeof cookies>>);
+
+    await expect(requireUser()).rejects.toThrow(ApiError);
+
+    vi.mocked(cookies).mockResolvedValue({
+      get: vi.fn().mockReturnValue(undefined),
+    } as unknown as Awaited<ReturnType<typeof cookies>>);
+
+    try {
+      await requireUser();
+      expect.unreachable("should have thrown");
+    } catch (error) {
+      expect((error as ApiError).status).toBe(401);
+    }
+  });
+
+  it("throws a 401 ApiError when the cookie is present but verifyToken rejects it", async () => {
+    vi.mocked(cookies).mockResolvedValue({
+      get: vi.fn().mockReturnValue({ name: "session", value: "bad-token" }),
+    } as unknown as Awaited<ReturnType<typeof cookies>>);
+    vi.mocked(verifyToken).mockReturnValue(null);
+
+    try {
+      await requireUser();
+      expect.unreachable("should have thrown");
+    } catch (error) {
+      expect(error).toBeInstanceOf(ApiError);
+      expect((error as ApiError).status).toBe(401);
+    }
+  });
+
+  it("returns the AuthUser when the cookie holds a valid token", async () => {
+    const validUser = user();
+    vi.mocked(cookies).mockResolvedValue({
+      get: vi.fn().mockReturnValue({ name: "session", value: "good-token" }),
+    } as unknown as Awaited<ReturnType<typeof cookies>>);
+    vi.mocked(verifyToken).mockReturnValue(validUser);
+
+    await expect(requireUser()).resolves.toEqual(validUser);
+  });
+});
+
+describe("toErrorResponse", () => {
+  it("maps an ApiError to a response carrying its status and message", async () => {
+    const response = toErrorResponse(new ApiError(403, "Not permitted"));
+    expect(response.status).toBe(403);
+    const body = await response.json();
+    expect(body).toEqual({ error: "Not permitted" });
+  });
+
+  it("maps an unknown thrown value to a 500 without leaking the original error message", async () => {
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const response = toErrorResponse(new Error("secret internal detail"));
+    expect(response.status).toBe(500);
+    const body = await response.json();
+    expect(body).toEqual({ error: "Internal server error" });
+    expect(JSON.stringify(body)).not.toContain("secret internal detail");
+
+    consoleErrorSpy.mockRestore();
   });
 });
