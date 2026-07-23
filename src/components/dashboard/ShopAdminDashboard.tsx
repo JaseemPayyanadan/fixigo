@@ -2,114 +2,132 @@
 
 import React from "react";
 
-import { 
-  ClipboardList, 
-  TrendingUp, 
-  CheckCircle, 
-  DollarSign
-} from "lucide-react";
+import { Activity, CheckCircle, ClipboardList, IndianRupee } from "lucide-react";
 
+import {
+  buildDailySeries,
+  filterByRange,
+  getPeriodRange,
+  periodDelta,
+  seriesValues,
+  statusBreakdown,
+  summarize,
+  topServices,
+  topTechnicians,
+  type DashboardPeriod,
+} from "@/lib/dashboardAnalytics";
 import { useDashboardData } from "@/hooks/useDashboardData";
+import { useTechnicians } from "@/hooks/useTechnicians";
 import { useUser } from "@/hooks/useUser";
 
-import { 
-  CompactErrorState, 
-  DashboardErrorBoundary, 
-  DashboardHeader, 
-  DashboardLoadingState, 
-  DashboardMetric, 
-  EnhancedMetricsGrid, 
-  RecentServicesCard, 
-  UltraCompactDashboardContent, 
-  UltraCompactDashboardHeader, 
-  UltraCompactDashboardLayout 
+import { CHART_COLORS } from "./charts/palette";
+import {
+  CompactErrorState,
+  DashboardErrorBoundary,
+  DashboardLoadingState,
+  RecentServicesCard,
 } from "./shared/DashboardComponents";
 import { formatCurrency } from "./shared/DashboardUtils";
+import {
+  DashboardGreeting,
+  QuickActionsCard,
+  RankedListCard,
+  ServiceStatusCard,
+  ServicesOverviewCard,
+  StatCard,
+  type StatCardProps,
+} from "./widgets";
 
 export default function ShopAdminDashboard() {
   const { user } = useUser();
-  const { isLoading, metrics, totalRevenue, recentServices, servicesLoading, servicesError } = useDashboardData(user?.shopId);
+  const { isLoading, services, recentServices, servicesLoading, servicesError } = useDashboardData(user?.shopId);
+  const { technicians } = useTechnicians(user?.shopId);
 
-  // Build metrics array with enhanced data and trend indicators
-  const dashboardMetrics: DashboardMetric[] = React.useMemo(
-    () => [
+  // Each widget owns its own period so they can be compared side by side.
+  const [overviewPeriod, setOverviewPeriod] = React.useState<DashboardPeriod>("this_month");
+  const [techniciansPeriod, setTechniciansPeriod] = React.useState<DashboardPeriod>("this_month");
+  const [servicesPeriod, setServicesPeriod] = React.useState<DashboardPeriod>("this_month");
+
+  // Pinned per render pass so every widget below measures against the same
+  // instant rather than drifting as each one calls `new Date()`.
+  const now = React.useMemo(() => new Date(), []);
+
+  const overview = React.useMemo(() => {
+    const { current, previous } = getPeriodRange(overviewPeriod, now);
+    const currentServices = filterByRange(services, current);
+    const previousServices = filterByRange(services, previous);
+
+    return {
+      points: buildDailySeries(services, overviewPeriod, now),
+      breakdown: statusBreakdown(currentServices),
+      summary: summarize(currentServices),
+      previousSummary: summarize(previousServices),
+    };
+  }, [services, overviewPeriod, now]);
+
+  const metrics = React.useMemo<StatCardProps[]>(() => {
+    const { summary, previousSummary, points } = overview;
+
+    return [
       {
-        id: "services",
-        label: "Services",
-        value: `${metrics.totalServices} (${metrics.pendingServices} pending)`,
+        label: "Total Services",
+        value: String(summary.totalServices),
+        note: summary.pendingServices > 0 ? `${summary.pendingServices} pending` : undefined,
         icon: ClipboardList,
-        color: "text-green-600",
-        bgColor: "bg-green-100",
-        description: "Total services with pending count",
-        change: 8,
-        changeType: "increase" as const,
-        showTrend: true
+        iconClassName: "bg-blue-600",
+        color: CHART_COLORS.series.total,
+        trend: seriesValues(points, "total"),
+        delta: periodDelta(summary.totalServices, previousSummary.totalServices),
       },
       {
-        id: "revenue",
         label: "Total Revenue",
-        value: formatCurrency(totalRevenue),
-        icon: DollarSign,
-        color: "text-yellow-600",
-        bgColor: "bg-yellow-100",
-        description: "Total revenue across all branches",
-        change: 15,
-        changeType: "increase" as const,
-        showTrend: true
+        value: formatCurrency(summary.revenue),
+        icon: IndianRupee,
+        iconClassName: "bg-emerald-600",
+        color: CHART_COLORS.series.completed,
+        trend: seriesValues(points, "completed"),
+        delta: periodDelta(summary.revenue, previousSummary.revenue),
       },
-      
       {
-        id: "completed",
         label: "Completed",
-        value: metrics.completedServices,
+        value: String(summary.completedServices),
         icon: CheckCircle,
-        color: "text-green-600",
-        bgColor: "bg-green-100",
-        description: "Successfully completed services",
-        change: 22,
-        changeType: "increase" as const,
-        showTrend: true
+        iconClassName: "bg-violet-600",
+        color: CHART_COLORS.series.total,
+        trend: seriesValues(points, "completed"),
+        delta: periodDelta(summary.completedServices, previousSummary.completedServices),
       },
       {
-        id: "active",
         label: "Active Services",
-        value: metrics.activeServices,
-        icon: TrendingUp,
-        color: "text-blue-600",
-        bgColor: "bg-blue-100",
-        description: "Currently in progress",
-        change: 7,
-        changeType: "increase" as const,
-        showTrend: true
+        value: String(summary.activeServices),
+        icon: Activity,
+        iconClassName: "bg-orange-500",
+        color: CHART_COLORS.series.pending,
+        trend: seriesValues(points, "pending"),
+        delta: periodDelta(summary.activeServices, previousSummary.activeServices),
       },
-      
-    ],
-    [metrics, totalRevenue]
+    ];
+  }, [overview]);
+
+  const rankedTechnicians = React.useMemo(
+    () => topTechnicians(filterByRange(services, getPeriodRange(techniciansPeriod, now).current), technicians),
+    [services, technicians, techniciansPeriod, now]
   );
 
-  // Handle search functionality
-  const handleSearch = React.useCallback((query: string) => {
-    console.log('Search query:', query);
-    // TODO: Implement search functionality
-  }, []);
+  const rankedServices = React.useMemo(
+    () => topServices(filterByRange(services, getPeriodRange(servicesPeriod, now).current)),
+    [services, servicesPeriod, now]
+  );
 
-  // Handle filter changes
-  const handleFilterChange = React.useCallback((filter: string) => {
-    console.log('Filter changed to:', filter);
-    // TODO: Implement filter functionality
-  }, []);
-
-  // Handle retry for services
   const handleServicesRetry = React.useCallback(() => {
-    // This would typically trigger a refetch
     window.location.reload();
   }, []);
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
         <div className="text-center">
-          <div className="animate-spin w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full mx-auto mb-2"></div>
+          <div className="mx-auto mb-2 h-5 w-5 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
           <p className="text-sm text-gray-600">Loading user data...</p>
         </div>
       </div>
@@ -118,46 +136,72 @@ export default function ShopAdminDashboard() {
 
   return (
     <DashboardErrorBoundary>
-      <UltraCompactDashboardLayout>
-        {/* Header */}
-        <UltraCompactDashboardHeader>
-          <DashboardHeader 
-            title="Dashboard" 
-            subtitle="Welcome back, {name}" 
-            user={user}
-            onSearch={handleSearch}
-            onFilterChange={handleFilterChange}
-          />
-        </UltraCompactDashboardHeader>
+      <div className="min-h-screen bg-gray-50">
+        <div className="space-y-5 p-4 md:p-6">
+          <DashboardGreeting name={user.name || "there"} />
 
-        {/* Content */}
-        <UltraCompactDashboardContent>
-          {/* Loading State */}
           {isLoading && <DashboardLoadingState />}
+          {servicesError && <CompactErrorState message={`Services: ${servicesError}`} retry={handleServicesRetry} />}
 
-          {/* Error States */}
-          {(servicesError) && (
-            <CompactErrorState 
-              message={`${servicesError ? `Services: ${servicesError}` : ""}`.trim()} 
-            />
-          )}
+          {/* Stat cards */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {metrics.map((metric) => (
+              <StatCard key={metric.label} {...metric} />
+            ))}
+          </div>
 
-          {/* Metrics Grid */}
-          <EnhancedMetricsGrid metrics={dashboardMetrics} columns={5} />
+          {/* Overview / status / recent */}
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
+            <div className="lg:col-span-5">
+              <ServicesOverviewCard points={overview.points} period={overviewPeriod} onPeriodChange={setOverviewPeriod} />
+            </div>
+            <div className="lg:col-span-3">
+              <ServiceStatusCard breakdown={overview.breakdown} />
+            </div>
+            <div className="lg:col-span-4">
+              <RecentServicesCard
+                services={recentServices}
+                loading={servicesLoading}
+                error={servicesError}
+                title="Recent Services"
+                viewAllLink="/services"
+                emptyMessage="No services yet"
+                createLink="/services/new"
+                onRetry={handleServicesRetry}
+              />
+            </div>
+          </div>
 
-          {/* Recent Services */}
-          <RecentServicesCard 
-            services={recentServices} 
-            loading={servicesLoading} 
-            error={servicesError} 
-            title="Recent Services" 
-            viewAllLink="/services" 
-            emptyMessage="No services yet" 
-            createLink="/services/new" 
-            onRetry={handleServicesRetry} 
-          />
-        </UltraCompactDashboardContent>
-      </UltraCompactDashboardLayout>
+          {/* Actions and rankings */}
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
+            <div className="lg:col-span-5">
+              <QuickActionsCard />
+            </div>
+            <div className="lg:col-span-4">
+              <RankedListCard
+                title="Top Technicians"
+                items={rankedTechnicians}
+                color={CHART_COLORS.series.total}
+                period={techniciansPeriod}
+                onPeriodChange={setTechniciansPeriod}
+                emptyMessage="No assigned services in this period"
+                showInitials
+                unit="services"
+              />
+            </div>
+            <div className="lg:col-span-3">
+              <RankedListCard
+                title="Top Services"
+                items={rankedServices}
+                color={CHART_COLORS.series.completed}
+                period={servicesPeriod}
+                onPeriodChange={setServicesPeriod}
+                emptyMessage="No services in this period"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
     </DashboardErrorBoundary>
   );
 }
