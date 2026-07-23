@@ -2,20 +2,18 @@
 
 import React, { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { collection, getDocs, query, where } from "firebase/firestore";
-import { 
-  CheckCircle, 
-  ClipboardList, 
-  Clock, 
-  AlertTriangle, 
-  TrendingUp, 
+import {
+  CheckCircle,
+  ClipboardList,
+  Clock,
+  AlertTriangle,
+  TrendingUp,
   ChevronRight,
   List
 } from "lucide-react";
 
 import { useDashboardData } from "@/hooks/useDashboardData";
 import { useUser } from "@/hooks/useUser";
-import { db } from "@/lib/firebase";
 import { getStatusConfig, normalizeStatus } from "@/lib/statusUtils";
 import type { Service } from "@/types";
 import { formatCurrency } from "./shared/DashboardUtils";
@@ -113,53 +111,19 @@ export default function TechnicianDashboard() {
       try {
         setTechnicianServicesLoading(true);
 
-        // First, get the technician document to find the correct ID
-        // Try both userId and created_by fields for compatibility
-        const technicianQuery = query(collection(db, "technicians"), where("userId", "==", user.id));
-        const technicianSnapshot = await getDocs(technicianQuery);
-        let technicianDoc = technicianSnapshot.docs[0];
+        const response = await fetch("/api/technicians/me");
+        if (!response.ok) throw new Error("Failed to load technician record");
+        const { technician } = await response.json();
 
-        // If not found with userId, try created_by field
-        if (!technicianDoc) {
-          const technicianQuery2 = query(collection(db, "technicians"), where("created_by", "==", user.id));
-          const technicianSnapshot2 = await getDocs(technicianQuery2);
-          technicianDoc = technicianSnapshot2.docs[0];
-        }
-
-        if (technicianDoc) {
-          const technicianId = technicianDoc.id;
-          console.log("TechnicianDashboard - Found technician document ID:", technicianId);
-
-          // Filter services assigned to this technician
-          // Check both technician document ID and user ID for services
-          const technicianServices = services.filter((service) => 
-            service.technician_id === technicianId || 
-            service.technician_id === user.id ||
-            (service as any).technician_id === technicianId ||
-            (service as any).technician_id === user.id
+        if (technician) {
+          const technicianServices = services.filter(
+            (service) =>
+              service.technician_id === technician.id ||
+              service.technician_id === user.id
           );
-
-          console.log("TechnicianDashboard - Filtered services:", {
-            totalServices: services.length,
-            technicianServices: technicianServices.length,
-            technicianId,
-            userId: user.id,
-            sampleServices: technicianServices.slice(0, 3).map(s => ({
-              id: s.id,
-              status: s.status,
-              name: s.name
-            }))
-          });
-
           setMyServices(technicianServices);
         } else {
-          console.log("TechnicianDashboard - No technician document found for UID:", user.id);
-          // Fallback: filter services by user ID directly
-          const technicianServices = services.filter((service) => 
-            service.technician_id === user.id || 
-            (service as any).technician_id === user.id
-          );
-          setMyServices(technicianServices);
+          setMyServices([]);
         }
       } catch (error) {
         console.error("Error fetching technician services:", error);

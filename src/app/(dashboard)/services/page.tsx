@@ -178,9 +178,9 @@ function ServicesContent() {
             // Resolve technician document ID (canonical technicianId)
             let technicianDocId: string | null = null;
             try {
-              const techQuery = query(collection(db, "technicians"), where("created_by", "==", user.id));
-              const techSnap = await getDocs(techQuery);
-              technicianDocId = techSnap.docs[0]?.id || null;
+              const techResponse = await fetch("/api/technicians/me");
+              const { technician } = await techResponse.json();
+              technicianDocId = technician?.id || null;
               console.log("👤 Technician document ID:", technicianDocId);
             } catch (e) {
               console.warn("⚠️ Failed to resolve technician document ID", e);

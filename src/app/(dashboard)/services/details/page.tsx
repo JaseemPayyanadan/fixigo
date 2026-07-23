@@ -239,14 +239,9 @@ function ServiceDetailsPage() {
     const fetchTechnicians = async () => {
       if (!user?.shopId) return;
       try {
-        const techniciansRef = collection(db, "technicians");
-        const q = query(techniciansRef, where("shopId", "==", user.shopId));
-        const querySnapshot = await getDocs(q);
-        const techniciansData = querySnapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        })) as Technician[];
-        
+        const response = await fetch("/api/technicians");
+        const { technicians: techniciansData } = (await response.json()) as { technicians: Technician[] };
+
         console.log("🔍 Fetched technicians:", {
           total: techniciansData.length,
           technicians: techniciansData.map(t => ({

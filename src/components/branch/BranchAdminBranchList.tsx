@@ -3,10 +3,8 @@ import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { BuildingOfficeIcon, PhoneIcon, EnvelopeIcon, UserGroupIcon, PencilIcon } from "@heroicons/react/24/outline";
-import { collection, getDocs, where, query } from "firebase/firestore";
 
-import { db } from "../../lib/firebase";
-import { Branch } from "../../types";
+import { Branch, Technician } from "../../types";
 
 interface BranchAdminBranchListProps {
   branches: Branch[];
@@ -31,28 +29,20 @@ export const BranchAdminBranchList: React.FC<BranchAdminBranchListProps> = ({ br
       try {
         const byBranch: Record<string, string[]> = {};
 
-        // Fetch technicians from technicians collection for each branch
+        const response = await fetch("/api/technicians");
+        const { technicians } = await response.json();
+
+        // Group technicians by branch
         for (const branch of branches) {
           try {
-            // Query technicians collection where branchId matches the current branch
-            const techniciansQuery = query(
-              collection(db, "technicians"),
-              where("shopId", "==", shopId),
-              where("branchId", "==", branch.id),
-              where("status", "==", "active")
+            const forBranch = technicians.filter(
+              (technician: Technician) =>
+                technician.branchId === branch.id && technician.status === "active"
             );
-            
-            const techniciansSnapshot = await getDocs(techniciansQuery);
-            const technicianNames: string[] = [];
 
-            techniciansSnapshot.forEach((doc) => {
-              const technicianData = doc.data();
-              if (technicianData.name) {
-                technicianNames.push(technicianData.name);
-              }
-            });
-
-            byBranch[branch.id] = technicianNames;
+            byBranch[branch.id] = forBranch
+              .map((technician: Technician) => technician.name)
+              .filter(Boolean);
           } catch (error) {
             console.error(`Error fetching technicians for branch ${branch.id}:`, error);
             byBranch[branch.id] = [];

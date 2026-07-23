@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { collection, doc, getDoc, getDocs, query, updateDoc, where } from "firebase/firestore";
+import { collection, getDocs, query, where } from "firebase/firestore";
 import { HiMail, HiPhone, HiStar, HiLogout } from "react-icons/hi";
 import { HiMapPin } from "react-icons/hi2";
 import { useAuth } from "@/contexts/AuthContext";
@@ -81,13 +81,12 @@ export default function ProfilePage() {
         // If user is a technician, try to get additional data from technicians collection
         if (user.role === "technician") {
           try {
-            const technicianDoc = await getDoc(doc(db, "technicians", user.id));
-            if (technicianDoc.exists()) {
-              const data = technicianDoc.data();
-              profileData.phone = data.phone || "";
-              profileData.location = data.location || "";
-              profileData.experience = data.experience || 0;
-              profileData.rating = data.rating || 0;
+            const response = await fetch("/api/technicians/me");
+            const { technician: technicianDoc } = await response.json();
+            if (technicianDoc) {
+              profileData.phone = technicianDoc.phone || "";
+              profileData.experience = technicianDoc.experience || 0;
+              profileData.rating = technicianDoc.rating || 0;
 
               // Fetch work statistics for technicians
               const servicesQuery = query(collection(db, "services"), where("technician_id", "==", user.id));
@@ -179,26 +178,21 @@ export default function ProfilePage() {
       }
 
       // Update technician profile
-      await updateDoc(doc(db, "technicians", profile.id), {
-        name: formData.name.trim(),
-        email: formData.email.trim(),
-        phone: formData.phone.trim(),
-        location: formData.location.trim(),
-        experience: parseInt(formData.experience) || 0,
-        updatedAt: new Date(),
+      const response = await fetch("/api/technicians/me", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: formData.name.trim(), phone: formData.phone.trim() }),
       });
+      if (!response.ok) throw new Error("Failed to update profile");
+      const { technician } = await response.json();
 
       // Update local state
       setProfile((prev) =>
         prev
           ? {
               ...prev,
-              name: formData.name.trim(),
-              email: formData.email.trim(),
-              phone: formData.phone.trim(),
-              location: formData.location.trim(),
-              experience: parseInt(formData.experience) || 0,
-              updatedAt: new Date(),
+              name: technician.name,
+              phone: technician.phone,
             }
           : null
       );
