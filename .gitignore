@@ -37,6 +37,12 @@ yarn-error.log*
 .env.test.local
 .env.production.local
 
+# Firebase service-account credentials — grants full Firestore access and
+# bypasses security rules. Never commit.
+*service-account*.json
+*serviceAccount*.json
+firebase-adminsdk-*.json
+
 # vercel
 .vercel
 

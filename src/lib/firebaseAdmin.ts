@@ -1,8 +1,72 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
 import { cert, getApps, initializeApp, type App } from "firebase-admin/app";
 import { getFirestore, type Firestore } from "firebase-admin/firestore";
 
 // Server-only. Bypasses Firestore security rules via a service account.
 // Never import this from a "use client" module.
+
+interface ServiceAccount {
+  project_id: string;
+  client_email: string;
+  private_key: string;
+}
+
+/**
+ * Resolves FIREBASE_SERVICE_ACCOUNT_KEY, which may hold either the credential
+ * JSON itself (how Vercel stores it — one line) or a path to a JSON file on
+ * disk (more convenient locally, where a real newline-bearing key is painful
+ * to keep in .env.local). Anything starting with `{` is treated as inline JSON;
+ * everything else is a path resolved against the working directory.
+ */
+export function parseServiceAccount(raw: string): ServiceAccount {
+  const trimmed = raw.trim();
+  const inline = trimmed.startsWith("{");
+
+  let contents: string;
+  if (inline) {
+    contents = trimmed;
+  } else {
+    const path = resolve(process.cwd(), trimmed);
+    try {
+      contents = readFileSync(path, "utf8");
+    } catch {
+      throw new Error(
+        `FIREBASE_SERVICE_ACCOUNT_KEY points at "${trimmed}", which could not be read ` +
+          `(resolved to ${path}). Point it at the service-account JSON file, or paste ` +
+          `the JSON itself.`
+      );
+    }
+  }
+
+  let credentials: Partial<ServiceAccount>;
+  try {
+    credentials = JSON.parse(contents);
+  } catch {
+    throw new Error(
+      inline
+        ? "FIREBASE_SERVICE_ACCOUNT_KEY is not valid JSON."
+        : `The service-account file "${trimmed}" is not valid JSON.`
+    );
+  }
+
+  for (const field of ["project_id", "client_email", "private_key"] as const) {
+    if (!credentials[field]) {
+      throw new Error(
+        `Firebase service account is missing "${field}". Use the JSON from Firebase ` +
+          `Console -> Project Settings -> Service Accounts, not the web app config.`
+      );
+    }
+  }
+
+  return {
+    project_id: credentials.project_id as string,
+    client_email: credentials.client_email as string,
+    // Vercel stores newlines escaped; restore them.
+    private_key: (credentials.private_key as string).replace(/\\n/g, "\n"),
+  };
+}
 
 function initAdminApp(): App {
   const existing = getApps();
@@ -12,23 +76,18 @@ function initAdminApp(): App {
   if (!raw) {
     throw new Error(
       "FIREBASE_SERVICE_ACCOUNT_KEY is not set. Add the Firebase service-account " +
-        "JSON (single line) to .env.local locally and to the Vercel project settings."
+        "JSON (single line), or a path to the JSON file, to .env.local locally and " +
+        "to the Vercel project settings."
     );
   }
 
-  let credentials: { project_id: string; client_email: string; private_key: string };
-  try {
-    credentials = JSON.parse(raw);
-  } catch {
-    throw new Error("FIREBASE_SERVICE_ACCOUNT_KEY is not valid JSON.");
-  }
+  const credentials = parseServiceAccount(raw);
 
   return initializeApp({
     credential: cert({
       projectId: credentials.project_id,
       clientEmail: credentials.client_email,
-      // Vercel stores newlines escaped; restore them.
-      privateKey: credentials.private_key.replace(/\\n/g, "\n"),
+      privateKey: credentials.private_key,
     }),
   });
 }
