@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { RoleGuard, PermissionGuard } from "@/components";
 import { useUser } from "@/hooks";
 import { useBranches } from "@/hooks/useBranches";
+import { useTechnicians } from "@/hooks/useTechnicians";
 import TechnicianForm from "@/modules/technician/TechnicianForm";
 
 export default function NewTechnicianPage() {
@@ -24,6 +25,7 @@ function NewTechnicianContent() {
   const branchId = user?.branchId || "";
   const userRole = user?.role as "shop_admin" | "branch_admin";
   const { branches } = useBranches(shopId);
+  const { createTechnician } = useTechnicians(shopId);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
@@ -47,34 +49,14 @@ function NewTechnicianContent() {
     
     setLoading(true);
     try {
-      // Create technician using the new API endpoint
-      const response = await fetch("/api/technicians/create", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name: data.name,
-          email: data.email,
-          phone: data.phone,
-          password: data.password,
-          role: data.role,
-          shopId: user?.shopId || "",
-          branchId: targetBranchId,
-          skills: [],
-          bio: "",
-          specializations: []
-        }),
+      await createTechnician({
+        name: data.name,
+        email: data.email,
+        phone: data.phone,
+        password: data.password,
+        branchId: targetBranchId,
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to create technician");
-      }
-
-      const result = await response.json();
-      console.log("Technician created successfully:", result);
-      
       // Redirect to technicians list after successful creation
       router.push("/technicians");
     } catch (err: unknown) {

@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { logger } from "@/lib/logger";
 import type { Technician } from "@/types";
@@ -20,11 +20,17 @@ export function useTechnicians(shopId?: string, branchId?: string) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { user } = useUser();
+  const requestSeq = useRef(0);
 
   // shopId is accepted for call-site compatibility but the server derives it
   // from the session; only branchId narrows the query.
   const refresh = useCallback(async () => {
-    if (!user) return;
+    const seq = ++requestSeq.current;
+
+    if (!user) {
+      if (seq === requestSeq.current) setLoading(false);
+      return;
+    }
 
     try {
       setLoading(true);
@@ -37,15 +43,20 @@ export function useTechnicians(shopId?: string, branchId?: string) {
       const response = await fetch(url);
       if (!response.ok) throw new Error(await readError(response));
 
-      const { technicians: list } = await response.json();
+      const body = await response.json();
+      const list = Array.isArray(body?.technicians) ? body.technicians : null;
+      if (!list) throw new Error("Malformed response from server");
+
+      if (seq !== requestSeq.current) return;
       setTechnicians(list);
       logger.debug("Technicians fetched successfully", { count: list.length, branchId });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to fetch technicians";
+      if (seq !== requestSeq.current) return;
       setError(message);
       logger.error("Error fetching technicians", { error: message, branchId });
     } finally {
-      setLoading(false);
+      if (seq === requestSeq.current) setLoading(false);
     }
   }, [user, branchId]);
 
