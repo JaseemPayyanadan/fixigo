@@ -114,8 +114,14 @@ vi.mock("@/lib/firebaseAdmin", () => {
             id: ref.id,
             data,
           });
-          const current = store.get(key(ref.collectionName, ref.id));
-          store.set(key(ref.collectionName, ref.id), applyUpdate(current, data));
+          const docKey = key(ref.collectionName, ref.id);
+          const current = store.get(docKey);
+          if (current === undefined) {
+            throw new Error(
+              `NOT_FOUND: No document to update: ${docKey}`
+            );
+          }
+          store.set(docKey, applyUpdate(current, data));
         },
         delete: (ref: { collectionName: string; id: string }) => {
           transactionWrites.push({
@@ -559,6 +565,67 @@ describe("updateTechnician", () => {
 
     expect(fakeDb.__get(TECHNICIANS, "tech-1")?.name).toBe("New Name");
     expect(fakeDb.__get(USERS, "user-1")).toBeUndefined();
+  });
+
+  it("skips the stale branch membership sync (does not throw) when branches/{branchId} is missing", async () => {
+    fakeDb.__reset();
+    // No branches/branch-1 doc seeded — simulates a stale branchId on the
+    // technician, the same data-corruption class as the missing-users-doc
+    // case above. Renaming/deactivating must still succeed.
+    fakeDb.__seed(TECHNICIANS, "tech-1", {
+      name: "Old Name",
+      email: "old@example.com",
+      phone: "000",
+      shopId: "shop-1",
+      branchId: "branch-1",
+      userId: "user-1",
+      status: "active",
+    });
+    fakeDb.__seed(USERS, "user-1", {
+      name: "Old Name",
+      email: "old@example.com",
+      phone: "000",
+      status: "active",
+    });
+
+    await expect(
+      updateTechnician("tech-1", { name: "New Name" })
+    ).resolves.toBeDefined();
+
+    expect(fakeDb.__get(TECHNICIANS, "tech-1")?.name).toBe("New Name");
+    expect(fakeDb.__get(BRANCHES, "branch-1")).toBeUndefined();
+  });
+
+  it("renaming a technician without changing branch updates the member entry's name in place", async () => {
+    fakeDb.__reset();
+    fakeDb.__seed(BRANCHES, "branch-1", {
+      members: [{ userId: "user-1", role: "technician", name: "Old Name" }],
+    });
+    fakeDb.__seed(TECHNICIANS, "tech-1", {
+      name: "Old Name",
+      email: "old@example.com",
+      phone: "000",
+      shopId: "shop-1",
+      branchId: "branch-1",
+      userId: "user-1",
+      status: "active",
+    });
+    fakeDb.__seed(USERS, "user-1", {
+      name: "Old Name",
+      email: "old@example.com",
+      phone: "000",
+      status: "active",
+    });
+
+    await updateTechnician("tech-1", { name: "New Name" });
+
+    const branch = fakeDb.__get(BRANCHES, "branch-1");
+    expect(branch?.members).toEqual([
+      { userId: "user-1", role: "technician", name: "New Name" },
+    ]);
+    expect(
+      (branch?.members as Array<{ name: string }>).some((m) => m.name === "Old Name")
+    ).toBe(false);
   });
 });
 

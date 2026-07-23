@@ -256,7 +256,11 @@ export async function updateTechnician(
         // legacy 2-field {userId, role} entries and any entry whose stored
         // `name` has drifted from the technician's current name. Filtering
         // on userId alone handles every historical shape.
-        if (currentBranchRef) {
+        // A missing branch doc for a stale `branchId` is the same data-
+        // corruption case documented for the missing-`users`-doc above: skip
+        // the membership sync rather than let tx.update throw NOT_FOUND and
+        // abort the whole technician update.
+        if (currentBranchRef && currentBranchSnap?.exists) {
           const filtered = membersOf(currentBranchSnap).filter(
             (m) => !isMemberEntryFor(m, userId)
           );
@@ -268,7 +272,7 @@ export async function updateTechnician(
         // unavoidable — drop the member from the old branch, add (if still
         // active) to the new one. Each write is still a single read-filter-
         // write of that document's own array.
-        if (currentBranchRef) {
+        if (currentBranchRef && currentBranchSnap?.exists) {
           const filteredOld = membersOf(currentBranchSnap).filter(
             (m) => !isMemberEntryFor(m, userId)
           );
