@@ -82,6 +82,7 @@ export default function ShopAdminDashboard() {
       {
         label: "Total Revenue",
         value: formatCurrency(summary.revenue),
+        note: `from ${summary.completedServices} completed`,
         icon: IndianRupee,
         iconClassName: "bg-emerald-600",
         color: CHART_COLORS.series.completed,

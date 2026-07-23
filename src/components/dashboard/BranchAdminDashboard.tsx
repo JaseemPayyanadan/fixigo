@@ -41,7 +41,7 @@ export default function BranchAdminDashboard() {
         icon: DollarSign,
         color: "text-yellow-600",
         bgColor: "bg-yellow-100",
-        description: "Total revenue for this branch",
+        description: "Revenue from completed services",
         change: 18,
         changeType: "increase" as const,
         showTrend: true

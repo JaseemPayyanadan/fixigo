@@ -307,6 +307,7 @@ export interface MetricSummary {
   pendingServices: number;
   completedServices: number;
   activeServices: number;
+  /** Sum of prices for completed services only. */
   revenue: number;
 }
 
@@ -318,10 +319,14 @@ export function summarize(services: Service[]): MetricSummary {
 
   for (const service of services) {
     const bucket = bucketKeyFor(service.status);
-    if (bucket === "completed") completedServices += 1;
     if (bucket === "in_progress") activeServices += 1;
     if (bucket === "to_do") pendingServices += 1;
+    if (bucket !== "completed") continue;
 
+    completedServices += 1;
+
+    // Revenue is only earned once the job is done — work still in progress or
+    // waiting in the queue may never be billed at all.
     const price = Number(service.price);
     if (Number.isFinite(price)) revenue += price;
   }

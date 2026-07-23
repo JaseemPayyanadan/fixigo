@@ -99,7 +99,10 @@ export function useDashboardStats(shopId?: string, branchId?: string) {
         const pendingServices = services.filter((service: Record<string, unknown>) => service.status === "pending" || service.status === "in_progress").length;
         const totalTechnicians = technicians.length;
         const totalBranches = branches.length;
-        const totalRevenue = services.reduce((sum: number, service: Record<string, unknown>) => sum + (Number(service.totalPrice) || 0), 0);
+        // Revenue counts completed jobs only — open work may never be billed.
+        const totalRevenue = services
+          .filter((service: Record<string, unknown>) => service.status === "completed")
+          .reduce((sum: number, service: Record<string, unknown>) => sum + (Number(service.totalPrice) || 0), 0);
         const customerSatisfaction = completedServices > 0 ? (completedServices / totalServices) * 100 : 0;
 
         const recentServices = services.slice(0, 5).map((service: Record<string, unknown>) => ({

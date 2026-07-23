@@ -264,7 +264,7 @@ describe("topTechnicians", () => {
 });
 
 describe("summarize", () => {
-  it("counts each bucket and sums revenue", () => {
+  it("counts each bucket and sums revenue from completed services only", () => {
     const result = summarize([
       service({ status: "completed", price: 300 }),
       service({ status: "in_progress", price: 200 }),
@@ -276,12 +276,17 @@ describe("summarize", () => {
       completedServices: 1,
       activeServices: 1,
       pendingServices: 1,
-      revenue: 600,
+      revenue: 300,
     });
   });
 
+  it("excludes cancelled services from revenue even when they carry a price", () => {
+    const result = summarize([service({ status: "cancelled", price: 500 })]);
+    expect(result.revenue).toBe(0);
+  });
+
   it("ignores a non-numeric price instead of producing NaN revenue", () => {
-    const result = summarize([service({ price: undefined as unknown as number })]);
+    const result = summarize([service({ status: "completed", price: undefined as unknown as number })]);
     expect(result.revenue).toBe(0);
   });
 });
