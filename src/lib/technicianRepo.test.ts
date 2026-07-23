@@ -190,6 +190,8 @@ function timestamp(date: Date) {
   return { toDate: () => date };
 }
 
+const { ApiError } = await import("@/lib/apiAuth");
+
 describe("mapTechnician", () => {
   it("maps a fully populated document", () => {
     const created = new Date(2026, 0, 2);
@@ -283,21 +285,22 @@ describe("createTechnician", () => {
     expect(fakeDb.__get(BRANCHES, "branch-1")).toBeDefined();
   });
 
-  it("throws when the target branch does not exist, and writes nothing", async () => {
+  it("throws a 400 ApiError when the target branch does not exist, and writes nothing", async () => {
     fakeDb.__reset();
     // No branch seeded.
 
-    await expect(
-      createTechnician({
-        name: "Rahul",
-        email: "rahul@example.com",
-        phone: "111",
-        password: "plaintext-pw",
-        branchId: "missing-branch",
-        shopId: "shop-1",
-        createdBy: "admin-1",
-      })
-    ).rejects.toThrow();
+    const promise = createTechnician({
+      name: "Rahul",
+      email: "rahul@example.com",
+      phone: "111",
+      password: "plaintext-pw",
+      branchId: "missing-branch",
+      shopId: "shop-1",
+      createdBy: "admin-1",
+    });
+
+    await expect(promise).rejects.toThrow(ApiError);
+    await expect(promise).rejects.toMatchObject({ status: 400 });
 
     expect(fakeDb.__transactionWrites.length).toBe(0);
   });
@@ -515,7 +518,7 @@ describe("updateTechnician", () => {
     expect(userDoc?.status).toBe("active");
   });
 
-  it("throws when moving to a branch that does not exist, without corrupting other docs", async () => {
+  it("throws a 400 ApiError when moving to a branch that does not exist, without corrupting other docs", async () => {
     fakeDb.__reset();
     fakeDb.__seed(BRANCHES, "branch-1", {
       members: [{ userId: "user-1", role: "technician", name: "Old Name" }],
@@ -536,11 +539,25 @@ describe("updateTechnician", () => {
       status: "active",
     });
 
-    await expect(updateTechnician("tech-1", { branchId: "missing-branch" })).rejects.toThrow();
+    const promise = updateTechnician("tech-1", { branchId: "missing-branch" });
+
+    await expect(promise).rejects.toThrow(ApiError);
+    await expect(promise).rejects.toMatchObject({ status: 400 });
 
     // Nothing should have been written since the guard throws before writes.
     expect(fakeDb.__transactionWrites.length).toBe(0);
     expect(fakeDb.__get(TECHNICIANS, "tech-1")?.branchId).toBe("branch-1");
+  });
+
+  it("throws a 404 ApiError when the technician vanishes mid-transaction", async () => {
+    fakeDb.__reset();
+    // No technicians/tech-1 doc seeded — simulates the doc being deleted
+    // between the route's `loadTechnician` check and this transaction.
+
+    const promise = updateTechnician("tech-1", { name: "New Name" });
+
+    await expect(promise).rejects.toThrow(ApiError);
+    await expect(promise).rejects.toMatchObject({ status: 404 });
   });
 
   it("skips the linked users doc sync (does not throw) when that doc is missing", async () => {
@@ -673,6 +690,16 @@ describe("deactivateTechnician", () => {
     expect(userDoc).toBeDefined();
     expect(userDoc?.status).toBe("suspended");
     expect(branchDoc?.members).toEqual([]);
+  });
+
+  it("throws a 404 ApiError when the technician vanishes mid-transaction", async () => {
+    fakeDb.__reset();
+    // No technicians/tech-1 doc seeded.
+
+    const promise = deactivateTechnician("tech-1");
+
+    await expect(promise).rejects.toThrow(ApiError);
+    await expect(promise).rejects.toMatchObject({ status: 404 });
   });
 });
 

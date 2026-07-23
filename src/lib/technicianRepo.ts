@@ -1,4 +1,5 @@
 import { hashPassword } from "@/lib/auth";
+import { ApiError } from "@/lib/apiAuth";
 import { adminDb, FieldValue } from "@/lib/firebaseAdmin";
 import type { CreateTechnicianInput, UpdateTechnicianInput } from "@/lib/technicianValidation";
 import type { Technician } from "@/types";
@@ -103,7 +104,7 @@ export async function createTechnician(
   await adminDb.runTransaction(async (tx) => {
     const branchSnap = await tx.get(branchRef);
     if (!branchSnap.exists) {
-      throw new Error(`Branch ${input.branchId} does not exist`);
+      throw new ApiError(400, `Branch ${input.branchId} does not exist`);
     }
 
     tx.set(userRef, {
@@ -191,7 +192,7 @@ export async function updateTechnician(
     // tx.set()/tx.update(), so all the reads this function might need are
     // gathered up front, before any write below.
     const snap = await tx.get(technicianRef);
-    if (!snap.exists) throw new Error("Technician not found");
+    if (!snap.exists) throw new ApiError(404, "Technician not found");
 
     const current = mapTechnician(snap.id, snap.data() as Record<string, unknown>);
     const nextBranchId = input.branchId ?? current.branchId;
@@ -220,7 +221,7 @@ export async function updateTechnician(
     const destBranchSnap = branchChanged ? await tx.get(destBranchRef!) : currentBranchSnap;
 
     if (branchChanged && !destBranchSnap?.exists) {
-      throw new Error(`Branch ${nextBranchId} does not exist`);
+      throw new ApiError(400, `Branch ${nextBranchId} does not exist`);
     }
 
     // ---- WRITES ----------------------------------------------------------
@@ -305,7 +306,7 @@ export async function deactivateTechnician(id: string): Promise<void> {
   await adminDb.runTransaction(async (tx) => {
     // ---- READS (must all happen before any write, per Firestore rules) ----
     const snap = await tx.get(technicianRef);
-    if (!snap.exists) throw new Error("Technician not found");
+    if (!snap.exists) throw new ApiError(404, "Technician not found");
 
     const current = mapTechnician(snap.id, snap.data() as Record<string, unknown>);
     const now = new Date();

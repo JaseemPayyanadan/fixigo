@@ -4,6 +4,7 @@ import {
   ApiError,
   assertCanReadTechnician,
   assertCanWriteTechnician,
+  readJsonBody,
   requireUser,
   toErrorResponse,
 } from "@/lib/apiAuth";
@@ -47,7 +48,7 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
     const user = await requireUser();
     const { id } = await params;
     const technician = await loadTechnician(id);
-    const input = parseUpdateInput(await request.json());
+    const input = parseUpdateInput(await readJsonBody(request));
 
     // Must be permitted on the current branch...
     assertCanWriteTechnician(user, {

@@ -4,6 +4,7 @@ import {
   ApiError,
   assertCanWriteTechnician,
   listScopeFor,
+  readJsonBody,
   requireUser,
   toErrorResponse,
 } from "@/lib/apiAuth";
@@ -29,7 +30,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const user = await requireUser();
-    const input = parseCreateInput(await request.json());
+    const input = parseCreateInput(await readJsonBody(request));
 
     // shopId comes from the session, never the payload.
     assertCanWriteTechnician(user, {

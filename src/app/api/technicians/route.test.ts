@@ -86,6 +86,20 @@ describe("POST /api/technicians", () => {
     branchId: "branch-1",
   };
 
+  it("returns 400 for a malformed (non-JSON) body instead of 500", async () => {
+    requireUser.mockResolvedValue(shopAdmin);
+
+    const malformedRequest = new NextRequest("http://localhost/api/technicians", {
+      method: "POST",
+      body: "not json",
+    });
+
+    const response = await POST(malformedRequest);
+
+    expect(response.status).toBe(400);
+    expect(createTechnician).not.toHaveBeenCalled();
+  });
+
   it("returns 401 without a session — the old endpoint accepted this", async () => {
     const { ApiError } = await import("@/lib/apiAuth");
     requireUser.mockRejectedValue(new ApiError(401, "Not authenticated"));

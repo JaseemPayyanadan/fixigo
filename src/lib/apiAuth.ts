@@ -84,6 +84,19 @@ export function listScopeFor(
   return { shopId: user.shopId, branchId: user.branchId };
 }
 
+/**
+ * Reads and parses a request body as JSON, translating a malformed body
+ * (empty, non-JSON) into a 400 ApiError instead of letting the underlying
+ * SyntaxError propagate and get mapped to a 500 by `toErrorResponse`.
+ */
+export async function readJsonBody(request: Request): Promise<unknown> {
+  try {
+    return await request.json();
+  } catch {
+    throw new ApiError(400, "Request body must be valid JSON");
+  }
+}
+
 export function toErrorResponse(error: unknown): NextResponse {
   if (error instanceof ApiError) {
     return NextResponse.json({ error: error.message }, { status: error.status });

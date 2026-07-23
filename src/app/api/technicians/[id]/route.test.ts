@@ -45,6 +45,14 @@ beforeEach(() => {
 });
 
 describe("GET /api/technicians/[id]", () => {
+  it("returns 401 without a session", async () => {
+    const { ApiError } = await import("@/lib/apiAuth");
+    requireUser.mockRejectedValue(new ApiError(401, "Not authenticated"));
+
+    const response = await GET(request("GET"), { params });
+    expect(response.status).toBe(401);
+  });
+
   it("returns 404 for a missing technician", async () => {
     requireUser.mockResolvedValue(shopAdmin);
     getTechnician.mockResolvedValue(null);
@@ -79,11 +87,55 @@ describe("PATCH /api/technicians/[id]", () => {
     expect(response.status).toBe(401);
   });
 
-  it("persists branchId and status, which the old form discarded", async () => {
+  it("returns 400 for a malformed (non-JSON) body instead of 500", async () => {
     requireUser.mockResolvedValue(shopAdmin);
-    updateTechnician.mockResolvedValue({ ...technician, branchId: "branch-2" });
 
-    await PATCH(request("PATCH", { branchId: "branch-2", status: "inactive" }), {
+    const malformedRequest = new NextRequest("http://localhost/api/technicians/t1", {
+      method: "PATCH",
+      body: "not json",
+    });
+
+    const response = await PATCH(malformedRequest, { params });
+
+    expect(response.status).toBe(400);
+    expect(updateTechnician).not.toHaveBeenCalled();
+  });
+
+  it("returns 404 for a missing technician without calling updateTechnician (load-before-mutate ordering)", async () => {
+    requireUser.mockResolvedValue(shopAdmin);
+    getTechnician.mockResolvedValue(null);
+
+    const response = await PATCH(request("PATCH", { name: "X" }), { params });
+
+    expect(response.status).toBe(404);
+    expect(updateTechnician).not.toHaveBeenCalled();
+  });
+
+  it("returns 403 for a technician in another shop", async () => {
+    requireUser.mockResolvedValue(shopAdmin);
+    getTechnician.mockResolvedValue({ ...technician, shopId: "shop-2" });
+
+    const response = await PATCH(request("PATCH", { name: "X" }), { params });
+
+    expect(response.status).toBe(403);
+    expect(updateTechnician).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 for a genuinely invalid payload via the real parseUpdateInput", async () => {
+    requireUser.mockResolvedValue(shopAdmin);
+
+    const response = await PATCH(request("PATCH", { status: "not-a-status" }), { params });
+
+    expect(response.status).toBe(400);
+    expect(updateTechnician).not.toHaveBeenCalled();
+  });
+
+  it("persists branchId and status, which the old form discarded, and returns the updated technician", async () => {
+    requireUser.mockResolvedValue(shopAdmin);
+    const updated = { ...technician, branchId: "branch-2", status: "inactive" };
+    updateTechnician.mockResolvedValue(updated);
+
+    const response = await PATCH(request("PATCH", { branchId: "branch-2", status: "inactive" }), {
       params,
     });
 
@@ -91,9 +143,11 @@ describe("PATCH /api/technicians/[id]", () => {
       branchId: "branch-2",
       status: "inactive",
     });
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ technician: updated });
   });
 
-  it("checks the target branch when moving a technician", async () => {
+  it("checks the target branch when moving a technician (push INTO a foreign branch)", async () => {
     requireUser.mockResolvedValue({
       ...shopAdmin,
       role: "branch_admin",
@@ -101,6 +155,20 @@ describe("PATCH /api/technicians/[id]", () => {
     });
 
     const response = await PATCH(request("PATCH", { branchId: "branch-2" }), { params });
+
+    expect(response.status).toBe(403);
+    expect(updateTechnician).not.toHaveBeenCalled();
+  });
+
+  it("rejects pulling a technician OUT of a branch the admin does not administer", async () => {
+    requireUser.mockResolvedValue({
+      ...shopAdmin,
+      role: "branch_admin",
+      branchId: "branch-1",
+    });
+    getTechnician.mockResolvedValue({ ...technician, branchId: "branch-9" });
+
+    const response = await PATCH(request("PATCH", { branchId: "branch-1" }), { params });
 
     expect(response.status).toBe(403);
     expect(updateTechnician).not.toHaveBeenCalled();
@@ -129,7 +197,35 @@ describe("PATCH /api/technicians/[id]", () => {
 });
 
 describe("DELETE /api/technicians/[id]", () => {
-  it("soft-deletes rather than removing the document", async () => {
+  it("returns 401 without a session", async () => {
+    const { ApiError } = await import("@/lib/apiAuth");
+    requireUser.mockRejectedValue(new ApiError(401, "Not authenticated"));
+
+    const response = await DELETE(request("DELETE"), { params });
+    expect(response.status).toBe(401);
+  });
+
+  it("returns 404 for a missing technician without calling deactivateTechnician (load-before-mutate ordering)", async () => {
+    requireUser.mockResolvedValue(shopAdmin);
+    getTechnician.mockResolvedValue(null);
+
+    const response = await DELETE(request("DELETE"), { params });
+
+    expect(response.status).toBe(404);
+    expect(deactivateTechnician).not.toHaveBeenCalled();
+  });
+
+  it("returns 403 for a technician in another shop", async () => {
+    requireUser.mockResolvedValue(shopAdmin);
+    getTechnician.mockResolvedValue({ ...technician, shopId: "shop-2" });
+
+    const response = await DELETE(request("DELETE"), { params });
+
+    expect(response.status).toBe(403);
+    expect(deactivateTechnician).not.toHaveBeenCalled();
+  });
+
+  it("soft-deletes rather than removing the document, and returns {success: true}", async () => {
     requireUser.mockResolvedValue(shopAdmin);
     deactivateTechnician.mockResolvedValue(undefined);
 
@@ -137,6 +233,7 @@ describe("DELETE /api/technicians/[id]", () => {
 
     expect(response.status).toBe(200);
     expect(deactivateTechnician).toHaveBeenCalledWith("t1");
+    await expect(response.json()).resolves.toEqual({ success: true });
   });
 
   it("returns 403 for a branch admin deleting outside their branch", async () => {

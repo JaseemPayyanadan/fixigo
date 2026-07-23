@@ -22,6 +22,7 @@ import {
   assertCanReadTechnician,
   assertCanWriteTechnician,
   listScopeFor,
+  readJsonBody,
   requireUser,
   toErrorResponse,
 } from "@/lib/apiAuth";
@@ -200,6 +201,44 @@ describe("requireUser", () => {
     vi.mocked(verifyToken).mockReturnValue(validUser);
 
     await expect(requireUser()).resolves.toEqual(validUser);
+  });
+});
+
+describe("readJsonBody", () => {
+  it("returns the parsed JSON body when it is valid", async () => {
+    const request = new Request("http://localhost/x", {
+      method: "POST",
+      body: JSON.stringify({ a: 1 }),
+    });
+
+    await expect(readJsonBody(request)).resolves.toEqual({ a: 1 });
+  });
+
+  it("throws a 400 ApiError for an empty body", async () => {
+    const request = new Request("http://localhost/x", { method: "POST" });
+
+    try {
+      await readJsonBody(request);
+      expect.unreachable("should have thrown");
+    } catch (error) {
+      expect(error).toBeInstanceOf(ApiError);
+      expect((error as ApiError).status).toBe(400);
+    }
+  });
+
+  it("throws a 400 ApiError for a non-JSON body", async () => {
+    const request = new Request("http://localhost/x", {
+      method: "POST",
+      body: "not json",
+    });
+
+    try {
+      await readJsonBody(request);
+      expect.unreachable("should have thrown");
+    } catch (error) {
+      expect(error).toBeInstanceOf(ApiError);
+      expect((error as ApiError).status).toBe(400);
+    }
   });
 });
 
