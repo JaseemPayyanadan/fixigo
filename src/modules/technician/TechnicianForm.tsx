@@ -19,13 +19,14 @@ interface Branch {
 }
 
 interface TechnicianFormProps {
-  onSubmit: (data: { 
-    name: string; 
-    email: string; 
-    phone: string; 
+  onSubmit: (data: {
+    name: string;
+    email: string;
+    phone: string;
     password: string;
     branchId: string;
     role: "technician";
+    status?: "active" | "inactive";
   }) => void;
   loading: boolean;
   editing: boolean;
@@ -143,7 +144,7 @@ export default function TechnicianForm({
     }
     
     try {
-      onSubmit({ 
+      onSubmit({
         name: form.name.trim(),
         email: form.email.trim(),
         phone: form.phone.trim(),
@@ -151,7 +152,7 @@ export default function TechnicianForm({
         branchId: form.branchId,
         role: form.role,
       });
-      
+
       if (!editing) {
         setForm({
           name: "",

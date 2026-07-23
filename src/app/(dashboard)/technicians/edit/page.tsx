@@ -1,8 +1,8 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 
 import Link from "next/link";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 import { RoleGuard, PermissionGuard } from "@/components";
 import { useUser } from "@/hooks";
@@ -17,14 +17,16 @@ export default function TechnicianEditPage() {
   return (
     <RoleGuard allowedRoles={["shop_admin", "branch_admin"]}>
       <PermissionGuard permissions={["technician:write"]}>
-        <TechnicianEditContent />
+        <Suspense fallback={null}>
+          <TechnicianEditContent />
+        </Suspense>
       </PermissionGuard>
     </RoleGuard>
   );
 }
 
 function TechnicianEditContent() {
-  const params = useParams();
+  const searchParams = useSearchParams();
   const router = useRouter();
   const { user } = useUser();
   const shopId = user?.shopId || "";
@@ -38,49 +40,29 @@ function TechnicianEditContent() {
   const [formLoading, setFormLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const technicianId = params.id as string;
+  const technicianId = searchParams.get("id");
 
   useEffect(() => {
     const fetchTechnician = async () => {
-      if (!technicianId) return;
+      if (!technicianId) {
+        // Previously returned without clearing loading, hanging the page forever.
+        setError("No technician specified");
+        setLoading(false);
+        return;
+      }
 
       try {
         setLoading(true);
         setError(null);
 
-        // Fetch technician data from Firestore
-        const { doc, getDoc } = await import("firebase/firestore");
-        const { db } = await import("@/lib/firebase");
-        
-        const technicianDoc = await getDoc(doc(db, "technicians", technicianId));
-        
-        if (technicianDoc.exists()) {
-          const data = technicianDoc.data();
-          const technicianData: Technician = {
-            id: technicianDoc.id,
-            name: data.name || "",
-            email: data.email || "",
-            phone: data.phone || "",
-            role: data.role || "technician",
-            shopId: data.shopId || "",
-            branchId: data.branchId || "",
-            userId: data.userId || "",
-            skills: data.skills || [],
-            status: data.status || "active",
-            bio: data.bio || "",
-            specializations: data.specializations || [],
-            experience: data.experience || 0,
-            rating: data.rating || 0,
-            totalServices: data.totalServices || 0,
-            completedServices: data.completedServices || 0,
-            availability: data.availability || {},
-            createdAt: data.createdAt?.toDate() || new Date(),
-            updatedAt: data.updatedAt?.toDate() || new Date(),
-          };
-          setTechnician(technicianData);
-        } else {
-          setError("Technician not found");
+        const response = await fetch(`/api/technicians/${technicianId}`);
+        if (!response.ok) {
+          const body = await response.json().catch(() => ({}));
+          throw new Error(body.error || "Failed to fetch technician");
         }
+
+        const { technician: data } = await response.json();
+        setTechnician(data);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to fetch technician");
       } finally {
@@ -88,13 +70,15 @@ function TechnicianEditContent() {
       }
     };
 
-    fetchTechnician();
+    void fetchTechnician();
   }, [technicianId]);
 
-  const handleEdit = async (data: { 
-    name: string; 
-    email: string; 
-    phone: string; 
+  const handleEdit = async (data: {
+    name: string;
+    email: string;
+    phone: string;
+    branchId: string;
+    status?: "active" | "inactive";
   }) => {
     if (!technician) return;
 
@@ -106,6 +90,8 @@ function TechnicianEditContent() {
         name: data.name,
         email: data.email,
         phone: data.phone,
+        branchId: data.branchId,
+        ...(data.status ? { status: data.status } : {}),
       });
 
       router.push("/technicians");
