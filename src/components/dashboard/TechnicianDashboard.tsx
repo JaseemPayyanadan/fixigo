@@ -360,7 +360,7 @@ export default function TechnicianDashboard() {
                 </div>
                 <p className="text-gray-500 font-medium mb-2">No services found</p>
                 <p className="text-sm text-gray-400">
-                  You don't have any services assigned yet
+                  You don&apos;t have any services assigned yet
                 </p>
               </div>
             ) : (
