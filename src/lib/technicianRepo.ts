@@ -74,6 +74,13 @@ export async function getTechnicianByUserId(userId: string): Promise<Technician 
   return mapTechnician(doc.id, doc.data());
 }
 
+/**
+ * `exceptUserId` is compared against `users` collection DOCUMENT IDs, not
+ * technician document IDs. Passing a technician's own doc id here will never
+ * match a users doc id, so the exclusion silently fails and the caller gets
+ * a false positive ("email exists") even for its own email. Callers must
+ * pass the linked `Technician.userId`, never `Technician.id`.
+ */
 export async function emailExists(email: string, exceptUserId?: string): Promise<boolean> {
   const snapshot = await adminDb
     .collection(USERS)
@@ -158,6 +165,20 @@ export async function createTechnician(
   return created;
 }
 
+/** True when `member` (any historical shape) refers to the given userId. */
+function isMemberEntryFor(member: unknown, userId: string): boolean {
+  return (
+    !!member &&
+    typeof member === "object" &&
+    (member as { userId?: unknown }).userId === userId
+  );
+}
+
+function membersOf(snap: FirebaseFirestore.DocumentSnapshot | null): unknown[] {
+  const data = snap?.data() as Record<string, unknown> | undefined;
+  return Array.isArray(data?.members) ? (data!.members as unknown[]) : [];
+}
+
 export async function updateTechnician(
   id: string,
   input: UpdateTechnicianInput
@@ -165,17 +186,48 @@ export async function updateTechnician(
   const technicianRef = adminDb.collection(TECHNICIANS).doc(id);
 
   await adminDb.runTransaction(async (tx) => {
+    // ---- READS ----------------------------------------------------------
+    // Firestore requires every tx.get() in a transaction to happen before any
+    // tx.set()/tx.update(), so all the reads this function might need are
+    // gathered up front, before any write below.
     const snap = await tx.get(technicianRef);
     if (!snap.exists) throw new Error("Technician not found");
 
     const current = mapTechnician(snap.id, snap.data() as Record<string, unknown>);
     const nextBranchId = input.branchId ?? current.branchId;
+    const branchChanged = input.branchId !== undefined && input.branchId !== current.branchId;
+    const nameChanged = input.name !== undefined && input.name !== current.name;
+    const statusChanged = input.status !== undefined && input.status !== current.status;
+    const membershipTouched = branchChanged || nameChanged || statusChanged;
 
+    const userRef = current.userId ? adminDb.collection(USERS).doc(current.userId) : null;
+    // A missing linked `users` doc is data corruption (it should never happen
+    // for a live technician), not a normal state. We deliberately skip the
+    // user sync rather than throw: aborting the whole technician update
+    // because a secondary login doc vanished would leave admins with no way
+    // to even fix or deactivate the technician record itself.
+    const userSnap = userRef ? await tx.get(userRef) : null;
+
+    const currentBranchRef =
+      current.branchId && membershipTouched
+        ? adminDb.collection(BRANCHES).doc(current.branchId)
+        : null;
+    const currentBranchSnap = currentBranchRef ? await tx.get(currentBranchRef) : null;
+
+    const destBranchRef = branchChanged
+      ? adminDb.collection(BRANCHES).doc(nextBranchId)
+      : currentBranchRef;
+    const destBranchSnap = branchChanged ? await tx.get(destBranchRef!) : currentBranchSnap;
+
+    if (branchChanged && !destBranchSnap?.exists) {
+      throw new Error(`Branch ${nextBranchId} does not exist`);
+    }
+
+    // ---- WRITES ----------------------------------------------------------
     tx.update(technicianRef, { ...input, updatedAt: new Date() });
 
     // Keep the linked login account in sync — spec defect 3.
-    if (current.userId) {
-      const userRef = adminDb.collection(USERS).doc(current.userId);
+    if (userRef && userSnap?.exists) {
       const userUpdate: Record<string, unknown> = { updatedAt: new Date() };
       if (input.name !== undefined) userUpdate.name = input.name;
       if (input.email !== undefined) userUpdate.email = input.email;
@@ -185,30 +237,50 @@ export async function updateTechnician(
         userUpdate.status = input.status === "inactive" ? "suspended" : "active";
       }
       tx.update(userRef, userUpdate);
+    }
 
-      const memberEntry = {
-        userId: current.userId,
-        role: "technician",
-        name: current.name,
+    if (current.userId && membershipTouched) {
+      const userId = current.userId;
+      const effectiveStatus = input.status ?? current.status;
+      const effectiveName = input.name ?? current.name;
+      const newEntry = {
+        userId,
+        role: current.role || "technician",
+        name: effectiveName,
       };
 
-      if (input.branchId !== undefined && input.branchId !== current.branchId) {
-        tx.update(adminDb.collection(BRANCHES).doc(current.branchId), {
-          members: FieldValue.arrayRemove(memberEntry),
-        });
-        tx.update(adminDb.collection(BRANCHES).doc(nextBranchId), {
-          members: FieldValue.arrayUnion({
-            ...memberEntry,
-            name: input.name ?? current.name,
-          }),
-        });
-      } else if (input.name !== undefined && input.name !== current.name) {
-        tx.update(adminDb.collection(BRANCHES).doc(current.branchId), {
-          members: FieldValue.arrayRemove(memberEntry),
-        });
-        tx.update(adminDb.collection(BRANCHES).doc(current.branchId), {
-          members: FieldValue.arrayUnion({ ...memberEntry, name: input.name }),
-        });
+      if (!branchChanged) {
+        // Same branch document: read-filter-write the whole array back as
+        // ONE write, rather than a FieldValue.arrayRemove + arrayUnion pair.
+        // arrayRemove only deletes an EXACT whole-object match, so it misses
+        // legacy 2-field {userId, role} entries and any entry whose stored
+        // `name` has drifted from the technician's current name. Filtering
+        // on userId alone handles every historical shape.
+        if (currentBranchRef) {
+          const filtered = membersOf(currentBranchSnap).filter(
+            (m) => !isMemberEntryFor(m, userId)
+          );
+          if (effectiveStatus === "active") filtered.push(newEntry);
+          tx.update(currentBranchRef, { members: filtered });
+        }
+      } else {
+        // Branch changed: two distinct branch docs, so two writes are
+        // unavoidable — drop the member from the old branch, add (if still
+        // active) to the new one. Each write is still a single read-filter-
+        // write of that document's own array.
+        if (currentBranchRef) {
+          const filteredOld = membersOf(currentBranchSnap).filter(
+            (m) => !isMemberEntryFor(m, userId)
+          );
+          tx.update(currentBranchRef, { members: filteredOld });
+        }
+        if (effectiveStatus === "active" && destBranchRef) {
+          const filteredNew = membersOf(destBranchSnap).filter(
+            (m) => !isMemberEntryFor(m, userId)
+          );
+          filteredNew.push(newEntry);
+          tx.update(destBranchRef, { members: filteredNew });
+        }
       }
     }
   });
@@ -227,29 +299,38 @@ export async function deactivateTechnician(id: string): Promise<void> {
   const technicianRef = adminDb.collection(TECHNICIANS).doc(id);
 
   await adminDb.runTransaction(async (tx) => {
+    // ---- READS (must all happen before any write, per Firestore rules) ----
     const snap = await tx.get(technicianRef);
     if (!snap.exists) throw new Error("Technician not found");
 
     const current = mapTechnician(snap.id, snap.data() as Record<string, unknown>);
     const now = new Date();
 
+    const userRef = current.userId ? adminDb.collection(USERS).doc(current.userId) : null;
+    // Same deliberate choice as updateTechnician: a missing linked users doc
+    // is data corruption we don't want to let block the soft delete, so we
+    // skip that particular sync instead of throwing.
+    const userSnap = userRef ? await tx.get(userRef) : null;
+
+    const branchRef = current.branchId ? adminDb.collection(BRANCHES).doc(current.branchId) : null;
+    const branchSnap = branchRef ? await tx.get(branchRef) : null;
+
+    // ---- WRITES ------------------------------------------------------------
     tx.update(technicianRef, { status: "inactive", updatedAt: now });
 
-    if (current.userId) {
-      tx.update(adminDb.collection(USERS).doc(current.userId), {
-        status: "suspended",
-        updatedAt: now,
-      });
+    if (userRef && userSnap?.exists) {
+      tx.update(userRef, { status: "suspended", updatedAt: now });
+    }
 
-      if (current.branchId) {
-        tx.update(adminDb.collection(BRANCHES).doc(current.branchId), {
-          members: FieldValue.arrayRemove({
-            userId: current.userId,
-            role: "technician",
-            name: current.name,
-          }),
-        });
-      }
+    if (branchRef && branchSnap?.exists && current.userId) {
+      // Read-filter-write on userId alone: FieldValue.arrayRemove requires an
+      // exact whole-object match and so misses legacy 2-field {userId, role}
+      // entries and any entry whose stored `name` has drifted — see
+      // updateTechnician for the full rationale.
+      const filtered = membersOf(branchSnap).filter(
+        (m) => !isMemberEntryFor(m, current.userId as string)
+      );
+      tx.update(branchRef, { members: filtered });
     }
   });
 }
