@@ -107,3 +107,6 @@ build/
 .cache/
 .parcel-cache/
 .eslintcache
+
+# Superpowers SDD scratch
+.superpowers/
