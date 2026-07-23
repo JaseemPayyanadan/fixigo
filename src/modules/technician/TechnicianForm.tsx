@@ -26,7 +26,6 @@ interface TechnicianFormProps {
     password: string;
     branchId: string;
     role: "technician";
-    status?: "active" | "inactive";
   }) => void;
   loading: boolean;
   editing: boolean;

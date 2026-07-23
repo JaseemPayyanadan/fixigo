@@ -78,7 +78,6 @@ function TechnicianEditContent() {
     email: string;
     phone: string;
     branchId: string;
-    status?: "active" | "inactive";
   }) => {
     if (!technician) return;
 
@@ -91,7 +90,6 @@ function TechnicianEditContent() {
         email: data.email,
         phone: data.phone,
         branchId: data.branchId,
-        ...(data.status ? { status: data.status } : {}),
       });
 
       router.push("/technicians");
