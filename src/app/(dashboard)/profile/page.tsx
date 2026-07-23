@@ -4,7 +4,6 @@ import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import { HiMail, HiPhone, HiStar, HiLogout } from "react-icons/hi";
-import { HiMapPin } from "react-icons/hi2";
 import { useAuth } from "@/contexts/AuthContext";
 import { db } from "@/lib/firebase";
 
@@ -15,7 +14,6 @@ interface TechnicianProfile {
   phone: string;
   shopId: string;
   branchId: string;
-  location?: string;
   experience?: number;
   rating?: number;
   created_by?: { role: string; name: string };
@@ -42,8 +40,6 @@ export default function ProfilePage() {
     name: "",
     email: "",
     phone: "",
-    location: "",
-    experience: "",
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -70,7 +66,6 @@ export default function ProfilePage() {
           phone: "", // Will be filled from technician data if available
           shopId: user.shopId || "",
           branchId: user.branchId || "",
-          location: "", // Keep empty if not filled
           experience: 0,
           rating: 0,
           created_by: { role: user.role, name: user.name },
@@ -82,6 +77,7 @@ export default function ProfilePage() {
         if (user.role === "technician") {
           try {
             const response = await fetch("/api/technicians/me");
+            if (!response.ok) throw new Error("Failed to fetch technician record");
             const { technician: technicianDoc } = await response.json();
             if (technicianDoc) {
               profileData.phone = technicianDoc.phone || "";
@@ -132,8 +128,6 @@ export default function ProfilePage() {
           name: profileData.name,
           email: profileData.email,
           phone: profileData.phone,
-          location: profileData.location || "",
-          experience: profileData.experience?.toString() || "",
         });
 
       } catch (error) {
@@ -158,8 +152,6 @@ export default function ProfilePage() {
       name: profile?.name || "",
       email: profile?.email || "",
       phone: profile?.phone || "",
-      location: profile?.location || "",
-      experience: profile?.experience?.toString() || "",
     });
     setError(null);
   };
@@ -181,7 +173,11 @@ export default function ProfilePage() {
       const response = await fetch("/api/technicians/me", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: formData.name.trim(), phone: formData.phone.trim() }),
+        body: JSON.stringify({
+          name: formData.name.trim(),
+          email: formData.email.trim(),
+          phone: formData.phone.trim(),
+        }),
       });
       if (!response.ok) throw new Error("Failed to update profile");
       const { technician } = await response.json();
@@ -192,6 +188,7 @@ export default function ProfilePage() {
           ? {
               ...prev,
               name: technician.name,
+              email: technician.email,
               phone: technician.phone,
             }
           : null
@@ -280,14 +277,6 @@ export default function ProfilePage() {
               <HiPhone className="w-5 h-5 text-gray-600" />
               <span className="text-gray-900">{profile.phone}</span>
             </div>
-            
-            {/* Location */}
-            {profile.location && (
-              <div className="flex items-center gap-3">
-                <HiMapPin className="w-5 h-5 text-gray-600" />
-                <span className="text-gray-900">{profile.location}</span>
-              </div>
-            )}
             
             {/* Experience */}
             {profile.experience && profile.experience > 0 && (
@@ -387,30 +376,6 @@ export default function ProfilePage() {
                   type="tel"
                   name="phone"
                   value={formData.phone}
-                  onChange={handleInputChange}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              
-              {/* Location */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
-                <input
-                  type="text"
-                  name="location"
-                  value={formData.location}
-                  onChange={handleInputChange}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              
-              {/* Experience */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Experience (Years)</label>
-                <input
-                  type="number"
-                  name="experience"
-                  value={formData.experience}
                   onChange={handleInputChange}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />

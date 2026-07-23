@@ -179,6 +179,7 @@ function ServicesContent() {
             let technicianDocId: string | null = null;
             try {
               const techResponse = await fetch("/api/technicians/me");
+              if (!techResponse.ok) throw new Error("Failed to fetch technician record");
               const { technician } = await techResponse.json();
               technicianDocId = technician?.id || null;
               console.log("👤 Technician document ID:", technicianDocId);

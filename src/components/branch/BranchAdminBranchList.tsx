@@ -30,6 +30,7 @@ export const BranchAdminBranchList: React.FC<BranchAdminBranchListProps> = ({ br
         const byBranch: Record<string, string[]> = {};
 
         const response = await fetch("/api/technicians");
+        if (!response.ok) throw new Error("Failed to fetch technicians");
         const { technicians } = await response.json();
 
         // Group technicians by branch

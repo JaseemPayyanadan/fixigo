@@ -240,6 +240,7 @@ function ServiceDetailsPage() {
       if (!user?.shopId) return;
       try {
         const response = await fetch("/api/technicians");
+        if (!response.ok) throw new Error("Failed to fetch technicians");
         const { technicians: techniciansData } = (await response.json()) as { technicians: Technician[] };
 
         console.log("🔍 Fetched technicians:", {
