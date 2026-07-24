@@ -62,8 +62,7 @@ const ServiceCard: React.FC<{ service: Service; onViewDetails: (id: string) => v
             </div>
           </div>
           
-          <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${statusConfig.color} ${statusConfig.bg}`}>
-            <span className="text-xs">{statusConfig.icon}</span>
+          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium leading-4 whitespace-nowrap ${statusConfig.color} ${statusConfig.bg}`}>
             {statusConfig.label}
           </span>
         </div>

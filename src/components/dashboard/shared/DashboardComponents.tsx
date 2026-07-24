@@ -20,9 +20,8 @@ import {
 } from "lucide-react";
 
 import { Service } from "@/types";
-import { normalizeStatus } from "@/lib/statusUtils";
 
-import { ErrorState, formatCurrency, getStatusColor, LoadingSpinner } from "./DashboardUtils";
+import { ErrorState, formatCurrency, getStatusColor } from "./DashboardUtils";
 
 // Device type to icon mapping
 const getDeviceIcon = (deviceType?: string) => {
@@ -129,33 +128,9 @@ export const ServiceCard: React.FC<{ service: Service }> = React.memo(({ service
     router.push(`/services/details?id=${service.id}`);
   };
 
-  const getStatusIcon = (status: string) => {
-    const normalizedStatus = normalizeStatus(status);
-    switch (normalizedStatus) {
-      case 'pending':
-        return '⏳';
-      case 'completed':
-        return '✅';
-      case 'awaiting_parts':
-        return '📦';
-      case 'in_progress':
-        return '🔧';
-      case 'cancelled':
-        return '❌';
-      case 'on_hold':
-        return '⏸️';
-      case 'ready_for_pickup':
-        return '📱';
-      case 'quality_check':
-        return '🔍';
-      default:
-        return '📋';
-    }
-  };
-
   return (
     <div 
-      className="flex items-center justify-between p-3 bg-white rounded-xl hover:bg-gray-50 transition-all duration-150 border border-gray-100 hover:border-gray-200 hover:shadow-sm group cursor-pointer" 
+      className="group flex min-h-11 cursor-pointer items-center justify-between rounded-xl border border-transparent p-3 transition-colors duration-150 hover:border-gray-100 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 motion-reduce:transition-none" 
       role="button"
       tabIndex={0}
       onClick={handleClick}
@@ -167,29 +142,26 @@ export const ServiceCard: React.FC<{ service: Service }> = React.memo(({ service
       }}
       aria-label={`Service: ${service.name} - Status: ${service.status}`}
     >
-      <div className="flex items-center space-x-3 flex-1 min-w-0">
-        <div className="flex-shrink-0">
-          <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center group-hover:scale-105 transition-transform duration-150" aria-hidden="true">
-            <DeviceIcon className="h-4 w-4 text-blue-600" />
-          </div>
+      <div className="flex min-w-0 flex-1 items-center gap-3">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-50" aria-hidden="true">
+          <DeviceIcon className="h-4 w-4 text-blue-600" />
         </div>
         
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-gray-900 truncate group-hover:text-blue-600 transition-colors">
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-semibold text-gray-900 transition-colors group-hover:text-blue-600">
             {service.name}
           </p>
-          <p className="text-xs text-gray-500 truncate group-hover:text-gray-600 transition-colors">
+          <p className="truncate text-xs text-gray-500">
             {service.customer?.name || "Unknown Customer"} • {service.device?.brand || "Unknown"} {service.device?.model || "Device"}
           </p>
         </div>
       </div>
 
-      <div className="flex items-center gap-3 flex-shrink-0">
-        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${statusColors.text} ${statusColors.bg}`}>
-          <span className="text-xs">{getStatusIcon(service.status)}</span>
+      <div className="flex shrink-0 items-center gap-3">
+        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium leading-4 whitespace-nowrap ${statusColors.text} ${statusColors.bg}`}>
           {service.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
         </span>
-        <span className="text-sm font-semibold text-gray-900">{formatCurrency(service.price)}</span>
+        <span className="text-sm font-semibold tabular-nums text-gray-900">{formatCurrency(service.price)}</span>
       </div>
     </div>
   );
@@ -208,42 +180,46 @@ export const RecentServicesCard: React.FC<{
   createLink?: string;
   onRetry?: () => void;
 }> = React.memo(({ services, loading, error, title = "Recent Services", viewAllLink = "/services", emptyMessage = "No services yet", createLink = "/services/new", onRetry }) => (
-  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow duration-200">
-    <div className="px-4 py-3 border-b border-gray-100">
-      <div className="flex items-center justify-between">
-        <h3 className="text-base font-semibold text-gray-900">{title}</h3>
-        {viewAllLink && (
-          <Link href={viewAllLink} className="text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors px-3 py-1.5 rounded-lg hover:bg-blue-50">
-            View all →
-          </Link>
-        )}
-      </div>
+  <div className="flex h-full flex-col rounded-2xl border border-gray-100 bg-white shadow-sm">
+    <div className="flex min-h-[52px] items-center justify-between gap-3 px-5 pt-4 pb-3">
+      <h2 className="truncate text-base font-semibold tracking-tight text-gray-900">{title}</h2>
+      {viewAllLink && (
+        <Link
+          href={viewAllLink}
+          className="inline-flex min-h-11 shrink-0 items-center rounded-lg px-2 text-sm font-medium text-blue-600 transition-colors hover:bg-blue-50 hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 sm:min-h-0 sm:px-3 sm:py-1.5"
+        >
+          View all
+        </Link>
+      )}
     </div>
     
-    <div className="p-4">
+    <div className="flex flex-1 flex-col px-3 pb-4">
       {error ? (
         <ErrorState message={error} retry={onRetry} />
       ) : loading ? (
-        <LoadingSpinner text="Loading services..." />
+        <div className="space-y-2 px-2 py-2" role="status" aria-live="polite" aria-busy="true">
+          <span className="sr-only">Loading services</span>
+          {Array.from({ length: 4 }, (_, index) => (
+            <div key={index} className="h-14 animate-pulse rounded-xl bg-gray-100 motion-reduce:animate-none" aria-hidden="true" />
+          ))}
+        </div>
       ) : services.length > 0 ? (
-        <div className="space-y-2" role="list" aria-label="Recent services">
+        <div className="space-y-0.5" role="list" aria-label="Recent services">
           {services.map((service) => (
             <ServiceCard key={service.id} service={service} />
           ))}
         </div>
       ) : (
-        <div className="text-center py-8">
-          <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
-            <Monitor className="h-6 w-6 text-gray-400" aria-hidden="true" />
-          </div>
-          <h3 className="text-base font-medium text-gray-900 mb-2">{emptyMessage}</h3>
-          <p className="text-sm text-gray-500 mb-4">Get started by creating your first service.</p>
+        <div className="flex flex-1 flex-col items-center justify-center px-2 py-10 text-center">
+          <p className="text-sm font-medium text-gray-900">{emptyMessage}</p>
+          <p className="mt-1 text-sm text-gray-500">Create a service to get started.</p>
           {createLink && (
-            <div className="mt-4">
-              <Link href={createLink} className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 transition-colors shadow-sm">
-                Create Service
-              </Link>
-            </div>
+            <Link
+              href={createLink}
+              className="mt-4 inline-flex min-h-11 items-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            >
+              Create service
+            </Link>
           )}
         </div>
       )}
@@ -351,6 +327,20 @@ export const DashboardLoadingState: React.FC<{ message?: string }> = React.memo(
 
 DashboardLoadingState.displayName = "DashboardLoadingState";
 
+// Full-page spinner shown while the session is still resolving, before any
+// shop or branch scope is known. Distinct from DashboardLoadingState, which
+// sits inside an already-rendered dashboard while its data loads.
+export const DashboardUserLoading: React.FC = React.memo(() => (
+  <div className="flex min-h-screen items-center justify-center bg-gray-50" role="status" aria-live="polite">
+    <div className="text-center">
+      <div className="mx-auto mb-2 h-5 w-5 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" aria-hidden="true" />
+      <p className="text-sm text-gray-600">Loading user data...</p>
+    </div>
+  </div>
+));
+
+DashboardUserLoading.displayName = "DashboardUserLoading";
+
 // Enhanced Dashboard Layout Components with better shadows and responsive design
 export const UltraCompactDashboardLayout: React.FC<{
   children: React.ReactNode;
@@ -455,20 +445,20 @@ export const CompactErrorState: React.FC<{
   retry?: () => void;
   className?: string;
 }> = React.memo(({ message, retry, className = "" }) => (
-  <div className={`bg-red-50 border border-red-200 rounded-2xl p-4 shadow-sm ${className}`}>
-    <div className="flex items-center justify-between">
-      <div className="flex items-center">
-        <svg className="h-5 w-5 text-red-600 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+  <div className={`rounded-2xl border border-red-200 bg-red-50 p-4 shadow-sm ${className}`} role="alert">
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex items-start gap-3">
+        <svg className="mt-0.5 h-5 w-5 shrink-0 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
         </svg>
-        <p className="text-red-800 text-base font-medium">{message}</p>
+        <p className="text-sm font-medium text-red-800">{message}</p>
       </div>
       {retry && (
         <button 
           onClick={retry} 
-          className="text-sm text-red-600 hover:text-red-800 underline font-medium hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors"
+          className="inline-flex min-h-11 shrink-0 items-center rounded-lg bg-white px-3 py-2 text-sm font-medium text-red-700 ring-1 ring-red-200 transition-colors hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-blue-500 sm:min-h-0"
         >
-          Try again
+          Retry
         </button>
       )}
     </div>

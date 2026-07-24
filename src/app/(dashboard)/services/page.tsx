@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { 
   CheckCircleIcon,
   ClockIcon,
@@ -70,7 +71,10 @@ function ServicesContent() {
 
   const [services, setServices] = useState<ServiceListItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
+  // Seeded from ?q= so the header search actually lands on filtered results.
+  // Editable afterwards: the URL is the initial value, not a binding.
+  const searchParams = useSearchParams();
+  const [search, setSearch] = useState(searchParams.get("q") ?? "");
   const [statusFilter, setStatusFilter] = useState("All");
 
   // Transform legacy data to match current schema for internal use
@@ -436,31 +440,13 @@ function ServicesContent() {
         {user?.role === "shop_admin" && <ShopAdminServiceList services={filteredServices} branches={branches} technicians={technicians} loading={loading} search={search} />}
         {user?.role === "branch_admin" && <BranchAdminServiceList services={filteredServices} branches={branches} technicians={technicians} loading={loading} search={search} />}
         {user?.role === "technician" && (
-          <>
-            {console.log("🚀 Rendering TechnicianServiceList with data:", {
-              user: {
-                id: user?.id,
-                role: user?.role,
-                branchId: user?.branchId,
-                shopId: user?.shopId
-              },
-              services: {
-                total: filteredServices?.length || 0,
-                sample: filteredServices?.slice(0, 2) || []
-              },
-              branches: {
-                total: branches?.length || 0,
-                sample: branches?.slice(0, 2) || []
-              },
-              technicians: {
-                total: technicians?.length || 0,
-                sample: technicians?.slice(0, 2) || []
-              },
-              loading,
-              search
-            })}
-            <TechnicianServiceList services={filteredServices} branches={branches} technicians={technicians} loading={loading} search={search} user={user} />
-          </>
+          <TechnicianServiceList
+            services={filteredServices}
+            branches={branches}
+            technicians={technicians}
+            loading={loading}
+            search={search}
+          />
         )}
 
 
