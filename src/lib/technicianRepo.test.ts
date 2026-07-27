@@ -236,7 +236,7 @@ describe("mapTechnician", () => {
 describe("createTechnician", () => {
   it("writes the users doc, technicians doc, and branch member update inside a single transaction", async () => {
     fakeDb.__reset();
-    fakeDb.__seed(BRANCHES, "branch-1", { name: "Main Branch", members: [] });
+    fakeDb.__seed(BRANCHES, "branch-1", { name: "Main Branch", shopId: "shop-1", members: [] });
 
     const created = await createTechnician({
       name: "Rahul",
@@ -265,7 +265,7 @@ describe("createTechnician", () => {
 
   it("targets the top-level branches/{branchId} collection, never shops/{shopId}/branches/{branchId}", async () => {
     fakeDb.__reset();
-    fakeDb.__seed(BRANCHES, "branch-1", { name: "Main Branch", members: [] });
+    fakeDb.__seed(BRANCHES, "branch-1", { name: "Main Branch", shopId: "shop-1", members: [] });
 
     await createTechnician({
       name: "Rahul",
@@ -307,7 +307,7 @@ describe("createTechnician", () => {
 
   it("stores a hashed password on the users doc, never the plaintext", async () => {
     fakeDb.__reset();
-    fakeDb.__seed(BRANCHES, "branch-1", { name: "Main Branch", members: [] });
+    fakeDb.__seed(BRANCHES, "branch-1", { name: "Main Branch", shopId: "shop-1", members: [] });
 
     const created = await createTechnician({
       name: "Rahul",
@@ -329,7 +329,7 @@ describe("createTechnician", () => {
 
   it("sets created_by to the acting admin (createdBy), not the new technician's userId", async () => {
     fakeDb.__reset();
-    fakeDb.__seed(BRANCHES, "branch-1", { name: "Main Branch", members: [] });
+    fakeDb.__seed(BRANCHES, "branch-1", { name: "Main Branch", shopId: "shop-1", members: [] });
 
     const created = await createTechnician({
       name: "Rahul",
@@ -344,12 +344,84 @@ describe("createTechnician", () => {
     expect(created.created_by).toBe("admin-1");
     expect(created.created_by).not.toBe(created.userId);
   });
+
+  it("throws a 403 ApiError when the branch belongs to another shop, and writes nothing", async () => {
+    fakeDb.__reset();
+    fakeDb.__seed(BRANCHES, "victim-branch", {
+      name: "Shop 2 Branch",
+      shopId: "shop-2",
+      members: [],
+    });
+
+    const promise = createTechnician({
+      name: "Injected",
+      email: "attacker@example.com",
+      phone: "111",
+      password: "plaintext-pw",
+      branchId: "victim-branch",
+      shopId: "shop-1",
+      createdBy: "admin-1",
+    });
+
+    await expect(promise).rejects.toThrow(ApiError);
+    await expect(promise).rejects.toMatchObject({ status: 403 });
+
+    expect(fakeDb.__transactionWrites.length).toBe(0);
+    expect(fakeDb.__get(BRANCHES, "victim-branch")?.members).toEqual([]);
+  });
+
+  it("throws a 403 ApiError when the branch has no shopId at all (fails closed)", async () => {
+    fakeDb.__reset();
+    fakeDb.__seed(BRANCHES, "legacy-branch", { name: "Legacy", members: [] });
+
+    const promise = createTechnician({
+      name: "Rahul",
+      email: "rahul@example.com",
+      phone: "111",
+      password: "plaintext-pw",
+      branchId: "legacy-branch",
+      shopId: "shop-1",
+      createdBy: "admin-1",
+    });
+
+    await expect(promise).rejects.toMatchObject({ status: 403 });
+    expect(fakeDb.__transactionWrites.length).toBe(0);
+  });
 });
 
 describe("updateTechnician", () => {
+  it("throws a 403 ApiError when moved into another shop's branch, and writes nothing", async () => {
+    fakeDb.__reset();
+    fakeDb.__seed(BRANCHES, "branch-1", {
+      shopId: "shop-1",
+      members: [{ userId: "user-1", role: "technician", name: "Rahul" }],
+    });
+    fakeDb.__seed(BRANCHES, "victim-branch", { shopId: "shop-2", members: [] });
+    fakeDb.__seed(TECHNICIANS, "tech-1", {
+      name: "Rahul",
+      shopId: "shop-1",
+      branchId: "branch-1",
+      userId: "user-1",
+      status: "active",
+    });
+    fakeDb.__seed(USERS, "user-1", { name: "Rahul", branchId: "branch-1", status: "active" });
+
+    const promise = updateTechnician("tech-1", { branchId: "victim-branch" });
+
+    await expect(promise).rejects.toThrow(ApiError);
+    await expect(promise).rejects.toMatchObject({ status: 403 });
+
+    expect(fakeDb.__transactionWrites.length).toBe(0);
+    expect(fakeDb.__get(BRANCHES, "victim-branch")?.members).toEqual([]);
+    expect(fakeDb.__get(USERS, "user-1")?.branchId).toBe("branch-1");
+    expect(fakeDb.__get(TECHNICIANS, "tech-1")?.branchId).toBe("branch-1");
+  });
+
+
   it("syncs name/email/phone to the linked users doc, and maps status:inactive to suspended", async () => {
     fakeDb.__reset();
     fakeDb.__seed(BRANCHES, "branch-1", {
+      shopId: "shop-1",
       members: [{ userId: "user-1", role: "technician", name: "Old Name" }],
     });
     fakeDb.__seed(TECHNICIANS, "tech-1", {
@@ -395,9 +467,10 @@ describe("updateTechnician", () => {
   it("moving a technician between branches removes the old branch member and adds it to the new branch", async () => {
     fakeDb.__reset();
     fakeDb.__seed(BRANCHES, "branch-1", {
+      shopId: "shop-1",
       members: [{ userId: "user-1", role: "technician", name: "Old Name" }],
     });
-    fakeDb.__seed(BRANCHES, "branch-2", { members: [] });
+    fakeDb.__seed(BRANCHES, "branch-2", { shopId: "shop-1", members: [] });
     fakeDb.__seed(TECHNICIANS, "tech-1", {
       name: "Old Name",
       email: "old@example.com",
@@ -436,7 +509,7 @@ describe("updateTechnician", () => {
       // Legacy shape written by userManagement.ts:31-36 — no `name` field.
       members: [{ userId: "user-1", role: "technician" }],
     });
-    fakeDb.__seed(BRANCHES, "branch-2", { members: [] });
+    fakeDb.__seed(BRANCHES, "branch-2", { shopId: "shop-1", members: [] });
     fakeDb.__seed(TECHNICIANS, "tech-1", {
       name: "Old Name",
       email: "old@example.com",
@@ -467,7 +540,7 @@ describe("updateTechnician", () => {
       // constructed object would silently fail to match this.
       members: [{ userId: "user-1", role: "technician", name: "Unknown Technician" }],
     });
-    fakeDb.__seed(BRANCHES, "branch-2", { members: [] });
+    fakeDb.__seed(BRANCHES, "branch-2", { shopId: "shop-1", members: [] });
     fakeDb.__seed(TECHNICIANS, "tech-1", {
       name: "Old Name",
       email: "old@example.com",
@@ -492,7 +565,7 @@ describe("updateTechnician", () => {
 
   it("reactivating a technician (status: 'active') restores the branch member entry", async () => {
     fakeDb.__reset();
-    fakeDb.__seed(BRANCHES, "branch-1", { members: [] });
+    fakeDb.__seed(BRANCHES, "branch-1", { shopId: "shop-1", members: [] });
     fakeDb.__seed(TECHNICIANS, "tech-1", {
       name: "Old Name",
       email: "old@example.com",
@@ -521,6 +594,7 @@ describe("updateTechnician", () => {
   it("throws a 400 ApiError when moving to a branch that does not exist, without corrupting other docs", async () => {
     fakeDb.__reset();
     fakeDb.__seed(BRANCHES, "branch-1", {
+      shopId: "shop-1",
       members: [{ userId: "user-1", role: "technician", name: "Old Name" }],
     });
     fakeDb.__seed(TECHNICIANS, "tech-1", {
@@ -563,6 +637,7 @@ describe("updateTechnician", () => {
   it("skips the linked users doc sync (does not throw) when that doc is missing", async () => {
     fakeDb.__reset();
     fakeDb.__seed(BRANCHES, "branch-1", {
+      shopId: "shop-1",
       members: [{ userId: "user-1", role: "technician", name: "Old Name" }],
     });
     fakeDb.__seed(TECHNICIANS, "tech-1", {
@@ -616,6 +691,7 @@ describe("updateTechnician", () => {
   it("renaming a technician without changing branch updates the member entry's name in place", async () => {
     fakeDb.__reset();
     fakeDb.__seed(BRANCHES, "branch-1", {
+      shopId: "shop-1",
       members: [{ userId: "user-1", role: "technician", name: "Old Name" }],
     });
     fakeDb.__seed(TECHNICIANS, "tech-1", {
@@ -650,6 +726,7 @@ describe("deactivateTechnician", () => {
   it("soft-deletes: sets technician inactive, user suspended, removes the branch member, deletes nothing", async () => {
     fakeDb.__reset();
     fakeDb.__seed(BRANCHES, "branch-1", {
+      shopId: "shop-1",
       members: [{ userId: "user-1", role: "technician", name: "Some Tech" }],
     });
     fakeDb.__seed(TECHNICIANS, "tech-1", {
