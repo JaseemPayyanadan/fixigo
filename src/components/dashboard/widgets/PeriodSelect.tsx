@@ -20,7 +20,7 @@ export const PeriodSelect = React.memo(function PeriodSelect({ value, onChange, 
         aria-label={label}
         value={value}
         onChange={(event) => onChange(event.target.value as DashboardPeriod)}
-        className="cursor-pointer appearance-none rounded-lg border border-gray-200 bg-white py-1.5 pl-3 pr-8 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className="min-h-11 cursor-pointer appearance-none rounded-lg border border-gray-200 bg-white py-2 pl-3 pr-8 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 sm:min-h-0 sm:py-1.5"
       >
         {PERIOD_OPTIONS.map((option) => (
           <option key={option.value} value={option.value}>
@@ -28,7 +28,7 @@ export const PeriodSelect = React.memo(function PeriodSelect({ value, onChange, 
           </option>
         ))}
       </select>
-      <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
+      <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" aria-hidden="true" />
     </div>
   );
 });

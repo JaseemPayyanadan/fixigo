@@ -201,11 +201,11 @@ export default function TechnicianList({ technicians, onDelete, branches }: Tech
                           <button
                             className="p-2 text-gray-400 hover:text-red-600 transition-colors rounded-lg hover:bg-red-50"
                             onClick={() => {
-                              if (window.confirm(`Are you sure you want to delete technician '${tech.name}'?`)) {
+                              if (window.confirm(`Deactivate '${tech.name}'? They will no longer be able to log in, but their service history is kept.`)) {
                                 onDelete(tech.id);
                               }
                             }}
-                            title="Delete technician"
+                            title="Deactivate technician"
                           >
                             <TrashIcon className="w-4 h-4" />
                           </button>
@@ -319,14 +319,14 @@ export default function TechnicianList({ technicians, onDelete, branches }: Tech
                     <button
                       className="flex-1 px-3 py-2 text-red-600 hover:text-red-900 font-medium text-sm transition-colors border border-red-200 rounded-lg hover:bg-red-50 flex items-center justify-center gap-1"
                       onClick={() => {
-                        if (window.confirm(`Are you sure you want to delete technician '${tech.name}'?`)) {
+                        if (window.confirm(`Deactivate '${tech.name}'? They will no longer be able to log in, but their service history is kept.`)) {
                           onDelete(tech.id);
                         }
                       }}
-                      title="Delete technician"
+                      title="Deactivate technician"
                     >
                       <TrashIcon className="w-4 h-4" />
-                      Delete
+                      Deactivate
                     </button>
                   </PermissionGuard>
                 </div>

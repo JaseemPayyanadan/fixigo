@@ -4,13 +4,13 @@ import React, { Suspense, useCallback, useEffect, useState } from "react";
 
 import { useRouter, useSearchParams } from "next/navigation";
 
-import { collection, deleteDoc, doc, getDoc, getDocs, query, updateDoc, where } from "firebase/firestore";
-import { MdArrowBack, MdBuild, MdCheckCircle, MdDelete, MdDevices, MdEdit, MdFeedback, MdHistory, MdInfo, MdInventory, MdNotes, MdPerson, MdPrint, MdPriorityHigh, MdRefresh, MdSchedule, MdStar, MdWarning } from "react-icons/md";
+import { collection, deleteDoc, deleteField, doc, getDoc, getDocs, query, updateDoc, where } from "firebase/firestore";
+import { MdArrowBack, MdBuild, MdCheckCircle, MdDelete, MdDevices, MdEdit, MdFeedback, MdHistory, MdInfo, MdInventory, MdNotes, MdPerson, MdPrint, MdPriorityHigh, MdRefresh, MdStar, MdWarning } from "react-icons/md";
 
 import { useUser } from "@/hooks";
 import { authUserToUser } from "@/lib/auth";
 import { db } from "@/lib/firebase";
-import { normalizeStatus } from "@/lib/statusUtils";
+import { getStatusConfig, normalizeStatus } from "@/lib/statusUtils";
 import ServiceForm from "@/components/service/ServiceForm";
 import type { Branch, Technician } from "@/types";
 
@@ -70,26 +70,6 @@ interface StatusHistory {
 
 const STATUS_OPTIONS = ["To Do", "In Progress", "Completed", "Pending", "Cancelled", "Awaiting Parts", "Ready for Pickup"];
 
-const statusColors: Record<string, string> = {
-  "To Do": "bg-blue-50 text-blue-700 border-blue-200",
-  Completed: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  "In Progress": "bg-amber-50 text-amber-700 border-amber-200",
-  Pending: "bg-blue-50 text-blue-700 border-blue-200",
-  Cancelled: "bg-red-50 text-red-700 border-red-200",
-  "Awaiting Parts": "bg-orange-50 text-orange-700 border-orange-200",
-  "Ready for Pickup": "bg-cyan-50 text-cyan-700 border-cyan-200",
-};
-
-const statusIcons: Record<string, React.ReactNode> = {
-  "To Do": <MdSchedule className="w-4 h-4" />,
-  Completed: <MdCheckCircle className="w-4 h-4" />,
-  "In Progress": <MdBuild className="w-4 h-4" />,
-  Pending: <MdSchedule className="w-4 h-4" />,
-  Cancelled: <MdDelete className="w-4 h-4" />,
-  "Awaiting Parts": <MdInfo className="w-4 h-4" />,
-  "Ready for Pickup": <MdCheckCircle className="w-4 h-4" />,
-};
-
 const priorityColors: Record<string, string> = {
   low: "bg-slate-100 text-slate-700 border-slate-200",
   medium: "bg-blue-100 text-blue-700 border-blue-200",
@@ -103,6 +83,34 @@ const priorityIcons: Record<string, React.ReactNode> = {
   high: <MdPriorityHigh className="w-3 h-3" />,
   urgent: <MdPriorityHigh className="w-3 h-3" />,
 };
+
+function displayOptional(value: string | undefined | null): string {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : "—";
+}
+
+function ServiceDetailsSkeleton() {
+  return (
+    <div className="min-h-screen bg-gray-50" role="status">
+      <span className="sr-only">Loading service details...</span>
+      <div className="sticky top-0 z-50 border-b border-gray-100 bg-white shadow-sm">
+        <div className="flex items-center gap-3 px-4 py-3">
+          <div className="h-11 w-11 animate-pulse rounded-lg bg-gray-100 motion-reduce:animate-none" aria-hidden="true" />
+          <div className="h-5 w-36 animate-pulse rounded-lg bg-gray-100 motion-reduce:animate-none" aria-hidden="true" />
+        </div>
+      </div>
+      <div className="space-y-4 p-4">
+        {[0, 1, 2].map((index) => (
+          <div
+            key={index}
+            className="h-32 animate-pulse rounded-2xl bg-gray-100 motion-reduce:animate-none"
+            aria-hidden="true"
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function ServiceDetailsPage() {
   const router = useRouter();
@@ -125,9 +133,9 @@ function ServiceDetailsPage() {
   const [editLoading, setEditLoading] = useState(false);
   const [expandedSections, setExpandedSections] = useState({
     serviceInfo: true,
-    deviceInfo: false,
-    customerInfo: false,
-    technicianInfo: false,
+    deviceInfo: true,
+    customerInfo: true,
+    technicianInfo: true,
     quickInfo: false,
     notes: false,
     parts: false,
@@ -144,16 +152,7 @@ function ServiceDetailsPage() {
         const serviceDoc = await getDoc(doc(db, "services", serviceId));
         if (serviceDoc.exists()) {
           const data = serviceDoc.data();
-          
-          console.log("🔍 Raw service data from Firestore:", {
-            id: serviceDoc.id,
-            name: data.name,
-            branchId: data.branchId,
-            technician_id: data.technician_id,
-            shopId: data.shopId,
-            allFields: Object.keys(data)
-          });
-          
+
           const serviceData: Service = {
             id: serviceDoc.id,
             name: data.name,
@@ -186,22 +185,7 @@ function ServiceDetailsPage() {
             updatedAt: data.updatedAt?.toDate() || new Date(),
           };
           setService(serviceData);
-          const normalizedStatus = normalizeStatus(serviceData.status || "pending");
-          console.log('🔍 Service details status processing:', {
-            originalStatus: serviceData.status,
-            normalizedStatus,
-            serviceId: serviceData.id
-          });
           setStatus(serviceData.status || "To Do");
-          
-          console.log("✅ Final service object:", {
-            id: serviceData.id,
-            name: serviceData.name,
-            branchId: serviceData.branchId,
-            technician_id: serviceData.technician_id,
-            status: serviceData.status
-          });
-          
           // For technicians, always use their assigned branch
           if (user?.role === "technician" && user?.branchId) {
             setBranchId(user.branchId);
@@ -239,25 +223,10 @@ function ServiceDetailsPage() {
     const fetchTechnicians = async () => {
       if (!user?.shopId) return;
       try {
-        const techniciansRef = collection(db, "technicians");
-        const q = query(techniciansRef, where("shopId", "==", user.shopId));
-        const querySnapshot = await getDocs(q);
-        const techniciansData = querySnapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        })) as Technician[];
-        
-        console.log("🔍 Fetched technicians:", {
-          total: techniciansData.length,
-          technicians: techniciansData.map(t => ({
-            id: t.id,
-            name: t.name,
-            userId: t.userId,
-            shopId: t.shopId,
-            branchId: t.branchId
-          }))
-        });
-        
+        const response = await fetch("/api/technicians");
+        if (!response.ok) throw new Error("Failed to fetch technicians");
+        const { technicians: techniciansData } = (await response.json()) as { technicians: Technician[] };
+
         setTechnicians(techniciansData);
       } catch (err) {
         console.error("Error fetching technicians:", err);
@@ -273,15 +242,7 @@ function ServiceDetailsPage() {
   const handleEdit = async (data: { service: { name: string; description: string; price: string; branchId: string; technician_id?: string }; customer: { name: string; phone?: string; place?: string }; device: { brand: string; model: string; imei: string; color: string } }) => {
     setError(null);
     setEditLoading(true);
-    
-    console.log("🔍 handleEdit received data:", {
-      service: data.service,
-      customer: data.customer,
-      device: data.device,
-      userRole: user?.role,
-      userBranchId: user?.branchId
-    });
-    
+
     try {
       // For technicians, always use their assigned branch
       const finalBranchId = user?.role === "technician" && user?.branchId ? user.branchId : data.service.branchId;
@@ -297,8 +258,6 @@ function ServiceDetailsPage() {
         status,
         updatedAt: new Date(),
       };
-
-      console.log("🔍 Updating service with data:", updateData);
 
       await updateDoc(doc(db, "services", serviceId!), updateData);
 
@@ -348,11 +307,37 @@ function ServiceDetailsPage() {
 
     if (serviceId) {
       try {
+        const now = new Date();
+
+        // Stamp the moment the job actually finished. Nothing else records it,
+        // and the dashboard dates completed work — and therefore its revenue —
+        // from this field; without it, finished jobs never land on a day.
+        // Moving back out of `completed` clears it, so a mistaken completion
+        // does not leave a false timestamp behind.
+        const isCompleted = normalizeStatus(newStatus) === "completed";
+
         await updateDoc(doc(db, "services", serviceId), {
           status: newStatus,
-          updatedAt: new Date(),
+          updatedAt: now,
+          ...(isCompleted
+            ? { completedDate: now, actualCompletion: now }
+            : { completedDate: deleteField(), actualCompletion: deleteField() }),
         });
-        setService((prev) => (prev ? { ...prev, status: newStatus, updatedAt: new Date() } : null));
+
+        // Mirror the same change locally. The panel above renders whenever
+        // `completedDate` is set, so leaving stale state behind would keep
+        // showing a completion date for a job that is no longer completed.
+        setService((prev) =>
+          prev
+            ? {
+                ...prev,
+                status: newStatus,
+                updatedAt: now,
+                completedDate: isCompleted ? now : undefined,
+                actualCompletion: isCompleted ? now : undefined,
+              }
+            : null
+        );
 
         // Add to status history
         const historyEntry: StatusHistory = {
@@ -386,14 +371,7 @@ function ServiceDetailsPage() {
     
     // Use only technician_id field
     const technicianId = service.technician_id;
-    
-    console.log("🔍 Debug getAssignedTechnicianInfo:", {
-      serviceId: service.id,
-      technician_id: technicianId,
-      totalTechnicians: technicians.length,
-      technicianIds: technicians.map(t => ({ id: t.id, name: t.name, userId: t.userId }))
-    });
-    
+
     if (!technicianId) {
       return { name: "Not assigned", id: null, technician: null };
     }
@@ -401,13 +379,7 @@ function ServiceDetailsPage() {
     const technician = technicians.find(
       (t) => t.id === technicianId || t.userId === technicianId
     );
-    
-    console.log("🔍 Technician lookup result:", {
-      technicianId,
-      found: !!technician,
-      technician: technician ? { id: technician.id, name: technician.name } : null
-    });
-    
+
     return {
       name: technician?.name || `Unknown Technician (${technicianId})`,
       id: technicianId,
@@ -432,7 +404,7 @@ function ServiceDetailsPage() {
   };
 
   const formatDate = (date: Date | undefined) => {
-    if (!date) return "Not scheduled";
+    if (!date) return "—";
     return date.toLocaleDateString("en-US", {
       year: "numeric",
       month: "short",
@@ -478,32 +450,29 @@ function ServiceDetailsPage() {
   }, [showDropdown]);
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="text-center">
-          <div className="relative">
-            <div className="animate-spin rounded-full h-12 w-12 border-2 border-blue-200 border-t-blue-600 mx-auto mb-4"></div>
-          </div>
-          <p className="text-slate-600 font-medium">Loading service details...</p>
-        </div>
-      </div>
-    );
+    return <ServiceDetailsSkeleton />;
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="text-center max-w-md mx-auto">
           <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
             <MdWarning className="w-8 h-8 text-red-500" />
           </div>
-          <h2 className="text-xl font-semibold text-slate-900 mb-2">Error Loading Service</h2>
-          <p className="text-slate-600 mb-6">{error}</p>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Error Loading Service</h2>
+          <p className="text-gray-600 mb-6">{error}</p>
           <div className="flex gap-3 justify-center">
-            <button onClick={handleGoBack} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+            <button
+              onClick={handleGoBack}
+              className="inline-flex min-h-11 items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors motion-reduce:transition-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
               Go Back
             </button>
-            <button onClick={handleReload} className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors">
+            <button
+              onClick={handleReload}
+              className="inline-flex min-h-11 items-center px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors motion-reduce:transition-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
               <MdRefresh className="w-4 h-4 inline mr-1" />
               Retry
             </button>
@@ -517,13 +486,17 @@ function ServiceDetailsPage() {
 
   if (editing) {
     return (
-      <div className="min-h-screen bg-white p-6">
+      <div className="min-h-screen bg-gray-50 p-6">
         <div className="max-w-4xl mx-auto">
           <div className="flex items-center mb-6">
-            <button onClick={handleCancelEdit} className="mr-4 p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors">
+            <button
+              onClick={handleCancelEdit}
+              className="mr-4 inline-flex min-h-11 min-w-11 items-center justify-center p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors motion-reduce:transition-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500"
+              aria-label="Cancel edit"
+            >
               <MdArrowBack className="w-6 h-6" />
             </button>
-            <h1 className="text-2xl font-bold text-slate-900">Edit Service</h1>
+            <h1 className="text-2xl font-bold text-gray-900">Edit Service</h1>
           </div>
 
           <ServiceForm
@@ -559,15 +532,7 @@ function ServiceDetailsPage() {
                   branchId: service.branchId || "",
                 },
               };
-              
-              console.log("🔍 ServiceForm initialData:", {
-                service: initialData.service,
-                customer: initialData.customer,
-                device: initialData.device,
-                branches: branches.length,
-                technicians: technicians.length
-              });
-              
+
               return initialData;
             })()}
             onCancelEdit={handleCancelEdit}
@@ -577,33 +542,37 @@ function ServiceDetailsPage() {
     );
   }
 
-  const branchName = branches.find((b) => b.id === service.branchId)?.name || service.branchId;
+  const branchName = branches.find((b) => b.id === service.branchId)?.name || "—";
   const createdAt = service.createdAt ? new Date(service.createdAt) : null;
   const updatedAt = service.updatedAt ? new Date(service.updatedAt) : null;
-  const statusColor = statusColors[status] || "bg-slate-100 text-slate-700 border-slate-200";
-  const statusIcon = statusIcons[status] || <MdInfo className="w-4 h-4" />;
+  const statusConfig = getStatusConfig(status);
   const priorityColor = priorityColors[service.priority || "medium"];
   const priorityIcon = priorityIcons[service.priority || "medium"];
+  const sectionToggleClass =
+    "w-full flex min-h-11 items-center justify-between p-4 text-left hover:bg-gray-50 transition-colors motion-reduce:transition-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500";
+  const cardClass = "rounded-2xl border border-gray-100 bg-white shadow-sm";
+  const chevronClass = (expanded: boolean) =>
+    `w-5 h-5 text-gray-400 transition-transform motion-reduce:transition-none ${expanded ? "rotate-180" : ""}`;
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-gray-50">
       {/* Mobile Header - Sticky */}
-      <div className="sticky top-0 z-50 bg-white border-b border-slate-200 shadow-sm">
+      <div className="sticky top-0 z-50 bg-white border-b border-gray-100 shadow-sm">
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
-            <button 
-              onClick={handleGoBack} 
-              className="p-2 text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors"
+            <button
+              onClick={handleGoBack}
+              className="inline-flex min-h-11 min-w-11 items-center justify-center p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors motion-reduce:transition-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500"
               aria-label="Go back"
             >
               <MdArrowBack className="w-5 h-5" />
             </button>
-            <h1 className="text-lg font-semibold text-slate-900">Service Details</h1>
+            <h1 className="text-lg font-semibold text-gray-900">Service Details</h1>
           </div>
           <div className="relative dropdown-container">
-            <button 
+            <button
               onClick={toggleDropdown}
-              className="p-2 text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors"
+              className="inline-flex min-h-11 min-w-11 items-center justify-center p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors motion-reduce:transition-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500"
               aria-label="More options"
             >
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
@@ -613,44 +582,44 @@ function ServiceDetailsPage() {
             
             {/* Dropdown Menu */}
             {showDropdown && (
-              <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-slate-200 py-1 z-50">
-                <button 
+              <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-50">
+                <button
                   onClick={() => {
                     setShowDropdown(false);
                     handleEditClick();
                   }}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-left text-slate-700 hover:bg-slate-50 transition-colors"
+                  className="w-full flex min-h-11 items-center gap-3 px-4 py-3 text-left text-gray-700 hover:bg-gray-50 transition-colors motion-reduce:transition-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-inset"
                 >
                   <MdEdit className="w-4 h-4 text-blue-600" />
                   <span className="text-sm font-medium">Edit Service</span>
                 </button>
-                <button 
+                <button
                   onClick={() => {
                     setShowDropdown(false);
                     handlePrint();
                   }}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-left text-slate-700 hover:bg-slate-50 transition-colors"
+                  className="w-full flex min-h-11 items-center gap-3 px-4 py-3 text-left text-gray-700 hover:bg-gray-50 transition-colors motion-reduce:transition-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-inset"
                 >
-                  <MdPrint className="w-4 h-4 text-slate-600" />
+                  <MdPrint className="w-4 h-4 text-gray-600" />
                   <span className="text-sm font-medium">Print Details</span>
                 </button>
-                <button 
+                <button
                   onClick={() => {
                     setShowDropdown(false);
                     handleToggleShowHistory();
                   }}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-left text-slate-700 hover:bg-slate-50 transition-colors"
+                  className="w-full flex min-h-11 items-center gap-3 px-4 py-3 text-left text-gray-700 hover:bg-gray-50 transition-colors motion-reduce:transition-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-inset"
                 >
-                  <MdHistory className="w-4 h-4 text-slate-600" />
+                  <MdHistory className="w-4 h-4 text-gray-600" />
                   <span className="text-sm font-medium">View History</span>
                 </button>
-                <hr className="my-1 border-slate-200" />
-                <button 
+                <hr className="my-1 border-gray-100" />
+                <button
                   onClick={() => {
                     setShowDropdown(false);
                     handleDelete();
                   }}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-left text-red-600 hover:bg-red-50 transition-colors"
+                  className="w-full flex min-h-11 items-center gap-3 px-4 py-3 text-left text-red-600 hover:bg-red-50 transition-colors motion-reduce:transition-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-inset"
                 >
                   <MdDelete className="w-4 h-4 text-red-600" />
                   <span className="text-sm font-medium">Delete Service</span>
@@ -663,47 +632,47 @@ function ServiceDetailsPage() {
 
       <div className="p-4 space-y-4">
         {/* Service Summary Card - Hero Section */}
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+        <div className={`${cardClass} p-4`}>
           <div className="space-y-3">
             <div className="flex items-start justify-between">
               <div className="flex-1">
-                <h2 className="text-xl font-bold text-slate-900 mb-2">{service.name}</h2>
+                <h2 className="text-xl font-bold text-gray-900 mb-2">{service.name}</h2>
                 <div className="space-y-1">
-                  <div className="flex items-center gap-2 text-sm text-slate-600">
-                    <span className="font-mono bg-slate-100 px-2 py-1 rounded text-xs">#{service.id.slice(-8)}</span>
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <span className="font-mono bg-gray-100 px-2 py-1 rounded text-xs">#{service.id.slice(-8)}</span>
                   </div>
-                  <div className="flex items-center gap-3 text-xs text-slate-500">
+                  <div className="flex items-center gap-3 text-xs text-gray-500">
                     <div className="flex items-center gap-1">
                       <span className="font-medium">Created:</span>
-                      <span>{createdAt ? createdAt.toLocaleDateString('en-US', { 
-                        month: 'short', 
+                      <span>{createdAt ? createdAt.toLocaleDateString('en-US', {
+                        month: 'short',
                         day: 'numeric',
                         year: 'numeric'
-                      }) : 'Unknown'}</span>
+                      }) : '—'}</span>
                     </div>
                     <span>•</span>
                     <div className="flex items-center gap-1">
                       <span className="font-medium">Updated:</span>
-                      <span>{updatedAt ? updatedAt.toLocaleDateString('en-US', { 
-                        month: 'short', 
+                      <span>{updatedAt ? updatedAt.toLocaleDateString('en-US', {
+                        month: 'short',
                         day: 'numeric',
                         year: 'numeric'
-                      }) : 'Unknown'}</span>
+                      }) : '—'}</span>
                     </div>
                   </div>
                 </div>
               </div>
               <div className="text-right">
                 <div className="text-3xl font-bold text-blue-600">₹{service.price?.toLocaleString()}</div>
-                <div className="text-xs text-slate-500 mt-1">Service Price</div>
+                <div className="text-xs text-gray-500 mt-1">Service Price</div>
               </div>
             </div>
-            
+
             <div className="flex items-center gap-2 flex-wrap">
-              <div className={`${statusColor} flex items-center gap-2 px-3 py-1.5 rounded-lg font-medium text-sm border`}>
-                {statusIcon}
-                <span>{status}</span>
-              </div>
+              <span className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg font-medium text-sm ${statusConfig.color} ${statusConfig.bg}`}>
+                <span aria-hidden="true">{statusConfig.icon}</span>
+                <span>{statusConfig.label}</span>
+              </span>
               <div className={`${priorityColor} flex items-center gap-1 px-2 py-1 rounded-md font-medium text-xs border`}>
                 {priorityIcon}
                 <span>{getPriorityLabel(service.priority || "medium")}</span>
@@ -713,14 +682,14 @@ function ServiceDetailsPage() {
         </div>
 
         {/* Status Update Section */}
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+        <div className={`${cardClass} p-4`}>
           <div className="flex items-center gap-3 mb-3">
-            <span className="text-slate-600 font-medium text-sm">Update Status:</span>
-            <select 
-              value={status} 
-              onChange={handleStatusChange} 
-              disabled={updatingStatus} 
-              className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 bg-white"
+            <span className="text-gray-600 font-medium text-sm">Update Status:</span>
+            <select
+              value={status}
+              onChange={handleStatusChange}
+              disabled={updatingStatus}
+              className="flex-1 min-h-11 cursor-pointer border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 bg-white"
             >
               {STATUS_OPTIONS.map((opt) => (
                 <option key={opt} value={opt}>
@@ -730,8 +699,8 @@ function ServiceDetailsPage() {
             </select>
           </div>
           {updatingStatus && (
-            <div className="flex items-center gap-2 text-sm text-slate-600 bg-slate-50 px-3 py-2 rounded-lg">
-              <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-200 border-t-blue-600"></div>
+            <div className="flex items-center gap-2 text-sm text-gray-600 bg-gray-50 px-3 py-2 rounded-lg">
+              <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-200 border-t-blue-600 motion-reduce:animate-none"></div>
               Updating...
             </div>
           )}
@@ -746,19 +715,19 @@ function ServiceDetailsPage() {
         {/* Collapsible Sections */}
         <div className="space-y-3">
           {/* Service Information */}
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-            <button 
+          <div className={`${cardClass} overflow-hidden`}>
+            <button
               onClick={() => toggleSection('serviceInfo')}
-              className="w-full flex items-center justify-between p-4 text-left hover:bg-slate-50 transition-colors"
+              className={sectionToggleClass}
             >
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
                   <MdBuild className="w-4 h-4 text-blue-600" />
                 </div>
-                <span className="font-semibold text-slate-900">Service Information</span>
+                <span className="font-semibold text-gray-900">Service Information</span>
               </div>
-              <svg 
-                className={`w-5 h-5 text-slate-400 transition-transform ${expandedSections.serviceInfo ? 'rotate-180' : ''}`}
+              <svg
+                className={chevronClass(expandedSections.serviceInfo)}
                 fill="none" 
                 stroke="currentColor" 
                 viewBox="0 0 24 24"
@@ -770,23 +739,23 @@ function ServiceDetailsPage() {
               <div className="px-4 pb-4 space-y-3">
                 <div className="grid grid-cols-1 gap-3">
                   <div>
-                    <div className="text-slate-500 text-xs font-medium mb-1">Service Name</div>
-                    <div className="font-semibold text-slate-900">{service.name}</div>
+                    <div className="text-gray-500 text-xs font-medium mb-1">Service Name</div>
+                    <div className="font-semibold text-gray-900">{service.name}</div>
                   </div>
                   <div>
-                    <div className="text-slate-500 text-xs font-medium mb-1">Branch</div>
-                    <div className="font-semibold text-slate-900">{branchName}</div>
+                    <div className="text-gray-500 text-xs font-medium mb-1">Branch</div>
+                    <div className="font-semibold text-gray-900">{branchName}</div>
                   </div>
                   <div>
-                    <div className="text-slate-500 text-xs font-medium mb-1">Assigned Technician</div>
-                    <div className="font-semibold text-slate-900">
+                    <div className="text-gray-500 text-xs font-medium mb-1">Assigned Technician</div>
+                    <div className="font-semibold text-gray-900">
                       {(() => {
                         const techInfo = getAssignedTechnicianInfo();
                         return (
                           <div className="space-y-1">
                             <div>{techInfo.name}</div>
                             {techInfo.id && (
-                              <div className="text-xs text-slate-500 font-mono bg-slate-100 px-2 py-1 rounded">
+                              <div className="text-xs text-gray-500 font-mono bg-gray-100 px-2 py-1 rounded">
                                 ID: {techInfo.id}
                               </div>
                             )}
@@ -797,15 +766,15 @@ function ServiceDetailsPage() {
                   </div>
                   {service.actualDuration && (
                     <div>
-                      <div className="text-slate-500 text-xs font-medium mb-1">Actual Duration</div>
-                      <div className="font-semibold text-slate-900">{formatDuration(service.actualDuration)}</div>
+                      <div className="text-gray-500 text-xs font-medium mb-1">Actual Duration</div>
+                      <div className="font-semibold text-gray-900">{formatDuration(service.actualDuration)}</div>
                     </div>
                   )}
                 </div>
                 <div>
-                  <div className="text-slate-500 text-xs font-medium mb-1">Description</div>
-                  <div className="font-medium text-slate-900 bg-slate-50 p-3 rounded-lg border border-slate-200 text-sm leading-relaxed">
-                    {service.description || "No description provided"}
+                  <div className="text-gray-500 text-xs font-medium mb-1">Description</div>
+                  <div className="font-medium text-gray-900 bg-gray-50 p-3 rounded-lg border border-gray-100 text-sm leading-relaxed">
+                    {displayOptional(service.description)}
                   </div>
                 </div>
               </div>
@@ -813,19 +782,19 @@ function ServiceDetailsPage() {
           </div>
 
           {/* Device Information */}
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-            <button 
+          <div className={`${cardClass} overflow-hidden`}>
+            <button
               onClick={() => toggleSection('deviceInfo')}
-              className="w-full flex items-center justify-between p-4 text-left hover:bg-slate-50 transition-colors"
+              className={sectionToggleClass}
             >
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
                   <MdDevices className="w-4 h-4 text-green-600" />
                 </div>
-                <span className="font-semibold text-slate-900">Device Information</span>
+                <span className="font-semibold text-gray-900">Device Information</span>
               </div>
-              <svg 
-                className={`w-5 h-5 text-slate-400 transition-transform ${expandedSections.deviceInfo ? 'rotate-180' : ''}`}
+              <svg
+                className={chevronClass(expandedSections.deviceInfo)}
                 fill="none" 
                 stroke="currentColor" 
                 viewBox="0 0 24 24"
@@ -837,34 +806,34 @@ function ServiceDetailsPage() {
               <div className="px-4 pb-4 space-y-3">
                 <div className="grid grid-cols-1 gap-3">
                   <div>
-                    <div className="text-slate-500 text-xs font-medium mb-1">Type</div>
-                    <div className="font-semibold text-slate-900">{service.device?.type || "Not specified"}</div>
+                    <div className="text-gray-500 text-xs font-medium mb-1">Type</div>
+                    <div className="font-semibold text-gray-900">{displayOptional(service.device?.type)}</div>
                   </div>
                   <div>
-                    <div className="text-slate-500 text-xs font-medium mb-1">Brand</div>
-                    <div className="font-semibold text-slate-900">{service.device?.brand || "Not specified"}</div>
+                    <div className="text-gray-500 text-xs font-medium mb-1">Brand</div>
+                    <div className="font-semibold text-gray-900">{displayOptional(service.device?.brand)}</div>
                   </div>
                   <div>
-                    <div className="text-slate-500 text-xs font-medium mb-1">Model</div>
-                    <div className="font-semibold text-slate-900">{service.device?.model || "Not specified"}</div>
+                    <div className="text-gray-500 text-xs font-medium mb-1">Model</div>
+                    <div className="font-semibold text-gray-900">{displayOptional(service.device?.model)}</div>
                   </div>
                   <div>
-                    <div className="text-slate-500 text-xs font-medium mb-1">IMEI</div>
-                    <div className="font-semibold text-slate-900 font-mono bg-slate-50 px-3 py-2 rounded-lg border border-slate-200">
-                      {service.device?.imei || "Not specified"}
+                    <div className="text-gray-500 text-xs font-medium mb-1">IMEI</div>
+                    <div className="font-semibold text-gray-900 font-mono bg-gray-50 px-3 py-2 rounded-lg border border-gray-100">
+                      {displayOptional(service.device?.imei)}
                     </div>
                   </div>
                   {service.device?.color && (
                     <div>
-                      <div className="text-slate-500 text-xs font-medium mb-1">Color</div>
-                      <div className="font-semibold text-slate-900">{service.device.color}</div>
+                      <div className="text-gray-500 text-xs font-medium mb-1">Color</div>
+                      <div className="font-semibold text-gray-900">{service.device.color}</div>
                     </div>
                   )}
                 </div>
                 {service.device?.issue && (
                   <div>
-                    <div className="text-slate-500 text-xs font-medium mb-1">Issue Description</div>
-                    <div className="font-medium text-slate-900 bg-slate-50 p-3 rounded-lg border border-slate-200 text-sm leading-relaxed">
+                    <div className="text-gray-500 text-xs font-medium mb-1">Issue Description</div>
+                    <div className="font-medium text-gray-900 bg-gray-50 p-3 rounded-lg border border-gray-100 text-sm leading-relaxed">
                       {service.device.issue}
                     </div>
                   </div>
@@ -874,19 +843,19 @@ function ServiceDetailsPage() {
           </div>
 
           {/* Customer Information */}
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-            <button 
+          <div className={`${cardClass} overflow-hidden`}>
+            <button
               onClick={() => toggleSection('customerInfo')}
-              className="w-full flex items-center justify-between p-4 text-left hover:bg-slate-50 transition-colors"
+              className={sectionToggleClass}
             >
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
                   <MdPerson className="w-4 h-4 text-purple-600" />
                 </div>
-                <span className="font-semibold text-slate-900">Customer Information</span>
+                <span className="font-semibold text-gray-900">Customer Information</span>
               </div>
-              <svg 
-                className={`w-5 h-5 text-slate-400 transition-transform ${expandedSections.customerInfo ? 'rotate-180' : ''}`}
+              <svg
+                className={chevronClass(expandedSections.customerInfo)}
                 fill="none" 
                 stroke="currentColor" 
                 viewBox="0 0 24 24"
@@ -898,23 +867,23 @@ function ServiceDetailsPage() {
               <div className="px-4 pb-4 space-y-3">
                 <div className="grid grid-cols-1 gap-3">
                   <div>
-                    <div className="text-slate-500 text-xs font-medium mb-1">Name</div>
-                    <div className="font-semibold text-slate-900">{service.customer?.name || "Not specified"}</div>
+                    <div className="text-gray-500 text-xs font-medium mb-1">Name</div>
+                    <div className="font-semibold text-gray-900">{displayOptional(service.customer?.name)}</div>
                   </div>
                   <div>
-                    <div className="text-slate-500 text-xs font-medium mb-1">Phone</div>
-                    <div className="font-semibold text-slate-900">{service.customer?.phone || "Not specified"}</div>
+                    <div className="text-gray-500 text-xs font-medium mb-1">Phone</div>
+                    <div className="font-semibold text-gray-900">{displayOptional(service.customer?.phone)}</div>
                   </div>
                   {service.customer?.email && (
                     <div>
-                      <div className="text-slate-500 text-xs font-medium mb-1">Email</div>
-                      <div className="font-semibold text-slate-900">{service.customer.email}</div>
+                      <div className="text-gray-500 text-xs font-medium mb-1">Email</div>
+                      <div className="font-semibold text-gray-900">{service.customer.email}</div>
                     </div>
                   )}
                   {service.customer?.address && (
                     <div>
-                      <div className="text-slate-500 text-xs font-medium mb-1">Address</div>
-                      <div className="font-semibold text-slate-900">{service.customer.address}</div>
+                      <div className="text-gray-500 text-xs font-medium mb-1">Address</div>
+                      <div className="font-semibold text-gray-900">{service.customer.address}</div>
                     </div>
                   )}
                 </div>
@@ -928,19 +897,19 @@ function ServiceDetailsPage() {
             if (!techInfo.id) return null;
             
             return (
-              <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                <button 
+              <div className={`${cardClass} overflow-hidden`}>
+                <button
                   onClick={() => toggleSection('technicianInfo')}
-                  className="w-full flex items-center justify-between p-4 text-left hover:bg-slate-50 transition-colors"
+                  className={sectionToggleClass}
                 >
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
                       <MdPerson className="w-4 h-4 text-orange-600" />
                     </div>
-                    <span className="font-semibold text-slate-900">Assigned Technician</span>
+                    <span className="font-semibold text-gray-900">Assigned Technician</span>
                   </div>
-                  <svg 
-                    className={`w-5 h-5 text-slate-400 transition-transform ${expandedSections.technicianInfo ? 'rotate-180' : ''}`}
+                  <svg
+                    className={chevronClass(expandedSections.technicianInfo)}
                     fill="none" 
                     stroke="currentColor" 
                     viewBox="0 0 24 24"
@@ -952,25 +921,25 @@ function ServiceDetailsPage() {
                   <div className="px-4 pb-4 space-y-3">
                     <div className="grid grid-cols-1 gap-3">
                       <div>
-                        <div className="text-slate-500 text-xs font-medium mb-1">Name</div>
-                        <div className="font-semibold text-slate-900">{techInfo.name}</div>
+                        <div className="text-gray-500 text-xs font-medium mb-1">Name</div>
+                        <div className="font-semibold text-gray-900">{techInfo.name}</div>
                       </div>
                       <div>
-                        <div className="text-slate-500 text-xs font-medium mb-1">Technician ID</div>
-                        <div className="font-mono text-slate-900 bg-slate-100 px-3 py-2 rounded-lg">
+                        <div className="text-gray-500 text-xs font-medium mb-1">Technician ID</div>
+                        <div className="font-mono text-gray-900 bg-gray-100 px-3 py-2 rounded-lg">
                           {techInfo.id}
                         </div>
                       </div>
                       {techInfo.technician?.phone && (
                         <div>
-                          <div className="text-slate-500 text-xs font-medium mb-1">Phone</div>
-                          <div className="font-semibold text-slate-900">{techInfo.technician.phone}</div>
+                          <div className="text-gray-500 text-xs font-medium mb-1">Phone</div>
+                          <div className="font-semibold text-gray-900">{techInfo.technician.phone}</div>
                         </div>
                       )}
                       {techInfo.technician?.email && (
                         <div>
-                          <div className="text-slate-500 text-xs font-medium mb-1">Email</div>
-                          <div className="font-semibold text-slate-900">{techInfo.technician.email}</div>
+                          <div className="text-gray-500 text-xs font-medium mb-1">Email</div>
+                          <div className="font-semibold text-gray-900">{techInfo.technician.email}</div>
                         </div>
                       )}
                     </div>
@@ -981,19 +950,19 @@ function ServiceDetailsPage() {
           })()}
 
           {/* Quick Info */}
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-            <button 
+          <div className={`${cardClass} overflow-hidden`}>
+            <button
               onClick={() => toggleSection('quickInfo')}
-              className="w-full flex items-center justify-between p-4 text-left hover:bg-slate-50 transition-colors"
+              className={sectionToggleClass}
             >
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center">
-                  <MdInfo className="w-4 h-4 text-slate-600" />
+                <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
+                  <MdInfo className="w-4 h-4 text-gray-600" />
                 </div>
-                <span className="font-semibold text-slate-900">Quick Info</span>
+                <span className="font-semibold text-gray-900">Quick Info</span>
               </div>
-              <svg 
-                className={`w-5 h-5 text-slate-400 transition-transform ${expandedSections.quickInfo ? 'rotate-180' : ''}`}
+              <svg
+                className={chevronClass(expandedSections.quickInfo)}
                 fill="none" 
                 stroke="currentColor" 
                 viewBox="0 0 24 24"
@@ -1004,13 +973,13 @@ function ServiceDetailsPage() {
             {expandedSections.quickInfo && (
               <div className="px-4 pb-4 space-y-3">
                 <div className="grid grid-cols-1 gap-3">
-                  <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
-                    <div className="text-slate-500 text-xs font-medium mb-1">Created</div>
-                    <div className="font-semibold text-slate-900 text-sm">{createdAt ? createdAt.toLocaleDateString() : "-"}</div>
+                  <div className="p-3 bg-gray-50 rounded-lg border border-gray-100">
+                    <div className="text-gray-500 text-xs font-medium mb-1">Created</div>
+                    <div className="font-semibold text-gray-900 text-sm">{createdAt ? createdAt.toLocaleDateString() : "—"}</div>
                   </div>
-                  <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
-                    <div className="text-slate-500 text-xs font-medium mb-1">Last Updated</div>
-                    <div className="font-semibold text-slate-900 text-sm">{updatedAt ? updatedAt.toLocaleDateString() : "-"}</div>
+                  <div className="p-3 bg-gray-50 rounded-lg border border-gray-100">
+                    <div className="text-gray-500 text-xs font-medium mb-1">Last Updated</div>
+                    <div className="font-semibold text-gray-900 text-sm">{updatedAt ? updatedAt.toLocaleDateString() : "—"}</div>
                   </div>
                   {service.scheduledDate && (
                     <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
@@ -1040,19 +1009,19 @@ function ServiceDetailsPage() {
 
           {/* Notes and Work Notes */}
           {(service.notes || (service.workNotes && service.workNotes.length > 0)) && (
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-              <button 
+            <div className={`${cardClass} overflow-hidden`}>
+              <button
                 onClick={() => toggleSection('notes')}
-                className="w-full flex items-center justify-between p-4 text-left hover:bg-slate-50 transition-colors"
+                className={sectionToggleClass}
               >
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center">
                     <MdNotes className="w-4 h-4 text-amber-600" />
                   </div>
-                  <span className="font-semibold text-slate-900">Notes & Work Notes</span>
+                  <span className="font-semibold text-gray-900">Notes & Work Notes</span>
                 </div>
-                <svg 
-                  className={`w-5 h-5 text-slate-400 transition-transform ${expandedSections.notes ? 'rotate-180' : ''}`}
+                <svg
+                  className={chevronClass(expandedSections.notes)}
                   fill="none" 
                   stroke="currentColor" 
                   viewBox="0 0 24 24"
@@ -1064,19 +1033,19 @@ function ServiceDetailsPage() {
                 <div className="px-4 pb-4 space-y-3">
                   {service.notes && (
                     <div>
-                      <div className="text-slate-500 text-xs font-medium mb-1">General Notes</div>
-                      <div className="font-medium text-slate-900 bg-slate-50 p-3 rounded-lg border border-slate-200 text-sm leading-relaxed">
+                      <div className="text-gray-500 text-xs font-medium mb-1">General Notes</div>
+                      <div className="font-medium text-gray-900 bg-gray-50 p-3 rounded-lg border border-gray-100 text-sm leading-relaxed">
                         {service.notes}
                       </div>
                     </div>
                   )}
                   {service.workNotes && service.workNotes.length > 0 && (
                     <div>
-                      <div className="text-slate-500 text-xs font-medium mb-2">Work Notes</div>
+                      <div className="text-gray-500 text-xs font-medium mb-2">Work Notes</div>
                       <div className="space-y-2">
                         {service.workNotes.map((note, index) => (
                           <div key={`worknote-${index}-${note.substring(0, 10)}`} className="bg-blue-50 p-3 rounded-lg border-l-4 border-blue-500">
-                            <div className="font-medium text-slate-900 text-sm leading-relaxed">{note}</div>
+                            <div className="font-medium text-gray-900 text-sm leading-relaxed">{note}</div>
                           </div>
                         ))}
                       </div>
@@ -1089,19 +1058,19 @@ function ServiceDetailsPage() {
 
           {/* Parts Used */}
           {service.partsUsed && service.partsUsed.length > 0 && (
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-              <button 
+            <div className={`${cardClass} overflow-hidden`}>
+              <button
                 onClick={() => toggleSection('parts')}
-                className="w-full flex items-center justify-between p-4 text-left hover:bg-slate-50 transition-colors"
+                className={sectionToggleClass}
               >
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center">
                     <MdInventory className="w-4 h-4 text-emerald-600" />
                   </div>
-                  <span className="font-semibold text-slate-900">Parts Used</span>
+                  <span className="font-semibold text-gray-900">Parts Used</span>
                 </div>
-                <svg 
-                  className={`w-5 h-5 text-slate-400 transition-transform ${expandedSections.parts ? 'rotate-180' : ''}`}
+                <svg
+                  className={chevronClass(expandedSections.parts)}
                   fill="none" 
                   stroke="currentColor" 
                   viewBox="0 0 24 24"
@@ -1112,12 +1081,12 @@ function ServiceDetailsPage() {
               {expandedSections.parts && (
                 <div className="px-4 pb-4 space-y-2">
                   {service.partsUsed.map((part, index) => (
-                    <div key={`part-${index}-${part.name}`} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-200">
+                    <div key={`part-${index}-${part.name}`} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100">
                       <div>
-                        <div className="font-semibold text-slate-900 text-sm">{part.name}</div>
-                        <div className="text-xs text-slate-500">Quantity: {part.quantity}</div>
+                        <div className="font-semibold text-gray-900 text-sm">{part.name}</div>
+                        <div className="text-xs text-gray-500">Quantity: {part.quantity}</div>
                       </div>
-                      <div className="font-bold text-slate-900">₹{part.cost.toLocaleString()}</div>
+                      <div className="font-bold text-gray-900">₹{part.cost.toLocaleString()}</div>
                     </div>
                   ))}
                 </div>
@@ -1127,19 +1096,19 @@ function ServiceDetailsPage() {
 
           {/* Customer Feedback */}
           {service.customerFeedback && (
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-              <button 
+            <div className={`${cardClass} overflow-hidden`}>
+              <button
                 onClick={() => toggleSection('feedback')}
-                className="w-full flex items-center justify-between p-4 text-left hover:bg-slate-50 transition-colors"
+                className={sectionToggleClass}
               >
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 bg-yellow-100 rounded-lg flex items-center justify-center">
                     <MdFeedback className="w-4 h-4 text-yellow-600" />
                   </div>
-                  <span className="font-semibold text-slate-900">Customer Feedback</span>
+                  <span className="font-semibold text-gray-900">Customer Feedback</span>
                 </div>
-                <svg 
-                  className={`w-5 h-5 text-slate-400 transition-transform ${expandedSections.feedback ? 'rotate-180' : ''}`}
+                <svg
+                  className={chevronClass(expandedSections.feedback)}
                   fill="none" 
                   stroke="currentColor" 
                   viewBox="0 0 24 24"
@@ -1150,19 +1119,19 @@ function ServiceDetailsPage() {
               {expandedSections.feedback && (
                 <div className="px-4 pb-4 space-y-3">
                   <div className="flex items-center gap-3">
-                    <span className="text-slate-600 font-medium text-sm">Rating:</span>
+                    <span className="text-gray-600 font-medium text-sm">Rating:</span>
                     <div className="flex items-center gap-1">{renderStars(service.customerFeedback.rating)}</div>
-                    <span className="text-sm font-semibold text-slate-900">({service.customerFeedback.rating}/5)</span>
+                    <span className="text-sm font-semibold text-gray-900">({service.customerFeedback.rating}/5)</span>
                   </div>
                   {service.customerFeedback.comment && (
                     <div>
-                      <div className="text-slate-500 text-xs font-medium mb-1">Comment</div>
-                      <div className="font-medium text-slate-900 bg-slate-50 p-3 rounded-lg border border-slate-200 text-sm leading-relaxed">
+                      <div className="text-gray-500 text-xs font-medium mb-1">Comment</div>
+                      <div className="font-medium text-gray-900 bg-gray-50 p-3 rounded-lg border border-gray-100 text-sm leading-relaxed">
                         {service.customerFeedback.comment}
                       </div>
                     </div>
                   )}
-                  <div className="text-xs text-slate-500 bg-slate-100 px-3 py-2 rounded-lg">
+                  <div className="text-xs text-gray-500 bg-gray-100 px-3 py-2 rounded-lg">
                     Date: {service.customerFeedback.date.toLocaleDateString()}
                   </div>
                 </div>
@@ -1171,19 +1140,19 @@ function ServiceDetailsPage() {
           )}
 
           {/* Status History */}
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-            <button 
+          <div className={`${cardClass} overflow-hidden`}>
+            <button
               onClick={() => toggleSection('history')}
-              className="w-full flex items-center justify-between p-4 text-left hover:bg-slate-50 transition-colors"
+              className={sectionToggleClass}
             >
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
                   <MdHistory className="w-4 h-4 text-blue-600" />
                 </div>
-                <span className="font-semibold text-slate-900">Status History</span>
+                <span className="font-semibold text-gray-900">Status History</span>
               </div>
-              <svg 
-                className={`w-5 h-5 text-slate-400 transition-transform ${expandedSections.history ? 'rotate-180' : ''}`}
+              <svg
+                className={chevronClass(expandedSections.history)}
                 fill="none" 
                 stroke="currentColor" 
                 viewBox="0 0 24 24"
@@ -1194,18 +1163,20 @@ function ServiceDetailsPage() {
             {expandedSections.history && (
               <div className="px-4 pb-4 space-y-2">
                 {statusHistory.length > 0 ? (
-                  statusHistory.map((entry, index) => (
-                    <div key={`history-${entry.status}-${entry.timestamp.getTime()}-${index}`} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-200">
+                  statusHistory.map((entry, index) => {
+                    const entryStatus = getStatusConfig(entry.status);
+                    return (
+                    <div key={`history-${entry.status}-${entry.timestamp.getTime()}-${index}`} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100">
                       <div className="flex items-center gap-3">
-                        <div className={`${statusColors[entry.status]} px-2 py-1 rounded text-xs font-semibold border`}>
-                          {entry.status}
-                        </div>
-                        <div className="flex items-center gap-1 text-slate-600">
-                          <MdPerson className="w-3 h-3 text-slate-400" />
+                        <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-semibold ${entryStatus.color} ${entryStatus.bg}`}>
+                          {entryStatus.label}
+                        </span>
+                        <div className="flex items-center gap-1 text-gray-600">
+                          <MdPerson className="w-3 h-3 text-gray-400" />
                           <span className="font-medium text-xs">{entry.updatedBy}</span>
                         </div>
                       </div>
-                      <div className="text-xs text-slate-500 bg-white px-2 py-1 rounded border border-slate-200">
+                      <div className="text-xs text-gray-500 bg-white px-2 py-1 rounded border border-gray-100">
                         {entry.timestamp.toLocaleString('en-US', {
                           month: 'short',
                           day: 'numeric',
@@ -1214,12 +1185,13 @@ function ServiceDetailsPage() {
                         })}
                       </div>
                     </div>
-                  ))
+                    );
+                  })
                 ) : (
                   <div className="text-center py-6">
-                    <MdHistory className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                    <p className="text-slate-500 text-sm font-medium">No status history available</p>
-                    <p className="text-slate-400 text-xs">Status changes will appear here</p>
+                    <MdHistory className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                    <p className="text-gray-500 text-sm font-medium">No status history available</p>
+                    <p className="text-gray-400 text-xs">Status changes will appear here</p>
                   </div>
                 )}
               </div>
@@ -1233,16 +1205,7 @@ function ServiceDetailsPage() {
 
 export default function ServiceDetailsPageWrapper() {
   return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen bg-white flex items-center justify-center">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-2 border-blue-200 border-t-blue-600 mx-auto mb-4"></div>
-            <p className="text-slate-600 font-medium">Loading service details...</p>
-          </div>
-        </div>
-      }
-    >
+    <Suspense fallback={<ServiceDetailsSkeleton />}>
       <ServiceDetailsPage />
     </Suspense>
   );

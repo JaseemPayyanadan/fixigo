@@ -5,6 +5,7 @@ import { collection, query, where, getDocs, addDoc, updateDoc, doc, deleteDoc, o
 
 import { db } from "@/lib/firebase";
 import { logger } from "@/lib/logger";
+import { mapServiceDoc } from "@/lib/serviceMapper";
 import type { Service } from "@/types";
 
 import { useUser } from "./useUser";
@@ -38,31 +39,11 @@ export function useServices(shopId?: string, branchId?: string) {
   }), [shopId, branchId, user?.shopId, user?.role, user?.id]);
 
   // Memoized service transformation function
-  const transformServiceData = useCallback((docSnapshot: any, data: any): Service => {
-    return {
-      id: docSnapshot.id,
-      name: data.name || "",
-      description: data.description || "",
-      customer: data.customer || {},
-      device: data.device || {},
-      status: data.status || "pending",
-      priority: data.priority || "medium",
-            shopId: data.shopId || "",
-      branchId: data.branchId || "",
-      price: data.price || 0,
-
-      actualDuration: data.actualDuration || 0,
-      technician_id: data.technician_id || "",
-      estimatedCompletion: data.estimatedCompletion?.toDate() || new Date(),
-      actualCompletion: data.actualCompletion?.toDate() || new Date(),
-      workNotes: data.workNotes || [],
-      partsUsed: data.partsUsed || [],
-      customerFeedback: data.customerFeedback || {},
-      qualityScore: data.qualityScore || 0,
-      createdAt: data.createdAt?.toDate() || new Date(),
-      updatedAt: data.updatedAt?.toDate() || new Date(),
-    };
-  }, []);
+  const transformServiceData = useCallback(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (docSnapshot: any, data: any): Service => mapServiceDoc(docSnapshot.id, data),
+    []
+  );
 
   // Memoized fetch function
   const fetchServices = useCallback(async () => {
