@@ -8,6 +8,27 @@ export const TECHNICIANS = "technicians";
 export const USERS = "users";
 export const BRANCHES = "branches"; // top-level, NOT shops/{id}/branches
 
+/**
+ * Every write here goes through `adminDb`, which uses a service account and so
+ * bypasses firestore.rules entirely — tenant isolation is this layer's job and
+ * nothing below it will catch a mistake. `branchId` arrives from the request
+ * body, and the API-layer role check (`assertCanWriteTechnician`) only compares
+ * shops; it cannot tell whether a branch belongs to the caller's shop. Without
+ * this guard a shop_admin could name any branch id and write into another
+ * shop's `members` array. Fails closed on a branch with no `shopId`: a branch
+ * whose owner cannot be established has not been shown to be ours.
+ */
+function assertBranchInShop(
+  branchSnap: FirebaseFirestore.DocumentSnapshot,
+  shopId: string,
+  branchId: string
+): void {
+  const branchShopId = (branchSnap.data() as Record<string, unknown> | undefined)?.shopId;
+  if (!branchShopId || branchShopId !== shopId) {
+    throw new ApiError(403, `Branch ${branchId} does not belong to this shop`);
+  }
+}
+
 function toDate(value: unknown): Date {
   if (value instanceof Date) return value;
   if (value && typeof (value as { toDate?: unknown }).toDate === "function") {
@@ -106,6 +127,7 @@ export async function createTechnician(
     if (!branchSnap.exists) {
       throw new ApiError(400, `Branch ${input.branchId} does not exist`);
     }
+    assertBranchInShop(branchSnap, input.shopId, input.branchId);
 
     tx.set(userRef, {
       name: input.name,
@@ -220,8 +242,14 @@ export async function updateTechnician(
       : currentBranchRef;
     const destBranchSnap = branchChanged ? await tx.get(destBranchRef!) : currentBranchSnap;
 
-    if (branchChanged && !destBranchSnap?.exists) {
-      throw new ApiError(400, `Branch ${nextBranchId} does not exist`);
+    if (branchChanged) {
+      if (!destBranchSnap?.exists) {
+        throw new ApiError(400, `Branch ${nextBranchId} does not exist`);
+      }
+      // Scoped against the technician's OWN shopId as stored in Firestore, not
+      // anything the request supplied, so a caller cannot move a technician
+      // into a branch outside the shop that technician already belongs to.
+      assertBranchInShop(destBranchSnap, current.shopId, nextBranchId);
     }
 
     // ---- WRITES ----------------------------------------------------------

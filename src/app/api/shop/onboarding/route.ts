@@ -23,10 +23,33 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid session" }, { status: 401 });
     }
 
-    // Get complete user data
+    // Get complete user data. Both checks below read this stored record rather
+    // than the token: a session minted at signup predates onboarding, so its
+    // `shopId` is always stale, and trusting the token's `role` would let a
+    // pre-whitelist JWT through.
     const user = await getUserById(tokenUser.id);
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    // Onboarding is the shop-owner signup step. Any other role was created by
+    // an admin and already belongs to that admin's shop; running this would
+    // mint an unauthorised shop and silently move them out of their current one.
+    if (user.role !== "shop_admin") {
+      return NextResponse.json(
+        { error: "Only a shop admin can complete shop onboarding" },
+        { status: 403 }
+      );
+    }
+
+    // Onboarding is once per account. Re-running it previously overwrote the
+    // caller's `shopId` with a brand-new shop, detaching them from their own
+    // data and leaving their users/technicians records disagreeing.
+    if (user.shopId) {
+      return NextResponse.json(
+        { error: "This account already has a shop" },
+        { status: 409 }
+      );
     }
 
     // Get shop data from request
