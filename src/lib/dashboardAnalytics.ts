@@ -400,6 +400,30 @@ export function summarize(services: Service[]): MetricSummary {
   };
 }
 
+/**
+ * All-time revenue: the sum of prices across every completed service.
+ *
+ * A service counts as paid once it reaches `completed` — that is the only
+ * settlement signal stored on a service today, so completion and payment are
+ * the same event as far as the data goes. Cancelled and in-flight work is
+ * excluded: it may never be billed at all.
+ *
+ * Unlike `metricsForDay`, this needs no completion timestamp, so revenue from
+ * services completed before `completedDate` was backfilled still lands in the
+ * total instead of silently disappearing.
+ */
+export function totalRevenue(services: Service[]): number {
+  let revenue = 0;
+
+  for (const service of services) {
+    if (bucketKeyFor(service.status) !== "completed") continue;
+    const price = Number(service.price);
+    if (Number.isFinite(price)) revenue += price;
+  }
+
+  return revenue;
+}
+
 // ---------------------------------------------------------------------------
 // Pipeline, today-tiles, technician performance, weekly bars and insights.
 // These back the redesigned admin dashboard; see

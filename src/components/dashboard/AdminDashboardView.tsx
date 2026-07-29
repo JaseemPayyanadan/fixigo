@@ -13,6 +13,7 @@ import {
   pipelineBreakdown,
   technicianPerformance,
   topServices,
+  totalRevenue,
   weeklySeries,
   type DashboardPeriod,
 } from "@/lib/dashboardAnalytics";
@@ -162,13 +163,17 @@ export function AdminDashboardView({
 }
 
 /**
- * The KPI row is day-scoped — "Revenue today", compared against yesterday —
- * rather than period-scoped. A month-over-month comparison has no answer until
- * a shop has been trading for two months, so every card would read as a dash
- * on a young shop, which looks broken rather than honest. Day-over-day always
- * has an answer once there is a day of history.
+ * The KPI row is day-scoped — compared against yesterday — rather than
+ * period-scoped. A month-over-month comparison has no answer until a shop has
+ * been trading for two months, so every card would read as a dash on a young
+ * shop, which looks broken rather than honest. Day-over-day always has an
+ * answer once there is a day of history.
  *
- * Sparklines plot the last 14 days of the same measure.
+ * Total Revenue is the exception: it is all-time earnings from paid (completed)
+ * work, so its sparkline plots the running total across the last 14 days and
+ * its delta is how much that total grew yesterday-close to today.
+ *
+ * The other sparklines plot the last 14 days of the same measure.
  *
  * Ready for Delivery and Delayed Jobs still carry no delta: only a service's
  * *current* status is stored, so there is no way to know how many sat in
@@ -191,15 +196,23 @@ function buildMetrics(services: Service[], now: Date): StatCardProps[] {
     (service) => normalizeStatus(service.status) === "ready_for_pickup"
   ).length;
 
+  const revenue = totalRevenue(services);
+  // The 14-day window only holds recent takings, so the running total starts
+  // from whatever was already earned before the window opened. That keeps the
+  // line ending exactly on the figure printed above it.
+  const windowRevenue = days.reduce((sum, day) => sum + day.revenue, 0);
+  let running = revenue - windowRevenue;
+  const revenueTrend = days.map((day) => (running += day.revenue));
+
   return [
     {
-      label: "Revenue Today",
-      value: formatCurrency(today.revenue),
+      label: "Total Revenue",
+      value: formatCurrency(revenue),
       icon: IndianRupee,
       iconClassName: "bg-violet-600",
       color: "#7c3aed",
-      trend: days.map((day) => day.revenue),
-      delta: periodDelta(today.revenue, yesterday.revenue),
+      trend: revenueTrend,
+      delta: periodDelta(revenue, revenue - today.revenue),
     },
     {
       label: "Devices in Shop",
