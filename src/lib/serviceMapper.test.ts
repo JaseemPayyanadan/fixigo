@@ -33,6 +33,27 @@ describe("readOptionalDate", () => {
   });
 });
 
+describe("mapServiceDoc payment fields", () => {
+  it("reads a stored payment flag and timestamp", () => {
+    const paidAt = new Date(2026, 6, 22);
+    const service = mapServiceDoc("s1", { paymentStatus: "paid", paidAt: ts(paidAt) }, NOW);
+
+    expect(service.paymentStatus).toBe("paid");
+    expect(service.paidAt).toEqual(paidAt);
+  });
+
+  it("leaves the flag undefined on documents that predate payment tracking", () => {
+    const service = mapServiceDoc("s1", { status: "completed" }, NOW);
+
+    expect(service.paymentStatus).toBeUndefined();
+    expect(service.paidAt).toBeUndefined();
+  });
+
+  it("ignores a payment status it does not recognise", () => {
+    expect(mapServiceDoc("s1", { paymentStatus: "refunded" }, NOW).paymentStatus).toBeUndefined();
+  });
+});
+
 describe("mapServiceDoc", () => {
   it("leaves absent completion dates absent rather than defaulting them to now", () => {
     const service = mapServiceDoc("s1", { status: "completed" }, NOW);

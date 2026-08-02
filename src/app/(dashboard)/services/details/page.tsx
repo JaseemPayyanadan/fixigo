@@ -5,11 +5,13 @@ import React, { Suspense, useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { collection, deleteDoc, deleteField, doc, getDoc, getDocs, query, updateDoc, where } from "firebase/firestore";
-import { MdArrowBack, MdBuild, MdCheckCircle, MdDelete, MdDevices, MdEdit, MdFeedback, MdHistory, MdInfo, MdInventory, MdNotes, MdPerson, MdPrint, MdPriorityHigh, MdRefresh, MdStar, MdWarning } from "react-icons/md";
+import { MdArrowBack, MdBuild, MdCheckCircle, MdDelete, MdDevices, MdEdit, MdFeedback, MdHistory, MdInfo, MdInventory, MdNotes, MdPayments, MdPerson, MdPrint, MdPriorityHigh, MdRefresh, MdStar, MdWarning } from "react-icons/md";
 
 import { useUser } from "@/hooks";
 import { authUserToUser } from "@/lib/auth";
 import { db } from "@/lib/firebase";
+import { isPaid, type ServicePaymentStatus } from "@/lib/paymentUtils";
+import { setServicePayment } from "@/lib/servicePayments";
 import { getStatusConfig, normalizeStatus } from "@/lib/statusUtils";
 import ServiceForm from "@/components/service/ServiceForm";
 import type { Branch, Technician } from "@/types";
@@ -45,6 +47,8 @@ interface Service {
   qualityScore?: number;
   estimatedCompletion?: Date;
   actualCompletion?: Date;
+  paymentStatus?: ServicePaymentStatus;
+  paidAt?: Date;
   device?: {
     model: string;
     brand: string;
@@ -130,6 +134,10 @@ function ServiceDetailsPage() {
   const [statusHistory, setStatusHistory] = useState<StatusHistory[]>([]);
   const [showHistory, setShowHistory] = useState(false);
   const [statusUpdateSuccess, setStatusUpdateSuccess] = useState(false);
+  const [updatingPayment, setUpdatingPayment] = useState(false);
+  // Set when a job is marked completed while payment is still outstanding, so
+  // the payment card asks for the money at the moment of handover.
+  const [promptForPayment, setPromptForPayment] = useState(false);
   const [editLoading, setEditLoading] = useState(false);
   const [expandedSections, setExpandedSections] = useState({
     serviceInfo: true,
@@ -181,6 +189,10 @@ function ServiceDetailsPage() {
             qualityScore: data.qualityScore,
             estimatedCompletion: data.estimatedCompletion?.toDate(),
             actualCompletion: data.actualCompletion?.toDate(),
+            // Left absent when the document predates payment tracking, so
+            // `isPaid` can fall back to the work status.
+            paymentStatus: data.paymentStatus === "paid" || data.paymentStatus === "pending" ? data.paymentStatus : undefined,
+            paidAt: data.paidAt?.toDate(),
             createdAt: data.createdAt?.toDate() || new Date(),
             updatedAt: data.updatedAt?.toDate() || new Date(),
           };
@@ -316,12 +328,20 @@ function ServiceDetailsPage() {
         // does not leave a false timestamp behind.
         const isCompleted = normalizeStatus(newStatus) === "completed";
 
+        // Completing a job now records payment as explicitly outstanding when
+        // nothing has been recorded yet. Services with no flag at all are read
+        // as paid-if-completed — the right call for work settled before this
+        // existed, but wrong for a job being completed right now, which would
+        // otherwise book revenue nobody has collected.
+        const recordsPaymentPending = isCompleted && !service?.paymentStatus;
+
         await updateDoc(doc(db, "services", serviceId), {
           status: newStatus,
           updatedAt: now,
           ...(isCompleted
             ? { completedDate: now, actualCompletion: now }
             : { completedDate: deleteField(), actualCompletion: deleteField() }),
+          ...(recordsPaymentPending ? { paymentStatus: "pending" } : {}),
         });
 
         // Mirror the same change locally. The panel above renders whenever
@@ -335,6 +355,7 @@ function ServiceDetailsPage() {
                 updatedAt: now,
                 completedDate: isCompleted ? now : undefined,
                 actualCompletion: isCompleted ? now : undefined,
+                paymentStatus: recordsPaymentPending ? "pending" : prev.paymentStatus,
               }
             : null
         );
@@ -348,6 +369,13 @@ function ServiceDetailsPage() {
         setStatusHistory((prev) => [historyEntry, ...prev]);
         setStatusUpdateSuccess(true);
         setTimeout(() => setStatusUpdateSuccess(false), 3000); // Hide success message after 3 seconds
+
+        // Handover is when the money normally changes hands, so ask — but only
+        // ask. Completing a job is not proof the customer paid, and silently
+        // marking it paid would put takings on the dashboard that the shop may
+        // never have received.
+        const readyToCollect = isCompleted || normalizeStatus(newStatus) === "ready_for_pickup";
+        setPromptForPayment(readyToCollect && service?.paymentStatus !== "paid");
       } catch (err) {
         console.error("Error updating status:", err);
         setStatus(service?.status || "To Do"); // Revert on error
@@ -355,6 +383,22 @@ function ServiceDetailsPage() {
       } finally {
         setUpdatingStatus(false);
       }
+    }
+  };
+
+  const handlePaymentChange = async (paid: boolean) => {
+    if (!serviceId) return;
+    setUpdatingPayment(true);
+
+    try {
+      const write = await setServicePayment(serviceId, paid);
+      setService((prev) => (prev ? { ...prev, ...write, paidAt: write.paidAt, updatedAt: new Date() } : null));
+      setPromptForPayment(false);
+    } catch (err) {
+      console.error("Error updating payment:", err);
+      setError("Failed to update payment. Please try again.");
+    } finally {
+      setUpdatingPayment(false);
     }
   };
 
@@ -546,6 +590,7 @@ function ServiceDetailsPage() {
   const createdAt = service.createdAt ? new Date(service.createdAt) : null;
   const updatedAt = service.updatedAt ? new Date(service.updatedAt) : null;
   const statusConfig = getStatusConfig(status);
+  const servicePaid = isPaid({ ...service, status });
   const priorityColor = priorityColors[service.priority || "medium"];
   const priorityIcon = priorityIcons[service.priority || "medium"];
   const sectionToggleClass =
@@ -708,6 +753,59 @@ function ServiceDetailsPage() {
             <div className="flex items-center gap-2 text-sm text-green-600 bg-green-50 px-3 py-2 rounded-lg">
               <MdCheckCircle className="w-4 h-4" />
               Status updated successfully!
+            </div>
+          )}
+        </div>
+
+        {/* Payment. Drives Total Revenue on the dashboard, which counts paid
+            repairs only — hence its own card rather than a line in Quick Info. */}
+        <div className={`${cardClass} p-4`}>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${servicePaid ? "bg-emerald-100" : "bg-amber-100"}`}>
+                <MdPayments className={`w-4 h-4 ${servicePaid ? "text-emerald-600" : "text-amber-600"}`} />
+              </div>
+              <div>
+                <p className="font-semibold text-gray-900 text-sm">Payment</p>
+                <p className="text-xs text-gray-500">
+                  {servicePaid
+                    ? `₹${service.price?.toLocaleString()} received${
+                        service.paidAt
+                          ? ` on ${service.paidAt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`
+                          : ""
+                      }`
+                    : `₹${service.price?.toLocaleString()} outstanding`}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium text-sm ${
+                  servicePaid ? "text-emerald-700 bg-emerald-50" : "text-amber-700 bg-amber-50"
+                }`}
+              >
+                {servicePaid ? "Paid" : "Unpaid"}
+              </span>
+              <button
+                type="button"
+                onClick={() => handlePaymentChange(!servicePaid)}
+                disabled={updatingPayment}
+                className={`min-h-11 cursor-pointer rounded-lg px-4 py-2 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 ${
+                  servicePaid
+                    ? "border border-gray-300 text-gray-700 hover:bg-gray-50"
+                    : "bg-emerald-600 text-white hover:bg-emerald-700"
+                }`}
+              >
+                {updatingPayment ? "Saving..." : servicePaid ? "Mark as Unpaid" : "Mark as Paid"}
+              </button>
+            </div>
+          </div>
+
+          {promptForPayment && !servicePaid && (
+            <div className="mt-3 flex items-center gap-2 text-sm text-amber-700 bg-amber-50 px-3 py-2 rounded-lg">
+              <MdWarning className="w-4 h-4 shrink-0" />
+              Device is ready to hand over — did the customer pay? It will not count towards revenue until marked.
             </div>
           )}
         </div>

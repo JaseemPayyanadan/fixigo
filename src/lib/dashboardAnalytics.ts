@@ -5,6 +5,7 @@
 // keeps the date-bucketing and percentage maths testable, which is where this
 // kind of code usually goes quietly wrong.
 
+import { countsAsRevenue, revenueDateOf } from "@/lib/paymentUtils";
 import { normalizeStatus } from "@/lib/statusUtils";
 import type { Service, Technician } from "@/types";
 
@@ -367,7 +368,7 @@ export interface MetricSummary {
   pendingServices: number;
   completedServices: number;
   activeServices: number;
-  /** Sum of prices for completed services only. */
+  /** Sum of prices for services that have been paid for. */
   revenue: number;
 }
 
@@ -378,17 +379,18 @@ export function summarize(services: Service[]): MetricSummary {
   let revenue = 0;
 
   for (const service of services) {
+    // Revenue is recognised on completion: finishing the job books its price,
+    // and so does taking payment before handover. See `countsAsRevenue` for
+    // what that does and does not claim.
+    if (countsAsRevenue(service)) {
+      const price = Number(service.price);
+      if (Number.isFinite(price)) revenue += price;
+    }
+
     const bucket = bucketKeyFor(service.status);
     if (bucket === "in_progress") activeServices += 1;
     if (bucket === "to_do") pendingServices += 1;
-    if (bucket !== "completed") continue;
-
-    completedServices += 1;
-
-    // Revenue is only earned once the job is done — work still in progress or
-    // waiting in the queue may never be billed at all.
-    const price = Number(service.price);
-    if (Number.isFinite(price)) revenue += price;
+    if (bucket === "completed") completedServices += 1;
   }
 
   return {
@@ -398,30 +400,6 @@ export function summarize(services: Service[]): MetricSummary {
     activeServices,
     revenue,
   };
-}
-
-/**
- * All-time revenue: the sum of prices across every completed service.
- *
- * A service counts as paid once it reaches `completed` — that is the only
- * settlement signal stored on a service today, so completion and payment are
- * the same event as far as the data goes. Cancelled and in-flight work is
- * excluded: it may never be billed at all.
- *
- * Unlike `metricsForDay`, this needs no completion timestamp, so revenue from
- * services completed before `completedDate` was backfilled still lands in the
- * total instead of silently disappearing.
- */
-export function totalRevenue(services: Service[]): number {
-  let revenue = 0;
-
-  for (const service of services) {
-    if (bucketKeyFor(service.status) !== "completed") continue;
-    const price = Number(service.price);
-    if (Number.isFinite(price)) revenue += price;
-  }
-
-  return revenue;
 }
 
 // ---------------------------------------------------------------------------
@@ -657,6 +635,77 @@ export function weeklySeries(services: Service[], now: Date = new Date()): Weekd
   return points;
 }
 
+export type TrendWindow = 7 | 30 | 90;
+
+export const TREND_WINDOW_OPTIONS: Array<{ value: TrendWindow; label: string }> = [
+  { value: 7, label: "Last 7 Days" },
+  { value: 30, label: "Last 30 Days" },
+  { value: 90, label: "Last 90 Days" },
+];
+
+const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+export interface RevenueTrendPoint {
+  label: string;
+  date: Date;
+  revenue: number;
+}
+
+export interface RevenueTrend {
+  /** One point per day of the window, oldest first, ending today. */
+  points: RevenueTrendPoint[];
+  total: number;
+  /** Takings over the equally long window immediately before this one. */
+  previousTotal: number;
+  /** Percent change against `previousTotal`, or null when there is no base to compare against. */
+  delta: number | null;
+}
+
+/**
+ * Daily takings over a rolling window ending today, with the preceding window
+ * of the same length summed for comparison.
+ *
+ * Revenue is dated by when the money came in rather than when the work
+ * finished, matching `metricsForDay` — see `paidDateOf` for why a repair paid
+ * days after collection belongs on the day it was paid.
+ *
+ * Days are bucketed by calendar-day index so the series stays correct across a
+ * DST change, and zero-filled so a quiet day plots as a trough instead of
+ * shortening the line.
+ */
+export function revenueTrend(services: Service[], days: TrendWindow = 30, now: Date = new Date()): RevenueTrend {
+  const start = addDays(startOfDay(now), -(days - 1));
+  const startDay = dayNumber(start);
+
+  const points = Array.from({ length: days }, (_, index) => {
+    const date = addDays(start, index);
+    return { label: `${date.getDate()} ${MONTH_LABELS[date.getMonth()]}`, date, revenue: 0 };
+  });
+
+  let total = 0;
+  let previousTotal = 0;
+
+  for (const service of services) {
+    if (!countsAsRevenue(service)) continue;
+
+    const paidAt = toDate(revenueDateOf(service));
+    if (!paidAt) continue;
+
+    const price = Number(service.price);
+    if (!Number.isFinite(price)) continue;
+
+    const offset = dayNumber(paidAt) - startDay;
+    if (offset >= 0 && offset < days) {
+      points[offset].revenue += price;
+      total += price;
+    } else if (offset < 0 && offset >= -days) {
+      previousTotal += price;
+    }
+  }
+
+  return { points, total, previousTotal, delta: periodDelta(total, previousTotal) };
+}
+
 export interface Insight {
   kind: "delay" | "technician" | "repair" | "volume";
   text: string;
@@ -746,7 +795,7 @@ export function countOpenAsOf(services: Service[], asOf: Date): number {
 }
 
 export interface DayMetrics {
-  /** Sum of prices for work completed on that day. */
+  /** Sum of prices for services paid for on that day. */
   revenue: number;
   completed: number;
   received: number;
@@ -755,12 +804,13 @@ export interface DayMetrics {
 }
 
 /**
- * Everything the KPI row needs about a single day.
+ * Everything the KPI row needs about a single day. Feeds the cumulative
+ * sparklines, which walk these daily figures forward from the running total.
  *
- * The KPI cards are day-scoped ("Revenue today", "vs yesterday") rather than
- * period-scoped, because a month-over-month comparison has no answer until a
- * shop has been running for two months — every card would read as a dash on a
- * new shop, which looks broken rather than honest.
+ * Revenue is dated by when the money came in, not by when the work finished.
+ * The two coincide for anything settled at handover, but a repair paid for
+ * days after collection belongs on the day it was paid — that is the day the
+ * shop's takings changed.
  */
 export function metricsForDay(services: Service[], day: Date): DayMetrics {
   const dayEnd = endOfDay(day);
@@ -772,14 +822,20 @@ export function metricsForDay(services: Service[], day: Date): DayMetrics {
     const created = toDate(service.createdAt);
     if (created && isSameDay(created, day)) received += 1;
 
+    if (countsAsRevenue(service)) {
+      const paidAt = toDate(revenueDateOf(service));
+      if (paidAt && isSameDay(paidAt, day)) {
+        const price = Number(service.price);
+        if (Number.isFinite(price)) revenue += price;
+      }
+    }
+
     if (normalizeStatus(service.status) !== "completed") continue;
 
     const completedAt = toDate(service.completedDate) ?? toDate(service.actualCompletion);
     if (!completedAt || !isSameDay(completedAt, day)) continue;
 
     completed += 1;
-    const price = Number(service.price);
-    if (Number.isFinite(price)) revenue += price;
   }
 
   return { revenue, completed, received, open: countOpenAsOf(services, dayEnd) };

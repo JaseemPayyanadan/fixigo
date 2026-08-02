@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React from "react";
 
 import { DevicePhoneMobileIcon } from "@heroicons/react/24/outline";
 
@@ -15,10 +15,12 @@ interface Branch {
 }
 
 interface TechnicianServiceListProps {
+  /** Already filtered by the page — this component does not search again. */
   services: ServiceTableItem[];
   branches: Branch[];
   technicians: Technician[];
   loading: boolean;
+  /** Only used to word the empty state; filtering happens upstream. */
   search?: string;
   onEdit?: (service: ServiceTableItem) => void;
   onDelete?: (id: string) => void;
@@ -33,23 +35,6 @@ const TechnicianServiceList: React.FC<TechnicianServiceListProps> = ({
   onEdit,
   onDelete,
 }) => {
-  const filteredServices = useMemo(() => {
-    if (!search) return services;
-
-    const searchTerm = search.toLowerCase();
-    return services.filter((service) => {
-      return (
-        service.name?.toLowerCase().includes(searchTerm) ||
-        service.description?.toLowerCase().includes(searchTerm) ||
-        service.customer?.name?.toLowerCase().includes(searchTerm) ||
-        service.customer?.phone?.includes(search) ||
-        service.device?.brand?.toLowerCase().includes(searchTerm) ||
-        service.device?.model?.toLowerCase().includes(searchTerm) ||
-        service.device?.imei?.includes(search)
-      );
-    });
-  }, [services, search]);
-
   if (loading) {
     return (
       <div className="py-16 text-center">
@@ -59,7 +44,7 @@ const TechnicianServiceList: React.FC<TechnicianServiceListProps> = ({
     );
   }
 
-  if (filteredServices.length === 0) {
+  if (services.length === 0) {
     return (
       <div className="rounded-2xl border border-gray-100 bg-white p-8 text-center shadow-sm">
         <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-gray-100">
@@ -78,15 +63,14 @@ const TechnicianServiceList: React.FC<TechnicianServiceListProps> = ({
   return (
     <div className="space-y-4">
       <ServiceTable
-        services={filteredServices}
+        services={services}
         branches={branches}
         technicians={technicians}
-        showBranch={false}
         onEdit={onEdit}
         onDelete={onDelete}
       />
       <p className="text-center text-sm text-gray-500">
-        Showing {filteredServices.length} repair{filteredServices.length !== 1 ? "s" : ""}
+        Showing {services.length} repair{services.length !== 1 ? "s" : ""}
       </p>
     </div>
   );

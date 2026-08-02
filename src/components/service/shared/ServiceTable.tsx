@@ -1,12 +1,29 @@
 "use client";
 
-import React, { useCallback, useMemo } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-import { EyeIcon, PencilIcon, TrashIcon } from "@heroicons/react/24/outline";
+import {
+  ChevronDownIcon,
+  ChevronUpDownIcon,
+  ChevronUpIcon,
+  PencilIcon,
+  TrashIcon,
+} from "@heroicons/react/24/outline";
+import {
+  createColumnHelper,
+  flexRender,
+  getCoreRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
+  useReactTable,
+  type SortingState,
+} from "@tanstack/react-table";
 
+import { isPaid, type ServicePaymentStatus } from "@/lib/paymentUtils";
+import { resolveServiceRows, type ResolvedServiceRow } from "@/lib/serviceTableRows";
 import { getStatusConfig } from "@/lib/statusUtils";
 import type { Technician } from "@/types";
 
@@ -16,6 +33,7 @@ export interface ServiceTableItem {
   description: string;
   price: number;
   status: string;
+  paymentStatus?: ServicePaymentStatus;
   customer: {
     name: string;
     phone: string;
@@ -43,6 +61,37 @@ interface ServiceTableProps {
   showBranch?: boolean;
   onEdit?: (service: ServiceTableItem) => void;
   onDelete?: (id: string) => void;
+  /** Rows per page. Omit to size each page to the viewport height. */
+  pageSize?: number;
+}
+
+/** Measured from the rendered table: row, header and footer heights in px. */
+const ROW_HEIGHT = 61;
+const CHROME_HEIGHT = 41 + 49 + 24; // header row + pagination footer + card border/margin
+const MIN_PAGE_SIZE = 5;
+
+/**
+ * Rows that fit between the table's top edge and the bottom of the window.
+ * Re-measured on resize so rotating a tablet or opening devtools re-pages.
+ */
+function useViewportPageSize(ref: React.RefObject<HTMLDivElement | null>, enabled: boolean) {
+  const [size, setSize] = useState(MIN_PAGE_SIZE);
+
+  useEffect(() => {
+    if (!enabled) return;
+
+    const measure = () => {
+      const top = ref.current?.getBoundingClientRect().top ?? 0;
+      const available = window.innerHeight - top - CHROME_HEIGHT;
+      setSize(Math.max(MIN_PAGE_SIZE, Math.floor(available / ROW_HEIGHT)));
+    };
+
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [ref, enabled]);
+
+  return size;
 }
 
 function formatPrice(price: number): string {
@@ -57,9 +106,14 @@ function formatDate(date: Date): string {
   });
 }
 
+const columnHelper = createColumnHelper<ResolvedServiceRow<ServiceTableItem>>();
+
+const HEADER_CLASS = "px-2 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500";
+
 /**
- * Dense table for the Repairs list. Rows navigate to details; action buttons
- * stop propagation so edit/delete do not also open the detail page.
+ * Repairs list as a TanStack data table: sortable headers and client-side
+ * pagination over the already-filtered rows. Rows navigate to details; action
+ * buttons stop propagation so edit/delete do not also open the detail page.
  */
 export function ServiceTable({
   services,
@@ -68,27 +122,22 @@ export function ServiceTable({
   showBranch = true,
   onEdit,
   onDelete,
+  pageSize,
 }: ServiceTableProps) {
   const router = useRouter();
+  const [sorting, setSorting] = useState<SortingState>([{ id: "createdAt", desc: true }]);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const autoPageSize = useViewportPageSize(containerRef, pageSize === undefined);
 
-  const branchMap = useMemo(() => {
-    const map = new Map<string, string>();
-    branches.forEach((branch) => map.set(branch.id, branch.name));
-    return map;
-  }, [branches]);
-
-  // Keyed by both ids a service can reference. `ServiceForm` writes the user id
-  // when a technician files their own job and only rewrites it to the document
-  // id once the technicians list has loaded, so both forms exist in the data —
-  // keying on `id` alone leaves those rows showing a dash.
-  const technicianMap = useMemo(() => {
-    const map = new Map<string, string>();
-    technicians.forEach((tech) => {
-      map.set(tech.id, tech.name);
-      if (tech.userId) map.set(tech.userId, tech.name);
-    });
-    return map;
-  }, [technicians]);
+  // Branch and technician names are projected onto the rows rather than looked
+  // up inside the column accessors: the table caches accessor results per row
+  // and only rebuilds those rows when `data` changes identity, so a lookup that
+  // arrives after the services would otherwise never reach the screen. See
+  // `resolveServiceRows`.
+  const data = useMemo(
+    () => resolveServiceRows(services, branches, technicians),
+    [services, branches, technicians]
+  );
 
   const openDetails = useCallback(
     (id: string) => {
@@ -97,150 +146,309 @@ export function ServiceTable({
     [router]
   );
 
+  const columns = useMemo(
+    () => [
+      // Sorted on the name but rendered with the reference and date beneath it,
+      // so `createdAt` also exists below as a hidden-by-layout sort target.
+      columnHelper.accessor((row) => row.name || "Repair", {
+        id: "name",
+        header: "Repair",
+        cell: ({ row }) => {
+          const service = row.original;
+          const date = service.createdAt ? new Date(service.createdAt) : null;
+          return (
+            <div className="min-w-0">
+              {/* The name is the keyboard path to the details page — the row's
+                  click handler is mouse-only. */}
+              <Link
+                href={`/services/details?id=${service.id}`}
+                onClick={(event) => event.stopPropagation()}
+                className="block truncate rounded text-sm font-semibold text-gray-900 hover:text-blue-700 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {service.name || "Repair"}
+              </Link>
+              {/* Created date rides under the repair name instead of holding
+                  its own column — it identifies the job the same way the
+                  reference number does. */}
+              <p className="truncate text-xs text-gray-400">
+                #{service.id.slice(-8)}
+                {date && !Number.isNaN(date.getTime()) && (
+                  <span className="text-gray-400"> · {formatDate(date)}</span>
+                )}
+              </p>
+            </div>
+          );
+        },
+      }),
+      columnHelper.accessor((row) => row.customer?.name ?? "", {
+        id: "customer",
+        header: "Customer",
+        cell: ({ row }) => {
+          const customer = row.original.customer;
+          return (
+            <>
+              <p className="truncate text-sm font-medium text-gray-900">{customer?.name || "—"}</p>
+              {customer?.phone && <p className="truncate text-xs text-gray-500">{customer.phone}</p>}
+            </>
+          );
+        },
+      }),
+      columnHelper.accessor(
+        (row) => [row.device?.brand, row.device?.model].filter(Boolean).join(" "),
+        {
+          id: "device",
+          header: "Device",
+          meta: { headerClass: "hidden lg:table-cell", cellClass: "hidden lg:table-cell" },
+          cell: ({ row, getValue }) => (
+            <>
+              <p className="truncate text-sm text-gray-900">{getValue() || "—"}</p>
+              {row.original.device?.imei && (
+                <p className="truncate font-mono text-xs text-gray-400">{row.original.device.imei}</p>
+              )}
+            </>
+          ),
+        }
+      ),
+      columnHelper.accessor("status", {
+        id: "status",
+        header: "Status",
+        cell: ({ getValue }) => {
+          const status = getStatusConfig(getValue());
+          return (
+            <span
+              className={`inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium leading-4 ${status.color} ${status.bg}`}
+            >
+              {status.label}
+            </span>
+          );
+        },
+      }),
+      ...(showBranch
+        ? [
+            columnHelper.accessor("branchName", {
+              id: "branch",
+              header: "Branch",
+              meta: { cellClass: "text-sm text-gray-700" },
+              cell: ({ getValue }) => <span className="truncate">{getValue()}</span>,
+            }),
+          ]
+        : []),
+      columnHelper.accessor("technicianName", {
+        id: "technician",
+        header: "Technician",
+        meta: {
+          headerClass: "hidden md:table-cell",
+          cellClass: "hidden text-sm text-gray-700 md:table-cell",
+        },
+        cell: ({ getValue }) => <span className="truncate">{getValue()}</span>,
+      }),
+      // Paid state rides under the price rather than taking a column of its
+      // own — it is about that amount, and the table is already wide on a shop
+      // counter's screen.
+      columnHelper.accessor("price", {
+        id: "price",
+        header: "Price",
+        meta: { headerClass: "text-right", cellClass: "text-right" },
+        cell: ({ row, getValue }) => {
+          const paid = isPaid(row.original);
+          return (
+            <>
+              <p className="text-sm font-semibold tabular-nums text-gray-900">{formatPrice(getValue())}</p>
+              <p className={`text-xs ${paid ? "text-emerald-600" : "text-amber-600"}`}>
+                {paid ? "Paid" : "Unpaid"}
+              </p>
+            </>
+          );
+        },
+      }),
+      // Sortable but never rendered as its own column — the date shows under
+      // the repair name. Kept so "newest first" stays the default sort.
+      columnHelper.accessor((row) => new Date(row.createdAt).getTime() || 0, {
+        id: "createdAt",
+        header: "Date",
+        // Numeric compare on the timestamp, newest first on the first click and
+        // as the table's opening order.
+        sortingFn: "basic",
+        sortDescFirst: true,
+        meta: { headerClass: "hidden", cellClass: "hidden" },
+        cell: () => null,
+      }),
+      columnHelper.display({
+        id: "actions",
+        header: () => <span className="sr-only">Actions</span>,
+        meta: { headerClass: "text-right", cellClass: "text-right" },
+        cell: ({ row }) => {
+          const service = row.original;
+          return (
+            <div className="inline-flex items-center gap-1" onClick={(event) => event.stopPropagation()}>
+              {onEdit && (
+                <button
+                  type="button"
+                  onClick={() => onEdit(service)}
+                  className="inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-blue-600 transition-colors hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  title="Edit"
+                  aria-label="Edit repair"
+                >
+                  <PencilIcon className="h-4 w-4" />
+                </button>
+              )}
+              {onDelete && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (window.confirm("Are you sure you want to delete this repair?")) {
+                      onDelete(service.id);
+                    }
+                  }}
+                  className="inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-red-600 transition-colors hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  title="Delete"
+                  aria-label="Delete repair"
+                >
+                  <TrashIcon className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+          );
+        },
+      }),
+    ],
+    [showBranch, onEdit, onDelete]
+  );
+
+  const table = useReactTable({
+    data,
+    columns,
+    state: { sorting },
+    onSortingChange: setSorting,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    initialState: { pagination: { pageSize: pageSize ?? MIN_PAGE_SIZE } },
+  });
+
+  useEffect(() => {
+    table.setPageSize(pageSize ?? autoPageSize);
+  }, [table, pageSize, autoPageSize]);
+
+  // Filtering happens upstream, so a narrowed result set can leave the table
+  // parked on a page that no longer exists.
+  const pageIndex = table.getState().pagination.pageIndex;
+  useEffect(() => {
+    const lastPage = Math.max(table.getPageCount() - 1, 0);
+    if (pageIndex > lastPage) table.setPageIndex(lastPage);
+  }, [pageIndex, services.length, table]);
+
+  const rows = table.getRowModel().rows;
+  const totalRows = table.getFilteredRowModel().rows.length;
+  const firstRow = totalRows === 0 ? 0 : pageIndex * table.getState().pagination.pageSize + 1;
+  const lastRow = Math.min(firstRow + table.getState().pagination.pageSize - 1, totalRows);
+
   return (
-    <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+    <div ref={containerRef} className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-100 text-left">
           <thead className="bg-gray-50">
-            <tr>
-              <th scope="col" className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Repair
-              </th>
-              <th scope="col" className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Customer
-              </th>
-              <th scope="col" className="hidden px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500 lg:table-cell">
-                Device
-              </th>
-              <th scope="col" className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Status
-              </th>
-              {showBranch && (
-                <th scope="col" className="hidden px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500 xl:table-cell">
-                  Branch
-                </th>
-              )}
-              <th scope="col" className="hidden px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500 md:table-cell">
-                Technician
-              </th>
-              <th scope="col" className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Price
-              </th>
-              <th scope="col" className="hidden px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500 sm:table-cell">
-                Date
-              </th>
-              <th scope="col" className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">
-                <span className="sr-only">Actions</span>
-              </th>
-            </tr>
+            {table.getHeaderGroups().map((headerGroup) => (
+              <tr key={headerGroup.id}>
+                {headerGroup.headers.map((header) => {
+                  const meta = header.column.columnDef.meta as
+                    | { headerClass?: string; cellClass?: string }
+                    | undefined;
+                  const sorted = header.column.getIsSorted();
+                  const canSort = header.column.getCanSort();
+                  return (
+                    <th
+                      key={header.id}
+                      scope="col"
+                      aria-sort={
+                        sorted === "asc" ? "ascending" : sorted === "desc" ? "descending" : undefined
+                      }
+                      className={`${HEADER_CLASS} ${meta?.headerClass ?? ""}`}
+                    >
+                      {canSort ? (
+                        <button
+                          type="button"
+                          onClick={header.column.getToggleSortingHandler()}
+                          className="inline-flex cursor-pointer items-center gap-1 rounded uppercase transition-colors hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          {flexRender(header.column.columnDef.header, header.getContext())}
+                          {sorted === "asc" ? (
+                            <ChevronUpIcon className="h-3 w-3" />
+                          ) : sorted === "desc" ? (
+                            <ChevronDownIcon className="h-3 w-3" />
+                          ) : (
+                            <ChevronUpDownIcon className="h-3 w-3 text-gray-300" />
+                          )}
+                        </button>
+                      ) : (
+                        flexRender(header.column.columnDef.header, header.getContext())
+                      )}
+                    </th>
+                  );
+                })}
+              </tr>
+            ))}
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {services.map((service) => {
-              const status = getStatusConfig(service.status);
-              const date = service.createdAt ? new Date(service.createdAt) : null;
-              const technicianName = service.technician_id
-                ? technicianMap.get(service.technician_id) ?? "—"
-                : "Unassigned";
-              const branchName = branchMap.get(service.branchId) ?? "—";
-
-              return (
-                // Clicking the row is a mouse shortcut only. It is deliberately
-                // not focusable: keyboard users reach the same destination via
-                // the "View details" link in the row, so making the row a tab
-                // stop as well would double every stop in the table. It also
-                // removes a trap — a row-level Enter/Space handler swallows
-                // those keys from the buttons nested inside it, so activating
-                // Edit or Delete from the keyboard would navigate instead.
-                <tr
-                  key={service.id}
-                  className="cursor-pointer transition-colors hover:bg-gray-50 focus-within:bg-gray-50"
-                  onClick={() => openDetails(service.id)}
-                >
-                  <td className="px-4 py-3">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-gray-900">{service.name || "Repair"}</p>
-                      <p className="truncate text-xs text-gray-400">#{service.id.slice(-8)}</p>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <p className="truncate text-sm font-medium text-gray-900">{service.customer?.name || "—"}</p>
-                    {service.customer?.phone && (
-                      <p className="truncate text-xs text-gray-500">{service.customer.phone}</p>
-                    )}
-                  </td>
-                  <td className="hidden px-4 py-3 lg:table-cell">
-                    <p className="truncate text-sm text-gray-900">
-                      {[service.device?.brand, service.device?.model].filter(Boolean).join(" ") || "—"}
-                    </p>
-                    {service.device?.imei && (
-                      <p className="truncate font-mono text-xs text-gray-400">{service.device.imei}</p>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium leading-4 whitespace-nowrap ${status.color} ${status.bg}`}
-                    >
-                      {status.label}
-                    </span>
-                  </td>
-                  {showBranch && (
-                    <td className="hidden px-4 py-3 text-sm text-gray-700 xl:table-cell">
-                      <span className="truncate">{branchName}</span>
+            {rows.map((row) => (
+              // Clicking the row is a mouse shortcut only. It is deliberately
+              // not focusable: keyboard users reach the same destination via
+              // the repair name link, so making the row a tab stop as well
+              // would double every stop in the table. It also removes a trap —
+              // a row-level Enter/Space handler swallows those keys from the
+              // buttons nested inside it, so activating Edit or Delete from the
+              // keyboard would navigate instead.
+              <tr
+                key={row.id}
+                className="cursor-pointer transition-colors hover:bg-gray-50 focus-within:bg-gray-50"
+                onClick={() => openDetails(row.original.id)}
+              >
+                {row.getVisibleCells().map((cell) => {
+                  const meta = cell.column.columnDef.meta as
+                    | { headerClass?: string; cellClass?: string }
+                    | undefined;
+                  return (
+                    <td key={cell.id} className={`px-2 py-3 ${meta?.cellClass ?? ""}`}>
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </td>
-                  )}
-                  <td className="hidden px-4 py-3 text-sm text-gray-700 md:table-cell">
-                    <span className="truncate">{technicianName}</span>
-                  </td>
-                  <td className="px-4 py-3 text-right text-sm font-semibold tabular-nums text-gray-900">
-                    {formatPrice(service.price)}
-                  </td>
-                  <td className="hidden px-4 py-3 text-sm text-gray-500 sm:table-cell">
-                    {date && !Number.isNaN(date.getTime()) ? formatDate(date) : "—"}
-                  </td>
-                  <td className="px-4 py-3 text-right" onClick={(event) => event.stopPropagation()}>
-                    <div className="inline-flex items-center gap-1">
-                      <Link
-                        href={`/services/details?id=${service.id}`}
-                        className="inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        title="View details"
-                        aria-label="View details"
-                      >
-                        <EyeIcon className="h-4 w-4" />
-                      </Link>
-                      {onEdit && (
-                        <button
-                          type="button"
-                          onClick={() => onEdit(service)}
-                          className="inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-blue-600 transition-colors hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          title="Edit"
-                          aria-label="Edit repair"
-                        >
-                          <PencilIcon className="h-4 w-4" />
-                        </button>
-                      )}
-                      {onDelete && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (window.confirm("Are you sure you want to delete this repair?")) {
-                              onDelete(service.id);
-                            }
-                          }}
-                          className="inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-red-600 transition-colors hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          title="Delete"
-                          aria-label="Delete repair"
-                        >
-                          <TrashIcon className="h-4 w-4" />
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
+                  );
+                })}
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
+
+      {totalRows > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 px-4 py-3">
+          <p className="text-xs text-gray-500">
+            Showing <span className="font-medium text-gray-700">{firstRow}</span>–
+            <span className="font-medium text-gray-700">{lastRow}</span> of{" "}
+            <span className="font-medium text-gray-700">{totalRows}</span>
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => table.previousPage()}
+              disabled={!table.getCanPreviousPage()}
+              className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Previous
+            </button>
+            <span className="text-xs text-gray-500">
+              Page {pageIndex + 1} of {Math.max(table.getPageCount(), 1)}
+            </span>
+            <button
+              type="button"
+              onClick={() => table.nextPage()}
+              disabled={!table.getCanNextPage()}
+              className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

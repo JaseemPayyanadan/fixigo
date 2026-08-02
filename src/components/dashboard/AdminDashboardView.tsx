@@ -2,22 +2,21 @@
 
 import React from "react";
 
-import { CheckCircle, Clock, IndianRupee, Smartphone, Truck } from "lucide-react";
+import { Activity, CheckCircle, ClipboardList, IndianRupee } from "lucide-react";
 
 import {
-  countDelayed,
   filterByRange,
   getPeriodRange,
   recentDays,
   periodDelta,
-  pipelineBreakdown,
+  revenueTrend,
+  summarize,
   technicianPerformance,
   topServices,
-  totalRevenue,
-  weeklySeries,
   type DashboardPeriod,
+  type DayMetrics,
+  type TrendWindow,
 } from "@/lib/dashboardAnalytics";
-import { normalizeStatus } from "@/lib/statusUtils";
 import type { Service, Technician } from "@/types";
 
 import { CHART_COLORS } from "./charts/palette";
@@ -29,11 +28,10 @@ import {
 import { formatCurrency } from "./shared/DashboardUtils";
 import {
   DashboardSkeleton,
-  PipelineCard,
   RankedListCard,
+  RevenueTrendCard,
   StatCard,
   TopTechniciansTable,
-  WeeklyActivityCard,
   type StatCardProps,
 } from "./widgets";
 
@@ -71,6 +69,7 @@ export function AdminDashboardView({
 }: AdminDashboardViewProps) {
   const [techniciansPeriod, setTechniciansPeriod] = React.useState<DashboardPeriod>("this_month");
   const [repairsPeriod, setRepairsPeriod] = React.useState<DashboardPeriod>("this_month");
+  const [trendWindow, setTrendWindow] = React.useState<TrendWindow>(30);
 
   // Pinned per render pass so every widget measures against the same instant
   // rather than drifting as each one calls `new Date()`.
@@ -78,8 +77,7 @@ export function AdminDashboardView({
 
   const metrics = React.useMemo(() => buildMetrics(services, now), [services, now]);
 
-  const pipeline = React.useMemo(() => pipelineBreakdown(services), [services]);
-  const week = React.useMemo(() => weeklySeries(services, now), [services, now]);
+  const trend = React.useMemo(() => revenueTrend(services, trendWindow, now), [services, trendWindow, now]);
 
   const technicianRows = React.useMemo(
     () => technicianPerformance(filterByRange(services, getPeriodRange(techniciansPeriod, now).current), technicians),
@@ -106,16 +104,16 @@ export function AdminDashboardView({
               {servicesError && <CompactErrorState message={`Services: ${servicesError}`} retry={handleRetry} />}
 
               {/* Band 1 — KPIs */}
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 {metrics.map((metric) => (
                   <StatCard key={metric.label} {...metric} />
                 ))}
               </div>
 
-              {/* Band 2 — pipeline + recent work */}
+              {/* Band 2 — revenue trend + recent work */}
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
                 <div className="lg:col-span-7">
-                  <PipelineCard stages={pipeline.stages} total={pipeline.total} />
+                  <RevenueTrendCard trend={trend} trendWindow={trendWindow} onWindowChange={setTrendWindow} />
                 </div>
                 <div className="lg:col-span-5">
                   <RecentServicesCard
@@ -138,22 +136,15 @@ export function AdminDashboardView({
                 onPeriodChange={setTechniciansPeriod}
               />
 
-              {/* Band 4 — charts */}
-              <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-                <div className="lg:col-span-7">
-                  <WeeklyActivityCard points={week} />
-                </div>
-                <div className="lg:col-span-5">
-                  <RankedListCard
-                    title="Most Common Repairs"
-                    items={commonRepairs}
-                    color={CHART_COLORS.series.total}
-                    period={repairsPeriod}
-                    onPeriodChange={setRepairsPeriod}
-                    emptyMessage="No services in this period"
-                  />
-                </div>
-              </div>
+              {/* Band 4 — most common repairs */}
+              <RankedListCard
+                title="Most Common Repairs"
+                items={commonRepairs}
+                color={CHART_COLORS.series.total}
+                period={repairsPeriod}
+                onPeriodChange={setRepairsPeriod}
+                emptyMessage="No services in this period"
+              />
             </>
           )}
         </div>
@@ -163,90 +154,76 @@ export function AdminDashboardView({
 }
 
 /**
- * The KPI row is day-scoped — compared against yesterday — rather than
- * period-scoped. A month-over-month comparison has no answer until a shop has
- * been trading for two months, so every card would read as a dash on a young
- * shop, which looks broken rather than honest. Day-over-day always has an
- * answer once there is a day of history.
+ * The KPI row is all-time, not period-scoped: these are lifetime totals for the
+ * shop, so "Total Revenue" is every rupee earned rather than this month's take.
+ * A month-over-month comparison would also have no answer until a shop has been
+ * trading for two months, leaving every card as a dash on a young shop.
  *
- * Total Revenue is the exception: it is all-time earnings from paid (completed)
- * work, so its sparkline plots the running total across the last 14 days and
- * its delta is how much that total grew yesterday-close to today.
+ * Because the values are cumulative, so are their sparklines: each plots the
+ * running total across the last 14 days, baselined on whatever the total was
+ * before that window opened so the line ends exactly on the printed figure.
+ * The delta is then how much the total grew between yesterday's close and now,
+ * which is what the "vs yesterday" caption on the card means.
  *
- * The other sparklines plot the last 14 days of the same measure.
+ * Active Services carries no trend or delta. Unlike the cumulative measures, it
+ * counts services *currently* in an in-flight status, and only a service's
+ * present status is stored — there is no way to know what it held a week ago.
+ * Passing an empty trend reserves the sparkline's height without drawing a
+ * line, so all four cards stay identical in shape.
  *
- * Ready for Delivery and Delayed Jobs still carry no delta: only a service's
- * *current* status is stored, so there is no way to know how many sat in
- * `ready_for_pickup` yesterday, and no estimate history for what was overdue
- * then. Those two pass `delta: null` and an empty trend, which reserves the
- * sparkline's height without drawing a line so the five cards stay identical
- * in shape.
- *
- * Card order and accent hues follow the design: purple, blue, green, orange,
- * red. Sparkline strokes match their card's accent rather than the shared
+ * Sparkline strokes match their card's accent rather than the shared
  * CHART_COLORS series slots — they are decorative (aria-hidden, with the value
  * and delta always written out), so they carry no meaning on colour.
  */
 function buildMetrics(services: Service[], now: Date): StatCardProps[] {
+  const summary = summarize(services);
   const days = recentDays(services, 14, now);
   const today = days[days.length - 1];
-  const yesterday = days[days.length - 2];
 
-  const readyForDelivery = services.filter(
-    (service) => normalizeStatus(service.status) === "ready_for_pickup"
-  ).length;
-
-  const revenue = totalRevenue(services);
-  // The 14-day window only holds recent takings, so the running total starts
-  // from whatever was already earned before the window opened. That keeps the
-  // line ending exactly on the figure printed above it.
-  const windowRevenue = days.reduce((sum, day) => sum + day.revenue, 0);
-  let running = revenue - windowRevenue;
-  const revenueTrend = days.map((day) => (running += day.revenue));
+  /**
+   * Walks the 14-day window forward from the total that predates it, so the
+   * series ends on `total` however little of it the window accounts for.
+   */
+  const cumulative = (total: number, dailyValue: (day: DayMetrics) => number): number[] => {
+    let running = total - days.reduce((sum, day) => sum + dailyValue(day), 0);
+    return days.map((day) => (running += dailyValue(day)));
+  };
 
   return [
     {
-      label: "Total Revenue",
-      value: formatCurrency(revenue),
-      icon: IndianRupee,
-      iconClassName: "bg-violet-600",
-      color: "#7c3aed",
-      trend: revenueTrend,
-      delta: periodDelta(revenue, revenue - today.revenue),
-    },
-    {
-      label: "Devices in Shop",
-      value: String(today.open),
-      icon: Smartphone,
+      label: "Total Services",
+      value: String(summary.totalServices),
+      note: summary.pendingServices > 0 ? `${summary.pendingServices} pending` : undefined,
+      icon: ClipboardList,
       iconClassName: "bg-blue-600",
       color: "#2563eb",
-      trend: days.map((day) => day.open),
-      delta: periodDelta(today.open, yesterday.open),
+      trend: cumulative(summary.totalServices, (day) => day.received),
+      delta: periodDelta(summary.totalServices, summary.totalServices - today.received),
     },
     {
-      label: "Ready for Delivery",
-      value: String(readyForDelivery),
-      icon: Truck,
-      iconClassName: "bg-emerald-500",
-      color: "#10b981",
-      trend: [],
-      delta: null,
+      label: "Total Revenue",
+      value: formatCurrency(summary.revenue),
+      icon: IndianRupee,
+      iconClassName: "bg-emerald-600",
+      color: "#059669",
+      trend: cumulative(summary.revenue, (day) => day.revenue),
+      delta: periodDelta(summary.revenue, summary.revenue - today.revenue),
     },
     {
-      label: "Completed Today",
-      value: String(today.completed),
+      label: "Completed",
+      value: String(summary.completedServices),
       icon: CheckCircle,
-      iconClassName: "bg-amber-500",
-      color: "#f59e0b",
-      trend: days.map((day) => day.completed),
-      delta: periodDelta(today.completed, yesterday.completed),
+      iconClassName: "bg-violet-600",
+      color: "#7c3aed",
+      trend: cumulative(summary.completedServices, (day) => day.completed),
+      delta: periodDelta(summary.completedServices, summary.completedServices - today.completed),
     },
     {
-      label: "Delayed Jobs",
-      value: String(countDelayed(services, now)),
-      icon: Clock,
-      iconClassName: "bg-red-500",
-      color: "#ef4444",
+      label: "Active Services",
+      value: String(summary.activeServices),
+      icon: Activity,
+      iconClassName: "bg-orange-500",
+      color: "#f97316",
       trend: [],
       delta: null,
     },

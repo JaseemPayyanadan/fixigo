@@ -7,6 +7,8 @@ import { Sparkline } from "../charts/Sparkline";
 export interface StatCardProps {
   label: string;
   value: string;
+  /** Secondary note beside the value, e.g. "4 pending". */
+  note?: string;
   icon: React.ComponentType<{ className?: string }>;
   /** Background utility for the icon tile, e.g. "bg-violet-600". */
   iconClassName: string;
@@ -25,6 +27,7 @@ export interface StatCardProps {
 export const StatCard = React.memo(function StatCard({
   label,
   value,
+  note,
   icon: Icon,
   iconClassName,
   color,
@@ -43,9 +46,12 @@ export const StatCard = React.memo(function StatCard({
 
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium text-gray-500">{label}</p>
-          <p className="mt-1 truncate text-lg font-bold leading-none tracking-tight text-gray-900" title={value}>
-            {value}
-          </p>
+          <div className="mt-1 flex items-baseline gap-2">
+            <span className="truncate text-lg font-bold leading-none tracking-tight text-gray-900" title={value}>
+              {value}
+            </span>
+            {note && <span className="truncate text-xs text-gray-400">{note}</span>}
+          </div>
         </div>
       </div>
 

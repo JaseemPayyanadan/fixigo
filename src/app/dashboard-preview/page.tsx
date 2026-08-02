@@ -15,7 +15,7 @@ import {
  * Development-only preview of the admin dashboard, rendered against fixtures.
  *
  * Exists so the layout can be reviewed without a Firestore connection, and so
- * the awkward states (unrated technician, empty pipeline stage, overdue jobs)
+ * the awkward states (unrated technician, days with no work, overdue jobs)
  * are always reachable rather than depending on whatever the live data happens
  * to contain today.
  *

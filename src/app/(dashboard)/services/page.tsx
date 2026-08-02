@@ -18,6 +18,7 @@ import { useUser } from "../../../hooks";
 import { useBranches } from "../../../hooks/useBranches";
 import { useTechnicians } from "../../../hooks/useTechnicians";
 import { db } from "../../../lib/firebase";
+import type { ServicePaymentStatus } from "../../../lib/paymentUtils";
 import type { Service } from "../../../types";
 
 // Local interface for compatibility with service list components
@@ -38,6 +39,7 @@ interface ServiceListItem {
   };
   branchId: string;
   technician_id?: string;
+  paymentStatus?: ServicePaymentStatus;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -71,10 +73,10 @@ function ServicesContent() {
 
   const [services, setServices] = useState<ServiceListItem[]>([]);
   const [loading, setLoading] = useState(true);
-  // Seeded from ?q= so the header search actually lands on filtered results.
-  // Editable afterwards: the URL is the initial value, not a binding.
+  // Driven entirely by ?q= from the app header's search box — this page has no
+  // input of its own, so the URL is the single source of truth.
   const searchParams = useSearchParams();
-  const [search, setSearch] = useState(searchParams.get("q") ?? "");
+  const search = searchParams.get("q") ?? "";
   const [statusFilter, setStatusFilter] = useState("All");
 
   // Transform legacy data to match current schema for internal use
@@ -91,6 +93,9 @@ function ServicesContent() {
       priority: data.priority || "medium",
       shopId: data.shopId || "",
       branchId: data.branchId || "",
+      // Carried through explicitly — without it every row renders as
+      // "Unassigned" no matter who the repair is assigned to.
+      technician_id: data.technician_id || "",
 
       customer: {
         name: data.customer?.name || "",
@@ -105,6 +110,10 @@ function ServicesContent() {
         imei: data.device?.imei || "",
         color: data.device?.color,
       },
+      // Left absent on documents written before payment tracking, so
+      // `isPaid` falls back to the work status rather than reading them as
+      // unpaid.
+      paymentStatus: data.paymentStatus === "paid" || data.paymentStatus === "pending" ? data.paymentStatus : undefined,
       createdAt: data.createdAt?.toDate() || new Date(),
       updatedAt: data.updatedAt?.toDate() || new Date(),
     };
@@ -118,8 +127,9 @@ function ServicesContent() {
       description: service.description,
       price: service.price,
       status: service.status,
+      paymentStatus: service.paymentStatus,
       branchId: service.branchId,
-      technician_id: (service as any).technician_id || service.technician_id,
+      technician_id: service.technician_id,
       createdAt: service.createdAt,
       updatedAt: service.updatedAt,
       device: {
@@ -330,6 +340,9 @@ function ServicesContent() {
     return chips;
   }, [services]);
 
+  // Writes through and updates the row in place. Re-fetching the whole list
+  // for a one-field change would blank the table on a slow connection, and the
+  // row already knows everything the new state needs.
   const handleStatusFilterClick = (statusKey: string) => {
     if (statusKey === "completed") setStatusFilter("Completed");
     else if (statusKey === "in_progress") setStatusFilter("In Progress");
@@ -365,53 +378,13 @@ function ServicesContent() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-    {/* Header Section - Matching Dashboard Style */}
-    <div className="bg-white p-6 shadow-sm border border-gray-100">
-      <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900">Services</h1>
-          <p className="text-sm text-gray-600 mt-1">
-            Welcome back, {user?.name || "User"}
-          </p>
-        </div>
-        
-        <div className="flex flex-col sm:flex-row gap-3">
-          {/* Search Bar */}
-          <div className="relative">
-            <input
-              type="text"
-              placeholder="Search by service ID, customer, or technician…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full sm:w-80 pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white hover:bg-gray-50 text-sm shadow-sm"
-            />
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-            </div>
-          </div>
-
-
-
-          {/* New Service Button */}
-          <PermissionGuard permissions={["service:write"]} fallback={null}>
-            <Link 
-              href="/services/new" 
-              className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all duration-200 text-sm font-semibold shadow-sm hover:shadow-md transform hover:scale-105"
-            >
-              <PlusIcon className="w-4 h-4" />
-              New Service
-            </Link>
-          </PermissionGuard>
-        </div>
-      </div>
-    </div>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
         {/* Status Filter Chips - Horizontal Scroll */}
-        <div className="mb-4">
-          <div className="relative">
+        <div className="mb-4 flex flex-wrap items-center gap-3">
+          {/* Chips take the leftover width so the button stays pinned right
+              while the chip strip keeps its own horizontal scroll. */}
+          <div className="relative min-w-0 flex-1">
             {/* Scroll indicator shadows - only show on larger screens */}
             <div className="hidden sm:block absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-gray-50 to-transparent pointer-events-none z-10 rounded-l-lg"></div>
             <div className="hidden sm:block absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-gray-50 to-transparent pointer-events-none z-10 rounded-r-lg"></div>
@@ -434,6 +407,17 @@ function ServicesContent() {
               </div>
             </div>
           </div>
+
+          {/* New Service Button */}
+          <PermissionGuard permissions={["service:write"]} fallback={null}>
+            <Link
+              href="/services/new"
+              className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:bg-blue-700 hover:shadow-md"
+            >
+              <PlusIcon className="w-4 h-4" />
+              New Service
+            </Link>
+          </PermissionGuard>
         </div>
 
         {/* Services List */}
@@ -446,6 +430,7 @@ function ServicesContent() {
             technicians={technicians}
             loading={loading}
             search={search}
+           
           />
         )}
 

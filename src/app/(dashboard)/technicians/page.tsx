@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 
 import Link from "next/link";
 
-import { CheckCircleIcon, MagnifyingGlassIcon, PlusIcon, StarIcon, UserGroupIcon, WrenchScrewdriverIcon } from "@heroicons/react/24/outline";
+import { ChevronDownIcon, PlusIcon, UserGroupIcon } from "@heroicons/react/24/outline";
 
 import { PermissionGuard, RoleGuard } from "@/components";
 import { useUser } from "@/hooks";
@@ -30,43 +30,21 @@ function TechniciansContent() {
   const { technicians, loading, error, deleteTechnician } = useTechnicians(user?.shopId, user?.role === "branch_admin" ? user?.branchId : undefined);
   const { canDeleteTechnician } = usePermissions();
 
-  // State for filtering and search
-  const [searchTerm, setSearchTerm] = useState("");
+  // State for filtering
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [branchFilter, setBranchFilter] = useState<string>("all");
-
-  // Calculate stats from actual data
-  const stats = useMemo(() => {
-    const total = technicians.length;
-    const active = technicians.filter((t) => t.status === "active").length;
-    const online = Math.floor(total * 0.7); // Mock online count
-    const averageRating = technicians.length > 0 ? technicians.reduce((sum, t) => sum + (t.rating || 0), 0) / technicians.length : 0;
-    const totalCompleted = technicians.reduce((sum, t) => sum + (t.completedServices || 0), 0);
-    const totalCurrent = technicians.reduce((sum, t) => sum + (t.totalServices || 0), 0);
-
-    return {
-      total,
-      active,
-      online,
-      averageRating: parseFloat(averageRating.toFixed(1)),
-      totalCompleted,
-      totalCurrent,
-    };
-  }, [technicians]);
 
   // Filter technicians
   const filteredTechnicians = useMemo(() => {
     const filtered = technicians.filter((tech) => {
-      const matchesSearch = tech.name.toLowerCase().includes(searchTerm.toLowerCase()) || tech.email.toLowerCase().includes(searchTerm.toLowerCase()) || tech.phone.includes(searchTerm);
-
       const matchesStatus = statusFilter === "all" || tech.status === statusFilter;
       const matchesBranch = branchFilter === "all" || tech.branchId === branchFilter;
 
-      return matchesSearch && matchesStatus && matchesBranch;
+      return matchesStatus && matchesBranch;
     });
 
     return filtered;
-  }, [technicians, searchTerm, statusFilter, branchFilter]);
+  }, [technicians, statusFilter, branchFilter]);
 
   // Handle delete technician
   const handleDelete = async (technicianId: string) => {
@@ -125,34 +103,32 @@ function TechniciansContent() {
           </div>
 
 
-        {/* Filters and Search */}
+        {/* Filters */}
           <div className="flex flex-col lg:flex-row gap-4">
-            {/* Search */}
-            <div className="flex-1">
-              <div className="relative">
-                <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                <input type="text" placeholder="Search technicians..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
-              </div>
-            </div>
-
             {/* Status Filter */}
             <div className="flex gap-4">
-              <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                <option value="all">All Status</option>
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-                <option value="busy">Busy</option>
-              </select>
+              <div className="relative">
+                <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="appearance-none pl-3 pr-12 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                  <option value="all">All Status</option>
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                  <option value="busy">Busy</option>
+                </select>
+                <ChevronDownIcon className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" aria-hidden="true" />
+              </div>
 
               {/* Branch Filter */}
-              <select value={branchFilter} onChange={(e) => setBranchFilter(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                <option value="all">All Branches</option>
-                {branches?.map((branch) => (
-                  <option key={branch.id} value={branch.id}>
-                    {branch.name}
-                  </option>
-                ))}
-              </select>
+              <div className="relative">
+                <select value={branchFilter} onChange={(e) => setBranchFilter(e.target.value)} className="appearance-none pl-3 pr-12 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                  <option value="all">All Branches</option>
+                  {branches?.map((branch) => (
+                    <option key={branch.id} value={branch.id}>
+                      {branch.name}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDownIcon className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" aria-hidden="true" />
+              </div>
             </div>
           <PermissionGuard permissions={["technician:write"]} fallback={null}>
             <Link href="/technicians/new" className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors">
@@ -160,61 +136,6 @@ function TechniciansContent() {
               Add Technician
             </Link>
           </PermissionGuard>
-          </div>
-        </div>
-
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Total Technicians</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
-                <p className="text-xs text-gray-500 mt-1">{stats.active} active</p>
-              </div>
-              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                <UserGroupIcon className="w-6 h-6 text-blue-600" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Online Now</p>
-                <p className="text-2xl font-bold text-green-600">{stats.online}</p>
-                <p className="text-xs text-gray-500 mt-1">Available for work</p>
-              </div>
-              <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                <CheckCircleIcon className="w-6 h-6 text-green-600" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Avg Rating</p>
-                <p className="text-2xl font-bold text-yellow-600">{stats.averageRating}/5.0</p>
-                <p className="text-xs text-gray-500 mt-1">Customer satisfaction</p>
-              </div>
-              <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
-                <StarIcon className="w-6 h-6 text-yellow-600" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Completed Services</p>
-                <p className="text-2xl font-bold text-indigo-600">{stats.totalCompleted}</p>
-                <p className="text-xs text-gray-500 mt-1">This month</p>
-              </div>
-              <div className="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center">
-                <WrenchScrewdriverIcon className="w-6 h-6 text-indigo-600" />
-              </div>
-            </div>
           </div>
         </div>
 

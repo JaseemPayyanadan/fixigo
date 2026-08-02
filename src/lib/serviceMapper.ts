@@ -75,6 +75,12 @@ export function mapServiceDoc(id: string, data: RawServiceData, now: Date = new 
     actualCompletion: readOptionalDate(data.actualCompletion),
     completedDate: readOptionalDate(data.completedDate),
 
+    // Left `undefined` when the document predates payment tracking, so
+    // `paymentStatusOf` can fall back to the work status rather than a stored
+    // "pending" that would wrongly zero out historical revenue.
+    paymentStatus: data.paymentStatus === "paid" || data.paymentStatus === "pending" ? data.paymentStatus : undefined,
+    paidAt: readOptionalDate(data.paidAt),
+
     workNotes: data.workNotes || [],
     partsUsed: data.partsUsed || [],
     customerFeedback: data.customerFeedback || {},

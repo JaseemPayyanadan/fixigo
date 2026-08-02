@@ -9,6 +9,7 @@ import {
   getPeriodRange,
   metricsForDay,
   recentDays,
+  revenueTrend,
   periodDelta,
   pipelineBreakdown,
   statusBreakdown,
@@ -320,6 +321,23 @@ describe("summarize", () => {
     const result = summarize([service({ status: "completed", price: undefined as unknown as number })]);
     expect(result.revenue).toBe(0);
   });
+
+  it("counts a service the customer has paid for even before the work is finished", () => {
+    const result = summarize([
+      service({ status: "ready_for_pickup", paymentStatus: "paid", price: 400 }),
+    ]);
+    expect(result.revenue).toBe(400);
+  });
+
+  it("books completed work as revenue even when it has not been collected yet", () => {
+    const result = summarize([service({ status: "completed", paymentStatus: "pending", price: 700 })]);
+    expect(result).toMatchObject({ completedServices: 1, revenue: 700 });
+  });
+
+  it("leaves unfinished, unpaid work out of revenue", () => {
+    const result = summarize([service({ status: "in_progress", paymentStatus: "pending", price: 700 })]);
+    expect(result.revenue).toBe(0);
+  });
 });
 
 describe("pipelineBreakdown", () => {
@@ -501,6 +519,136 @@ describe("weeklySeries", () => {
   });
 });
 
+describe("revenueTrend", () => {
+  /** Paid on `date` for `price`, dated by `paidAt` so the fallbacks stay out of it. */
+  function paid(date: Date, price: number): Service {
+    return service({ status: "completed", paymentStatus: "paid", paidAt: date, price });
+  }
+
+  it("returns one point per day of the window, oldest first and ending today", () => {
+    const { points } = revenueTrend([], 30, NOW);
+    expect(points).toHaveLength(30);
+    expect(points[0].date).toEqual(new Date(2026, 5, 24));
+    expect(points[29].date).toEqual(new Date(2026, 6, 23));
+  });
+
+  it("labels points by day and short month", () => {
+    const { points } = revenueTrend([], 30, NOW);
+    expect(points[0].label).toBe("24 Jun");
+    expect(points[29].label).toBe("23 Jul");
+  });
+
+  it("follows the requested window length", () => {
+    expect(revenueTrend([], 7, NOW).points).toHaveLength(7);
+    expect(revenueTrend([], 90, NOW).points).toHaveLength(90);
+  });
+
+  it("sums takings onto the day the money came in", () => {
+    const { points, total } = revenueTrend([paid(new Date(2026, 6, 23, 9), 500), paid(new Date(2026, 6, 23, 18), 250)], 30, NOW);
+    expect(points[29].revenue).toBe(750);
+    expect(total).toBe(750);
+  });
+
+  it("zero-fills days with no takings", () => {
+    const { points } = revenueTrend([paid(NOW, 500)], 30, NOW);
+    expect(points.filter((p) => p.revenue === 0)).toHaveLength(29);
+  });
+
+  it("plots a repair on the day it was marked paid", () => {
+    // The shape `setServicePayment` writes: the flag, and when it was set.
+    const { points, total } = revenueTrend(
+      [service({ status: "ready_for_pickup", paymentStatus: "paid", paidAt: new Date(2026, 6, 20), price: 3000 })],
+      30,
+      NOW
+    );
+    expect(total).toBe(3000);
+    expect(points[26].revenue).toBe(3000); // 20 Jul, the 27th day of the window
+  });
+
+  it("dates money by when it was taken, not when the work finished", () => {
+    const { points } = revenueTrend(
+      [
+        service({
+          status: "completed",
+          paymentStatus: "paid",
+          completedDate: new Date(2026, 6, 1),
+          paidAt: new Date(2026, 6, 23),
+          price: 2000,
+        }),
+      ],
+      30,
+      NOW
+    );
+    expect(points[29].revenue).toBe(2000); // paid today
+    expect(points[7].revenue).toBe(0); // completed on the 1st
+  });
+
+  it("still counts repairs completed before payment tracking existed", () => {
+    // No paymentStatus and no paidAt: completion is both the marking and the date.
+    const { total } = revenueTrend(
+      [service({ status: "completed", completedDate: new Date(2026, 6, 15), price: 1500 })],
+      30,
+      NOW
+    );
+    expect(total).toBe(1500);
+  });
+
+  it("leaves a paid repair off the chart when nothing dates the payment", () => {
+    // Marked paid but with no paidAt and no completion date — there is no
+    // honest day to plot it on, so it is counted nowhere rather than today.
+    const { total } = revenueTrend([service({ status: "ready_for_pickup", paymentStatus: "paid", price: 4000 })], 30, NOW);
+    expect(total).toBe(0);
+  });
+
+  it("plots completed work whether or not it has been collected", () => {
+    const { total } = revenueTrend(
+      [service({ status: "completed", paymentStatus: "pending", price: 900, completedDate: NOW })],
+      30,
+      NOW
+    );
+    expect(total).toBe(900);
+  });
+
+  it("leaves work that is neither finished nor paid off the chart", () => {
+    const { total } = revenueTrend(
+      [service({ status: "in_progress", paymentStatus: "pending", price: 900, createdAt: NOW })],
+      30,
+      NOW
+    );
+    expect(total).toBe(0);
+  });
+
+  it("leaves cancelled work off the chart even when it carries a price", () => {
+    const { total } = revenueTrend([service({ status: "cancelled", price: 4000, completedDate: NOW })], 30, NOW);
+    expect(total).toBe(0);
+  });
+
+  it("ignores a non-numeric price instead of producing NaN revenue", () => {
+    const { total } = revenueTrend([paid(NOW, undefined as unknown as number)], 30, NOW);
+    expect(total).toBe(0);
+  });
+
+  it("counts the preceding window of the same length as the comparison", () => {
+    const { total, previousTotal } = revenueTrend([paid(NOW, 400), paid(new Date(2026, 5, 20), 200)], 30, NOW);
+    expect(total).toBe(400);
+    expect(previousTotal).toBe(200);
+  });
+
+  it("leaves takings older than both windows out of the comparison", () => {
+    const { previousTotal } = revenueTrend([paid(new Date(2026, 2, 1), 5000)], 30, NOW);
+    expect(previousTotal).toBe(0);
+  });
+
+  it("reports the change against the previous window as a percentage", () => {
+    const { delta } = revenueTrend([paid(NOW, 120), paid(new Date(2026, 5, 20), 100)], 30, NOW);
+    expect(delta).toBeCloseTo(20);
+  });
+
+  it("has no delta to report when the previous window earned nothing", () => {
+    expect(revenueTrend([paid(NOW, 400)], 30, NOW).delta).toBeNull();
+  });
+});
+
 describe("buildInsights", () => {
   it("returns nothing when no insight applies", () => {
     expect(buildInsights([], [], NOW)).toEqual([]);
@@ -545,6 +693,27 @@ describe("metricsForDay", () => {
       service({ status: "completed", price: 900, completedDate: new Date(2026, 6, 22, 10, 0) }),
     ];
     expect(metricsForDay(services, NOW).revenue).toBe(500);
+  });
+
+  it("dates revenue by when payment was taken, not when the work finished", () => {
+    const services = [
+      service({
+        status: "completed",
+        price: 500,
+        completedDate: new Date(2026, 6, 20, 10, 0),
+        paymentStatus: "paid",
+        paidAt: NOW,
+      }),
+    ];
+    expect(metricsForDay(services, NOW).revenue).toBe(500);
+    expect(metricsForDay(services, new Date(2026, 6, 20, 12)).revenue).toBe(0);
+  });
+
+  it("books uncollected work on the day it was completed", () => {
+    const services = [
+      service({ status: "completed", price: 500, completedDate: NOW, paymentStatus: "pending" }),
+    ];
+    expect(metricsForDay(services, NOW)).toMatchObject({ revenue: 500, completed: 1 });
   });
 
   it("counts work received that day", () => {

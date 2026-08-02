@@ -100,7 +100,6 @@ const BranchAdminServiceList: React.FC<BranchAdminServiceListProps> = ({
       services={filteredServices}
       branches={branches}
       technicians={technicians}
-      showBranch={false}
       onEdit={onEdit}
       onDelete={onDelete}
     />

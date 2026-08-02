@@ -54,8 +54,8 @@ export const DashboardSkeleton = React.memo(function DashboardSkeleton() {
     <div className="space-y-5" role="status" aria-live="polite" aria-busy="true">
       <span className="sr-only">Loading dashboard</span>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        {Array.from({ length: 5 }, (_, index) => (
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {Array.from({ length: 4 }, (_, index) => (
           <KpiSkeleton key={index} />
         ))}
       </div>
@@ -71,14 +71,7 @@ export const DashboardSkeleton = React.memo(function DashboardSkeleton() {
 
       <PanelSkeleton rows={3} />
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-        <div className="lg:col-span-7">
-          <PanelSkeleton rows={4} />
-        </div>
-        <div className="lg:col-span-5">
-          <PanelSkeleton rows={4} />
-        </div>
-      </div>
+      <PanelSkeleton rows={4} />
     </div>
   );
 });
