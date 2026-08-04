@@ -43,6 +43,7 @@ interface ServiceListItem {
   branchId: string;
   technician_id?: string;
   paymentStatus?: ServicePaymentStatus;
+  isReopened?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -243,6 +244,10 @@ function ServicesContent() {
       // `isPaid` falls back to the work status rather than reading them as
       // unpaid.
       paymentStatus: data.paymentStatus === "paid" || data.paymentStatus === "pending" ? data.paymentStatus : undefined,
+      isReopened: data.isReopened === true,
+      reopenReason: typeof data.reopenReason === "string" ? data.reopenReason : undefined,
+      reopenedAt: data.reopenedAt?.toDate?.(),
+      reopenCount: typeof data.reopenCount === "number" ? data.reopenCount : undefined,
       createdAt: data.createdAt?.toDate() || new Date(),
       updatedAt: data.updatedAt?.toDate() || new Date(),
     };
@@ -257,6 +262,7 @@ function ServicesContent() {
       price: service.price,
       status: service.status,
       paymentStatus: service.paymentStatus,
+      isReopened: service.isReopened === true,
       branchId: service.branchId,
       technician_id: service.technician_id,
       createdAt: service.createdAt,

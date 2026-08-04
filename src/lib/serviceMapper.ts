@@ -81,6 +81,11 @@ export function mapServiceDoc(id: string, data: RawServiceData, now: Date = new 
     paymentStatus: data.paymentStatus === "paid" || data.paymentStatus === "pending" ? data.paymentStatus : undefined,
     paidAt: readOptionalDate(data.paidAt),
 
+    isReopened: data.isReopened === true,
+    reopenReason: typeof data.reopenReason === "string" ? data.reopenReason : undefined,
+    reopenedAt: readOptionalDate(data.reopenedAt),
+    reopenCount: typeof data.reopenCount === "number" ? data.reopenCount : undefined,
+
     workNotes: data.workNotes || [],
     partsUsed: data.partsUsed || [],
     customerFeedback: data.customerFeedback || {},

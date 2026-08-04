@@ -54,6 +54,30 @@ describe("mapServiceDoc payment fields", () => {
   });
 });
 
+describe("mapServiceDoc reopen fields", () => {
+  it("maps reopen metadata when present", () => {
+    const reopenedAt = new Date(2026, 7, 3);
+    const service = mapServiceDoc(
+      "s1",
+      {
+        isReopened: true,
+        reopenReason: "Same issue",
+        reopenedAt: ts(reopenedAt),
+        reopenCount: 2,
+      },
+      NOW
+    );
+    expect(service.isReopened).toBe(true);
+    expect(service.reopenReason).toBe("Same issue");
+    expect(service.reopenedAt).toEqual(reopenedAt);
+    expect(service.reopenCount).toBe(2);
+  });
+
+  it("defaults isReopened to false when absent", () => {
+    expect(mapServiceDoc("s1", {}, NOW).isReopened).toBe(false);
+  });
+});
+
 describe("mapServiceDoc", () => {
   it("leaves absent completion dates absent rather than defaulting them to now", () => {
     const service = mapServiceDoc("s1", { status: "completed" }, NOW);

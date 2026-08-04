@@ -11,7 +11,7 @@ import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSidebar } from "@/contexts/SidebarContext";
 
-const hideNavRoutes = ["/login", "/register", "/onboarding", "/services/details"];
+const hideNavRoutes = ["/login", "/register", "/onboarding"];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();

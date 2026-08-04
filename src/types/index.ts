@@ -160,6 +160,14 @@ export interface Service {
   paymentStatus?: ServicePaymentStatus;
   /** When payment was taken. Absent for the same reason as `paymentStatus`. */
   paidAt?: Date;
+  /** True after staff reopened a completed job (customer returned, not fixed). */
+  isReopened?: boolean;
+  /** Last required reopen reason. */
+  reopenReason?: string;
+  /** When the service was last reopened. */
+  reopenedAt?: Date;
+  /** How many times this service has been reopened. */
+  reopenCount?: number;
   notes?: string;
   workNotes?: string[];
   partsUsed?: Array<{

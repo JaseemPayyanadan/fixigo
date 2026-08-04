@@ -34,6 +34,7 @@ export interface ServiceTableItem {
   price: number;
   status: string;
   paymentStatus?: ServicePaymentStatus;
+  isReopened?: boolean;
   customer: {
     name: string;
     phone: string;
@@ -152,11 +153,18 @@ function ServiceCard({
               )}
             </p>
           </div>
-          <span
-            className={`inline-flex shrink-0 items-center whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium leading-4 ${status.color} ${status.bg}`}
-          >
-            {status.label}
-          </span>
+          <div className="flex shrink-0 flex-col items-end gap-1">
+            <span
+              className={`inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium leading-4 ${status.color} ${status.bg}`}
+            >
+              {status.label}
+            </span>
+            {service.isReopened && (
+              <span className="inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium leading-4 text-amber-800 bg-amber-50">
+                Reopened
+              </span>
+            )}
+          </div>
         </div>
 
         <div className="mt-3 flex items-end justify-between gap-3">
@@ -319,14 +327,21 @@ export function ServiceTable({
       columnHelper.accessor("status", {
         id: "status",
         header: "Status",
-        cell: ({ getValue }) => {
+        cell: ({ row, getValue }) => {
           const status = getStatusConfig(getValue());
           return (
-            <span
-              className={`inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium leading-4 ${status.color} ${status.bg}`}
-            >
-              {status.label}
-            </span>
+            <div className="flex flex-col items-start gap-1">
+              <span
+                className={`inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium leading-4 ${status.color} ${status.bg}`}
+              >
+                {status.label}
+              </span>
+              {row.original.isReopened && (
+                <span className="inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium leading-4 text-amber-800 bg-amber-50">
+                  Reopened
+                </span>
+              )}
+            </div>
           );
         },
       }),
