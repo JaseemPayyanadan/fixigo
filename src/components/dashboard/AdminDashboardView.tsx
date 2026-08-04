@@ -129,22 +129,29 @@ export function AdminDashboardView({
                 </div>
               </div>
 
-              {/* Band 3 — technician performance */}
-              <TopTechniciansTable
-                rows={technicianRows}
-                period={techniciansPeriod}
-                onPeriodChange={setTechniciansPeriod}
-              />
-
-              {/* Band 4 — most common repairs */}
-              <RankedListCard
-                title="Most Common Repairs"
-                items={commonRepairs}
-                color={CHART_COLORS.series.total}
-                period={repairsPeriod}
-                onPeriodChange={setRepairsPeriod}
-                emptyMessage="No services in this period"
-              />
+              {/* Band 3 — most common repairs (60%) beside technician
+                  performance (40%). A 5-column grid, unlike the 12 above, is
+                  what splits exactly 60/40; both cards are `h-full` so the
+                  shorter one still matches the row's height. */}
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
+                <div className="lg:col-span-3">
+                  <RankedListCard
+                    title="Most Common Repairs"
+                    items={commonRepairs}
+                    color={CHART_COLORS.series.total}
+                    period={repairsPeriod}
+                    onPeriodChange={setRepairsPeriod}
+                    emptyMessage="No services in this period"
+                  />
+                </div>
+                <div className="lg:col-span-2">
+                  <TopTechniciansTable
+                    rows={technicianRows}
+                    period={techniciansPeriod}
+                    onPeriodChange={setTechniciansPeriod}
+                  />
+                </div>
+              </div>
             </>
           )}
         </div>
