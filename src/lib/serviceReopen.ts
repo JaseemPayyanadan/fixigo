@@ -30,14 +30,22 @@ export function buildReopenFields(
   };
 }
 
-/** Same gate as `updateStatus`: shop/branch admin, or assigned technician, on a completed job. */
+/** Shop/branch admin, or the technician assigned to the job, may reopen when completed. */
 export function canReopenService(
   user: { role: string; id: string } | null | undefined,
-  service: { status: string; technician_id?: string } | null | undefined
+  service: { status: string; technician_id?: string } | null | undefined,
+  technicians?: Array<{ id: string; userId?: string }> | null
 ): boolean {
   if (!user || !service) return false;
   if (normalizeStatus(service.status) !== "completed") return false;
   if (user.role === "shop_admin" || user.role === "branch_admin") return true;
-  if (user.role === "technician" && service.technician_id === user.id) return true;
-  return false;
+  if (user.role !== "technician") return false;
+
+  const assignedId = service.technician_id?.trim();
+  if (!assignedId) return false;
+  // `technician_id` may be the tech doc id or the linked user id.
+  if (assignedId === user.id) return true;
+  const tech = technicians?.find((t) => t.id === assignedId || t.userId === assignedId);
+  if (!tech) return false;
+  return tech.id === user.id || tech.userId === user.id;
 }

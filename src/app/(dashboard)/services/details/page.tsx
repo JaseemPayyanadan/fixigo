@@ -590,7 +590,8 @@ function ServiceDetailsPage() {
   const servicePaid = isPaid({ ...service, status });
   const userCanReopen = canReopenService(
     user ? { role: user.role, id: user.id } : null,
-    service
+    service ? { ...service, status } : null,
+    technicians
   );
   const techInfo = getAssignedTechnicianInfo();
 

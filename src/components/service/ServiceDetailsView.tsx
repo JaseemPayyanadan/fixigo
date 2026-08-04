@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import React from "react";
 
 import {
   MdArrowBack,
@@ -63,7 +64,7 @@ export interface ServiceDetailsViewModel {
   };
 }
 
-interface ServiceDetailsViewProps {
+export interface ServiceDetailsViewProps {
   service: ServiceDetailsViewModel;
   status: string;
   branchName: string;
