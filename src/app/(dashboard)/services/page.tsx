@@ -1,11 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { 
+import {
   CheckCircleIcon,
+  CheckIcon,
   ClockIcon,
+  FunnelIcon,
+  MagnifyingGlassIcon,
   PlusIcon,
   ClipboardDocumentListIcon,
   ExclamationTriangleIcon
@@ -56,6 +59,126 @@ const STATUS_FILTERS = [
   { key: "cancelled", label: "Cancelled", count: 0, color: "bg-red-100 text-red-800 border-red-200 hover:bg-red-200", icon: ExclamationTriangleIcon },
 ];
 
+interface StatusFilterChip {
+  key: string;
+  label: string;
+  count: number;
+  color: string;
+}
+
+/**
+ * Phone-sized replacement for the status chip strip: one button carrying the
+ * active filter, opening a list of the same statuses with their counts. The
+ * chips need a horizontal scroll to fit a phone, which hides most of the
+ * statuses behind a swipe — a menu shows all of them at once.
+ */
+function StatusFilterDropdown({
+  chips,
+  statusFilter,
+  totalCount,
+  onSelect,
+  className = "",
+}: {
+  chips: StatusFilterChip[];
+  statusFilter: string;
+  totalCount: number;
+  /** Chip key, or `null` for "All statuses". */
+  onSelect: (key: string | null) => void;
+  className?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+
+    function handlePointerDown(event: MouseEvent) {
+      if (!containerRef.current?.contains(event.target as Node)) setOpen(false);
+    }
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpen(false);
+    }
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open]);
+
+  // The chip labels are the display status values the filter stores, so the
+  // active chip is the one whose label matches.
+  const activeChip = chips.find((chip) => chip.label === statusFilter);
+  const isFiltered = statusFilter !== "All";
+
+  const choose = (key: string | null) => {
+    onSelect(key);
+    setOpen(false);
+  };
+
+  return (
+    <div ref={containerRef} className={`relative ${className}`}>
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label={`Filter by status: ${activeChip?.label ?? "All statuses"}`}
+        className={`relative flex h-11 w-11 items-center justify-center rounded-xl border transition-colors ${
+          isFiltered
+            ? "border-blue-200 bg-blue-50 text-blue-700"
+            : "border-gray-200 bg-white text-gray-600"
+        }`}
+      >
+        <FunnelIcon className="h-5 w-5" />
+        {/* A filter narrows what the list shows, so it has to be visible from
+            the closed button — the label that said which one is gone. */}
+        {isFiltered && (
+          <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-blue-600" aria-hidden="true" />
+        )}
+      </button>
+
+      {open && (
+        <div
+          role="listbox"
+          className="absolute right-0 z-50 mt-2 w-60 overflow-hidden rounded-xl border border-gray-100 bg-white py-1 shadow-lg"
+        >
+          <button
+            type="button"
+            role="option"
+            aria-selected={!isFiltered}
+            onClick={() => choose(null)}
+            className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-gray-700 transition-colors hover:bg-gray-50"
+          >
+            <CheckIcon className={`h-4 w-4 shrink-0 ${isFiltered ? "invisible" : "text-blue-600"}`} />
+            <span>All statuses</span>
+            <span className="ml-auto text-xs font-semibold text-gray-500">{totalCount}</span>
+          </button>
+
+          {chips.map((chip) => {
+            const selected = chip.label === statusFilter;
+            return (
+              <button
+                key={chip.key}
+                type="button"
+                role="option"
+                aria-selected={selected}
+                onClick={() => choose(chip.key)}
+                className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-gray-700 transition-colors hover:bg-gray-50"
+              >
+                <CheckIcon className={`h-4 w-4 shrink-0 ${selected ? "text-blue-600" : "invisible"}`} />
+                <span className="truncate">{chip.label}</span>
+                <span className="ml-auto text-xs font-semibold text-gray-500">{chip.count}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function ServicesPage() {
   return (
     <RoleGuard allowedRoles={["shop_admin", "branch_admin", "technician"]}>
@@ -73,10 +196,16 @@ function ServicesContent() {
 
   const [services, setServices] = useState<ServiceListItem[]>([]);
   const [loading, setLoading] = useState(true);
-  // Driven entirely by ?q= from the app header's search box — this page has no
-  // input of its own, so the URL is the single source of truth.
+  // Seeded from ?q= — the app header's search box navigates here with it, and
+  // the header's box is itself hidden below `lg`, which is why this page needs
+  // an input of its own. Typing in that input filters locally rather than
+  // pushing a URL per keystroke; a later ?q= still wins.
   const searchParams = useSearchParams();
-  const search = searchParams.get("q") ?? "";
+  const urlSearch = searchParams.get("q") ?? "";
+  const [search, setSearch] = useState(urlSearch);
+  useEffect(() => {
+    setSearch(urlSearch);
+  }, [urlSearch]);
   const [statusFilter, setStatusFilter] = useState("All");
 
   // Transform legacy data to match current schema for internal use
@@ -343,8 +472,9 @@ function ServicesContent() {
   // Writes through and updates the row in place. Re-fetching the whole list
   // for a one-field change would blank the table on a slow connection, and the
   // row already knows everything the new state needs.
-  const handleStatusFilterClick = (statusKey: string) => {
-    if (statusKey === "completed") setStatusFilter("Completed");
+  const handleStatusFilterClick = (statusKey: string | null) => {
+    if (statusKey === null) setStatusFilter("All");
+    else if (statusKey === "completed") setStatusFilter("Completed");
     else if (statusKey === "in_progress") setStatusFilter("In Progress");
     else if (statusKey === "pending") setStatusFilter("To Do");
     else if (statusKey === "awaiting_parts") setStatusFilter("Awaiting Parts");
@@ -382,9 +512,35 @@ function ServicesContent() {
 
         {/* Status Filter Chips - Horizontal Scroll */}
         <div className="mb-4 flex flex-wrap items-center gap-3">
+          {/* Search. The app header carries one from `lg` up and hides it
+              below that, so this fills the gap on phones and tablets. */}
+          <div className="relative min-w-0 flex-1 sm:max-w-xs lg:hidden">
+            <label htmlFor="services-search" className="sr-only">
+              Search repairs
+            </label>
+            <MagnifyingGlassIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <input
+              id="services-search"
+              type="search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search repairs..."
+              className="h-11 w-full rounded-xl border border-gray-200 bg-white pl-9 pr-3 text-sm transition-colors placeholder:text-gray-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          {/* Phones get the filter menu, `sm` and up the chip strip. */}
+          <StatusFilterDropdown
+            chips={statusFilterChips}
+            statusFilter={statusFilter}
+            totalCount={services.length}
+            onSelect={handleStatusFilterClick}
+            className="shrink-0 sm:hidden"
+          />
+
           {/* Chips take the leftover width so the button stays pinned right
               while the chip strip keeps its own horizontal scroll. */}
-          <div className="relative min-w-0 flex-1">
+          <div className="relative hidden min-w-0 flex-1 sm:block">
             {/* Scroll indicator shadows - only show on larger screens */}
             <div className="hidden sm:block absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-gray-50 to-transparent pointer-events-none z-10 rounded-l-lg"></div>
             <div className="hidden sm:block absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-gray-50 to-transparent pointer-events-none z-10 rounded-r-lg"></div>
@@ -410,12 +566,14 @@ function ServicesContent() {
 
           {/* New Service Button */}
           <PermissionGuard permissions={["service:write"]} fallback={null}>
+            {/* Square icon button on phones, labelled button from `sm` up. */}
             <Link
               href="/services/new"
-              className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:bg-blue-700 hover:shadow-md"
+              aria-label="New service"
+              className="inline-flex h-11 w-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-blue-600 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:bg-blue-700 hover:shadow-md sm:h-auto sm:w-auto sm:px-4 sm:py-2.5"
             >
               <PlusIcon className="w-4 h-4" />
-              New Service
+              <span className="hidden sm:inline">New Service</span>
             </Link>
           </PermissionGuard>
         </div>

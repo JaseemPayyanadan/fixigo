@@ -67,12 +67,17 @@ interface ServiceTableProps {
 
 /** Measured from the rendered table: row, header and footer heights in px. */
 const ROW_HEIGHT = 61;
+/** A stacked card carries the same fields as a row but in several lines. */
+const CARD_HEIGHT = 152;
 const CHROME_HEIGHT = 41 + 49 + 24; // header row + pagination footer + card border/margin
 const MIN_PAGE_SIZE = 5;
+/** Below this width the table is replaced by cards (Tailwind's `md`). */
+const CARD_BREAKPOINT = 768;
 
 /**
  * Rows that fit between the table's top edge and the bottom of the window.
- * Re-measured on resize so rotating a tablet or opening devtools re-pages.
+ * Re-measured on resize so rotating a tablet or opening devtools re-pages, and
+ * so crossing the card breakpoint re-pages against the taller card height.
  */
 function useViewportPageSize(ref: React.RefObject<HTMLDivElement | null>, enabled: boolean) {
   const [size, setSize] = useState(MIN_PAGE_SIZE);
@@ -83,7 +88,8 @@ function useViewportPageSize(ref: React.RefObject<HTMLDivElement | null>, enable
     const measure = () => {
       const top = ref.current?.getBoundingClientRect().top ?? 0;
       const available = window.innerHeight - top - CHROME_HEIGHT;
-      setSize(Math.max(MIN_PAGE_SIZE, Math.floor(available / ROW_HEIGHT)));
+      const rowHeight = window.innerWidth < CARD_BREAKPOINT ? CARD_HEIGHT : ROW_HEIGHT;
+      setSize(Math.max(MIN_PAGE_SIZE, Math.floor(available / rowHeight)));
     };
 
     measure();
@@ -107,6 +113,106 @@ function formatDate(date: Date): string {
 }
 
 const columnHelper = createColumnHelper<ResolvedServiceRow<ServiceTableItem>>();
+
+/**
+ * Phone-sized rendering of one repair. Same fields as a table row, stacked so
+ * nothing has to scroll sideways; the whole card is the link to the details
+ * page and the action buttons sit outside it.
+ */
+function ServiceCard({
+  service,
+  showBranch,
+  onEdit,
+  onDelete,
+}: {
+  service: ResolvedServiceRow<ServiceTableItem>;
+  showBranch: boolean;
+  onEdit?: (service: ServiceTableItem) => void;
+  onDelete?: (id: string) => void;
+}) {
+  const status = getStatusConfig(service.status);
+  const paid = isPaid(service);
+  const date = service.createdAt ? new Date(service.createdAt) : null;
+  const device = [service.device?.brand, service.device?.model].filter(Boolean).join(" ");
+
+  return (
+    <div className="p-4">
+      <Link
+        href={`/services/details?id=${service.id}`}
+        className="block rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold text-gray-900">{service.name || "Repair"}</p>
+            <p className="truncate text-xs text-gray-400">
+              #{service.id.slice(-8)}
+              {date && !Number.isNaN(date.getTime()) && (
+                <span className="text-gray-400"> · {formatDate(date)}</span>
+              )}
+            </p>
+          </div>
+          <span
+            className={`inline-flex shrink-0 items-center whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium leading-4 ${status.color} ${status.bg}`}
+          >
+            {status.label}
+          </span>
+        </div>
+
+        <div className="mt-3 flex items-end justify-between gap-3">
+          <div className="min-w-0 space-y-0.5">
+            <p className="truncate text-sm font-medium text-gray-900">{service.customer?.name || "—"}</p>
+            {service.customer?.phone && (
+              <p className="truncate text-xs text-gray-500">{service.customer.phone}</p>
+            )}
+            {device && <p className="truncate text-xs text-gray-500">{device}</p>}
+            <p className="truncate text-xs text-gray-500">
+              {showBranch && service.branchName}
+              {showBranch && service.technicianName ? " · " : ""}
+              {service.technicianName}
+            </p>
+          </div>
+          <div className="shrink-0 text-right">
+            <p className="text-sm font-semibold tabular-nums text-gray-900">{formatPrice(service.price)}</p>
+            <p className={`text-xs ${paid ? "text-emerald-600" : "text-amber-600"}`}>
+              {paid ? "Paid" : "Unpaid"}
+            </p>
+          </div>
+        </div>
+      </Link>
+
+      {(onEdit || onDelete) && (
+        <div className="mt-3 flex items-center justify-end gap-1 border-t border-gray-100 pt-2">
+          {onEdit && (
+            <button
+              type="button"
+              onClick={() => onEdit(service)}
+              className="inline-flex h-9 items-center gap-1 rounded-lg px-3 text-xs font-medium text-blue-600 transition-colors hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              aria-label="Edit repair"
+            >
+              <PencilIcon className="h-4 w-4" />
+              Edit
+            </button>
+          )}
+          {onDelete && (
+            <button
+              type="button"
+              onClick={() => {
+                if (window.confirm("Are you sure you want to delete this repair?")) {
+                  onDelete(service.id);
+                }
+              }}
+              className="inline-flex h-9 items-center gap-1 rounded-lg px-3 text-xs font-medium text-red-600 transition-colors hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              aria-label="Delete repair"
+            >
+              <TrashIcon className="h-4 w-4" />
+              Delete
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 const HEADER_CLASS = "px-2 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500";
 
@@ -345,7 +451,20 @@ export function ServiceTable({
 
   return (
     <div ref={containerRef} className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
-      <div className="overflow-x-auto">
+      {/* Cards on phones, table from `md` up — same rows, same page. */}
+      <div className="divide-y divide-gray-100 md:hidden">
+        {rows.map((row) => (
+          <ServiceCard
+            key={row.id}
+            service={row.original}
+            showBranch={showBranch}
+            onEdit={onEdit}
+            onDelete={onDelete}
+          />
+        ))}
+      </div>
+
+      <div className="hidden overflow-x-auto md:block">
         <table className="min-w-full divide-y divide-gray-100 text-left">
           <thead className="bg-gray-50">
             {table.getHeaderGroups().map((headerGroup) => (

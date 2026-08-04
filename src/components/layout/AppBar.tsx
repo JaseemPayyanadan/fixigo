@@ -106,8 +106,9 @@ export function AppBar() {
         <Menu className="h-5 w-5" />
       </button>
 
-      {/* Mobile brand */}
-      <div className="flex items-center gap-2 md:hidden">
+      {/* Mobile brand. Takes the free space the greeting holds from `md` up, so
+          the bell and user avatar sit against the right edge on a phone. */}
+      <div className="flex flex-1 items-center gap-2 md:hidden">
         <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-blue-600 to-indigo-600">
           <span className="text-sm font-bold text-white">F</span>
         </div>
