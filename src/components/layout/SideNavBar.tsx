@@ -284,7 +284,7 @@ const SideNavBar = React.memo(() => {
       <PerformanceMonitor enabled={process.env.NODE_ENV === "development"} />
       <aside
         className={`fixed left-0 top-0 z-40 hidden h-full flex-col border-r border-gray-100 bg-white transition-all duration-200 motion-reduce:transition-none md:flex ${
-          collapsed ? "w-14" : "w-64"
+          collapsed ? "w-14" : "w-56"
         }`}
       >
         <div

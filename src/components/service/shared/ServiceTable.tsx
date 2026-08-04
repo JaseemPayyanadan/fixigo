@@ -67,8 +67,9 @@ interface ServiceTableProps {
 
 /** Measured from the rendered table: row, header and footer heights in px. */
 const ROW_HEIGHT = 61;
-/** A stacked card carries the same fields as a row but in several lines. */
-const CARD_HEIGHT = 152;
+/** A stacked card carries the same fields as a row but in several lines, plus
+ *  the gap between cards. */
+const CARD_HEIGHT = 152 + 12;
 const CHROME_HEIGHT = 41 + 49 + 24; // header row + pagination footer + card border/margin
 const MIN_PAGE_SIZE = 5;
 /** Below this width the table is replaced by cards (Tailwind's `md`). */
@@ -136,7 +137,7 @@ function ServiceCard({
   const device = [service.device?.brand, service.device?.model].filter(Boolean).join(" ");
 
   return (
-    <div className="p-4">
+    <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
       <Link
         href={`/services/details?id=${service.id}`}
         className="block rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -450,9 +451,14 @@ export function ServiceTable({
   const lastRow = Math.min(firstRow + table.getState().pagination.pageSize - 1, totalRows);
 
   return (
-    <div ref={containerRef} className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
-      {/* Cards on phones, table from `md` up — same rows, same page. */}
-      <div className="divide-y divide-gray-100 md:hidden">
+    <div
+      ref={containerRef}
+      className="rounded-2xl md:overflow-hidden md:border md:border-gray-100 md:bg-white md:shadow-sm"
+    >
+      {/* Cards on phones, table from `md` up — same rows, same page. Each card
+          is its own surface with space between, so the wrapper drops its frame
+          below `md` rather than boxing them in a second border. */}
+      <div className="space-y-3 md:hidden">
         {rows.map((row) => (
           <ServiceCard
             key={row.id}
@@ -539,7 +545,7 @@ export function ServiceTable({
       </div>
 
       {totalRows > 0 && (
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 px-4 py-3">
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-100 bg-white px-4 py-3 shadow-sm md:mt-0 md:rounded-none md:border-x-0 md:border-b-0 md:shadow-none">
           <p className="text-xs text-gray-500">
             Showing <span className="font-medium text-gray-700">{firstRow}</span>–
             <span className="font-medium text-gray-700">{lastRow}</span> of{" "}
