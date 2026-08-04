@@ -96,7 +96,7 @@ export function AppBar() {
   };
 
   return (
-    <header className={`fixed left-0 right-0 top-0 z-[9999] flex h-[72px] items-center gap-3 border-b border-gray-100 bg-white px-3 transition-all duration-200 md:gap-4 md:px-6 ${collapsed ? "md:ml-14" : "md:ml-64"}`}>
+    <header className={`fixed left-0 right-0 top-0 z-[9999] flex h-[72px] items-center gap-3 border-b border-gray-100 bg-white px-3 transition-all duration-200 md:gap-4 md:px-6 ${collapsed ? "md:ml-14" : "md:ml-56"}`}>
       {/* Sidebar toggle */}
       <button
         onClick={() => setCollapsed(!collapsed)}
