@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import { countDelayed, metricsForDay } from "./dashboardAnalytics";
-import { mapServiceDoc, readOptionalDate } from "./serviceMapper";
+import { readOptionalDate } from "./dateUtils";
+import { mapServiceDoc } from "./serviceMapper";
 
 const NOW = new Date(2026, 6, 24, 12, 0, 0);
 

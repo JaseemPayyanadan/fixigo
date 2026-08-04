@@ -1,21 +1,35 @@
 import type { StatusHistoryEntry } from "@/types";
-import { readOptionalDate } from "./serviceMapper";
+import { readOptionalDate } from "./dateUtils";
+
+/**
+ * A single normalized history entry, ready to be written on its own.
+ *
+ * Kept separate from `appendStatusHistory` so the Firestore write can append
+ * this one entry with `arrayUnion` instead of replacing the whole array from a
+ * client-side snapshot, which loses entries when two people have the same
+ * service open.
+ */
+export function buildStatusHistoryEntry(entry: {
+  status: string;
+  timestamp: Date;
+  updatedBy: string;
+}): StatusHistoryEntry {
+  const status = entry.status.trim();
+  if (!status) {
+    throw new Error("status is required");
+  }
+  return {
+    status,
+    timestamp: entry.timestamp,
+    updatedBy: entry.updatedBy.trim() || "Unknown",
+  };
+}
 
 export function appendStatusHistory(
   existing: StatusHistoryEntry[] | undefined,
   entry: { status: string; timestamp: Date; updatedBy: string }
 ): StatusHistoryEntry[] {
-  const status = entry.status.trim();
-  if (!status) {
-    throw new Error("status is required");
-  }
-  const updatedBy = entry.updatedBy.trim() || "Unknown";
-  const next: StatusHistoryEntry = {
-    status,
-    timestamp: entry.timestamp,
-    updatedBy,
-  };
-  return [next, ...(existing ?? [])];
+  return [buildStatusHistoryEntry(entry), ...(existing ?? [])];
 }
 
 export function mapStatusHistoryEntries(raw: unknown): StatusHistoryEntry[] {

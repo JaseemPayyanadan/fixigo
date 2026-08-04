@@ -76,6 +76,7 @@ export interface ServiceDetailsViewProps {
   updatingStatus: boolean;
   statusUpdateSuccess: boolean;
   updatingPayment: boolean;
+  paymentError: string | null;
   showDropdown: boolean;
   showHistory: boolean;
   statusHistory: StatusHistoryEntry[];
@@ -149,6 +150,7 @@ export default function ServiceDetailsView({
   updatingStatus,
   statusUpdateSuccess,
   updatingPayment,
+  paymentError,
   showDropdown,
   showHistory,
   statusHistory,
@@ -167,6 +169,18 @@ export default function ServiceDetailsView({
   const updatedAt = service.updatedAt ? new Date(service.updatedAt) : null;
   const priority = service.priority || "medium";
   const cardClass = "rounded-2xl border border-gray-100 bg-white shadow-sm";
+
+  // The kebab menu closes on selection; leaving it open over the page after
+  // "View History" (or behind the delete confirm) reads as a stuck menu.
+  const handleHistoryClick = () => {
+    onToggleDropdown();
+    onToggleHistory();
+  };
+
+  const handleDeleteClick = () => {
+    onToggleDropdown();
+    onDelete();
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -223,7 +237,7 @@ export default function ServiceDetailsView({
                 <div className="absolute right-0 z-50 mt-2 w-48 rounded-lg border border-gray-100 bg-white py-1 shadow-lg">
                   <button
                     type="button"
-                    onClick={onToggleHistory}
+                    onClick={handleHistoryClick}
                     className="flex min-h-11 w-full cursor-pointer items-center gap-3 px-4 py-3 text-left text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
                   >
                     <MdHistory className="h-4 w-4 text-gray-600" />
@@ -232,7 +246,7 @@ export default function ServiceDetailsView({
                   <hr className="my-1 border-gray-100" />
                   <button
                     type="button"
-                    onClick={onDelete}
+                    onClick={handleDeleteClick}
                     className="flex min-h-11 w-full cursor-pointer items-center gap-3 px-4 py-3 text-left text-red-600 hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
                   >
                     <MdDelete className="h-4 w-4 text-red-600" />
@@ -374,6 +388,11 @@ export default function ServiceDetailsView({
               >
                 {updatingPayment ? "Saving…" : servicePaid ? "Mark as Unpaid" : "Mark as Paid"}
               </button>
+              {paymentError && (
+                <p role="alert" className="w-full text-sm text-red-600 sm:text-right">
+                  {paymentError}
+                </p>
+              )}
             </div>
           </div>
         </section>

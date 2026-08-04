@@ -1,32 +1,50 @@
+import type { ServicePaymentStatus } from "./paymentUtils";
 import { normalizeStatus } from "./statusUtils";
 
+/**
+ * The display label, not the normalized `in_progress` slug: the status picker on
+ * the details page is a controlled `<select>` over the display labels, and every
+ * other write path stores those. Writing the slug left the dropdown with no
+ * option selected after a reopen.
+ */
+export const REOPEN_STATUS = "In Progress";
+
 export interface ReopenFields {
-  status: "in_progress";
+  status: typeof REOPEN_STATUS;
   isReopened: true;
   reopenReason: string;
   reopenedAt: Date;
   reopenCount: number;
+  paymentStatus?: ServicePaymentStatus;
 }
 
 /**
  * Firestore fields written when staff reopens a completed service.
- * Caller must also clear completion dates (`deleteField`) and leave payment alone.
+ * Caller must also clear completion dates (`deleteField`).
+ *
+ * Payment is kept as it was, which for a document predating payment tracking
+ * means pinning it. Those carry no `paymentStatus` and are read as paid *because*
+ * they are completed (see `paymentStatusOf`); moving off completed without
+ * writing the flag would silently flip the job to unpaid and drop its price out
+ * of revenue. The complete path guards the mirror image of this the same way.
  */
 export function buildReopenFields(
   reason: string,
   previousCount: number | undefined,
-  now: Date
+  now: Date,
+  previousPaymentStatus?: ServicePaymentStatus
 ): ReopenFields {
   const reopenReason = reason.trim();
   if (!reopenReason) {
     throw new Error("Reopen reason is required");
   }
   return {
-    status: "in_progress",
+    status: REOPEN_STATUS,
     isReopened: true,
     reopenReason,
     reopenedAt: now,
     reopenCount: (previousCount ?? 0) + 1,
+    ...(previousPaymentStatus ? {} : { paymentStatus: "paid" as const }),
   };
 }
 

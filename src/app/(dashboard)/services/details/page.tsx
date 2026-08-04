@@ -4,7 +4,7 @@ import React, { Suspense, useCallback, useEffect, useState } from "react";
 
 import { useRouter, useSearchParams } from "next/navigation";
 
-import { collection, deleteDoc, deleteField, doc, getDoc, getDocs, query, updateDoc, where } from "firebase/firestore";
+import { arrayUnion, collection, deleteDoc, deleteField, doc, getDoc, getDocs, query, updateDoc, where } from "firebase/firestore";
 import { MdArrowBack, MdRefresh, MdWarning } from "react-icons/md";
 
 import CollectPaymentDialog from "@/components/service/CollectPaymentDialog";
@@ -17,7 +17,7 @@ import { db } from "@/lib/firebase";
 import { isPaid, shouldOpenCollectPaymentModal, type ServicePaymentStatus } from "@/lib/paymentUtils";
 import { setServicePayment } from "@/lib/servicePayments";
 import { buildReopenFields, canReopenService } from "@/lib/serviceReopen";
-import { appendStatusHistory, mapStatusHistoryEntries } from "@/lib/serviceStatusHistory";
+import { appendStatusHistory, buildStatusHistoryEntry, mapStatusHistoryEntries } from "@/lib/serviceStatusHistory";
 import { normalizeStatus } from "@/lib/statusUtils";
 import type { Branch, StatusHistoryEntry, Technician } from "@/types";
 
@@ -317,16 +317,20 @@ function ServiceDetailsPage() {
         // otherwise book revenue nobody has collected.
         const recordsPaymentPending = isCompleted && !service?.paymentStatus;
 
-        const nextHistory = appendStatusHistory(statusHistory, {
+        // Appended with `arrayUnion` rather than written as a whole array: the
+        // local copy was loaded at mount, so replacing the array would drop any
+        // transition another user recorded in the meantime.
+        const historyEntry = buildStatusHistoryEntry({
           status: newStatus,
           timestamp: now,
           updatedBy: user?.name || "Unknown",
         });
+        const nextHistory = appendStatusHistory(statusHistory, historyEntry);
 
         await updateDoc(doc(db, "services", serviceId), {
           status: newStatus,
           updatedAt: now,
-          statusHistory: nextHistory,
+          statusHistory: arrayUnion(historyEntry),
           ...(isCompleted
             ? { completedDate: now, actualCompletion: now }
             : { completedDate: deleteField(), actualCompletion: deleteField() }),
@@ -379,16 +383,17 @@ function ServiceDetailsPage() {
     setReopenError(null);
     try {
       const now = new Date();
-      const fields = buildReopenFields(reason, service.reopenCount, now);
-      const nextHistory = appendStatusHistory(statusHistory, {
-        status: "in_progress",
+      const fields = buildReopenFields(reason, service.reopenCount, now, service.paymentStatus);
+      const historyEntry = buildStatusHistoryEntry({
+        status: fields.status,
         timestamp: now,
         updatedBy: user?.name || "Unknown",
       });
+      const nextHistory = appendStatusHistory(statusHistory, historyEntry);
       await updateDoc(doc(db, "services", serviceId), {
         ...fields,
         updatedAt: now,
-        statusHistory: nextHistory,
+        statusHistory: arrayUnion(historyEntry),
         completedDate: deleteField(),
         actualCompletion: deleteField(),
       });
@@ -404,7 +409,7 @@ function ServiceDetailsPage() {
             }
           : null
       );
-      setStatus("in_progress");
+      setStatus(fields.status);
       setStatusHistory(nextHistory);
       setShowReopenDialog(false);
       setStatusUpdateSuccess(true);
@@ -420,6 +425,7 @@ function ServiceDetailsPage() {
   const handlePaymentChange = async (paid: boolean) => {
     if (!serviceId) return;
     setUpdatingPayment(true);
+    setCollectPaymentError(null);
 
     try {
       const write = await setServicePayment(serviceId, paid);
@@ -428,7 +434,9 @@ function ServiceDetailsPage() {
       setCollectPaymentError(null);
     } catch (err) {
       console.error("Error updating payment:", err);
-      setError("Failed to update payment. Please try again.");
+      // Deliberately not the page-level `error`: that renders the full-screen
+      // "Error Loading Service" view, which unmounts this dialog and throws the
+      // user off the page over a failed write they can simply retry.
       setCollectPaymentError("Failed to update payment. Please try again.");
     } finally {
       setUpdatingPayment(false);
@@ -609,6 +617,7 @@ function ServiceDetailsPage() {
         updatingStatus={updatingStatus}
         statusUpdateSuccess={statusUpdateSuccess}
         updatingPayment={updatingPayment}
+        paymentError={showCollectPaymentDialog ? null : collectPaymentError}
         showDropdown={showDropdown}
         showHistory={showHistory}
         statusHistory={statusHistory}
