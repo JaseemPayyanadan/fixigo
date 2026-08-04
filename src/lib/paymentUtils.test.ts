@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { countsAsRevenue, isPaid, paidDateOf, paymentStatusOf } from "@/lib/paymentUtils";
+import {
+  countsAsRevenue,
+  isPaid,
+  paidDateOf,
+  paymentStatusOf,
+  shouldOpenCollectPaymentModal,
+} from "@/lib/paymentUtils";
 
 describe("paymentStatusOf", () => {
   it("uses the stored flag when the document carries one", () => {
@@ -73,5 +79,34 @@ describe("paidDateOf", () => {
 
   it("returns undefined rather than inventing a date", () => {
     expect(paidDateOf({ status: "completed" })).toBeUndefined();
+  });
+});
+
+describe("shouldOpenCollectPaymentModal", () => {
+  it("opens when moving to Completed with no prior paymentStatus", () => {
+    expect(shouldOpenCollectPaymentModal("Completed", undefined)).toBe(true);
+  });
+
+  it("opens when moving to Completed while pending", () => {
+    expect(shouldOpenCollectPaymentModal("Completed", "pending")).toBe(true);
+  });
+
+  it("does not open when already paid", () => {
+    expect(shouldOpenCollectPaymentModal("Completed", "paid")).toBe(false);
+  });
+
+  it("does not open for Ready for Pickup", () => {
+    expect(shouldOpenCollectPaymentModal("Ready for Pickup", "pending")).toBe(false);
+    expect(shouldOpenCollectPaymentModal("Ready for Pickup", undefined)).toBe(false);
+  });
+
+  it("does not open for non-completed statuses", () => {
+    expect(shouldOpenCollectPaymentModal("In Progress", "pending")).toBe(false);
+    expect(shouldOpenCollectPaymentModal("To Do", undefined)).toBe(false);
+  });
+
+  it("normalizes completed variants", () => {
+    expect(shouldOpenCollectPaymentModal("completed", "pending")).toBe(true);
+    expect(shouldOpenCollectPaymentModal("COMPLETED", undefined)).toBe(true);
   });
 });

@@ -44,6 +44,19 @@ export function isPaid(service: PayableService): boolean {
 }
 
 /**
+ * Whether Completing a job should open the Collect Payment modal.
+ * Caller passes paymentStatus *before* the status write; absent is treated
+ * as outstanding because complete-path writes `pending` when the field was missing.
+ */
+export function shouldOpenCollectPaymentModal(
+  newStatus: string,
+  previousPaymentStatus: ServicePaymentStatus | undefined
+): boolean {
+  if (normalizeStatus(newStatus) !== "completed") return false;
+  return previousPaymentStatus !== "paid";
+}
+
+/**
  * Whether a repair's price counts toward revenue.
  *
  * Finishing the job books the money: a completed repair counts whether or not
