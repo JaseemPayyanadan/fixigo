@@ -3,6 +3,7 @@ import { useMemo } from "react";
 
 import { calculateDashboardMetrics, getRecentServices } from "@/components/dashboard/shared/DashboardUtils";
 import { AuthUser } from "@/lib/auth";
+import { normalizeStatus } from "@/lib/statusUtils";
 import { Service } from "@/types";
 
 import { useServices } from "./useServices";
@@ -33,7 +34,7 @@ export interface DashboardData {
   // Recent data
   recentServices: Service[];
 
-  // Revenue
+  // Revenue (completed services only)
   totalRevenue: number;
 
   // User info
@@ -53,8 +54,17 @@ export const useDashboardData = (shopId?: string, branchId?: string): DashboardD
   // Get recent services with memoization
   const recentServices = useMemo(() => getRecentServices(services || [], 5), [services]);
 
-  // Calculate total revenue with memoization
-  const totalRevenue = useMemo(() => (services || []).reduce((sum, service) => sum + (service.price || 0), 0), [services]);
+  // Calculate total revenue with memoization. Only completed services count —
+  // work still in progress or waiting in the queue may never be billed at all.
+  const totalRevenue = useMemo(
+    () =>
+      (services || []).reduce((sum, service) => {
+        if (normalizeStatus(service.status) !== "completed") return sum;
+        const price = Number(service.price);
+        return Number.isFinite(price) ? sum + price : sum;
+      }, 0),
+    [services]
+  );
 
   return {
     // Loading states

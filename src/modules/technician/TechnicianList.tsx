@@ -95,12 +95,6 @@ export default function TechnicianList({ technicians, onDelete, branches }: Tech
     <>
       {/* Enhanced Table for lg+ screens */}
       <div className="hidden lg:block">
-        <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
-          <h3 className="text-lg font-semibold text-gray-900">Technician Team</h3>
-          <p className="text-sm text-gray-600">
-            {technicians.length} technician{technicians.length !== 1 ? "s" : ""} found
-          </p>
-        </div>
         <div className="overflow-x-auto">
           <table className="min-w-full">
             <thead className="bg-gray-50">
@@ -201,11 +195,11 @@ export default function TechnicianList({ technicians, onDelete, branches }: Tech
                           <button
                             className="p-2 text-gray-400 hover:text-red-600 transition-colors rounded-lg hover:bg-red-50"
                             onClick={() => {
-                              if (window.confirm(`Are you sure you want to delete technician '${tech.name}'?`)) {
+                              if (window.confirm(`Deactivate '${tech.name}'? They will no longer be able to log in, but their service history is kept.`)) {
                                 onDelete(tech.id);
                               }
                             }}
-                            title="Delete technician"
+                            title="Deactivate technician"
                           >
                             <TrashIcon className="w-4 h-4" />
                           </button>
@@ -222,12 +216,6 @@ export default function TechnicianList({ technicians, onDelete, branches }: Tech
 
       {/* Enhanced Cards for mobile/tablet screens */}
       <div className="lg:hidden">
-        <div className="px-4 py-4 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
-          <h3 className="text-lg font-semibold text-gray-900">Technician Team</h3>
-          <p className="text-sm text-gray-600">
-            {technicians.length} technician{technicians.length !== 1 ? "s" : ""} found
-          </p>
-        </div>
         <div className="p-4 space-y-4">
           {technicians.map((tech: Technician) => {
             const metrics = getTechnicianMetrics(tech);
@@ -319,14 +307,14 @@ export default function TechnicianList({ technicians, onDelete, branches }: Tech
                     <button
                       className="flex-1 px-3 py-2 text-red-600 hover:text-red-900 font-medium text-sm transition-colors border border-red-200 rounded-lg hover:bg-red-50 flex items-center justify-center gap-1"
                       onClick={() => {
-                        if (window.confirm(`Are you sure you want to delete technician '${tech.name}'?`)) {
+                        if (window.confirm(`Deactivate '${tech.name}'? They will no longer be able to log in, but their service history is kept.`)) {
                           onDelete(tech.id);
                         }
                       }}
-                      title="Delete technician"
+                      title="Deactivate technician"
                     >
                       <TrashIcon className="w-4 h-4" />
-                      Delete
+                      Deactivate
                     </button>
                   </PermissionGuard>
                 </div>

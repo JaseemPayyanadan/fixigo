@@ -1,5 +1,10 @@
 // Professional Role-Based Access Control Types
 
+import type { ServicePaymentStatus } from "@/lib/paymentUtils";
+
+// Re-exported so consumers of `Service` get the payment type from one import.
+export type { ServicePaymentStatus };
+
 export type Role = "shop_admin" | "branch_admin" | "technician";
 
 // Permission-based access control
@@ -147,6 +152,14 @@ export interface Service {
   scheduledDate?: Date;
   completedDate?: Date;
   price: number;
+  /**
+   * Whether the customer has paid. Absent on documents written before payment
+   * tracking existed — read it through `paymentStatusOf` in `paymentUtils`,
+   * never directly, so those fall back to their work status.
+   */
+  paymentStatus?: ServicePaymentStatus;
+  /** When payment was taken. Absent for the same reason as `paymentStatus`. */
+  paidAt?: Date;
   notes?: string;
   workNotes?: string[];
   partsUsed?: Array<{

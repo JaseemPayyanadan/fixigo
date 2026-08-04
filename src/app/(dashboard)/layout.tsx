@@ -32,7 +32,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <>
       {!hideNav && <SideNavBar />}
       {!hideNav && <AppBar />}
-      <main className={`main-content transition-all duration-200 ${!hideNav ? `pt-14 md:pb-14 ${collapsed ? "md:pl-14" : "md:pl-60"}` : ""}`}>{children}</main>
+      <main className={`main-content transition-all duration-200 ${!hideNav ? `pt-[72px] md:pb-14 ${collapsed ? "md:pl-14" : "md:pl-64"}` : ""}`}>{children}</main>
       {!hideNav && <BottomNavBar />}
     </>
   );

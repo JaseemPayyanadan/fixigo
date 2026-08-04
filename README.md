@@ -104,6 +104,13 @@ src/
    NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
    ```
 
+### Server-side environment variables
+
+| Variable | Purpose |
+|---|---|
+| `FIREBASE_SERVICE_ACCOUNT_KEY` | Firebase service-account JSON (single line). Required by `src/lib/firebaseAdmin.ts` for all server-side technician data access. The app will fail to serve technician routes without it. |
+| `JWT_SECRET` | Signing secret for the `session` cookie. |
+
 5. **Deploy Firestore rules**
    ```bash
    firebase deploy --only firestore:rules

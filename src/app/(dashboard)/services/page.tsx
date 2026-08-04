@@ -1,10 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { 
+import { useSearchParams } from "next/navigation";
+import {
   CheckCircleIcon,
+  CheckIcon,
   ClockIcon,
+  FunnelIcon,
+  MagnifyingGlassIcon,
   PlusIcon,
   ClipboardDocumentListIcon,
   ExclamationTriangleIcon
@@ -17,6 +21,7 @@ import { useUser } from "../../../hooks";
 import { useBranches } from "../../../hooks/useBranches";
 import { useTechnicians } from "../../../hooks/useTechnicians";
 import { db } from "../../../lib/firebase";
+import type { ServicePaymentStatus } from "../../../lib/paymentUtils";
 import type { Service } from "../../../types";
 
 // Local interface for compatibility with service list components
@@ -37,6 +42,7 @@ interface ServiceListItem {
   };
   branchId: string;
   technician_id?: string;
+  paymentStatus?: ServicePaymentStatus;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -52,6 +58,126 @@ const STATUS_FILTERS = [
   { key: "ready_for_pickup", label: "Ready for Pickup", count: 0, color: "bg-cyan-100 text-cyan-800 border-cyan-200 hover:bg-cyan-200", icon: CheckCircleIcon },
   { key: "cancelled", label: "Cancelled", count: 0, color: "bg-red-100 text-red-800 border-red-200 hover:bg-red-200", icon: ExclamationTriangleIcon },
 ];
+
+interface StatusFilterChip {
+  key: string;
+  label: string;
+  count: number;
+  color: string;
+}
+
+/**
+ * Phone-sized replacement for the status chip strip: one button carrying the
+ * active filter, opening a list of the same statuses with their counts. The
+ * chips need a horizontal scroll to fit a phone, which hides most of the
+ * statuses behind a swipe — a menu shows all of them at once.
+ */
+function StatusFilterDropdown({
+  chips,
+  statusFilter,
+  totalCount,
+  onSelect,
+  className = "",
+}: {
+  chips: StatusFilterChip[];
+  statusFilter: string;
+  totalCount: number;
+  /** Chip key, or `null` for "All statuses". */
+  onSelect: (key: string | null) => void;
+  className?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+
+    function handlePointerDown(event: MouseEvent) {
+      if (!containerRef.current?.contains(event.target as Node)) setOpen(false);
+    }
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpen(false);
+    }
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open]);
+
+  // The chip labels are the display status values the filter stores, so the
+  // active chip is the one whose label matches.
+  const activeChip = chips.find((chip) => chip.label === statusFilter);
+  const isFiltered = statusFilter !== "All";
+
+  const choose = (key: string | null) => {
+    onSelect(key);
+    setOpen(false);
+  };
+
+  return (
+    <div ref={containerRef} className={`relative ${className}`}>
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label={`Filter by status: ${activeChip?.label ?? "All statuses"}`}
+        className={`relative flex h-11 w-11 items-center justify-center rounded-xl border transition-colors ${
+          isFiltered
+            ? "border-blue-200 bg-blue-50 text-blue-700"
+            : "border-gray-200 bg-white text-gray-600"
+        }`}
+      >
+        <FunnelIcon className="h-5 w-5" />
+        {/* A filter narrows what the list shows, so it has to be visible from
+            the closed button — the label that said which one is gone. */}
+        {isFiltered && (
+          <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-blue-600" aria-hidden="true" />
+        )}
+      </button>
+
+      {open && (
+        <div
+          role="listbox"
+          className="absolute right-0 z-50 mt-2 w-60 overflow-hidden rounded-xl border border-gray-100 bg-white py-1 shadow-lg"
+        >
+          <button
+            type="button"
+            role="option"
+            aria-selected={!isFiltered}
+            onClick={() => choose(null)}
+            className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-gray-700 transition-colors hover:bg-gray-50"
+          >
+            <CheckIcon className={`h-4 w-4 shrink-0 ${isFiltered ? "invisible" : "text-blue-600"}`} />
+            <span>All statuses</span>
+            <span className="ml-auto text-xs font-semibold text-gray-500">{totalCount}</span>
+          </button>
+
+          {chips.map((chip) => {
+            const selected = chip.label === statusFilter;
+            return (
+              <button
+                key={chip.key}
+                type="button"
+                role="option"
+                aria-selected={selected}
+                onClick={() => choose(chip.key)}
+                className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-gray-700 transition-colors hover:bg-gray-50"
+              >
+                <CheckIcon className={`h-4 w-4 shrink-0 ${selected ? "text-blue-600" : "invisible"}`} />
+                <span className="truncate">{chip.label}</span>
+                <span className="ml-auto text-xs font-semibold text-gray-500">{chip.count}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function ServicesPage() {
   return (
@@ -70,7 +196,16 @@ function ServicesContent() {
 
   const [services, setServices] = useState<ServiceListItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
+  // Seeded from ?q= — the app header's search box navigates here with it, and
+  // the header's box is itself hidden below `lg`, which is why this page needs
+  // an input of its own. Typing in that input filters locally rather than
+  // pushing a URL per keystroke; a later ?q= still wins.
+  const searchParams = useSearchParams();
+  const urlSearch = searchParams.get("q") ?? "";
+  const [search, setSearch] = useState(urlSearch);
+  useEffect(() => {
+    setSearch(urlSearch);
+  }, [urlSearch]);
   const [statusFilter, setStatusFilter] = useState("All");
 
   // Transform legacy data to match current schema for internal use
@@ -87,6 +222,9 @@ function ServicesContent() {
       priority: data.priority || "medium",
       shopId: data.shopId || "",
       branchId: data.branchId || "",
+      // Carried through explicitly — without it every row renders as
+      // "Unassigned" no matter who the repair is assigned to.
+      technician_id: data.technician_id || "",
 
       customer: {
         name: data.customer?.name || "",
@@ -101,6 +239,10 @@ function ServicesContent() {
         imei: data.device?.imei || "",
         color: data.device?.color,
       },
+      // Left absent on documents written before payment tracking, so
+      // `isPaid` falls back to the work status rather than reading them as
+      // unpaid.
+      paymentStatus: data.paymentStatus === "paid" || data.paymentStatus === "pending" ? data.paymentStatus : undefined,
       createdAt: data.createdAt?.toDate() || new Date(),
       updatedAt: data.updatedAt?.toDate() || new Date(),
     };
@@ -114,8 +256,9 @@ function ServicesContent() {
       description: service.description,
       price: service.price,
       status: service.status,
+      paymentStatus: service.paymentStatus,
       branchId: service.branchId,
-      technician_id: (service as any).technician_id || service.technician_id,
+      technician_id: service.technician_id,
       createdAt: service.createdAt,
       updatedAt: service.updatedAt,
       device: {
@@ -178,9 +321,10 @@ function ServicesContent() {
             // Resolve technician document ID (canonical technicianId)
             let technicianDocId: string | null = null;
             try {
-              const techQuery = query(collection(db, "technicians"), where("created_by", "==", user.id));
-              const techSnap = await getDocs(techQuery);
-              technicianDocId = techSnap.docs[0]?.id || null;
+              const techResponse = await fetch("/api/technicians/me");
+              if (!techResponse.ok) throw new Error("Failed to fetch technician record");
+              const { technician } = await techResponse.json();
+              technicianDocId = technician?.id || null;
               console.log("👤 Technician document ID:", technicianDocId);
             } catch (e) {
               console.warn("⚠️ Failed to resolve technician document ID", e);
@@ -325,8 +469,12 @@ function ServicesContent() {
     return chips;
   }, [services]);
 
-  const handleStatusFilterClick = (statusKey: string) => {
-    if (statusKey === "completed") setStatusFilter("Completed");
+  // Writes through and updates the row in place. Re-fetching the whole list
+  // for a one-field change would blank the table on a slow connection, and the
+  // row already knows everything the new state needs.
+  const handleStatusFilterClick = (statusKey: string | null) => {
+    if (statusKey === null) setStatusFilter("All");
+    else if (statusKey === "completed") setStatusFilter("Completed");
     else if (statusKey === "in_progress") setStatusFilter("In Progress");
     else if (statusKey === "pending") setStatusFilter("To Do");
     else if (statusKey === "awaiting_parts") setStatusFilter("Awaiting Parts");
@@ -360,53 +508,39 @@ function ServicesContent() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-    {/* Header Section - Matching Dashboard Style */}
-    <div className="bg-white p-6 shadow-sm border border-gray-100">
-      <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900">Services</h1>
-          <p className="text-sm text-gray-600 mt-1">
-            Welcome back, {user?.name || "User"}
-          </p>
-        </div>
-        
-        <div className="flex flex-col sm:flex-row gap-3">
-          {/* Search Bar */}
-          <div className="relative">
-            <input
-              type="text"
-              placeholder="Search by service ID, customer, or technician…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full sm:w-80 pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white hover:bg-gray-50 text-sm shadow-sm"
-            />
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-            </div>
-          </div>
-
-
-
-          {/* New Service Button */}
-          <PermissionGuard permissions={["service:write"]} fallback={null}>
-            <Link 
-              href="/services/new" 
-              className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all duration-200 text-sm font-semibold shadow-sm hover:shadow-md transform hover:scale-105"
-            >
-              <PlusIcon className="w-4 h-4" />
-              New Service
-            </Link>
-          </PermissionGuard>
-        </div>
-      </div>
-    </div>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
         {/* Status Filter Chips - Horizontal Scroll */}
-        <div className="mb-4">
-          <div className="relative">
+        <div className="mb-4 flex flex-wrap items-center gap-3">
+          {/* Search. The app header carries one from `lg` up and hides it
+              below that, so this fills the gap on phones and tablets. */}
+          <div className="relative min-w-0 flex-1 sm:max-w-xs lg:hidden">
+            <label htmlFor="services-search" className="sr-only">
+              Search repairs
+            </label>
+            <MagnifyingGlassIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <input
+              id="services-search"
+              type="search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search repairs..."
+              className="h-11 w-full rounded-xl border border-gray-200 bg-white pl-9 pr-3 text-sm transition-colors placeholder:text-gray-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          {/* Phones get the filter menu, `sm` and up the chip strip. */}
+          <StatusFilterDropdown
+            chips={statusFilterChips}
+            statusFilter={statusFilter}
+            totalCount={services.length}
+            onSelect={handleStatusFilterClick}
+            className="shrink-0 sm:hidden"
+          />
+
+          {/* Chips take the leftover width so the button stays pinned right
+              while the chip strip keeps its own horizontal scroll. */}
+          <div className="relative hidden min-w-0 flex-1 sm:block">
             {/* Scroll indicator shadows - only show on larger screens */}
             <div className="hidden sm:block absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-gray-50 to-transparent pointer-events-none z-10 rounded-l-lg"></div>
             <div className="hidden sm:block absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-gray-50 to-transparent pointer-events-none z-10 rounded-r-lg"></div>
@@ -429,37 +563,33 @@ function ServicesContent() {
               </div>
             </div>
           </div>
+
+          {/* New Service Button */}
+          <PermissionGuard permissions={["service:write"]} fallback={null}>
+            {/* Square icon button on phones, labelled button from `sm` up. */}
+            <Link
+              href="/services/new"
+              aria-label="New service"
+              className="inline-flex h-11 w-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-blue-600 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:bg-blue-700 hover:shadow-md sm:h-auto sm:w-auto sm:px-4 sm:py-2.5"
+            >
+              <PlusIcon className="w-4 h-4" />
+              <span className="hidden sm:inline">New Service</span>
+            </Link>
+          </PermissionGuard>
         </div>
 
         {/* Services List */}
         {user?.role === "shop_admin" && <ShopAdminServiceList services={filteredServices} branches={branches} technicians={technicians} loading={loading} search={search} />}
         {user?.role === "branch_admin" && <BranchAdminServiceList services={filteredServices} branches={branches} technicians={technicians} loading={loading} search={search} />}
         {user?.role === "technician" && (
-          <>
-            {console.log("🚀 Rendering TechnicianServiceList with data:", {
-              user: {
-                id: user?.id,
-                role: user?.role,
-                branchId: user?.branchId,
-                shopId: user?.shopId
-              },
-              services: {
-                total: filteredServices?.length || 0,
-                sample: filteredServices?.slice(0, 2) || []
-              },
-              branches: {
-                total: branches?.length || 0,
-                sample: branches?.slice(0, 2) || []
-              },
-              technicians: {
-                total: technicians?.length || 0,
-                sample: technicians?.slice(0, 2) || []
-              },
-              loading,
-              search
-            })}
-            <TechnicianServiceList services={filteredServices} branches={branches} technicians={technicians} loading={loading} search={search} user={user} />
-          </>
+          <TechnicianServiceList
+            services={filteredServices}
+            branches={branches}
+            technicians={technicians}
+            loading={loading}
+            search={search}
+           
+          />
         )}
 
 

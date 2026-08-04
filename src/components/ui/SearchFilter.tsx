@@ -4,8 +4,9 @@ import React, { useCallback, useState } from "react";
 import { ArrowPathIcon, FunnelIcon, MagnifyingGlassIcon } from "@heroicons/react/24/outline";
 
 interface SearchFilterProps {
-  search: string;
-  onSearchChange: (value: string) => void;
+  /** Omit both search props to render filters only, without a search box. */
+  search?: string;
+  onSearchChange?: (value: string) => void;
   placeholder?: string;
   filters?: {
     key: string;
@@ -19,9 +20,9 @@ interface SearchFilterProps {
   className?: string;
 }
 
-const SearchFilter: React.FC<SearchFilterProps> = ({ search, onSearchChange, placeholder = "Search...", filters = [], onClear, showClear = false, className = "" }) => {
+const SearchFilter: React.FC<SearchFilterProps> = ({ search = "", onSearchChange, placeholder = "Search...", filters = [], onClear, showClear = false, className = "" }) => {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const hasActiveFilters = search || filters.some((filter) => filter.value !== filter.options[0]?.value);
+  const hasActiveFilters = Boolean(search) || filters.some((filter) => filter.value !== filter.options[0]?.value);
 
   const toggleFilter = useCallback(() => {
     setIsFilterOpen(!isFilterOpen);
@@ -40,12 +41,14 @@ const SearchFilter: React.FC<SearchFilterProps> = ({ search, onSearchChange, pla
     <div className={`relative ${className}`}>
       <div className="flex items-center gap-3">
         {/* Search */}
-        <div className="flex-1 relative">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <MagnifyingGlassIcon className="h-4 w-4 text-slate-400" />
+        {onSearchChange && (
+          <div className="flex-1 relative">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <MagnifyingGlassIcon className="h-4 w-4 text-slate-400" />
+            </div>
+            <input type="text" value={search} onChange={(e) => onSearchChange(e.target.value)} placeholder={placeholder} className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white" />
           </div>
-          <input type="text" value={search} onChange={(e) => onSearchChange(e.target.value)} placeholder={placeholder} className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white" />
-        </div>
+        )}
 
         {/* Filter Button */}
         {filters.length > 0 && (

@@ -2,20 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { collection, query, where, getDocs, updateDoc, doc } from "firebase/firestore";
 
+import { requireUser, toErrorResponse, ApiError } from "@/lib/apiAuth";
 import { db } from "@/lib/firebase";
 import { logger } from "@/lib/logger";
 
-export async function POST(request: NextRequest) {
+export async function POST(_request: NextRequest) {
   try {
-    const body = await request.json();
-    const { userId } = body;
-
-    if (!userId) {
-      return NextResponse.json(
-        { error: "User ID is required" },
-        { status: 400 }
-      );
-    }
+    // Owner comes from the session, never the body — see the GET handler in
+    // ../route.ts. Trusting a body `userId` let anyone mark another user's
+    // notifications read.
+    const user = await requireUser();
+    const userId = user.id;
 
     // Query unread notifications for the user
     const notificationsQuery = query(
@@ -43,6 +40,8 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
+    if (error instanceof ApiError) return toErrorResponse(error);
+
     logger.error("Error marking notifications as read", { error: String(error) });
     return NextResponse.json(
       { error: "Failed to mark notifications as read" },

@@ -1,0 +1,77 @@
+import { describe, expect, it } from "vitest";
+
+import { countsAsRevenue, isPaid, paidDateOf, paymentStatusOf } from "@/lib/paymentUtils";
+
+describe("paymentStatusOf", () => {
+  it("uses the stored flag when the document carries one", () => {
+    expect(paymentStatusOf({ status: "completed", paymentStatus: "pending" })).toBe("pending");
+    expect(paymentStatusOf({ status: "in_progress", paymentStatus: "paid" })).toBe("paid");
+  });
+
+  it("reads a completed service with no flag as paid, so historical revenue survives", () => {
+    expect(paymentStatusOf({ status: "completed" })).toBe("paid");
+    expect(paymentStatusOf({ status: "Completed" })).toBe("paid");
+  });
+
+  it("reads unfinished work with no flag as pending", () => {
+    expect(paymentStatusOf({ status: "in_progress" })).toBe("pending");
+    expect(paymentStatusOf({ status: "ready_for_pickup" })).toBe("pending");
+    expect(paymentStatusOf({})).toBe("pending");
+  });
+
+  it("does not treat a cancelled service as paid", () => {
+    expect(isPaid({ status: "cancelled" })).toBe(false);
+  });
+});
+
+describe("countsAsRevenue", () => {
+  it("books a completed repair whether or not the money has been collected", () => {
+    expect(countsAsRevenue({ status: "completed", paymentStatus: "pending" })).toBe(true);
+    expect(countsAsRevenue({ status: "completed", paymentStatus: "paid" })).toBe(true);
+    expect(countsAsRevenue({ status: "completed" })).toBe(true);
+  });
+
+  it("books work paid for before it is finished", () => {
+    expect(countsAsRevenue({ status: "ready_for_pickup", paymentStatus: "paid" })).toBe(true);
+  });
+
+  it("leaves unfinished, unpaid work out", () => {
+    expect(countsAsRevenue({ status: "in_progress" })).toBe(false);
+    expect(countsAsRevenue({ status: "pending", paymentStatus: "pending" })).toBe(false);
+    expect(countsAsRevenue({ status: "awaiting_parts" })).toBe(false);
+  });
+
+  it("never books cancelled work", () => {
+    expect(countsAsRevenue({ status: "cancelled" })).toBe(false);
+    expect(countsAsRevenue({ status: "cancelled", paymentStatus: "pending" })).toBe(false);
+  });
+
+  it("reads a display-cased status the same as a stored one", () => {
+    expect(countsAsRevenue({ status: "Completed" })).toBe(true);
+  });
+
+  it("is distinct from isPaid, which still answers whether money was collected", () => {
+    const finishedButOwed = { status: "completed", paymentStatus: "pending" } as const;
+    expect(countsAsRevenue(finishedButOwed)).toBe(true);
+    expect(isPaid(finishedButOwed)).toBe(false);
+  });
+});
+
+describe("paidDateOf", () => {
+  const paidAt = new Date(2026, 6, 20);
+  const completedDate = new Date(2026, 6, 18);
+  const actualCompletion = new Date(2026, 6, 17);
+
+  it("prefers the payment timestamp", () => {
+    expect(paidDateOf({ paidAt, completedDate, actualCompletion })).toEqual(paidAt);
+  });
+
+  it("falls back to completion for services settled before payment tracking existed", () => {
+    expect(paidDateOf({ completedDate, actualCompletion })).toEqual(completedDate);
+    expect(paidDateOf({ actualCompletion })).toEqual(actualCompletion);
+  });
+
+  it("returns undefined rather than inventing a date", () => {
+    expect(paidDateOf({ status: "completed" })).toBeUndefined();
+  });
+});

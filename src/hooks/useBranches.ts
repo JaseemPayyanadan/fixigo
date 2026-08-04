@@ -1,13 +1,90 @@
 "use client";
 import { useState, useEffect } from "react";
 
-import { collection, query, where, getDocs, getDoc, addDoc, updateDoc, doc, deleteDoc, orderBy } from "firebase/firestore";
+import { collection, query, where, getDocs, getDoc, addDoc, updateDoc, doc, deleteDoc } from "firebase/firestore";
 
 import { db } from "@/lib/firebase";
 import { logger, isIndexBuildingError, getIndexBuildingMessage } from "@/lib/logger";
 import type { Branch } from "@/types";
 
 import { useUser } from "./useUser";
+
+/** Firestore Timestamp, JS Date, or an ISO string — branch docs carry all three. */
+function toDate(value: unknown): Date {
+  if (value instanceof Date) return value;
+  if (value && typeof (value as { toDate?: () => Date }).toDate === "function") {
+    return (value as { toDate: () => Date }).toDate();
+  }
+  if (typeof value === "string" || typeof value === "number") {
+    const parsed = new Date(value);
+    if (!Number.isNaN(parsed.getTime())) return parsed;
+  }
+  return new Date(0);
+}
+
+/**
+ * Branch documents predate the current schema in a few shops, so the display
+ * name lives under one of several keys. Reading only `name` left the Branch
+ * column blank for those rows.
+ */
+function toBranch(id: string, data: Record<string, unknown>): Branch {
+  const name =
+    (data.name as string) ||
+    (data.branchName as string) ||
+    (data.branch_name as string) ||
+    (data.title as string) ||
+    "";
+
+  return {
+    id,
+    name,
+    location: (data.location as string) || (data.address as string) || "",
+    phone: (data.phone as string) || "",
+    email: (data.email as string) || "",
+    status: (data.status as Branch["status"]) || "active",
+    shopId: (data.shopId as string) || "",
+    createdAt: toDate(data.createdAt),
+    updatedAt: toDate(data.updatedAt),
+  };
+}
+
+/**
+ * Every branch of a shop, newest first.
+ *
+ * No `orderBy` on purpose: Firestore omits documents that lack the ordered
+ * field, so ordering by `createdAt` silently hid every branch written without
+ * one — silently, because an empty result set is not an error, so the old
+ * try/catch index fallback never ran. Sorting happens in memory instead.
+ */
+async function fetchBranchList(shopId: string): Promise<Branch[]> {
+  const flatSnapshot = await getDocs(
+    query(collection(db, "branches"), where("shopId", "==", shopId))
+  );
+
+  const branchList = flatSnapshot.docs.map((docSnapshot) =>
+    toBranch(docSnapshot.id, docSnapshot.data())
+  );
+
+  // Older shops keep their branches nested under the shop. Merge in any the
+  // flat collection does not cover, so a repair pointing at a nested branch id
+  // still resolves to a name.
+  try {
+    const nestedSnapshot = await getDocs(collection(db, "shops", shopId, "branches"));
+    const seen = new Set(branchList.map((branch) => branch.id));
+    nestedSnapshot.docs.forEach((docSnapshot) => {
+      if (seen.has(docSnapshot.id)) return;
+      branchList.push(toBranch(docSnapshot.id, { ...docSnapshot.data(), shopId }));
+    });
+  } catch (nestedError) {
+    logger.warn("Could not read nested branches", { error: String(nestedError) });
+  }
+
+  branchList.forEach((branch) => {
+    if (!branch.name) logger.warn("Branch document has no name field", { id: branch.id });
+  });
+
+  return branchList.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+}
 
 export function useBranches(shopId?: string) {
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -36,64 +113,7 @@ export function useBranches(shopId?: string) {
           throw new Error("Shop not found");
         }
 
-        // New flat structure: query top-level branches collection with shopId filter
-        let q;
-        let querySnapshot;
-        
-        try {
-          // Try with ordering first
-          q = query(
-            collection(db, "branches"),
-            where("shopId", "==", shopId),
-            orderBy("createdAt", "desc")
-          );
-          querySnapshot = await getDocs(q);
-        } catch (indexError) {
-          // If index is building, try without ordering
-          logger.warn("Index building in progress for branches, using fallback query", { error: String(indexError) });
-          
-          q = query(
-            collection(db, "branches"),
-            where("shopId", "==", shopId)
-          );
-          querySnapshot = await getDocs(q);
-        }
-        
-        const branchList: Branch[] = [];
-
-        for (const docSnapshot of querySnapshot.docs) {
-          const data = docSnapshot.data();
-          console.log("useBranches - branch document:", { id: docSnapshot.id, data });
-          console.log("useBranches - branch data keys:", Object.keys(data));
-          console.log("useBranches - branch data values:", Object.values(data));
-          console.log("useBranches - branch shopId:", data.shopId);
-          
-          const branch: Branch = {
-            id: docSnapshot.id,
-            name: data.name || "",
-            location: data.location || "",
-            phone: data.phone || "",
-            email: data.email || "",
-            status: data.status || "active",
-            shopId: data.shopId || "",
-            createdAt: data.createdAt?.toDate() || new Date(),
-            updatedAt: data.updatedAt?.toDate() || new Date(),
-          };
-          
-          // Warn about branches without shopId
-          if (!data.shopId) {
-            console.warn("useBranches - Branch without shopId:", { id: docSnapshot.id, name: data.name });
-          }
-          
-          branchList.push(branch);
-        }
-
-        console.log("useBranches - final branch list:", branchList);
-
-        // Sort manually since we're not using orderBy in the query
-        branchList.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-
-        setBranches(branchList);
+        setBranches(await fetchBranchList(shopId));
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : "Failed to fetch branches";
         logger.error("Error fetching branches", { error: errorMessage });
@@ -139,47 +159,8 @@ export function useBranches(shopId?: string) {
       );
 
       // Step 3: Refresh branches list
-      let updatedBranches;
-      try {
-        updatedBranches = await getDocs(
-          query(
-            collection(db, "branches"),
-            where("shopId", "==", shopId),
-            orderBy("createdAt", "desc")
-          )
-        );
-      } catch (indexError) {
-        // If index is building, try without ordering
-        logger.warn("Index building in progress for branches refresh, using fallback query", { error: String(indexError) });
-        
-        updatedBranches = await getDocs(
-          query(
-            collection(db, "branches"),
-            where("shopId", "==", shopId)
-          )
-        );
-      }
+      setBranches(await fetchBranchList(shopId));
 
-      const branchList: Branch[] = [];
-      for (const docSnapshot of updatedBranches.docs) {
-        const data = docSnapshot.data();
-        const branch: Branch = {
-          id: docSnapshot.id,
-          name: data.name || "",
-          location: data.location || "",
-          phone: data.phone || "",
-          email: data.email || "",
-          status: data.status || "active",
-          shopId: data.shopId || "",
-
-          createdAt: data.createdAt?.toDate() || new Date(),
-          updatedAt: data.updatedAt?.toDate() || new Date(),
-        };
-        branchList.push(branch);
-      }
-
-      setBranches(branchList);
-      
       // Return branch ID for successful creation
       return {
         branchId: branchDocRef.id
@@ -217,61 +198,7 @@ export function useBranches(shopId?: string) {
       console.log("useBranches - Branch updated successfully");
 
       // Refresh branches list
-      let updatedBranches;
-      try {
-        updatedBranches = await getDocs(
-          query(
-            collection(db, "branches"),
-            where("shopId", "==", shopId),
-            orderBy("createdAt", "desc")
-          )
-        );
-      } catch (indexError) {
-        // If index is building, try without ordering
-        logger.warn("Index building in progress for branches update refresh, using fallback query", { error: String(indexError) });
-        
-        updatedBranches = await getDocs(
-          query(
-            collection(db, "branches"),
-            where("shopId", "==", shopId)
-          )
-        );
-      }
-
-      const branchList: Branch[] = [];
-      for (const docSnapshot of updatedBranches.docs) {
-        const data = docSnapshot.data();
-        console.log("useBranches - branch document:", { id: docSnapshot.id, data });
-        console.log("useBranches - branch data keys:", Object.keys(data));
-        console.log("useBranches - branch data values:", Object.values(data));
-        console.log("useBranches - branch shopId:", data.shopId);
-        
-        const branch: Branch = {
-          id: docSnapshot.id,
-          name: data.name || "",
-          location: data.location || "",
-          phone: data.phone || "",
-          email: data.email || "",
-          status: data.status || "active",
-          shopId: data.shopId || "",
-          createdAt: data.createdAt?.toDate() || new Date(),
-          updatedAt: data.updatedAt?.toDate() || new Date(),
-        };
-        
-        // Warn about branches without shopId
-        if (!data.shopId) {
-          console.warn("useBranches - Branch without shopId:", { id: docSnapshot.id, name: data.name });
-        }
-        
-        branchList.push(branch);
-      }
-
-      console.log("useBranches - final branch list:", branchList);
-
-      // Sort manually if we couldn't use orderBy
-      branchList.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-
-      setBranches(branchList);
+      setBranches(await fetchBranchList(shopId));
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Failed to update branch";
       logger.error("Error updating branch", { error: errorMessage, branchId, updates: JSON.stringify(updates) });
@@ -289,48 +216,7 @@ export function useBranches(shopId?: string) {
       await deleteDoc(doc(db, "branches", branchId));
       
       // Refresh branches list
-      let updatedBranches;
-      try {
-        updatedBranches = await getDocs(
-          query(
-            collection(db, "branches"),
-            where("shopId", "==", shopId),
-            orderBy("createdAt", "desc")
-          )
-        );
-      } catch (indexError) {
-        // If index is building, try without ordering
-        logger.warn("Index building in progress for branches delete refresh, using fallback query", { error: String(indexError) });
-        
-        updatedBranches = await getDocs(
-          query(
-            collection(db, "branches"),
-            where("shopId", "==", shopId)
-          )
-        );
-      }
-
-      const branchList: Branch[] = [];
-      for (const docSnapshot of updatedBranches.docs) {
-        const data = docSnapshot.data();
-        const branch: Branch = {
-          id: docSnapshot.id,
-          name: data.name || "",
-          location: data.location || "",
-          phone: data.phone || "",
-          email: data.email || "",
-          status: data.status || "active",
-          shopId: data.shopId || "",
-          createdAt: data.createdAt?.toDate() || new Date(),
-          updatedAt: data.updatedAt?.toDate() || new Date(),
-        };
-        branchList.push(branch);
-      }
-
-      // Sort manually if we couldn't use orderBy
-      branchList.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-
-      setBranches(branchList);
+      setBranches(await fetchBranchList(shopId));
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Failed to delete branch";
       logger.error("Error deleting branch", { error: errorMessage });

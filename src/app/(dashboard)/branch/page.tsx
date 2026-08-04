@@ -18,7 +18,6 @@ export default function BranchPage() {
   const shopId = user?.shopId;
   const { branches, loading, error, deleteBranch } = useBranches(shopId);
 
-  const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
 
   // Debug logging - moved to top to maintain hooks order
@@ -30,13 +29,11 @@ export default function BranchPage() {
         return false;
       }
 
-      const matchesSearch = branch.name.toLowerCase().includes(search.toLowerCase()) || branch.location.toLowerCase().includes(search.toLowerCase());
-      const matchesStatus = statusFilter === "All" || branch.status === statusFilter;
-      return matchesSearch && matchesStatus;
+      return statusFilter === "All" || branch.status === statusFilter;
     }));
     console.log("Branch page - user:", user);
     console.log("Branch page - shopId:", shopId);
-  }, [branches, search, statusFilter, user, shopId]);
+  }, [branches, statusFilter, user, shopId]);
 
   // Fetch technicians for each branch
   useEffect(() => {
@@ -109,7 +106,6 @@ export default function BranchPage() {
   );
 
   const handleClearFilters = useCallback(() => {
-    setSearch("");
     setStatusFilter("All");
   }, []);
 
@@ -120,9 +116,7 @@ export default function BranchPage() {
       return false;
     }
 
-    const matchesSearch = branch.name.toLowerCase().includes(search.toLowerCase()) || branch.location.toLowerCase().includes(search.toLowerCase());
-    const matchesStatus = statusFilter === "All" || branch.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    return statusFilter === "All" || branch.status === statusFilter;
   });
 
   // Render loading state
@@ -221,9 +215,6 @@ export default function BranchPage() {
         {/* Search and Filter */}
         <div className="flex flex-row gap-5">
           <SearchFilter
-            search={search}
-            onSearchChange={setSearch}
-            placeholder="Search branches..."
             filters={[
               {
                 key: "status",

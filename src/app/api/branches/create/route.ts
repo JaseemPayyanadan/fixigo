@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { collection, addDoc, setDoc, doc, query, where, getDocs } from "firebase/firestore";
 
+import { requireUser, toErrorResponse, ApiError } from "@/lib/apiAuth";
 import { hashPassword } from "@/lib/auth";
 import { db } from "@/lib/firebase";
 import { Branch } from "@/types";
@@ -10,21 +11,35 @@ export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {
   try {
+    // This endpoint mints a `branch_admin` login with a caller-supplied
+    // password. Unauthenticated, and trusting `shopId` from the body, it let
+    // anyone create a working admin account in any shop — so the session is
+    // the only acceptable source for the shop being written to.
+    const user = await requireUser();
+
+    if (user.role !== "shop_admin") {
+      throw new ApiError(403, "Only a shop admin can create branches");
+    }
+    if (!user.shopId) {
+      throw new ApiError(403, "User is not associated with a shop");
+    }
+    const shopId = user.shopId;
+
         const {
-      name, 
-      location, 
-      phone, 
-      email, 
-      password, 
-      shopId,
+      name,
+      location,
+      phone,
+      email,
+      password,
       managerName,
       managerPhone
     } = await request.json();
 
-    // Validate required fields
-    if (!name || !location || !phone || !email || !password || !shopId) {
+    // Validate required fields. `shopId` is deliberately absent: it comes from
+    // the session above, and any value in the body is ignored.
+    if (!name || !location || !phone || !email || !password) {
       return NextResponse.json(
-        { error: "Name, location, phone, email, password, and shopId are required" },
+        { error: "Name, location, phone, email, and password are required" },
         { status: 400 }
       );
     }
@@ -114,10 +129,12 @@ export async function POST(request: NextRequest) {
       message: "Branch created successfully",
     });
   } catch (error) {
+    if (error instanceof ApiError) return toErrorResponse(error);
+
     console.error("Branch creation error:", error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Failed to create branch" },
       { status: 500 }
     );
   }
-} 
+}
