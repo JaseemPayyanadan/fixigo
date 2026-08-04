@@ -5,15 +5,19 @@ import React, { Suspense, useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { collection, deleteDoc, deleteField, doc, getDoc, getDocs, query, updateDoc, where } from "firebase/firestore";
-import { MdArrowBack, MdBuild, MdCheckCircle, MdDelete, MdDevices, MdEdit, MdFeedback, MdHistory, MdInfo, MdInventory, MdNotes, MdPayments, MdPerson, MdPrint, MdPriorityHigh, MdRefresh, MdStar, MdWarning } from "react-icons/md";
+import { MdArrowBack, MdRefresh, MdWarning } from "react-icons/md";
 
+import CollectPaymentDialog from "@/components/service/CollectPaymentDialog";
+import ReopenServiceDialog from "@/components/service/ReopenServiceDialog";
+import ServiceDetailsView from "@/components/service/ServiceDetailsView";
+import ServiceForm from "@/components/service/ServiceForm";
 import { useUser } from "@/hooks";
 import { authUserToUser } from "@/lib/auth";
 import { db } from "@/lib/firebase";
-import { isPaid, type ServicePaymentStatus } from "@/lib/paymentUtils";
+import { isPaid, shouldOpenCollectPaymentModal, type ServicePaymentStatus } from "@/lib/paymentUtils";
 import { setServicePayment } from "@/lib/servicePayments";
-import { getStatusConfig, normalizeStatus } from "@/lib/statusUtils";
-import ServiceForm from "@/components/service/ServiceForm";
+import { buildReopenFields, canReopenService } from "@/lib/serviceReopen";
+import { normalizeStatus } from "@/lib/statusUtils";
 import type { Branch, Technician } from "@/types";
 
 interface Service {
@@ -49,6 +53,10 @@ interface Service {
   actualCompletion?: Date;
   paymentStatus?: ServicePaymentStatus;
   paidAt?: Date;
+  isReopened?: boolean;
+  reopenReason?: string;
+  reopenedAt?: Date;
+  reopenCount?: number;
   device?: {
     model: string;
     brand: string;
@@ -73,25 +81,6 @@ interface StatusHistory {
 }
 
 const STATUS_OPTIONS = ["To Do", "In Progress", "Completed", "Pending", "Cancelled", "Awaiting Parts", "Ready for Pickup"];
-
-const priorityColors: Record<string, string> = {
-  low: "bg-slate-100 text-slate-700 border-slate-200",
-  medium: "bg-blue-100 text-blue-700 border-blue-200",
-  high: "bg-orange-100 text-orange-700 border-orange-200",
-  urgent: "bg-red-100 text-red-700 border-red-200",
-};
-
-const priorityIcons: Record<string, React.ReactNode> = {
-  low: <MdPriorityHigh className="w-3 h-3" />,
-  medium: <MdPriorityHigh className="w-3 h-3" />,
-  high: <MdPriorityHigh className="w-3 h-3" />,
-  urgent: <MdPriorityHigh className="w-3 h-3" />,
-};
-
-function displayOptional(value: string | undefined | null): string {
-  const trimmed = value?.trim();
-  return trimmed ? trimmed : "—";
-}
 
 function ServiceDetailsSkeleton() {
   return (
@@ -135,21 +124,12 @@ function ServiceDetailsPage() {
   const [showHistory, setShowHistory] = useState(false);
   const [statusUpdateSuccess, setStatusUpdateSuccess] = useState(false);
   const [updatingPayment, setUpdatingPayment] = useState(false);
-  // Set when a job is marked completed while payment is still outstanding, so
-  // the payment card asks for the money at the moment of handover.
-  const [promptForPayment, setPromptForPayment] = useState(false);
+  const [showCollectPaymentDialog, setShowCollectPaymentDialog] = useState(false);
+  const [collectPaymentError, setCollectPaymentError] = useState<string | null>(null);
+  const [showReopenDialog, setShowReopenDialog] = useState(false);
+  const [reopening, setReopening] = useState(false);
+  const [reopenError, setReopenError] = useState<string | null>(null);
   const [editLoading, setEditLoading] = useState(false);
-  const [expandedSections, setExpandedSections] = useState({
-    serviceInfo: true,
-    deviceInfo: true,
-    customerInfo: true,
-    technicianInfo: true,
-    quickInfo: false,
-    notes: false,
-    parts: false,
-    feedback: false,
-    history: false
-  });
   const [showDropdown, setShowDropdown] = useState(false);
 
   useEffect(() => {
@@ -193,6 +173,10 @@ function ServiceDetailsPage() {
             // `isPaid` can fall back to the work status.
             paymentStatus: data.paymentStatus === "paid" || data.paymentStatus === "pending" ? data.paymentStatus : undefined,
             paidAt: data.paidAt?.toDate(),
+            isReopened: data.isReopened === true,
+            reopenReason: typeof data.reopenReason === "string" ? data.reopenReason : undefined,
+            reopenedAt: data.reopenedAt?.toDate?.(),
+            reopenCount: typeof data.reopenCount === "number" ? data.reopenCount : undefined,
             createdAt: data.createdAt?.toDate() || new Date(),
             updatedAt: data.updatedAt?.toDate() || new Date(),
           };
@@ -370,12 +354,15 @@ function ServiceDetailsPage() {
         setStatusUpdateSuccess(true);
         setTimeout(() => setStatusUpdateSuccess(false), 3000); // Hide success message after 3 seconds
 
-        // Handover is when the money normally changes hands, so ask — but only
-        // ask. Completing a job is not proof the customer paid, and silently
-        // marking it paid would put takings on the dashboard that the shop may
-        // never have received.
-        const readyToCollect = isCompleted || normalizeStatus(newStatus) === "ready_for_pickup";
-        setPromptForPayment(readyToCollect && service?.paymentStatus !== "paid");
+        // Status is already saved. Open Collect Payment only for Completed with
+        // outstanding payment (paymentStatus before this write). Never for Ready
+        // for Pickup — that is intentionally not a collect trigger here.
+        if (shouldOpenCollectPaymentModal(newStatus, service?.paymentStatus)) {
+          setCollectPaymentError(null);
+          setShowCollectPaymentDialog(true);
+        } else {
+          setShowCollectPaymentDialog(false);
+        }
       } catch (err) {
         console.error("Error updating status:", err);
         setStatus(service?.status || "To Do"); // Revert on error
@@ -386,6 +373,46 @@ function ServiceDetailsPage() {
     }
   };
 
+  const handleConfirmReopen = async (reason: string) => {
+    if (!serviceId || !service) return;
+    setReopening(true);
+    setReopenError(null);
+    try {
+      const now = new Date();
+      const fields = buildReopenFields(reason, service.reopenCount, now);
+      await updateDoc(doc(db, "services", serviceId), {
+        ...fields,
+        updatedAt: now,
+        completedDate: deleteField(),
+        actualCompletion: deleteField(),
+      });
+      setService((prev) =>
+        prev
+          ? {
+              ...prev,
+              ...fields,
+              updatedAt: now,
+              completedDate: undefined,
+              actualCompletion: undefined,
+            }
+          : null
+      );
+      setStatus("in_progress");
+      setStatusHistory((prev) => [
+        { status: "in_progress", timestamp: now, updatedBy: user?.name || "Unknown" },
+        ...prev,
+      ]);
+      setShowReopenDialog(false);
+      setStatusUpdateSuccess(true);
+      setTimeout(() => setStatusUpdateSuccess(false), 3000);
+    } catch (err) {
+      console.error("Error reopening service:", err);
+      setReopenError("Failed to reopen service. Please try again.");
+    } finally {
+      setReopening(false);
+    }
+  };
+
   const handlePaymentChange = async (paid: boolean) => {
     if (!serviceId) return;
     setUpdatingPayment(true);
@@ -393,21 +420,26 @@ function ServiceDetailsPage() {
     try {
       const write = await setServicePayment(serviceId, paid);
       setService((prev) => (prev ? { ...prev, ...write, paidAt: write.paidAt, updatedAt: new Date() } : null));
-      setPromptForPayment(false);
+      setShowCollectPaymentDialog(false);
+      setCollectPaymentError(null);
     } catch (err) {
       console.error("Error updating payment:", err);
       setError("Failed to update payment. Please try again.");
+      setCollectPaymentError("Failed to update payment. Please try again.");
+      throw err;
     } finally {
       setUpdatingPayment(false);
     }
   };
 
-  const getTechnicianName = (technicianId: string) => {
-    if (!technicianId) return "Not assigned";
-    
-    const technician = technicians.find((t) => t.id === technicianId || t.userId === technicianId);
-    
-    return technician?.name || `Unknown Technician (${technicianId})`;
+  const handleCollectMarkPaid = () => {
+    void handlePaymentChange(true);
+  };
+
+  const handleCollectKeepUnpaid = () => {
+    if (updatingPayment) return;
+    setShowCollectPaymentDialog(false);
+    setCollectPaymentError(null);
   };
 
   const getAssignedTechnicianInfo = () => {
@@ -431,47 +463,12 @@ function ServiceDetailsPage() {
     };
   };
 
-  const formatDuration = (minutes: number) => {
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
-  };
-
-  const getPriorityLabel = (priority: string) => {
-    const labels = {
-      low: "Low",
-      medium: "Medium",
-      high: "High",
-      urgent: "Urgent",
-    };
-    return labels[priority as keyof typeof labels] || "Medium";
-  };
-
-  const formatDate = (date: Date | undefined) => {
-    if (!date) return "—";
-    return date.toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-
-  const renderStars = useCallback((rating: number) => {
-    return Array.from({ length: 5 }, (_, i) => <MdStar key={`star-${rating}-${i}`} className={`w-4 h-4 ${i < rating ? "text-yellow-400 fill-current" : "text-gray-300"}`} />);
-  }, []);
-
   // Memoized handlers to avoid arrow functions in JSX
   const handleGoBack = useCallback(() => router.back(), [router]);
   const handleReload = useCallback(() => window.location.reload(), []);
   const handleToggleShowHistory = useCallback(() => setShowHistory((prev) => !prev), []);
   const handleCancelEdit = useCallback(() => setEditing(false), []);
   const handleEditClick = useCallback(() => setEditing(true), []);
-  const handlePrint = useCallback(() => window.print(), []);
-  const toggleSection = useCallback((section: keyof typeof expandedSections) => {
-    setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
-  }, []);
   const toggleDropdown = useCallback(() => {
     setShowDropdown(prev => !prev);
   }, []);
@@ -587,717 +584,62 @@ function ServiceDetailsPage() {
   }
 
   const branchName = branches.find((b) => b.id === service.branchId)?.name || "—";
-  const createdAt = service.createdAt ? new Date(service.createdAt) : null;
-  const updatedAt = service.updatedAt ? new Date(service.updatedAt) : null;
-  const statusConfig = getStatusConfig(status);
   const servicePaid = isPaid({ ...service, status });
-  const priorityColor = priorityColors[service.priority || "medium"];
-  const priorityIcon = priorityIcons[service.priority || "medium"];
-  const sectionToggleClass =
-    "w-full flex min-h-11 items-center justify-between p-4 text-left hover:bg-gray-50 transition-colors motion-reduce:transition-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500";
-  const cardClass = "rounded-2xl border border-gray-100 bg-white shadow-sm";
-  const chevronClass = (expanded: boolean) =>
-    `w-5 h-5 text-gray-400 transition-transform motion-reduce:transition-none ${expanded ? "rotate-180" : ""}`;
+  const userCanReopen = canReopenService(
+    user ? { role: user.role, id: user.id } : null,
+    service
+  );
+  const techInfo = getAssignedTechnicianInfo();
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Mobile Header - Sticky */}
-      <div className="sticky top-0 z-50 bg-white border-b border-gray-100 shadow-sm">
-        <div className="flex items-center justify-between px-4 py-3">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={handleGoBack}
-              className="inline-flex min-h-11 min-w-11 items-center justify-center p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors motion-reduce:transition-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500"
-              aria-label="Go back"
-            >
-              <MdArrowBack className="w-5 h-5" />
-            </button>
-            <h1 className="text-lg font-semibold text-gray-900">Service Details</h1>
-          </div>
-          <div className="relative dropdown-container">
-            <button
-              onClick={toggleDropdown}
-              className="inline-flex min-h-11 min-w-11 items-center justify-center p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors motion-reduce:transition-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500"
-              aria-label="More options"
-            >
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
-              </svg>
-            </button>
-            
-            {/* Dropdown Menu */}
-            {showDropdown && (
-              <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-50">
-                <button
-                  onClick={() => {
-                    setShowDropdown(false);
-                    handleEditClick();
-                  }}
-                  className="w-full flex min-h-11 items-center gap-3 px-4 py-3 text-left text-gray-700 hover:bg-gray-50 transition-colors motion-reduce:transition-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-inset"
-                >
-                  <MdEdit className="w-4 h-4 text-blue-600" />
-                  <span className="text-sm font-medium">Edit Service</span>
-                </button>
-                <button
-                  onClick={() => {
-                    setShowDropdown(false);
-                    handlePrint();
-                  }}
-                  className="w-full flex min-h-11 items-center gap-3 px-4 py-3 text-left text-gray-700 hover:bg-gray-50 transition-colors motion-reduce:transition-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-inset"
-                >
-                  <MdPrint className="w-4 h-4 text-gray-600" />
-                  <span className="text-sm font-medium">Print Details</span>
-                </button>
-                <button
-                  onClick={() => {
-                    setShowDropdown(false);
-                    handleToggleShowHistory();
-                  }}
-                  className="w-full flex min-h-11 items-center gap-3 px-4 py-3 text-left text-gray-700 hover:bg-gray-50 transition-colors motion-reduce:transition-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-inset"
-                >
-                  <MdHistory className="w-4 h-4 text-gray-600" />
-                  <span className="text-sm font-medium">View History</span>
-                </button>
-                <hr className="my-1 border-gray-100" />
-                <button
-                  onClick={() => {
-                    setShowDropdown(false);
-                    handleDelete();
-                  }}
-                  className="w-full flex min-h-11 items-center gap-3 px-4 py-3 text-left text-red-600 hover:bg-red-50 transition-colors motion-reduce:transition-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-inset"
-                >
-                  <MdDelete className="w-4 h-4 text-red-600" />
-                  <span className="text-sm font-medium">Delete Service</span>
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <div className="p-4 space-y-4">
-        {/* Service Summary Card - Hero Section */}
-        <div className={`${cardClass} p-4`}>
-          <div className="space-y-3">
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
-                <h2 className="text-xl font-bold text-gray-900 mb-2">{service.name}</h2>
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <span className="font-mono bg-gray-100 px-2 py-1 rounded text-xs">#{service.id.slice(-8)}</span>
-                  </div>
-                  <div className="flex items-center gap-3 text-xs text-gray-500">
-                    <div className="flex items-center gap-1">
-                      <span className="font-medium">Created:</span>
-                      <span>{createdAt ? createdAt.toLocaleDateString('en-US', {
-                        month: 'short',
-                        day: 'numeric',
-                        year: 'numeric'
-                      }) : '—'}</span>
-                    </div>
-                    <span>•</span>
-                    <div className="flex items-center gap-1">
-                      <span className="font-medium">Updated:</span>
-                      <span>{updatedAt ? updatedAt.toLocaleDateString('en-US', {
-                        month: 'short',
-                        day: 'numeric',
-                        year: 'numeric'
-                      }) : '—'}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="text-right">
-                <div className="text-3xl font-bold text-blue-600">₹{service.price?.toLocaleString()}</div>
-                <div className="text-xs text-gray-500 mt-1">Service Price</div>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg font-medium text-sm ${statusConfig.color} ${statusConfig.bg}`}>
-                <span aria-hidden="true">{statusConfig.icon}</span>
-                <span>{statusConfig.label}</span>
-              </span>
-              <div className={`${priorityColor} flex items-center gap-1 px-2 py-1 rounded-md font-medium text-xs border`}>
-                {priorityIcon}
-                <span>{getPriorityLabel(service.priority || "medium")}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Status Update Section */}
-        <div className={`${cardClass} p-4`}>
-          <div className="flex items-center gap-3 mb-3">
-            <span className="text-gray-600 font-medium text-sm">Update Status:</span>
-            <select
-              value={status}
-              onChange={handleStatusChange}
-              disabled={updatingStatus}
-              className="flex-1 min-h-11 cursor-pointer border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 bg-white"
-            >
-              {STATUS_OPTIONS.map((opt) => (
-                <option key={opt} value={opt}>
-                  {opt}
-                </option>
-              ))}
-            </select>
-          </div>
-          {updatingStatus && (
-            <div className="flex items-center gap-2 text-sm text-gray-600 bg-gray-50 px-3 py-2 rounded-lg">
-              <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-200 border-t-blue-600 motion-reduce:animate-none"></div>
-              Updating...
-            </div>
-          )}
-          {statusUpdateSuccess && (
-            <div className="flex items-center gap-2 text-sm text-green-600 bg-green-50 px-3 py-2 rounded-lg">
-              <MdCheckCircle className="w-4 h-4" />
-              Status updated successfully!
-            </div>
-          )}
-        </div>
-
-        {/* Payment. Drives Total Revenue on the dashboard, which counts paid
-            repairs only — hence its own card rather than a line in Quick Info. */}
-        <div className={`${cardClass} p-4`}>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${servicePaid ? "bg-emerald-100" : "bg-amber-100"}`}>
-                <MdPayments className={`w-4 h-4 ${servicePaid ? "text-emerald-600" : "text-amber-600"}`} />
-              </div>
-              <div>
-                <p className="font-semibold text-gray-900 text-sm">Payment</p>
-                <p className="text-xs text-gray-500">
-                  {servicePaid
-                    ? `₹${service.price?.toLocaleString()} received${
-                        service.paidAt
-                          ? ` on ${service.paidAt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`
-                          : ""
-                      }`
-                    : `₹${service.price?.toLocaleString()} outstanding`}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <span
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium text-sm ${
-                  servicePaid ? "text-emerald-700 bg-emerald-50" : "text-amber-700 bg-amber-50"
-                }`}
-              >
-                {servicePaid ? "Paid" : "Unpaid"}
-              </span>
-              <button
-                type="button"
-                onClick={() => handlePaymentChange(!servicePaid)}
-                disabled={updatingPayment}
-                className={`min-h-11 cursor-pointer rounded-lg px-4 py-2 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 ${
-                  servicePaid
-                    ? "border border-gray-300 text-gray-700 hover:bg-gray-50"
-                    : "bg-emerald-600 text-white hover:bg-emerald-700"
-                }`}
-              >
-                {updatingPayment ? "Saving..." : servicePaid ? "Mark as Unpaid" : "Mark as Paid"}
-              </button>
-            </div>
-          </div>
-
-          {promptForPayment && !servicePaid && (
-            <div className="mt-3 flex items-center gap-2 text-sm text-amber-700 bg-amber-50 px-3 py-2 rounded-lg">
-              <MdWarning className="w-4 h-4 shrink-0" />
-              Device is ready to hand over — did the customer pay? It will not count towards revenue until marked.
-            </div>
-          )}
-        </div>
-
-        {/* Collapsible Sections */}
-        <div className="space-y-3">
-          {/* Service Information */}
-          <div className={`${cardClass} overflow-hidden`}>
-            <button
-              onClick={() => toggleSection('serviceInfo')}
-              className={sectionToggleClass}
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                  <MdBuild className="w-4 h-4 text-blue-600" />
-                </div>
-                <span className="font-semibold text-gray-900">Service Information</span>
-              </div>
-              <svg
-                className={chevronClass(expandedSections.serviceInfo)}
-                fill="none" 
-                stroke="currentColor" 
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
-            {expandedSections.serviceInfo && (
-              <div className="px-4 pb-4 space-y-3">
-                <div className="grid grid-cols-1 gap-3">
-                  <div>
-                    <div className="text-gray-500 text-xs font-medium mb-1">Service Name</div>
-                    <div className="font-semibold text-gray-900">{service.name}</div>
-                  </div>
-                  <div>
-                    <div className="text-gray-500 text-xs font-medium mb-1">Branch</div>
-                    <div className="font-semibold text-gray-900">{branchName}</div>
-                  </div>
-                  <div>
-                    <div className="text-gray-500 text-xs font-medium mb-1">Assigned Technician</div>
-                    <div className="font-semibold text-gray-900">
-                      {(() => {
-                        const techInfo = getAssignedTechnicianInfo();
-                        return (
-                          <div className="space-y-1">
-                            <div>{techInfo.name}</div>
-                            {techInfo.id && (
-                              <div className="text-xs text-gray-500 font-mono bg-gray-100 px-2 py-1 rounded">
-                                ID: {techInfo.id}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })()}
-                    </div>
-                  </div>
-                  {service.actualDuration && (
-                    <div>
-                      <div className="text-gray-500 text-xs font-medium mb-1">Actual Duration</div>
-                      <div className="font-semibold text-gray-900">{formatDuration(service.actualDuration)}</div>
-                    </div>
-                  )}
-                </div>
-                <div>
-                  <div className="text-gray-500 text-xs font-medium mb-1">Description</div>
-                  <div className="font-medium text-gray-900 bg-gray-50 p-3 rounded-lg border border-gray-100 text-sm leading-relaxed">
-                    {displayOptional(service.description)}
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Device Information */}
-          <div className={`${cardClass} overflow-hidden`}>
-            <button
-              onClick={() => toggleSection('deviceInfo')}
-              className={sectionToggleClass}
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
-                  <MdDevices className="w-4 h-4 text-green-600" />
-                </div>
-                <span className="font-semibold text-gray-900">Device Information</span>
-              </div>
-              <svg
-                className={chevronClass(expandedSections.deviceInfo)}
-                fill="none" 
-                stroke="currentColor" 
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
-            {expandedSections.deviceInfo && (
-              <div className="px-4 pb-4 space-y-3">
-                <div className="grid grid-cols-1 gap-3">
-                  <div>
-                    <div className="text-gray-500 text-xs font-medium mb-1">Type</div>
-                    <div className="font-semibold text-gray-900">{displayOptional(service.device?.type)}</div>
-                  </div>
-                  <div>
-                    <div className="text-gray-500 text-xs font-medium mb-1">Brand</div>
-                    <div className="font-semibold text-gray-900">{displayOptional(service.device?.brand)}</div>
-                  </div>
-                  <div>
-                    <div className="text-gray-500 text-xs font-medium mb-1">Model</div>
-                    <div className="font-semibold text-gray-900">{displayOptional(service.device?.model)}</div>
-                  </div>
-                  <div>
-                    <div className="text-gray-500 text-xs font-medium mb-1">IMEI</div>
-                    <div className="font-semibold text-gray-900 font-mono bg-gray-50 px-3 py-2 rounded-lg border border-gray-100">
-                      {displayOptional(service.device?.imei)}
-                    </div>
-                  </div>
-                  {service.device?.color && (
-                    <div>
-                      <div className="text-gray-500 text-xs font-medium mb-1">Color</div>
-                      <div className="font-semibold text-gray-900">{service.device.color}</div>
-                    </div>
-                  )}
-                </div>
-                {service.device?.issue && (
-                  <div>
-                    <div className="text-gray-500 text-xs font-medium mb-1">Issue Description</div>
-                    <div className="font-medium text-gray-900 bg-gray-50 p-3 rounded-lg border border-gray-100 text-sm leading-relaxed">
-                      {service.device.issue}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Customer Information */}
-          <div className={`${cardClass} overflow-hidden`}>
-            <button
-              onClick={() => toggleSection('customerInfo')}
-              className={sectionToggleClass}
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
-                  <MdPerson className="w-4 h-4 text-purple-600" />
-                </div>
-                <span className="font-semibold text-gray-900">Customer Information</span>
-              </div>
-              <svg
-                className={chevronClass(expandedSections.customerInfo)}
-                fill="none" 
-                stroke="currentColor" 
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
-            {expandedSections.customerInfo && (
-              <div className="px-4 pb-4 space-y-3">
-                <div className="grid grid-cols-1 gap-3">
-                  <div>
-                    <div className="text-gray-500 text-xs font-medium mb-1">Name</div>
-                    <div className="font-semibold text-gray-900">{displayOptional(service.customer?.name)}</div>
-                  </div>
-                  <div>
-                    <div className="text-gray-500 text-xs font-medium mb-1">Phone</div>
-                    <div className="font-semibold text-gray-900">{displayOptional(service.customer?.phone)}</div>
-                  </div>
-                  {service.customer?.email && (
-                    <div>
-                      <div className="text-gray-500 text-xs font-medium mb-1">Email</div>
-                      <div className="font-semibold text-gray-900">{service.customer.email}</div>
-                    </div>
-                  )}
-                  {service.customer?.address && (
-                    <div>
-                      <div className="text-gray-500 text-xs font-medium mb-1">Address</div>
-                      <div className="font-semibold text-gray-900">{service.customer.address}</div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Technician Information */}
-          {(() => {
-            const techInfo = getAssignedTechnicianInfo();
-            if (!techInfo.id) return null;
-            
-            return (
-              <div className={`${cardClass} overflow-hidden`}>
-                <button
-                  onClick={() => toggleSection('technicianInfo')}
-                  className={sectionToggleClass}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
-                      <MdPerson className="w-4 h-4 text-orange-600" />
-                    </div>
-                    <span className="font-semibold text-gray-900">Assigned Technician</span>
-                  </div>
-                  <svg
-                    className={chevronClass(expandedSections.technicianInfo)}
-                    fill="none" 
-                    stroke="currentColor" 
-                    viewBox="0 0 24 24"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-                {expandedSections.technicianInfo && (
-                  <div className="px-4 pb-4 space-y-3">
-                    <div className="grid grid-cols-1 gap-3">
-                      <div>
-                        <div className="text-gray-500 text-xs font-medium mb-1">Name</div>
-                        <div className="font-semibold text-gray-900">{techInfo.name}</div>
-                      </div>
-                      <div>
-                        <div className="text-gray-500 text-xs font-medium mb-1">Technician ID</div>
-                        <div className="font-mono text-gray-900 bg-gray-100 px-3 py-2 rounded-lg">
-                          {techInfo.id}
-                        </div>
-                      </div>
-                      {techInfo.technician?.phone && (
-                        <div>
-                          <div className="text-gray-500 text-xs font-medium mb-1">Phone</div>
-                          <div className="font-semibold text-gray-900">{techInfo.technician.phone}</div>
-                        </div>
-                      )}
-                      {techInfo.technician?.email && (
-                        <div>
-                          <div className="text-gray-500 text-xs font-medium mb-1">Email</div>
-                          <div className="font-semibold text-gray-900">{techInfo.technician.email}</div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          })()}
-
-          {/* Quick Info */}
-          <div className={`${cardClass} overflow-hidden`}>
-            <button
-              onClick={() => toggleSection('quickInfo')}
-              className={sectionToggleClass}
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
-                  <MdInfo className="w-4 h-4 text-gray-600" />
-                </div>
-                <span className="font-semibold text-gray-900">Quick Info</span>
-              </div>
-              <svg
-                className={chevronClass(expandedSections.quickInfo)}
-                fill="none" 
-                stroke="currentColor" 
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
-            {expandedSections.quickInfo && (
-              <div className="px-4 pb-4 space-y-3">
-                <div className="grid grid-cols-1 gap-3">
-                  <div className="p-3 bg-gray-50 rounded-lg border border-gray-100">
-                    <div className="text-gray-500 text-xs font-medium mb-1">Created</div>
-                    <div className="font-semibold text-gray-900 text-sm">{createdAt ? createdAt.toLocaleDateString() : "—"}</div>
-                  </div>
-                  <div className="p-3 bg-gray-50 rounded-lg border border-gray-100">
-                    <div className="text-gray-500 text-xs font-medium mb-1">Last Updated</div>
-                    <div className="font-semibold text-gray-900 text-sm">{updatedAt ? updatedAt.toLocaleDateString() : "—"}</div>
-                  </div>
-                  {service.scheduledDate && (
-                    <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
-                      <div className="text-blue-600 text-xs font-medium mb-1">Scheduled Date</div>
-                      <div className="font-semibold text-blue-900 text-sm">{formatDate(service.scheduledDate)}</div>
-                    </div>
-                  )}
-                  {service.completedDate && (
-                    <div className="p-3 bg-green-50 rounded-lg border border-green-200">
-                      <div className="text-green-600 text-xs font-medium mb-1">Completed Date</div>
-                      <div className="font-semibold text-green-900 text-sm">{formatDate(service.completedDate)}</div>
-                    </div>
-                  )}
-                  {service.qualityScore && (
-                    <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-200">
-                      <div className="text-yellow-600 text-xs font-medium mb-1">Quality Score</div>
-                      <div className="flex items-center gap-2">
-                        <div className="flex items-center gap-1">{renderStars(Math.round(service.qualityScore))}</div>
-                        <span className="font-semibold text-yellow-900 text-sm">({service.qualityScore}/5)</span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Notes and Work Notes */}
-          {(service.notes || (service.workNotes && service.workNotes.length > 0)) && (
-            <div className={`${cardClass} overflow-hidden`}>
-              <button
-                onClick={() => toggleSection('notes')}
-                className={sectionToggleClass}
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center">
-                    <MdNotes className="w-4 h-4 text-amber-600" />
-                  </div>
-                  <span className="font-semibold text-gray-900">Notes & Work Notes</span>
-                </div>
-                <svg
-                  className={chevronClass(expandedSections.notes)}
-                  fill="none" 
-                  stroke="currentColor" 
-                  viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-              {expandedSections.notes && (
-                <div className="px-4 pb-4 space-y-3">
-                  {service.notes && (
-                    <div>
-                      <div className="text-gray-500 text-xs font-medium mb-1">General Notes</div>
-                      <div className="font-medium text-gray-900 bg-gray-50 p-3 rounded-lg border border-gray-100 text-sm leading-relaxed">
-                        {service.notes}
-                      </div>
-                    </div>
-                  )}
-                  {service.workNotes && service.workNotes.length > 0 && (
-                    <div>
-                      <div className="text-gray-500 text-xs font-medium mb-2">Work Notes</div>
-                      <div className="space-y-2">
-                        {service.workNotes.map((note, index) => (
-                          <div key={`worknote-${index}-${note.substring(0, 10)}`} className="bg-blue-50 p-3 rounded-lg border-l-4 border-blue-500">
-                            <div className="font-medium text-gray-900 text-sm leading-relaxed">{note}</div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Parts Used */}
-          {service.partsUsed && service.partsUsed.length > 0 && (
-            <div className={`${cardClass} overflow-hidden`}>
-              <button
-                onClick={() => toggleSection('parts')}
-                className={sectionToggleClass}
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center">
-                    <MdInventory className="w-4 h-4 text-emerald-600" />
-                  </div>
-                  <span className="font-semibold text-gray-900">Parts Used</span>
-                </div>
-                <svg
-                  className={chevronClass(expandedSections.parts)}
-                  fill="none" 
-                  stroke="currentColor" 
-                  viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-              {expandedSections.parts && (
-                <div className="px-4 pb-4 space-y-2">
-                  {service.partsUsed.map((part, index) => (
-                    <div key={`part-${index}-${part.name}`} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100">
-                      <div>
-                        <div className="font-semibold text-gray-900 text-sm">{part.name}</div>
-                        <div className="text-xs text-gray-500">Quantity: {part.quantity}</div>
-                      </div>
-                      <div className="font-bold text-gray-900">₹{part.cost.toLocaleString()}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Customer Feedback */}
-          {service.customerFeedback && (
-            <div className={`${cardClass} overflow-hidden`}>
-              <button
-                onClick={() => toggleSection('feedback')}
-                className={sectionToggleClass}
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-yellow-100 rounded-lg flex items-center justify-center">
-                    <MdFeedback className="w-4 h-4 text-yellow-600" />
-                  </div>
-                  <span className="font-semibold text-gray-900">Customer Feedback</span>
-                </div>
-                <svg
-                  className={chevronClass(expandedSections.feedback)}
-                  fill="none" 
-                  stroke="currentColor" 
-                  viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-              {expandedSections.feedback && (
-                <div className="px-4 pb-4 space-y-3">
-                  <div className="flex items-center gap-3">
-                    <span className="text-gray-600 font-medium text-sm">Rating:</span>
-                    <div className="flex items-center gap-1">{renderStars(service.customerFeedback.rating)}</div>
-                    <span className="text-sm font-semibold text-gray-900">({service.customerFeedback.rating}/5)</span>
-                  </div>
-                  {service.customerFeedback.comment && (
-                    <div>
-                      <div className="text-gray-500 text-xs font-medium mb-1">Comment</div>
-                      <div className="font-medium text-gray-900 bg-gray-50 p-3 rounded-lg border border-gray-100 text-sm leading-relaxed">
-                        {service.customerFeedback.comment}
-                      </div>
-                    </div>
-                  )}
-                  <div className="text-xs text-gray-500 bg-gray-100 px-3 py-2 rounded-lg">
-                    Date: {service.customerFeedback.date.toLocaleDateString()}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Status History */}
-          <div className={`${cardClass} overflow-hidden`}>
-            <button
-              onClick={() => toggleSection('history')}
-              className={sectionToggleClass}
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                  <MdHistory className="w-4 h-4 text-blue-600" />
-                </div>
-                <span className="font-semibold text-gray-900">Status History</span>
-              </div>
-              <svg
-                className={chevronClass(expandedSections.history)}
-                fill="none" 
-                stroke="currentColor" 
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
-            {expandedSections.history && (
-              <div className="px-4 pb-4 space-y-2">
-                {statusHistory.length > 0 ? (
-                  statusHistory.map((entry, index) => {
-                    const entryStatus = getStatusConfig(entry.status);
-                    return (
-                    <div key={`history-${entry.status}-${entry.timestamp.getTime()}-${index}`} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100">
-                      <div className="flex items-center gap-3">
-                        <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-semibold ${entryStatus.color} ${entryStatus.bg}`}>
-                          {entryStatus.label}
-                        </span>
-                        <div className="flex items-center gap-1 text-gray-600">
-                          <MdPerson className="w-3 h-3 text-gray-400" />
-                          <span className="font-medium text-xs">{entry.updatedBy}</span>
-                        </div>
-                      </div>
-                      <div className="text-xs text-gray-500 bg-white px-2 py-1 rounded border border-gray-100">
-                        {entry.timestamp.toLocaleString('en-US', {
-                          month: 'short',
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })}
-                      </div>
-                    </div>
-                    );
-                  })
-                ) : (
-                  <div className="text-center py-6">
-                    <MdHistory className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-                    <p className="text-gray-500 text-sm font-medium">No status history available</p>
-                    <p className="text-gray-400 text-xs">Status changes will appear here</p>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
+    <>
+      <ServiceDetailsView
+        service={service}
+        status={status}
+        branchName={branchName}
+        technician={techInfo.technician ?? null}
+        technicianId={techInfo.id}
+        technicianDisplayName={techInfo.name}
+        servicePaid={servicePaid}
+        userCanReopen={userCanReopen}
+        updatingStatus={updatingStatus}
+        statusUpdateSuccess={statusUpdateSuccess}
+        updatingPayment={updatingPayment}
+        showDropdown={showDropdown}
+        showHistory={showHistory}
+        statusHistory={statusHistory}
+        statusOptions={STATUS_OPTIONS}
+        onGoBack={handleGoBack}
+        onEdit={handleEditClick}
+        onDelete={handleDelete}
+        onToggleDropdown={toggleDropdown}
+        onToggleHistory={handleToggleShowHistory}
+        onStatusChange={handleStatusChange}
+        onPaymentToggle={() => handlePaymentChange(!servicePaid)}
+        onReopenClick={() => {
+          setReopenError(null);
+          setShowReopenDialog(true);
+        }}
+      />
+      <ReopenServiceDialog
+        isOpen={showReopenDialog}
+        submitting={reopening}
+        error={reopenError}
+        onClose={() => {
+          if (!reopening) setShowReopenDialog(false);
+        }}
+        onConfirm={handleConfirmReopen}
+      />
+      <CollectPaymentDialog
+        isOpen={showCollectPaymentDialog}
+        amount={service.price ?? 0}
+        submitting={updatingPayment}
+        error={collectPaymentError}
+        onClose={handleCollectKeepUnpaid}
+        onMarkPaid={handleCollectMarkPaid}
+        onKeepUnpaid={handleCollectKeepUnpaid}
+      />
+    </>
   );
 }
 
