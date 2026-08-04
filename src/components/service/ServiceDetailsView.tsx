@@ -22,7 +22,7 @@ import {
 } from "react-icons/md";
 
 import { getStatusConfig } from "@/lib/statusUtils";
-import type { Technician } from "@/types";
+import type { StatusHistoryEntry, Technician } from "@/types";
 
 export interface ServiceDetailsViewModel {
   id: string;
@@ -61,12 +61,6 @@ export interface ServiceDetailsViewModel {
     email?: string;
     address?: string;
   };
-}
-
-interface StatusHistoryEntry {
-  status: string;
-  timestamp: Date;
-  updatedBy: string;
 }
 
 interface ServiceDetailsViewProps {

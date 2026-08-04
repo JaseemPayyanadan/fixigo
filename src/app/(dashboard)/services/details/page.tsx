@@ -17,8 +17,9 @@ import { db } from "@/lib/firebase";
 import { isPaid, shouldOpenCollectPaymentModal, type ServicePaymentStatus } from "@/lib/paymentUtils";
 import { setServicePayment } from "@/lib/servicePayments";
 import { buildReopenFields, canReopenService } from "@/lib/serviceReopen";
+import { appendStatusHistory, mapStatusHistoryEntries } from "@/lib/serviceStatusHistory";
 import { normalizeStatus } from "@/lib/statusUtils";
-import type { Branch, Technician } from "@/types";
+import type { Branch, StatusHistoryEntry, Technician } from "@/types";
 
 interface Service {
   id: string;
@@ -57,6 +58,7 @@ interface Service {
   reopenReason?: string;
   reopenedAt?: Date;
   reopenCount?: number;
+  statusHistory?: StatusHistoryEntry[];
   device?: {
     model: string;
     brand: string;
@@ -72,12 +74,6 @@ interface Service {
     email?: string;
     address?: string;
   };
-}
-
-interface StatusHistory {
-  status: string;
-  timestamp: Date;
-  updatedBy: string;
 }
 
 const STATUS_OPTIONS = ["To Do", "In Progress", "Completed", "Pending", "Cancelled", "Awaiting Parts", "Ready for Pickup"];
@@ -120,7 +116,7 @@ function ServiceDetailsPage() {
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState("To Do");
   const [updatingStatus, setUpdatingStatus] = useState(false);
-  const [statusHistory, setStatusHistory] = useState<StatusHistory[]>([]);
+  const [statusHistory, setStatusHistory] = useState<StatusHistoryEntry[]>([]);
   const [showHistory, setShowHistory] = useState(false);
   const [statusUpdateSuccess, setStatusUpdateSuccess] = useState(false);
   const [updatingPayment, setUpdatingPayment] = useState(false);
@@ -177,10 +173,12 @@ function ServiceDetailsPage() {
             reopenReason: typeof data.reopenReason === "string" ? data.reopenReason : undefined,
             reopenedAt: data.reopenedAt?.toDate?.(),
             reopenCount: typeof data.reopenCount === "number" ? data.reopenCount : undefined,
+            statusHistory: mapStatusHistoryEntries(data.statusHistory),
             createdAt: data.createdAt?.toDate() || new Date(),
             updatedAt: data.updatedAt?.toDate() || new Date(),
           };
           setService(serviceData);
+          setStatusHistory(serviceData.statusHistory ?? []);
           setStatus(serviceData.status || "To Do");
           // For technicians, always use their assigned branch
           if (user?.role === "technician" && user?.branchId) {
@@ -319,9 +317,16 @@ function ServiceDetailsPage() {
         // otherwise book revenue nobody has collected.
         const recordsPaymentPending = isCompleted && !service?.paymentStatus;
 
+        const nextHistory = appendStatusHistory(statusHistory, {
+          status: newStatus,
+          timestamp: now,
+          updatedBy: user?.name || "Unknown",
+        });
+
         await updateDoc(doc(db, "services", serviceId), {
           status: newStatus,
           updatedAt: now,
+          statusHistory: nextHistory,
           ...(isCompleted
             ? { completedDate: now, actualCompletion: now }
             : { completedDate: deleteField(), actualCompletion: deleteField() }),
@@ -340,17 +345,12 @@ function ServiceDetailsPage() {
                 completedDate: isCompleted ? now : undefined,
                 actualCompletion: isCompleted ? now : undefined,
                 paymentStatus: recordsPaymentPending ? "pending" : prev.paymentStatus,
+                statusHistory: nextHistory,
               }
             : null
         );
 
-        // Add to status history
-        const historyEntry: StatusHistory = {
-          status: newStatus,
-          timestamp: new Date(),
-          updatedBy: user?.name || "Unknown",
-        };
-        setStatusHistory((prev) => [historyEntry, ...prev]);
+        setStatusHistory(nextHistory);
         setStatusUpdateSuccess(true);
         setTimeout(() => setStatusUpdateSuccess(false), 3000); // Hide success message after 3 seconds
 
@@ -380,9 +380,15 @@ function ServiceDetailsPage() {
     try {
       const now = new Date();
       const fields = buildReopenFields(reason, service.reopenCount, now);
+      const nextHistory = appendStatusHistory(statusHistory, {
+        status: "in_progress",
+        timestamp: now,
+        updatedBy: user?.name || "Unknown",
+      });
       await updateDoc(doc(db, "services", serviceId), {
         ...fields,
         updatedAt: now,
+        statusHistory: nextHistory,
         completedDate: deleteField(),
         actualCompletion: deleteField(),
       });
@@ -394,14 +400,12 @@ function ServiceDetailsPage() {
               updatedAt: now,
               completedDate: undefined,
               actualCompletion: undefined,
+              statusHistory: nextHistory,
             }
           : null
       );
       setStatus("in_progress");
-      setStatusHistory((prev) => [
-        { status: "in_progress", timestamp: now, updatedBy: user?.name || "Unknown" },
-        ...prev,
-      ]);
+      setStatusHistory(nextHistory);
       setShowReopenDialog(false);
       setStatusUpdateSuccess(true);
       setTimeout(() => setStatusUpdateSuccess(false), 3000);
