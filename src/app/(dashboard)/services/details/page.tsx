@@ -426,7 +426,6 @@ function ServiceDetailsPage() {
       console.error("Error updating payment:", err);
       setError("Failed to update payment. Please try again.");
       setCollectPaymentError("Failed to update payment. Please try again.");
-      throw err;
     } finally {
       setUpdatingPayment(false);
     }
