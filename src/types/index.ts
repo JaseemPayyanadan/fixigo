@@ -131,6 +131,12 @@ export interface Technician {
   updatedAt: Date;
 }
 
+export interface StatusHistoryEntry {
+  status: string;
+  timestamp: Date;
+  updatedBy: string;
+}
+
 export interface Service {
   id: string;
   name: string;
@@ -168,6 +174,8 @@ export interface Service {
   reopenedAt?: Date;
   /** How many times this service has been reopened. */
   reopenCount?: number;
+  /** Newest-first log of status changes. Absent until the first persisted change. */
+  statusHistory?: StatusHistoryEntry[];
   notes?: string;
   workNotes?: string[];
   partsUsed?: Array<{

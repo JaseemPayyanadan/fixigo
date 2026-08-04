@@ -78,6 +78,31 @@ describe("mapServiceDoc reopen fields", () => {
   });
 });
 
+describe("mapServiceDoc statusHistory", () => {
+  it("maps and sorts statusHistory newest-first", () => {
+    const earlier = new Date(2026, 7, 1);
+    const later = new Date(2026, 7, 4);
+    const service = mapServiceDoc(
+      "s1",
+      {
+        statusHistory: [
+          { status: "pending", timestamp: ts(earlier), updatedBy: "Bob" },
+          { status: "completed", timestamp: ts(later), updatedBy: "Ada" },
+        ],
+      },
+      NOW
+    );
+    expect(service.statusHistory).toEqual([
+      { status: "completed", timestamp: later, updatedBy: "Ada" },
+      { status: "pending", timestamp: earlier, updatedBy: "Bob" },
+    ]);
+  });
+
+  it("defaults missing statusHistory to []", () => {
+    expect(mapServiceDoc("s1", {}, NOW).statusHistory).toEqual([]);
+  });
+});
+
 describe("mapServiceDoc", () => {
   it("leaves absent completion dates absent rather than defaulting them to now", () => {
     const service = mapServiceDoc("s1", { status: "completed" }, NOW);

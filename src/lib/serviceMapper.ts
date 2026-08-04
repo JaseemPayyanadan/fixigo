@@ -8,6 +8,7 @@
 // default — it produces a wrong number on screen.
 
 import type { Service } from "@/types";
+import { mapStatusHistoryEntries } from "./serviceStatusHistory";
 
 /** Firestore `Timestamp`, which is what date fields arrive as before mapping. */
 interface TimestampLike {
@@ -85,6 +86,8 @@ export function mapServiceDoc(id: string, data: RawServiceData, now: Date = new 
     reopenReason: typeof data.reopenReason === "string" ? data.reopenReason : undefined,
     reopenedAt: readOptionalDate(data.reopenedAt),
     reopenCount: typeof data.reopenCount === "number" ? data.reopenCount : undefined,
+
+    statusHistory: mapStatusHistoryEntries(data.statusHistory),
 
     workNotes: data.workNotes || [],
     partsUsed: data.partsUsed || [],
