@@ -175,7 +175,7 @@ export default function ServiceDetailsView({
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="mx-auto max-w-6xl space-y-4 p-4 md:p-6">
+      <div className="mx-auto w-full space-y-4 p-4 md:p-6">
         {/* Page header */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex items-start gap-3">
