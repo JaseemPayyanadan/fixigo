@@ -799,11 +799,13 @@ git commit -m "feat: add purchase payment status derivation"
 - Consumes: nothing.
 - Produces:
   - `formatPurchaseRef(year: number, seq: number): string`
-  - `nextRefCounter(current: RefCounter | undefined, year: number): RefCounter`
-  - `interface RefCounter { year: number; seq: number }`
+  - `nextRefCounter(current: RefCounters | undefined, year: number): { counters: RefCounters; seq: number }`
+  - `interface RefCounters { [year: string]: number }`
   - `validateGstNumber(value: string): boolean` from `@/lib/validation`
 
-Task 7 stores `RefCounter` at `purchaseCounters/{shopId}` and calls `nextRefCounter` inside the create transaction.
+Task 9 stores `RefCounters` at `purchaseCounters/{shopId}` and calls `nextRefCounter` inside the create transaction.
+
+**Amended during execution.** The original design kept a single `{ year, seq }` counter that reset the sequence on any year change. Review found that re-issues a reference when backdated and current-year entries interleave: 2026 entries reach seq 5, one backdated 2025 entry resets the counter to `{2025, 1}`, and the next 2026 entry resets it again to `{2026, 1}` — minting `PUR-2026-0001` twice. The counter is therefore a **map of year to last-issued sequence**, so every year keeps its own high-water mark.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -829,19 +831,49 @@ describe("formatPurchaseRef", () => {
 
 describe("nextRefCounter", () => {
   it("starts at 1 when no counter exists yet", () => {
-    expect(nextRefCounter(undefined, 2026)).toEqual({ year: 2026, seq: 1 });
+    expect(nextRefCounter(undefined, 2026)).toEqual({ counters: { "2026": 1 }, seq: 1 });
   });
 
   it("increments within the same year", () => {
-    expect(nextRefCounter({ year: 2026, seq: 11 }, 2026)).toEqual({ year: 2026, seq: 12 });
+    expect(nextRefCounter({ "2026": 11 }, 2026)).toEqual({
+      counters: { "2026": 12 },
+      seq: 12,
+    });
   });
 
-  it("resets to 1 when the year rolls over", () => {
-    expect(nextRefCounter({ year: 2025, seq: 480 }, 2026)).toEqual({ year: 2026, seq: 1 });
+  it("starts a new year at 1 without disturbing the previous year", () => {
+    expect(nextRefCounter({ "2025": 480 }, 2026)).toEqual({
+      counters: { "2025": 480, "2026": 1 },
+      seq: 1,
+    });
   });
 
-  it("does not resurrect an old sequence when a backdated year appears", () => {
-    expect(nextRefCounter({ year: 2026, seq: 5 }, 2025)).toEqual({ year: 2025, seq: 1 });
+  it("continues a backdated year's own run rather than restarting it", () => {
+    expect(nextRefCounter({ "2025": 480, "2026": 5 }, 2025)).toEqual({
+      counters: { "2025": 481, "2026": 5 },
+      seq: 481,
+    });
+  });
+
+  it("never re-issues a reference when backdated and current entries interleave", () => {
+    // The regression this design exists for.
+    let counters: RefCounters | undefined;
+    const issued: string[] = [];
+
+    for (const year of [2026, 2026, 2026, 2025, 2026]) {
+      const next = nextRefCounter(counters, year);
+      counters = next.counters;
+      issued.push(formatPurchaseRef(year, next.seq));
+    }
+
+    expect(issued).toEqual([
+      "PUR-2026-0001",
+      "PUR-2026-0002",
+      "PUR-2026-0003",
+      "PUR-2025-0001",
+      "PUR-2026-0004",
+    ]);
+    expect(new Set(issued).size).toBe(issued.length);
   });
 });
 ```
@@ -889,9 +921,9 @@ Expected: FAIL — cannot resolve `@/lib/purchaseRef`; `validateGstNumber is not
 ```typescript
 // src/lib/purchaseRef.ts
 
-export interface RefCounter {
-  year: number;
-  seq: number;
+/** Last-issued sequence per year, e.g. `{ "2025": 480, "2026": 12 }`. */
+export interface RefCounters {
+  [year: string]: number;
 }
 
 /** "PUR-2026-0012". Four-digit padding is a minimum, not a cap. */
@@ -900,15 +932,18 @@ export function formatPurchaseRef(year: number, seq: number): string {
 }
 
 /**
- * Advances the per-shop counter. Any change of year restarts the sequence —
- * including a backwards change, so a backdated entry cannot continue a
- * different year's run and mint a duplicate reference.
+ * Advances the sequence for `year` alone, leaving every other year's
+ * high-water mark intact. Keeping one counter per year is what makes the
+ * reference safe under backdating: entering a December bill in January
+ * continues December's run, and the next current-year entry still picks up
+ * where the current year left off, so no reference is ever re-issued.
  */
-export function nextRefCounter(current: RefCounter | undefined, year: number): RefCounter {
-  if (!current || current.year !== year) {
-    return { year, seq: 1 };
-  }
-  return { year, seq: current.seq + 1 };
+export function nextRefCounter(
+  current: RefCounters | undefined,
+  year: number
+): { counters: RefCounters; seq: number } {
+  const seq = (current?.[String(year)] ?? 0) + 1;
+  return { counters: { ...current, [String(year)]: seq }, seq };
 }
 ```
 
@@ -2807,7 +2842,7 @@ import { randomUUID } from "node:crypto";
 import { ApiError } from "@/lib/apiAuth";
 import { adminDb } from "@/lib/firebaseAdmin";
 import { summarizePayments } from "@/lib/purchasePayments";
-import { formatPurchaseRef, nextRefCounter, type RefCounter } from "@/lib/purchaseRef";
+import { formatPurchaseRef, nextRefCounter, type RefCounters } from "@/lib/purchaseRef";
 import { computeTotals, lineTotalOf, roundMoney } from "@/lib/purchaseTotals";
 import type { CreatePurchaseInput, RecordPaymentInput } from "@/lib/purchaseValidation";
 import {
@@ -2968,14 +3003,17 @@ export async function createPurchase(input: CreatePurchaseArgs): Promise<Purchas
 
     const counterSnap = await tx.get(counterRef);
     const current = counterSnap.exists
-      ? (counterSnap.data() as unknown as RefCounter)
+      ? (counterSnap.data() as unknown as RefCounters)
       : undefined;
-    const counter = nextRefCounter(current, input.purchaseDate.getFullYear());
+    // One sequence per year, so a backdated entry continues its own year's run
+    // and never re-issues a reference already assigned in another year.
+    const purchaseYear = input.purchaseDate.getFullYear();
+    const { counters, seq } = nextRefCounter(current, purchaseYear);
 
     const purchase: Record<string, unknown> = {
       shopId: input.shopId,
       branchId: input.branchId,
-      ref: formatPurchaseRef(counter.year, counter.seq),
+      ref: formatPurchaseRef(purchaseYear, seq),
       supplierInvoiceNo: input.supplierInvoiceNo ?? null,
       supplierId: input.supplierId,
       supplierName: (supplier.name as string) || "",
@@ -3000,7 +3038,7 @@ export async function createPurchase(input: CreatePurchaseArgs): Promise<Purchas
 
     tx.set(purchaseRef, purchase);
     // set, not update: the counter document does not exist on a shop's first purchase.
-    tx.set(counterRef, { year: counter.year, seq: counter.seq });
+    tx.set(counterRef, counters);
     tx.update(supplierRef, {
       totalPurchased: roundMoney(((supplier.totalPurchased as number) || 0) + totals.grandTotal),
       totalPaid: roundMoney(((supplier.totalPaid as number) || 0) + summary.paidAmount),
