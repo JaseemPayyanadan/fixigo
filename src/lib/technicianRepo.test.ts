@@ -1,179 +1,29 @@
 import { describe, expect, it, vi } from "vitest";
 
 // --- Fake Firestore --------------------------------------------------------
-// A minimal in-memory stand-in for `adminDb` that supports the subset of the
-// firebase-admin API technicianRepo.ts uses: collection().doc(), .get(),
-// .where(), and a runTransaction(tx => ...) with tx.get/set/update. It also
-// records every write made through a transaction so tests can assert that
-// create/update/deactivate perform all their writes inside ONE transaction.
+// The in-memory stand-in for `adminDb` used to live inline here; it now lives
+// in src/lib/testing/fakeFirestore.ts so purchaseRepo's tests can share it.
+// vi.mock factories are hoisted above imports, so the factory cannot close
+// over a module-scope variable — it must dynamically import the fake inside
+// an async factory instead.
 
-interface ArrayOp {
-  __op: "arrayUnion" | "arrayRemove";
-  value: unknown;
-}
-
-function isArrayOp(value: unknown): value is ArrayOp {
-  return !!value && typeof value === "object" && "__op" in (value as Record<string, unknown>);
-}
-
-function applyUpdate(
-  current: Record<string, unknown> | undefined,
-  updates: Record<string, unknown>
-): Record<string, unknown> {
-  const result: Record<string, unknown> = { ...(current ?? {}) };
-  for (const [field, raw] of Object.entries(updates)) {
-    if (isArrayOp(raw)) {
-      const existing = Array.isArray(result[field]) ? [...(result[field] as unknown[])] : [];
-      if (raw.__op === "arrayUnion") {
-        if (!existing.some((item) => JSON.stringify(item) === JSON.stringify(raw.value))) {
-          existing.push(raw.value);
-        }
-        result[field] = existing;
-      } else {
-        result[field] = existing.filter(
-          (item) => JSON.stringify(item) !== JSON.stringify(raw.value)
-        );
-      }
-    } else {
-      result[field] = raw;
-    }
-  }
-  return result;
-}
-
-vi.mock("@/lib/firebaseAdmin", () => {
-  const store = new Map<string, Record<string, unknown>>();
-  let autoId = 0;
-  const transactionWrites: Array<{
-    op: "set" | "update" | "delete";
-    collection: string;
-    id: string;
-    data: Record<string, unknown>;
-  }> = [];
-  let transactionCallCount = 0;
-
-  const key = (collection: string, id: string) => `${collection}/${id}`;
-
-  function makeDocRef(collection: string, id: string) {
-    return {
-      id,
-      collectionName: collection,
-      async get() {
-        const data = store.get(key(collection, id));
-        return { id, exists: data !== undefined, data: () => data };
-      },
-    };
-  }
-
-  function makeCollectionRef(collection: string) {
-    return {
-      doc(id?: string) {
-        const docId = id ?? `auto-${++autoId}`;
-        return makeDocRef(collection, docId);
-      },
-      where(field: string, _op: string, value: unknown) {
-        return {
-          async get() {
-            const prefix = `${collection}/`;
-            const docs = [...store.entries()]
-              .filter(([k, data]) => k.startsWith(prefix) && data[field] === value)
-              .map(([k, data]) => ({ id: k.slice(prefix.length), data: () => data }));
-            return { docs, empty: docs.length === 0 };
-          },
-        };
-      },
-    };
-  }
-
-  const adminDb = {
-    collection: (name: string) => makeCollectionRef(name),
-    async runTransaction(fn: (tx: unknown) => Promise<void>) {
-      transactionCallCount += 1;
-      transactionWrites.length = 0;
-      const tx = {
-        get: async (ref: { get: () => Promise<unknown> }) => ref.get(),
-        set: (
-          ref: { collectionName: string; id: string },
-          data: Record<string, unknown>
-        ) => {
-          transactionWrites.push({
-            op: "set",
-            collection: ref.collectionName,
-            id: ref.id,
-            data,
-          });
-          store.set(key(ref.collectionName, ref.id), data);
-        },
-        update: (
-          ref: { collectionName: string; id: string },
-          data: Record<string, unknown>
-        ) => {
-          transactionWrites.push({
-            op: "update",
-            collection: ref.collectionName,
-            id: ref.id,
-            data,
-          });
-          const docKey = key(ref.collectionName, ref.id);
-          const current = store.get(docKey);
-          if (current === undefined) {
-            throw new Error(
-              `NOT_FOUND: No document to update: ${docKey}`
-            );
-          }
-          store.set(docKey, applyUpdate(current, data));
-        },
-        delete: (ref: { collectionName: string; id: string }) => {
-          transactionWrites.push({
-            op: "delete",
-            collection: ref.collectionName,
-            id: ref.id,
-            data: {},
-          });
-          store.delete(key(ref.collectionName, ref.id));
-        },
-      };
-      await fn(tx);
-    },
-    __reset() {
-      store.clear();
-      transactionWrites.length = 0;
-      transactionCallCount = 0;
-      autoId = 0;
-    },
-    __seed(collection: string, id: string, data: Record<string, unknown>) {
-      store.set(key(collection, id), data);
-    },
-    __get(collection: string, id: string) {
-      return store.get(key(collection, id));
-    },
-    __hasKeyContaining(needle: string) {
-      return [...store.keys()].some((k) => k.includes(needle));
-    },
-    __transactionWrites: transactionWrites,
-    __transactionCallCount: () => transactionCallCount,
-  };
-
-  return {
-    adminDb,
-    FieldValue: {
-      arrayUnion: (value: unknown): ArrayOp => ({ __op: "arrayUnion", value }),
-      arrayRemove: (value: unknown): ArrayOp => ({ __op: "arrayRemove", value }),
-    },
-  };
+vi.mock("@/lib/firebaseAdmin", async () => {
+  const { createFakeFirestore: create } = await import("@/lib/testing/fakeFirestore");
+  return create();
 });
 
-const firebaseAdminMock = (await import("@/lib/firebaseAdmin")) as unknown as {
-  adminDb: {
-    __reset: () => void;
-    __seed: (collection: string, id: string, data: Record<string, unknown>) => void;
-    __get: (collection: string, id: string) => Record<string, unknown> | undefined;
-    __hasKeyContaining: (needle: string) => boolean;
-    __transactionWrites: Array<{ op: "set" | "update" | "delete"; collection: string; id: string; data: unknown }>;
-    __transactionCallCount: () => number;
-  };
+const firebaseAdminMock = await import("@/lib/firebaseAdmin");
+
+type TestHooks = {
+  __reset: () => void;
+  __seed: (collection: string, id: string, data: Record<string, unknown>) => void;
+  __doc: (collection: string, id: string) => Record<string, unknown> | undefined;
+  __writes: () => Array<{ op: "set" | "update" | "delete"; collection: string; id: string; data: unknown }>;
+  __transactionCount: () => number;
+  __hasKeyContaining: (needle: string) => boolean;
 };
-const fakeDb = firebaseAdminMock.adminDb;
+
+const hooks = firebaseAdminMock as unknown as TestHooks;
 
 const {
   mapTechnician,
@@ -235,8 +85,8 @@ describe("mapTechnician", () => {
 
 describe("createTechnician", () => {
   it("writes the users doc, technicians doc, and branch member update inside a single transaction", async () => {
-    fakeDb.__reset();
-    fakeDb.__seed(BRANCHES, "branch-1", { name: "Main Branch", shopId: "shop-1", members: [] });
+    hooks.__reset();
+    hooks.__seed(BRANCHES, "branch-1", { name: "Main Branch", shopId: "shop-1", members: [] });
 
     const created = await createTechnician({
       name: "Rahul",
@@ -248,24 +98,24 @@ describe("createTechnician", () => {
       createdBy: "admin-1",
     });
 
-    expect(fakeDb.__transactionCallCount()).toBe(1);
+    expect(hooks.__transactionCount()).toBe(1);
 
-    const ops = fakeDb.__transactionWrites;
+    const ops = hooks.__writes();
     expect(ops.some((w) => w.collection === USERS && w.op === "set")).toBe(true);
     expect(ops.some((w) => w.collection === TECHNICIANS && w.op === "set")).toBe(true);
     expect(
       ops.some((w) => w.collection === BRANCHES && w.id === "branch-1" && w.op === "update")
     ).toBe(true);
 
-    const branchDoc = fakeDb.__get(BRANCHES, "branch-1");
+    const branchDoc = hooks.__doc(BRANCHES, "branch-1");
     expect(branchDoc?.members).toEqual([
       { userId: created.userId, role: "technician", name: "Rahul" },
     ]);
   });
 
   it("targets the top-level branches/{branchId} collection, never shops/{shopId}/branches/{branchId}", async () => {
-    fakeDb.__reset();
-    fakeDb.__seed(BRANCHES, "branch-1", { name: "Main Branch", shopId: "shop-1", members: [] });
+    hooks.__reset();
+    hooks.__seed(BRANCHES, "branch-1", { name: "Main Branch", shopId: "shop-1", members: [] });
 
     await createTechnician({
       name: "Rahul",
@@ -277,16 +127,16 @@ describe("createTechnician", () => {
       createdBy: "admin-1",
     });
 
-    const branchWrite = fakeDb.__transactionWrites.find((w) => w.collection === BRANCHES);
+    const branchWrite = hooks.__writes().find((w) => w.collection === BRANCHES);
     // Assert the actual document path used for the member write, not just
     // that BRANCHES === "branches" (which the earlier assertion reduced to).
     expect(`${branchWrite?.collection}/${branchWrite?.id}`).toBe("branches/branch-1");
-    expect(fakeDb.__hasKeyContaining("shops")).toBe(false);
-    expect(fakeDb.__get(BRANCHES, "branch-1")).toBeDefined();
+    expect(hooks.__hasKeyContaining("shops")).toBe(false);
+    expect(hooks.__doc(BRANCHES, "branch-1")).toBeDefined();
   });
 
   it("throws a 400 ApiError when the target branch does not exist, and writes nothing", async () => {
-    fakeDb.__reset();
+    hooks.__reset();
     // No branch seeded.
 
     const promise = createTechnician({
@@ -302,12 +152,12 @@ describe("createTechnician", () => {
     await expect(promise).rejects.toThrow(ApiError);
     await expect(promise).rejects.toMatchObject({ status: 400 });
 
-    expect(fakeDb.__transactionWrites.length).toBe(0);
+    expect(hooks.__writes().length).toBe(0);
   });
 
   it("stores a hashed password on the users doc, never the plaintext", async () => {
-    fakeDb.__reset();
-    fakeDb.__seed(BRANCHES, "branch-1", { name: "Main Branch", shopId: "shop-1", members: [] });
+    hooks.__reset();
+    hooks.__seed(BRANCHES, "branch-1", { name: "Main Branch", shopId: "shop-1", members: [] });
 
     const created = await createTechnician({
       name: "Rahul",
@@ -320,7 +170,7 @@ describe("createTechnician", () => {
     });
 
     expect(created.userId).toBeTruthy();
-    const userDoc = fakeDb.__get(USERS, created.userId as string);
+    const userDoc = hooks.__doc(USERS, created.userId as string);
     expect(userDoc?.password).toBeDefined();
     expect(userDoc?.password).not.toBe("plaintext-pw");
     expect(typeof userDoc?.password).toBe("string");
@@ -328,8 +178,8 @@ describe("createTechnician", () => {
   });
 
   it("sets created_by to the acting admin (createdBy), not the new technician's userId", async () => {
-    fakeDb.__reset();
-    fakeDb.__seed(BRANCHES, "branch-1", { name: "Main Branch", shopId: "shop-1", members: [] });
+    hooks.__reset();
+    hooks.__seed(BRANCHES, "branch-1", { name: "Main Branch", shopId: "shop-1", members: [] });
 
     const created = await createTechnician({
       name: "Rahul",
@@ -346,8 +196,8 @@ describe("createTechnician", () => {
   });
 
   it("throws a 403 ApiError when the branch belongs to another shop, and writes nothing", async () => {
-    fakeDb.__reset();
-    fakeDb.__seed(BRANCHES, "victim-branch", {
+    hooks.__reset();
+    hooks.__seed(BRANCHES, "victim-branch", {
       name: "Shop 2 Branch",
       shopId: "shop-2",
       members: [],
@@ -366,13 +216,13 @@ describe("createTechnician", () => {
     await expect(promise).rejects.toThrow(ApiError);
     await expect(promise).rejects.toMatchObject({ status: 403 });
 
-    expect(fakeDb.__transactionWrites.length).toBe(0);
-    expect(fakeDb.__get(BRANCHES, "victim-branch")?.members).toEqual([]);
+    expect(hooks.__writes().length).toBe(0);
+    expect(hooks.__doc(BRANCHES, "victim-branch")?.members).toEqual([]);
   });
 
   it("throws a 403 ApiError when the branch has no shopId at all (fails closed)", async () => {
-    fakeDb.__reset();
-    fakeDb.__seed(BRANCHES, "legacy-branch", { name: "Legacy", members: [] });
+    hooks.__reset();
+    hooks.__seed(BRANCHES, "legacy-branch", { name: "Legacy", members: [] });
 
     const promise = createTechnician({
       name: "Rahul",
@@ -385,46 +235,46 @@ describe("createTechnician", () => {
     });
 
     await expect(promise).rejects.toMatchObject({ status: 403 });
-    expect(fakeDb.__transactionWrites.length).toBe(0);
+    expect(hooks.__writes().length).toBe(0);
   });
 });
 
 describe("updateTechnician", () => {
   it("throws a 403 ApiError when moved into another shop's branch, and writes nothing", async () => {
-    fakeDb.__reset();
-    fakeDb.__seed(BRANCHES, "branch-1", {
+    hooks.__reset();
+    hooks.__seed(BRANCHES, "branch-1", {
       shopId: "shop-1",
       members: [{ userId: "user-1", role: "technician", name: "Rahul" }],
     });
-    fakeDb.__seed(BRANCHES, "victim-branch", { shopId: "shop-2", members: [] });
-    fakeDb.__seed(TECHNICIANS, "tech-1", {
+    hooks.__seed(BRANCHES, "victim-branch", { shopId: "shop-2", members: [] });
+    hooks.__seed(TECHNICIANS, "tech-1", {
       name: "Rahul",
       shopId: "shop-1",
       branchId: "branch-1",
       userId: "user-1",
       status: "active",
     });
-    fakeDb.__seed(USERS, "user-1", { name: "Rahul", branchId: "branch-1", status: "active" });
+    hooks.__seed(USERS, "user-1", { name: "Rahul", branchId: "branch-1", status: "active" });
 
     const promise = updateTechnician("tech-1", { branchId: "victim-branch" });
 
     await expect(promise).rejects.toThrow(ApiError);
     await expect(promise).rejects.toMatchObject({ status: 403 });
 
-    expect(fakeDb.__transactionWrites.length).toBe(0);
-    expect(fakeDb.__get(BRANCHES, "victim-branch")?.members).toEqual([]);
-    expect(fakeDb.__get(USERS, "user-1")?.branchId).toBe("branch-1");
-    expect(fakeDb.__get(TECHNICIANS, "tech-1")?.branchId).toBe("branch-1");
+    expect(hooks.__writes().length).toBe(0);
+    expect(hooks.__doc(BRANCHES, "victim-branch")?.members).toEqual([]);
+    expect(hooks.__doc(USERS, "user-1")?.branchId).toBe("branch-1");
+    expect(hooks.__doc(TECHNICIANS, "tech-1")?.branchId).toBe("branch-1");
   });
 
 
   it("syncs name/email/phone to the linked users doc, and maps status:inactive to suspended", async () => {
-    fakeDb.__reset();
-    fakeDb.__seed(BRANCHES, "branch-1", {
+    hooks.__reset();
+    hooks.__seed(BRANCHES, "branch-1", {
       shopId: "shop-1",
       members: [{ userId: "user-1", role: "technician", name: "Old Name" }],
     });
-    fakeDb.__seed(TECHNICIANS, "tech-1", {
+    hooks.__seed(TECHNICIANS, "tech-1", {
       name: "Old Name",
       email: "old@example.com",
       phone: "000",
@@ -433,7 +283,7 @@ describe("updateTechnician", () => {
       userId: "user-1",
       status: "active",
     });
-    fakeDb.__seed(USERS, "user-1", {
+    hooks.__seed(USERS, "user-1", {
       name: "Old Name",
       email: "old@example.com",
       phone: "000",
@@ -451,13 +301,13 @@ describe("updateTechnician", () => {
     // land inside exactly one transaction — otherwise a fake that performed
     // three separate non-transactional writes would pass this test just as
     // happily.
-    expect(fakeDb.__transactionCallCount()).toBe(1);
-    const ops = fakeDb.__transactionWrites;
+    expect(hooks.__transactionCount()).toBe(1);
+    const ops = hooks.__writes();
     expect(ops.some((w) => w.collection === TECHNICIANS && w.id === "tech-1")).toBe(true);
     expect(ops.some((w) => w.collection === USERS && w.id === "user-1")).toBe(true);
     expect(ops.some((w) => w.collection === BRANCHES && w.id === "branch-1")).toBe(true);
 
-    const userDoc = fakeDb.__get(USERS, "user-1");
+    const userDoc = hooks.__doc(USERS, "user-1");
     expect(userDoc?.name).toBe("New Name");
     expect(userDoc?.email).toBe("new@example.com");
     expect(userDoc?.phone).toBe("222");
@@ -465,13 +315,13 @@ describe("updateTechnician", () => {
   });
 
   it("moving a technician between branches removes the old branch member and adds it to the new branch", async () => {
-    fakeDb.__reset();
-    fakeDb.__seed(BRANCHES, "branch-1", {
+    hooks.__reset();
+    hooks.__seed(BRANCHES, "branch-1", {
       shopId: "shop-1",
       members: [{ userId: "user-1", role: "technician", name: "Old Name" }],
     });
-    fakeDb.__seed(BRANCHES, "branch-2", { shopId: "shop-1", members: [] });
-    fakeDb.__seed(TECHNICIANS, "tech-1", {
+    hooks.__seed(BRANCHES, "branch-2", { shopId: "shop-1", members: [] });
+    hooks.__seed(TECHNICIANS, "tech-1", {
       name: "Old Name",
       email: "old@example.com",
       phone: "000",
@@ -480,7 +330,7 @@ describe("updateTechnician", () => {
       userId: "user-1",
       status: "active",
     });
-    fakeDb.__seed(USERS, "user-1", {
+    hooks.__seed(USERS, "user-1", {
       name: "Old Name",
       email: "old@example.com",
       phone: "000",
@@ -491,26 +341,26 @@ describe("updateTechnician", () => {
 
     // Atomicity: technician doc, old branch, and new branch all update in a
     // single transaction.
-    expect(fakeDb.__transactionCallCount()).toBe(1);
-    const ops = fakeDb.__transactionWrites;
+    expect(hooks.__transactionCount()).toBe(1);
+    const ops = hooks.__writes();
     expect(ops.some((w) => w.collection === TECHNICIANS && w.id === "tech-1")).toBe(true);
     expect(ops.some((w) => w.collection === BRANCHES && w.id === "branch-1")).toBe(true);
     expect(ops.some((w) => w.collection === BRANCHES && w.id === "branch-2")).toBe(true);
 
-    const oldBranch = fakeDb.__get(BRANCHES, "branch-1");
-    const newBranch = fakeDb.__get(BRANCHES, "branch-2");
+    const oldBranch = hooks.__doc(BRANCHES, "branch-1");
+    const newBranch = hooks.__doc(BRANCHES, "branch-2");
     expect(oldBranch?.members).toEqual([]);
     expect(newBranch?.members).toEqual([{ userId: "user-1", role: "technician", name: "Old Name" }]);
   });
 
   it("removes a legacy 2-field {userId, role} member entry (no `name`) when moving branches", async () => {
-    fakeDb.__reset();
-    fakeDb.__seed(BRANCHES, "branch-1", {
+    hooks.__reset();
+    hooks.__seed(BRANCHES, "branch-1", {
       // Legacy shape written by userManagement.ts:31-36 — no `name` field.
       members: [{ userId: "user-1", role: "technician" }],
     });
-    fakeDb.__seed(BRANCHES, "branch-2", { shopId: "shop-1", members: [] });
-    fakeDb.__seed(TECHNICIANS, "tech-1", {
+    hooks.__seed(BRANCHES, "branch-2", { shopId: "shop-1", members: [] });
+    hooks.__seed(TECHNICIANS, "tech-1", {
       name: "Old Name",
       email: "old@example.com",
       phone: "000",
@@ -519,7 +369,7 @@ describe("updateTechnician", () => {
       userId: "user-1",
       status: "active",
     });
-    fakeDb.__seed(USERS, "user-1", {
+    hooks.__seed(USERS, "user-1", {
       name: "Old Name",
       email: "old@example.com",
       phone: "000",
@@ -528,20 +378,20 @@ describe("updateTechnician", () => {
 
     await updateTechnician("tech-1", { branchId: "branch-2" });
 
-    const oldBranch = fakeDb.__get(BRANCHES, "branch-1");
+    const oldBranch = hooks.__doc(BRANCHES, "branch-1");
     expect(oldBranch?.members).toEqual([]);
   });
 
   it("removes a member entry whose stored `name` has drifted from the technician's current name", async () => {
-    fakeDb.__reset();
-    fakeDb.__seed(BRANCHES, "branch-1", {
+    hooks.__reset();
+    hooks.__seed(BRANCHES, "branch-1", {
       // Stored name ("Unknown Technician") no longer matches the
       // technician's current name ("Old Name") — arrayRemove with a
       // constructed object would silently fail to match this.
       members: [{ userId: "user-1", role: "technician", name: "Unknown Technician" }],
     });
-    fakeDb.__seed(BRANCHES, "branch-2", { shopId: "shop-1", members: [] });
-    fakeDb.__seed(TECHNICIANS, "tech-1", {
+    hooks.__seed(BRANCHES, "branch-2", { shopId: "shop-1", members: [] });
+    hooks.__seed(TECHNICIANS, "tech-1", {
       name: "Old Name",
       email: "old@example.com",
       phone: "000",
@@ -550,7 +400,7 @@ describe("updateTechnician", () => {
       userId: "user-1",
       status: "active",
     });
-    fakeDb.__seed(USERS, "user-1", {
+    hooks.__seed(USERS, "user-1", {
       name: "Old Name",
       email: "old@example.com",
       phone: "000",
@@ -559,14 +409,14 @@ describe("updateTechnician", () => {
 
     await updateTechnician("tech-1", { branchId: "branch-2" });
 
-    const oldBranch = fakeDb.__get(BRANCHES, "branch-1");
+    const oldBranch = hooks.__doc(BRANCHES, "branch-1");
     expect(oldBranch?.members).toEqual([]);
   });
 
   it("reactivating a technician (status: 'active') restores the branch member entry", async () => {
-    fakeDb.__reset();
-    fakeDb.__seed(BRANCHES, "branch-1", { shopId: "shop-1", members: [] });
-    fakeDb.__seed(TECHNICIANS, "tech-1", {
+    hooks.__reset();
+    hooks.__seed(BRANCHES, "branch-1", { shopId: "shop-1", members: [] });
+    hooks.__seed(TECHNICIANS, "tech-1", {
       name: "Old Name",
       email: "old@example.com",
       phone: "000",
@@ -575,7 +425,7 @@ describe("updateTechnician", () => {
       userId: "user-1",
       status: "inactive",
     });
-    fakeDb.__seed(USERS, "user-1", {
+    hooks.__seed(USERS, "user-1", {
       name: "Old Name",
       email: "old@example.com",
       phone: "000",
@@ -584,20 +434,20 @@ describe("updateTechnician", () => {
 
     await updateTechnician("tech-1", { status: "active" });
 
-    const branch = fakeDb.__get(BRANCHES, "branch-1");
+    const branch = hooks.__doc(BRANCHES, "branch-1");
     expect(branch?.members).toEqual([{ userId: "user-1", role: "technician", name: "Old Name" }]);
 
-    const userDoc = fakeDb.__get(USERS, "user-1");
+    const userDoc = hooks.__doc(USERS, "user-1");
     expect(userDoc?.status).toBe("active");
   });
 
   it("throws a 400 ApiError when moving to a branch that does not exist, without corrupting other docs", async () => {
-    fakeDb.__reset();
-    fakeDb.__seed(BRANCHES, "branch-1", {
+    hooks.__reset();
+    hooks.__seed(BRANCHES, "branch-1", {
       shopId: "shop-1",
       members: [{ userId: "user-1", role: "technician", name: "Old Name" }],
     });
-    fakeDb.__seed(TECHNICIANS, "tech-1", {
+    hooks.__seed(TECHNICIANS, "tech-1", {
       name: "Old Name",
       email: "old@example.com",
       phone: "000",
@@ -606,7 +456,7 @@ describe("updateTechnician", () => {
       userId: "user-1",
       status: "active",
     });
-    fakeDb.__seed(USERS, "user-1", {
+    hooks.__seed(USERS, "user-1", {
       name: "Old Name",
       email: "old@example.com",
       phone: "000",
@@ -619,12 +469,12 @@ describe("updateTechnician", () => {
     await expect(promise).rejects.toMatchObject({ status: 400 });
 
     // Nothing should have been written since the guard throws before writes.
-    expect(fakeDb.__transactionWrites.length).toBe(0);
-    expect(fakeDb.__get(TECHNICIANS, "tech-1")?.branchId).toBe("branch-1");
+    expect(hooks.__writes().length).toBe(0);
+    expect(hooks.__doc(TECHNICIANS, "tech-1")?.branchId).toBe("branch-1");
   });
 
   it("throws a 404 ApiError when the technician vanishes mid-transaction", async () => {
-    fakeDb.__reset();
+    hooks.__reset();
     // No technicians/tech-1 doc seeded — simulates the doc being deleted
     // between the route's `loadTechnician` check and this transaction.
 
@@ -635,12 +485,12 @@ describe("updateTechnician", () => {
   });
 
   it("skips the linked users doc sync (does not throw) when that doc is missing", async () => {
-    fakeDb.__reset();
-    fakeDb.__seed(BRANCHES, "branch-1", {
+    hooks.__reset();
+    hooks.__seed(BRANCHES, "branch-1", {
       shopId: "shop-1",
       members: [{ userId: "user-1", role: "technician", name: "Old Name" }],
     });
-    fakeDb.__seed(TECHNICIANS, "tech-1", {
+    hooks.__seed(TECHNICIANS, "tech-1", {
       name: "Old Name",
       email: "old@example.com",
       phone: "000",
@@ -655,16 +505,16 @@ describe("updateTechnician", () => {
       updateTechnician("tech-1", { name: "New Name" })
     ).resolves.toBeDefined();
 
-    expect(fakeDb.__get(TECHNICIANS, "tech-1")?.name).toBe("New Name");
-    expect(fakeDb.__get(USERS, "user-1")).toBeUndefined();
+    expect(hooks.__doc(TECHNICIANS, "tech-1")?.name).toBe("New Name");
+    expect(hooks.__doc(USERS, "user-1")).toBeUndefined();
   });
 
   it("skips the stale branch membership sync (does not throw) when branches/{branchId} is missing", async () => {
-    fakeDb.__reset();
+    hooks.__reset();
     // No branches/branch-1 doc seeded — simulates a stale branchId on the
     // technician, the same data-corruption class as the missing-users-doc
     // case above. Renaming/deactivating must still succeed.
-    fakeDb.__seed(TECHNICIANS, "tech-1", {
+    hooks.__seed(TECHNICIANS, "tech-1", {
       name: "Old Name",
       email: "old@example.com",
       phone: "000",
@@ -673,7 +523,7 @@ describe("updateTechnician", () => {
       userId: "user-1",
       status: "active",
     });
-    fakeDb.__seed(USERS, "user-1", {
+    hooks.__seed(USERS, "user-1", {
       name: "Old Name",
       email: "old@example.com",
       phone: "000",
@@ -684,17 +534,17 @@ describe("updateTechnician", () => {
       updateTechnician("tech-1", { name: "New Name" })
     ).resolves.toBeDefined();
 
-    expect(fakeDb.__get(TECHNICIANS, "tech-1")?.name).toBe("New Name");
-    expect(fakeDb.__get(BRANCHES, "branch-1")).toBeUndefined();
+    expect(hooks.__doc(TECHNICIANS, "tech-1")?.name).toBe("New Name");
+    expect(hooks.__doc(BRANCHES, "branch-1")).toBeUndefined();
   });
 
   it("renaming a technician without changing branch updates the member entry's name in place", async () => {
-    fakeDb.__reset();
-    fakeDb.__seed(BRANCHES, "branch-1", {
+    hooks.__reset();
+    hooks.__seed(BRANCHES, "branch-1", {
       shopId: "shop-1",
       members: [{ userId: "user-1", role: "technician", name: "Old Name" }],
     });
-    fakeDb.__seed(TECHNICIANS, "tech-1", {
+    hooks.__seed(TECHNICIANS, "tech-1", {
       name: "Old Name",
       email: "old@example.com",
       phone: "000",
@@ -703,7 +553,7 @@ describe("updateTechnician", () => {
       userId: "user-1",
       status: "active",
     });
-    fakeDb.__seed(USERS, "user-1", {
+    hooks.__seed(USERS, "user-1", {
       name: "Old Name",
       email: "old@example.com",
       phone: "000",
@@ -712,7 +562,7 @@ describe("updateTechnician", () => {
 
     await updateTechnician("tech-1", { name: "New Name" });
 
-    const branch = fakeDb.__get(BRANCHES, "branch-1");
+    const branch = hooks.__doc(BRANCHES, "branch-1");
     expect(branch?.members).toEqual([
       { userId: "user-1", role: "technician", name: "New Name" },
     ]);
@@ -724,12 +574,12 @@ describe("updateTechnician", () => {
 
 describe("deactivateTechnician", () => {
   it("soft-deletes: sets technician inactive, user suspended, removes the branch member, deletes nothing", async () => {
-    fakeDb.__reset();
-    fakeDb.__seed(BRANCHES, "branch-1", {
+    hooks.__reset();
+    hooks.__seed(BRANCHES, "branch-1", {
       shopId: "shop-1",
       members: [{ userId: "user-1", role: "technician", name: "Some Tech" }],
     });
-    fakeDb.__seed(TECHNICIANS, "tech-1", {
+    hooks.__seed(TECHNICIANS, "tech-1", {
       name: "Some Tech",
       email: "tech@example.com",
       phone: "000",
@@ -738,7 +588,7 @@ describe("deactivateTechnician", () => {
       userId: "user-1",
       status: "active",
     });
-    fakeDb.__seed(USERS, "user-1", {
+    hooks.__seed(USERS, "user-1", {
       name: "Some Tech",
       email: "tech@example.com",
       phone: "000",
@@ -750,17 +600,17 @@ describe("deactivateTechnician", () => {
     // Atomicity: technician, user, and branch member removal must all land
     // inside exactly one transaction, and the write log must show all three
     // targets touched (not just that the final store state looks right).
-    expect(fakeDb.__transactionCallCount()).toBe(1);
-    const ops = fakeDb.__transactionWrites;
+    expect(hooks.__transactionCount()).toBe(1);
+    const ops = hooks.__writes();
     expect(ops.some((w) => w.collection === TECHNICIANS && w.id === "tech-1")).toBe(true);
     expect(ops.some((w) => w.collection === USERS && w.id === "user-1")).toBe(true);
     expect(ops.some((w) => w.collection === BRANCHES && w.id === "branch-1")).toBe(true);
     // Soft delete must never issue a real delete op against any document.
     expect(ops.filter((w) => w.op === "delete").length).toBe(0);
 
-    const technicianDoc = fakeDb.__get(TECHNICIANS, "tech-1");
-    const userDoc = fakeDb.__get(USERS, "user-1");
-    const branchDoc = fakeDb.__get(BRANCHES, "branch-1");
+    const technicianDoc = hooks.__doc(TECHNICIANS, "tech-1");
+    const userDoc = hooks.__doc(USERS, "user-1");
+    const branchDoc = hooks.__doc(BRANCHES, "branch-1");
 
     expect(technicianDoc).toBeDefined();
     expect(technicianDoc?.status).toBe("inactive");
@@ -770,7 +620,7 @@ describe("deactivateTechnician", () => {
   });
 
   it("throws a 404 ApiError when the technician vanishes mid-transaction", async () => {
-    fakeDb.__reset();
+    hooks.__reset();
     // No technicians/tech-1 doc seeded.
 
     const promise = deactivateTechnician("tech-1");
@@ -782,41 +632,41 @@ describe("deactivateTechnician", () => {
 
 describe("emailExists", () => {
   it("returns false when no user document has the given email", async () => {
-    fakeDb.__reset();
-    fakeDb.__seed(USERS, "user-1", { email: "someone@example.com" });
+    hooks.__reset();
+    hooks.__seed(USERS, "user-1", { email: "someone@example.com" });
 
     await expect(emailExists("nobody@example.com")).resolves.toBe(false);
   });
 
   it("returns true when a user document has the given email", async () => {
-    fakeDb.__reset();
-    fakeDb.__seed(USERS, "user-1", { email: "taken@example.com" });
+    hooks.__reset();
+    hooks.__seed(USERS, "user-1", { email: "taken@example.com" });
 
     await expect(emailExists("taken@example.com")).resolves.toBe(true);
   });
 
   it("excludes the matching user via exceptUserId (the users collection doc id)", async () => {
-    fakeDb.__reset();
-    fakeDb.__seed(USERS, "user-1", { email: "taken@example.com" });
+    hooks.__reset();
+    hooks.__seed(USERS, "user-1", { email: "taken@example.com" });
 
     // Own email, excluded by its own users-doc id: not a collision.
     await expect(emailExists("taken@example.com", "user-1")).resolves.toBe(false);
   });
 
   it("still reports a collision when exceptUserId belongs to a different user", async () => {
-    fakeDb.__reset();
-    fakeDb.__seed(USERS, "user-1", { email: "taken@example.com" });
-    fakeDb.__seed(USERS, "user-2", { email: "other@example.com" });
+    hooks.__reset();
+    hooks.__seed(USERS, "user-1", { email: "taken@example.com" });
+    hooks.__seed(USERS, "user-2", { email: "other@example.com" });
 
     await expect(emailExists("taken@example.com", "user-2")).resolves.toBe(true);
   });
 
   it("false positive: passing a technician document id (not its userId) as exceptUserId fails to exclude the user", async () => {
-    fakeDb.__reset();
+    hooks.__reset();
     // technician doc id "tech-1" is unrelated to the users collection doc id
     // "user-1" that actually owns this email — exceptUserId must be the
     // Technician.userId, never Technician.id.
-    fakeDb.__seed(USERS, "user-1", { email: "self@example.com" });
+    hooks.__seed(USERS, "user-1", { email: "self@example.com" });
 
     await expect(emailExists("self@example.com", "tech-1")).resolves.toBe(true);
   });

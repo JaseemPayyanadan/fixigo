@@ -4,12 +4,9 @@ import { Suspense, useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 
-import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
-
 import { LoadingSpinner } from "@/components/ui";
 import { useUser } from "@/hooks";
 import { useBranches } from "@/hooks/useBranches";
-import { db } from "@/lib/firebase";
 import { BranchForm } from "@/modules/branch/BranchForm";
 import { Branch } from "@/types";
 
@@ -33,41 +30,7 @@ function EditBranchContent() {
   const [formLoading, setFormLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Debug logging
-  useEffect(() => {
-    console.log("EditBranchContent mounted with:", { id, shopId, user });
-    console.log("User details:", {
-      id: user?.id,
-      email: user?.email,
-      role: user?.role,
-      shopId: user?.shopId,
-      branchId: user?.branchId,
-      onboardingCompleted: user?.onboardingCompleted
-    });
-  }, [id, shopId, user]);
 
-  // Debug function to check all branches
-  const debugBranches = useCallback(async () => {
-    if (!shopId) return;
-    
-    try {
-      console.log("=== DEBUG: Checking all branches ===");
-      
-      // Check flat structure
-      const flatQuery = query(collection(db, "branches"), where("shopId", "==", shopId));
-      const flatSnapshot = await getDocs(flatQuery);
-      console.log("Flat structure branches:", flatSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-      
-      // Check nested structure
-      const nestedQuery = query(collection(db, "shops", shopId, "branches"));
-      const nestedSnapshot = await getDocs(nestedQuery);
-      console.log("Nested structure branches:", nestedSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-      
-      console.log("=== END DEBUG ===");
-    } catch (error) {
-      console.error("Debug error:", error);
-    }
-  }, [shopId]);
 
   useEffect(() => {
     const fetchBranch = async () => {
@@ -81,58 +44,15 @@ function EditBranchContent() {
       setError(null);
 
       try {
-        console.log("Fetching branch:", { id, shopId });
-        
-        // Use the new flat structure: branches collection with shopId filter
-        const docRef = doc(db, "branches", id as string);
-        const docSnap = await getDoc(docRef);
-
-        console.log("Branch document exists:", docSnap.exists());
-        
-        if (docSnap.exists()) {
-          const branchData = docSnap.data();
-          console.log("Branch data:", branchData);
-          console.log("Branch shopId:", branchData.shopId);
-          console.log("Current user shopId:", shopId);
-          console.log("Branch data keys:", Object.keys(branchData));
-          console.log("Branch data values:", Object.values(branchData));
-          
-          // Check if shopId exists in the branch data
-          if (!branchData.shopId) {
-            console.log("Branch has no shopId field");
-            setError("Branch data is incomplete. Please contact support.");
-            return;
-          }
-          
-          // Verify this branch belongs to the current shop
-          if (branchData.shopId !== shopId) {
-            console.log("Shop ID mismatch:", { branchShopId: branchData.shopId, userShopId: shopId });
-            setError("You don't have permission to access this branch.");
-            return;
-          }
-          const branch = { id: docSnap.id, ...branchData } as Branch;
-          console.log("Final branch object:", branch);
-          setBranch(branch);
-        } else {
-          console.log("Branch document not found in flat structure, checking nested structure...");
-          
-          // Fallback: Check if branch exists in the old nested structure
-          try {
-            const nestedDocRef = doc(db, "shops", shopId, "branches", id as string);
-            const nestedDocSnap = await getDoc(nestedDocRef);
-            
-            if (nestedDocSnap.exists()) {
-              console.log("Branch found in nested structure - migration needed");
-              setError("This branch exists in the old data structure and needs to be migrated. Please contact support.");
-              return;
-            }
-          } catch (nestedError) {
-            console.log("Error checking nested structure:", nestedError);
-          }
-          
-          console.log("Branch document not found in either structure");
-          setError("Branch not found. It may have been deleted or you don't have permission to access it.");
+        const response = await fetch(`/api/branches/${encodeURIComponent(id)}`);
+        if (!response.ok) {
+          const body = await response.json().catch(() => ({}));
+          throw new Error(
+            (body as { error?: string }).error || "Failed to load branch"
+          );
         }
+        const body = await response.json();
+        setBranch(body.branch as Branch);
       } catch (err) {
         console.error("Error fetching branch:", err);
         setError((err as Error).message || "Failed to fetch branch. Please try again.");
@@ -235,9 +155,6 @@ function EditBranchContent() {
           <div className="flex gap-3 justify-center">
             <button onClick={handleTryAgain} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
               Try Again
-            </button>
-            <button onClick={debugBranches} className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
-              Debug Branches
             </button>
             <Link href="/branch" className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors">
               Back to Branches

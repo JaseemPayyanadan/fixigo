@@ -123,3 +123,14 @@ export function validatePassword(password: string): boolean {
 export function validateStrongPassword(password: string): boolean {
   return patterns.password.test(password);
 }
+
+/**
+ * Indian GSTIN: 2-digit state code, 10-character PAN, entity digit,
+ * a literal "Z", then a checksum character. Format only — the checksum digit
+ * itself is not verified, which is the usual trade-off for data entry.
+ */
+const GSTIN_PATTERN = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
+
+export function validateGstNumber(value: string): boolean {
+  return GSTIN_PATTERN.test(value.trim().toUpperCase());
+}

@@ -2,7 +2,7 @@ import { addDoc, arrayUnion, collection, doc, getDoc, updateDoc, query, where, g
 
 import type { Role, User } from "@/types";
 
-import { registerUser } from "./auth";
+import { registerUser } from "./authUsers";
 import { db } from "./firebase";
 import { logger } from "./logger";
 

@@ -1,7 +1,8 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
-import { verifyToken, getUserById } from "@/lib/auth";
+import { verifyToken } from "@/lib/auth";
+import { getUserById } from "@/lib/authUsers";
 
 export const dynamic = "force-dynamic";
 

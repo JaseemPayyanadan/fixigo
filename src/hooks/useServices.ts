@@ -1,11 +1,7 @@
 "use client";
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 
-import { collection, query, where, getDocs, addDoc, updateDoc, doc, deleteDoc, orderBy } from "firebase/firestore";
-
-import { db } from "@/lib/firebase";
 import { logger } from "@/lib/logger";
-import { mapServiceDoc } from "@/lib/serviceMapper";
 import type { Service } from "@/types";
 
 import { useUser } from "./useUser";
@@ -18,8 +14,17 @@ export interface ServiceFilters {
 }
 
 export interface ServiceSortOptions {
-  field: 'createdAt' | 'updatedAt' | 'name' | 'price' | 'status';
-  direction: 'asc' | 'desc';
+  field: "createdAt" | "updatedAt" | "name" | "price" | "status";
+  direction: "asc" | "desc";
+}
+
+async function readError(response: Response): Promise<string> {
+  try {
+    const body = await response.json();
+    return body.error || "Request failed";
+  } catch {
+    return `Request failed (${response.status})`;
+  }
 }
 
 export function useServices(shopId?: string, branchId?: string) {
@@ -28,245 +33,69 @@ export function useServices(shopId?: string, branchId?: string) {
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const { user } = useUser();
+  const requestSeq = useRef(0);
 
-  // Memoized query parameters
-  const queryParams = useMemo(() => ({
-    shopId,
-    branchId,
-    userShopId: user?.shopId,
-    userRole: user?.role,
-    userId: user?.id
-  }), [shopId, branchId, user?.shopId, user?.role, user?.id]);
-
-  // Memoized service transformation function
-  const transformServiceData = useCallback(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (docSnapshot: any, data: any): Service => mapServiceDoc(docSnapshot.id, data),
-    []
-  );
-
-  // Memoized fetch function
+  // shopId is accepted for call-site compatibility; the server scopes by session.
   const fetchServices = useCallback(async () => {
-    if (!user) return;
+    const seq = ++requestSeq.current;
+
+    if (!user) {
+      if (seq === requestSeq.current) setLoading(false);
+      return;
+    }
+
+    if (!shopId && !user.shopId) {
+      if (seq === requestSeq.current) {
+        setServices([]);
+        setLoading(false);
+      }
+      return;
+    }
 
     try {
       setLoading(true);
       setError(null);
 
-      console.log('🔍 useServices Debug:', {
-        ...queryParams,
-        userRole: user.role,
-        userBranchId: user.branchId
-      });
+      const url = branchId
+        ? `/api/services?branchId=${encodeURIComponent(branchId)}`
+        : "/api/services";
 
-      let q;
-      let querySnapshot;
-      
-      try {
-        if (shopId && branchId) {
-          // Query services for specific branch
-          console.log('🔍 Querying services for branch:', { shopId, branchId });
-          q = query(
-            collection(db, "services"),
-            where("shopId", "==", shopId),
-            where("branchId", "==", branchId),
-            orderBy("createdAt", "desc")
-          );
-        } else if (shopId) {
-          // Query all services for the shop (shop admin only)
-          console.log('🔍 Querying services for shop:', { shopId, userRole: user.role });
-          q = query(
-            collection(db, "services"),
-            where("shopId", "==", shopId),
-            orderBy("createdAt", "desc")
-          );
-        } else {
-          console.log('❌ No shopId provided, returning empty services');
-          setServices([]);
-          setLoading(false);
-          return;
-        }
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(await readError(response));
 
-        querySnapshot = await getDocs(q);
-        console.log('📋 Services query result:', {
-          totalDocs: querySnapshot.docs.length,
-          firstDoc: querySnapshot.docs[0]?.data(),
-          userRole: user.role,
-          userBranchId: user.branchId
-        });
+      const body = await response.json();
+      const list = Array.isArray(body?.services) ? body.services : null;
+      if (!list) throw new Error("Malformed response from server");
 
-        // If no results, try with legacy field names
-        if (querySnapshot.docs.length === 0) {
-          console.log('No services found with new field names, trying legacy field names');
-          
-          if (shopId && branchId) {
-            q = query(
-              collection(db, "services"),
-              where("shopId", "==", shopId),
-              where("branchId", "==", branchId),
-              orderBy("createdAt", "desc")
-            );
-          } else if (shopId) {
-            q = query(
-              collection(db, "services"),
-              where("shopId", "==", shopId),
-              orderBy("createdAt", "desc")
-            );
-          }
-          
-          try {
-            querySnapshot = await getDocs(q);
-            console.log('Legacy field query result:', {
-              totalDocs: querySnapshot.docs.length,
-              firstDoc: querySnapshot.docs[0]?.data()
-            });
-          } catch (legacyError) {
-            console.log('Legacy field query failed:', legacyError);
-          }
-        }
-      } catch (error: any) {
-        console.error('Services query failed:', error);
-        setError(String(error));
-        setLoading(false);
-        return;
-      }
-
-        // Transform and filter services
-        const transformedServices: Service[] = [];
-        
-        for (const docSnapshot of querySnapshot.docs) {
-          try {
-            const data = docSnapshot.data();
-            console.log('🔧 Processing service document:', {
-              id: docSnapshot.id,
-              branchId: data.branchId,
-              technician_id: data.technician_id,
-              created_by: data.created_by,
-              userRole: user.role,
-              userBranchId: user.branchId
-            });
-            
-            const service = transformServiceData(docSnapshot, data);
-            transformedServices.push(service);
-          } catch (error) {
-            console.error('💥 Error transforming service:', docSnapshot.id, error);
-          }
-        }
-
-        console.log('✅ Final transformed services:', {
-          total: transformedServices.length,
-          sample: transformedServices.slice(0, 2).map(s => ({
-            id: s.id,
-            branchId: s.branchId,
-            technician_id: s.technician_id
-          }))
-        });
-
-        setServices(transformedServices);
-      setLoading(false);
-    } catch (error: any) {
-      console.error('Unexpected error in fetchServices:', error);
-      setError(String(error));
-      setLoading(false);
+      if (seq !== requestSeq.current) return;
+      setServices(list);
+      logger.debug("Services fetched successfully", { count: list.length, branchId });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to fetch services";
+      if (seq !== requestSeq.current) return;
+      setError(message);
+      logger.error("Error fetching services", { error: message });
+    } finally {
+      if (seq === requestSeq.current) setLoading(false);
     }
-  }, [user, shopId, branchId, transformServiceData]);
+  }, [user, shopId, branchId]);
 
-  // Memoized refresh function
+  useEffect(() => {
+    void fetchServices();
+  }, [fetchServices]);
+
   const refreshServices = useCallback(async () => {
     setRefreshing(true);
     await fetchServices();
     setRefreshing(false);
   }, [fetchServices]);
 
-  // Memoized create service function
-  const createService = useCallback(async (serviceData: Omit<Service, "id" | "createdAt" | "updatedAt">) => {
-    if (!user || !shopId || !branchId) {
-      throw new Error("User not authenticated or missing shop/branch ID");
-    }
-
-    try {
-      // New flat structure: add to top-level services collection
-      const serviceDocRef = await addDoc(
-        collection(db, "services"),
-        {
-          ...serviceData,
-          shopId, // Ensure shopId is set
-          branchId, // Ensure branchId is set
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        }
-      );
-
-      // Refresh services list
-      await refreshServices();
-      return serviceDocRef.id;
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Failed to create service";
-      logger.error("Error creating service", { error: errorMessage });
-      throw new Error(errorMessage);
-    }
-  }, [user, shopId, branchId, refreshServices]);
-
-  // Memoized update service function
-  const updateService = useCallback(async (serviceId: string, updates: Partial<Service>) => {
-    if (!user || !shopId || !branchId) {
-      throw new Error("User not authenticated or missing shop/branch ID");
-    }
-
-    try {
-      // New flat structure: update in top-level services collection
-      const serviceRef = doc(db, "services", serviceId);
-      await updateDoc(serviceRef, {
-        ...updates,
-        updatedAt: new Date(),
-      });
-
-      // Refresh services list
-      await refreshServices();
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Failed to update service";
-      logger.error("Error updating service", { error: errorMessage });
-      throw new Error(errorMessage);
-    }
-  }, [user, shopId, branchId, refreshServices]);
-
-  // Memoized delete service function
-  const deleteService = useCallback(async (serviceId: string) => {
-    if (!user || !shopId || !branchId) {
-      throw new Error("User not authenticated or missing shop/branch ID");
-    }
-
-    try {
-      // New flat structure: delete from top-level services collection
-      await deleteDoc(doc(db, "services", serviceId));
-      
-      // Refresh services list
-      await refreshServices();
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Failed to delete service";
-      logger.error("Error deleting service", { error: errorMessage });
-      throw new Error(errorMessage);
-    }
-  }, [user, shopId, branchId, refreshServices]);
-
-  // Memoized filtered and sorted services
-  const filteredServices = useMemo(() => {
-    return services;
-  }, [services]);
-
-  // Effect to fetch services when dependencies change
-  useEffect(() => {
-    fetchServices();
-  }, [fetchServices]);
-
   return {
-    services: filteredServices,
+    services,
     loading,
-    refreshing,
     error,
-    createService,
-    updateService,
-    deleteService,
+    refreshing,
     refreshServices,
+    fetchServices,
   };
-} 
+}

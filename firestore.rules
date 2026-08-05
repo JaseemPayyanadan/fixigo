@@ -89,5 +89,24 @@ service cloud.firestore {
       allow write: if false; // System only
       allow delete: if false; // Never delete audit logs
     }
+
+    // Suppliers collection (server writes via adminDb)
+    match /suppliers/{supplierId} {
+      allow read: if isAuthenticated()
+        && resource.data.shopId == request.auth.token.shopId;
+      allow write: if false;
+    }
+
+    // Purchases collection (server writes via adminDb)
+    match /purchases/{purchaseId} {
+      allow read: if isAuthenticated()
+        && resource.data.shopId == request.auth.token.shopId;
+      allow write: if false;
+    }
+
+    // Purchase counters (server-only)
+    match /purchaseCounters/{shopId} {
+      allow read, write: if false;
+    }
   }
 }

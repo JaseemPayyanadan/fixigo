@@ -1,20 +1,6 @@
-import { addDoc, collection, doc, getDocs, onSnapshot, query, updateDoc, where } from "firebase/firestore";
+import type { Notification } from "@/lib/notificationRepo";
 
-import { db } from "./firebase";
-import { logger } from "./logger";
-
-export interface Notification {
-  id: string;
-  userId: string;
-  title: string;
-  message: string;
-  type: "info" | "success" | "warning" | "error";
-  category: "service" | "task" | "system" | "user";
-  read: boolean;
-  actionUrl?: string;
-  createdAt: Date;
-  updatedAt: Date;
-}
+export type { Notification } from "@/lib/notificationRepo";
 
 export interface NotificationPreferences {
   userId: string;
@@ -30,187 +16,58 @@ export interface NotificationPreferences {
   updatedAt: Date;
 }
 
+/**
+ * Client-facing helpers that talk to /api/notifications.
+ * Do not query Firestore from the browser — rules require Firebase Auth,
+ * and this app authenticates with a JWT session cookie instead.
+ */
 export class NotificationService {
-  /**
-   * Create a new notification
-   */
-  static async createNotification(notification: Omit<Notification, "id" | "createdAt" | "updatedAt">): Promise<string> {
-    try {
-      const docRef = await addDoc(collection(db, "notifications"), {
-        ...notification,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
-
-      logger.info("Notification created", {
-        notificationId: docRef.id,
-        userId: notification.userId,
-        type: notification.type,
-        category: notification.category,
-      });
-
-      return docRef.id;
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Failed to create notification";
-      logger.error("Error creating notification", { error: errorMessage, notification: JSON.stringify(notification) });
-      throw new Error(errorMessage);
-    }
-  }
-
-  /**
-   * Create notifications for multiple users
-   */
-  static async createBulkNotifications(userIds: string[], notification: Omit<Notification, "id" | "userId" | "createdAt" | "updatedAt">): Promise<void> {
-    try {
-      const notifications = userIds.map((userId) => ({
-        ...notification,
-        userId,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      }));
-
-      const batch = notifications.map((notification) => addDoc(collection(db, "notifications"), notification));
-
-      await Promise.all(batch);
-
-      logger.info("Bulk notifications created", {
-        count: userIds.length,
-        type: notification.type,
-        category: notification.category,
-      });
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Failed to create bulk notifications";
-      logger.error("Error creating bulk notifications", { error: errorMessage, userIds: JSON.stringify(userIds) });
-      throw new Error(errorMessage);
-    }
-  }
-
-  /**
-   * Mark notification as read
-   */
   static async markAsRead(notificationId: string): Promise<void> {
-    try {
-      await updateDoc(doc(db, "notifications", notificationId), {
-        read: true,
-        updatedAt: new Date(),
-      });
-
-      logger.info("Notification marked as read", { notificationId });
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Failed to mark notification as read";
-      logger.error("Error marking notification as read", { error: errorMessage, notificationId });
-      throw new Error(errorMessage);
+    const response = await fetch("/api/notifications/mark-read", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ notificationId }),
+    });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      throw new Error(
+        (body as { error?: string }).error || "Failed to mark notification as read"
+      );
     }
   }
 
-  /**
-   * Mark all notifications as read for a user
-   */
-  static async markAllAsRead(userId: string): Promise<void> {
-    try {
-      const notificationsQuery = query(collection(db, "notifications"), where("userId", "==", userId), where("read", "==", false));
-
-      const snapshot = await getDocs(notificationsQuery);
-      const batch = snapshot.docs.map((doc) => updateDoc(doc.ref, { read: true, updatedAt: new Date() }));
-
-      await Promise.all(batch);
-
-      logger.info("All notifications marked as read", { userId, count: snapshot.docs.length });
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Failed to mark all notifications as read";
-      logger.error("Error marking all notifications as read", { error: errorMessage, userId });
-      throw new Error(errorMessage);
+  static async markAllAsRead(): Promise<void> {
+    const response = await fetch("/api/notifications/mark-read", { method: "POST" });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      throw new Error(
+        (body as { error?: string }).error || "Failed to mark all notifications as read"
+      );
     }
   }
 
-  /**
-   * Get notifications for a user with real-time updates
-   */
-  static subscribeToNotifications(userId: string, callback: (notifications: Notification[]) => void): () => void {
-    const notificationsQuery = query(
-      collection(db, "notifications"),
-      where("userId", "==", userId)
-      // Temporarily removed orderBy to avoid index building issue
-      // orderBy("createdAt", "desc")
-    );
-
-    return onSnapshot(notificationsQuery, (snapshot) => {
-      const notifications: Notification[] = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-        createdAt: doc.data().createdAt?.toDate() || new Date(),
-        updatedAt: doc.data().updatedAt?.toDate() || new Date(),
-      })) as Notification[];
-
-      // Sort in memory as temporary workaround while index is building
-      notifications.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-
-      callback(notifications);
-    });
+  /** @deprecated Use /api routes from the server; kept for call-site typing only. */
+  static async createNotification(
+    _notification: Omit<Notification, "id" | "createdAt" | "updatedAt">
+  ): Promise<string> {
+    throw new Error("createNotification must run on the server via Admin SDK");
   }
 
-  /**
-   * Get unread notification count
-   */
-  static subscribeToUnreadCount(userId: string, callback: (count: number) => void): () => void {
-    const unreadQuery = query(collection(db, "notifications"), where("userId", "==", userId), where("read", "==", false));
-
-    return onSnapshot(unreadQuery, (snapshot) => {
-      callback(snapshot.docs.length);
-    });
+  static async createServiceNotification(
+    _userId: string,
+    _serviceId: string,
+    _action: "assigned" | "updated" | "completed" | "cancelled",
+    _serviceName: string
+  ): Promise<void> {
+    throw new Error("createServiceNotification must run on the server via Admin SDK");
   }
 
-  /**
-   * Create service-related notifications
-   */
-  static async createServiceNotification(userId: string, serviceId: string, action: "assigned" | "updated" | "completed" | "cancelled", serviceName: string): Promise<void> {
-    const notifications = {
-      assigned: {
-        title: "New Service Assigned",
-        message: `You have been assigned to service: ${serviceName}`,
-        type: "info" as const,
-      },
-      updated: {
-        title: "Service Updated",
-        message: `Service "${serviceName}" has been updated`,
-        type: "info" as const,
-      },
-      completed: {
-        title: "Service Completed",
-        message: `Service "${serviceName}" has been completed`,
-        type: "success" as const,
-      },
-      cancelled: {
-        title: "Service Cancelled",
-        message: `Service "${serviceName}" has been cancelled`,
-        type: "warning" as const,
-      },
-    };
-
-    const notification = notifications[action];
-
-    await this.createNotification({
-      userId,
-      title: notification.title,
-      message: notification.message,
-      type: notification.type,
-      category: "service",
-      read: false,
-      actionUrl: `/services/details?id=${serviceId}`,
-    });
-  }
-
-  /**
-   * Create system notifications
-   */
-  static async createSystemNotification(userId: string, title: string, message: string, type: "info" | "success" | "warning" | "error" = "info"): Promise<void> {
-    await this.createNotification({
-      userId,
-      title,
-      message,
-      type,
-      category: "system",
-      read: false,
-    });
+  static async createSystemNotification(
+    _userId: string,
+    _title: string,
+    _message: string,
+    _type: "info" | "success" | "warning" | "error" = "info"
+  ): Promise<void> {
+    throw new Error("createSystemNotification must run on the server via Admin SDK");
   }
 }
