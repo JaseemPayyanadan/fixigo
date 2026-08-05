@@ -35,10 +35,17 @@ export async function GET(request: NextRequest) {
       listSuppliers(scope.shopId),
     ]);
 
+    const serviceId = request.nextUrl.searchParams.get("serviceId");
+    const scoped = serviceId
+      ? purchases.filter((purchase) =>
+          purchase.items.some((item) => item.serviceId === serviceId)
+        )
+      : purchases;
+
     const activeSuppliers = suppliers.filter((supplier) => supplier.status === "active").length;
 
     return NextResponse.json({
-      purchases,
+      purchases: scoped,
       summary: summarizePurchases(purchases, activeSuppliers, new Date()),
     });
   } catch (error) {

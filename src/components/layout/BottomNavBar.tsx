@@ -3,7 +3,7 @@ import { useState } from "react";
 
 import { usePathname, useRouter } from "next/navigation";
 
-import { Bars3Icon, BuildingOfficeIcon, Cog8ToothIcon, HomeIcon, UserGroupIcon, UserIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import { Bars3Icon, BuildingOfficeIcon, Cog8ToothIcon, HomeIcon, ShoppingCartIcon, UserGroupIcon, UserIcon, XMarkIcon } from "@heroicons/react/24/outline";
 
 import { useAuth } from "@/contexts/AuthContext";
 import { Settings2Icon } from "lucide-react";
@@ -38,6 +38,12 @@ const navItems = [
     label: "Technicians",
     href: "/technicians",
     icon: UserGroupIcon,
+    roles: ["shop_admin", "branch_admin"],
+  },
+  {
+    label: "Spare Purchases",
+    href: "/purchases",
+    icon: ShoppingCartIcon,
     roles: ["shop_admin", "branch_admin"],
   },
 ];

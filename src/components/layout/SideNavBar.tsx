@@ -13,6 +13,7 @@ import {
   Home,
   MapPin,
   Settings,
+  ShoppingCart,
   User,
   Wrench,
 } from "lucide-react";
@@ -57,6 +58,14 @@ const navItems: Array<{
     href: "/technicians",
     icon: User,
     description: "Manage technical staff",
+    roles: ["shop_admin", "branch_admin"],
+    prefetch: true,
+  },
+  {
+    label: "Spare Purchases",
+    href: "/purchases",
+    icon: ShoppingCart,
+    description: "Suppliers, purchases and dues",
     roles: ["shop_admin", "branch_admin"],
     prefetch: true,
   },
