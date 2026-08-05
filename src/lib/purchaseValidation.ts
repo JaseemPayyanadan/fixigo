@@ -12,6 +12,8 @@ export interface CreateSupplierInput {
   gstNumber?: string;
   address?: string;
   status: SupplierStatus;
+  /** What's already owed to this supplier from before they were added here. */
+  openingBalance?: number;
 }
 
 export type UpdateSupplierInput = Partial<CreateSupplierInput>;
@@ -151,7 +153,11 @@ function parseSupplierFields(raw: Record<string, unknown>): Omit<CreateSupplierI
 
 export function parseCreateSupplierInput(body: unknown): CreateSupplierInput {
   const raw = asObject(body);
-  return { ...parseSupplierFields(raw), status: "active" };
+  const openingBalance = optionalNumber(raw, "openingBalance", "Outstanding balance") ?? 0;
+  if (openingBalance < 0) {
+    throw new ApiError(400, "Outstanding balance cannot be negative");
+  }
+  return { ...parseSupplierFields(raw), status: "active", openingBalance };
 }
 
 export function parseUpdateSupplierInput(body: unknown): UpdateSupplierInput {
@@ -283,9 +289,6 @@ export function parseCreatePurchaseInput(body: unknown): CreatePurchaseInput {
   }
 
   const dueDate = optionalDate(raw, "dueDate", "due date");
-  if (!initialPayment && !dueDate) {
-    throw new ApiError(400, "A due date is required for a credit purchase");
-  }
   if (dueDate && dueDate.getTime() < purchaseDate.getTime()) {
     throw new ApiError(400, "Due date cannot be before the purchase date");
   }
@@ -315,4 +318,65 @@ export function parseCancelPurchaseInput(body: unknown): { reason: string } {
     throw new ApiError(400, "A cancellation reason is required");
   }
   return { reason: reason.trim() };
+}
+
+export interface ReturnPurchaseLineInput {
+  itemId: string;
+  quantity: number;
+}
+
+export interface ReturnPurchaseInput {
+  items: ReturnPurchaseLineInput[];
+  reason: string;
+}
+
+function parseReturnLine(value: unknown, index: number): ReturnPurchaseLineInput {
+  const raw = asObject(value, `Return item ${index + 1}`);
+
+  const quantity = requireNumber(raw, "quantity", `Return item ${index + 1} quantity`);
+  if (!Number.isInteger(quantity) || quantity < 1) {
+    throw new ApiError(
+      400,
+      `Return item ${index + 1}: quantity must be a whole number of at least 1`
+    );
+  }
+
+  return { itemId: requireString(raw, "itemId"), quantity };
+}
+
+export function parseReturnPurchaseInput(body: unknown): ReturnPurchaseInput {
+  const raw = asObject(body);
+
+  if (!Array.isArray(raw.items) || raw.items.length === 0) {
+    throw new ApiError(400, "A return needs at least one item");
+  }
+  const items = raw.items.map(parseReturnLine);
+  const reason = requireString(raw, "reason");
+
+  return { items, reason };
+}
+
+export interface RecordRefundInput {
+  amount: number;
+  method: PurchasePaymentMethod;
+  receivedAt: Date;
+  reference?: string;
+  notes?: string;
+}
+
+export function parseRecordRefundInput(body: unknown): RecordRefundInput {
+  const raw = asObject(body);
+
+  const amount = requireNumber(raw, "amount", "Refund amount");
+  if (amount <= 0) {
+    throw new ApiError(400, "Refund amount must be greater than zero");
+  }
+
+  return {
+    amount,
+    method: parsePaymentMethod(raw.method),
+    receivedAt: requireDate(raw, "receivedAt", "refund date"),
+    reference: optionalString(raw, "reference"),
+    notes: optionalString(raw, "notes"),
+  };
 }

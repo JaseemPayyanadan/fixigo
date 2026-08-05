@@ -6,6 +6,8 @@ import {
   parseCreatePurchaseInput,
   parseCreateSupplierInput,
   parseRecordPaymentInput,
+  parseRecordRefundInput,
+  parseReturnPurchaseInput,
 } from "@/lib/purchaseValidation";
 
 function validPurchaseBody(overrides: Record<string, unknown> = {}) {
@@ -81,6 +83,36 @@ describe("parseCreateSupplierInput", () => {
         phone: "98765432109876543",
       })
     ).toThrow(/valid phone/i);
+  });
+
+  it("defaults opening balance to 0 when omitted", () => {
+    const input = parseCreateSupplierInput({
+      name: "ABC",
+      contactPerson: "R",
+      phone: "9876543210",
+    });
+    expect(input.openingBalance).toBe(0);
+  });
+
+  it("accepts an opening balance", () => {
+    const input = parseCreateSupplierInput({
+      name: "ABC",
+      contactPerson: "R",
+      phone: "9876543210",
+      openingBalance: 2500,
+    });
+    expect(input.openingBalance).toBe(2500);
+  });
+
+  it("rejects a negative opening balance", () => {
+    expect(() =>
+      parseCreateSupplierInput({
+        name: "ABC",
+        contactPerson: "R",
+        phone: "9876543210",
+        openingBalance: -100,
+      })
+    ).toThrow(/cannot be negative/i);
   });
 });
 
@@ -176,10 +208,12 @@ describe("parseCreatePurchaseInput", () => {
     ).toThrow(/payment method/i);
   });
 
-  it("requires a due date when there is no initial payment", () => {
-    expect(() =>
-      parseCreatePurchaseInput(validPurchaseBody({ initialPayment: undefined }))
-    ).toThrow(/due date is required/i);
+  it("accepts a credit purchase without a due date", () => {
+    const input = parseCreatePurchaseInput(
+      validPurchaseBody({ initialPayment: undefined, dueDate: undefined })
+    );
+    expect(input.initialPayment).toBeUndefined();
+    expect(input.dueDate).toBeUndefined();
   });
 
   it("accepts a credit purchase that supplies a due date", () => {
@@ -246,5 +280,82 @@ describe("parseCancelPurchaseInput", () => {
     expect(parseCancelPurchaseInput({ reason: "  wrong supplier  " }).reason).toBe(
       "wrong supplier"
     );
+  });
+});
+
+describe("parseReturnPurchaseInput", () => {
+  it("accepts a valid return", () => {
+    const input = parseReturnPurchaseInput({
+      items: [{ itemId: "item-1", quantity: 2 }],
+      reason: "  defective  ",
+    });
+    expect(input.items).toEqual([{ itemId: "item-1", quantity: 2 }]);
+    expect(input.reason).toBe("defective");
+  });
+
+  it("rejects an empty item list", () => {
+    expect(() => parseReturnPurchaseInput({ items: [], reason: "defective" })).toThrow(
+      /at least one item/i
+    );
+  });
+
+  it("rejects a missing reason", () => {
+    expect(() =>
+      parseReturnPurchaseInput({ items: [{ itemId: "item-1", quantity: 1 }], reason: "   " })
+    ).toThrow(/reason is required/i);
+  });
+
+  it("rejects a zero quantity", () => {
+    expect(() =>
+      parseReturnPurchaseInput({
+        items: [{ itemId: "item-1", quantity: 0 }],
+        reason: "defective",
+      })
+    ).toThrow(/quantity must be a whole number/i);
+  });
+
+  it("rejects a fractional quantity", () => {
+    expect(() =>
+      parseReturnPurchaseInput({
+        items: [{ itemId: "item-1", quantity: 1.5 }],
+        reason: "defective",
+      })
+    ).toThrow(/quantity must be a whole number/i);
+  });
+
+  it("rejects a missing itemId", () => {
+    expect(() =>
+      parseReturnPurchaseInput({ items: [{ quantity: 1 }], reason: "defective" })
+    ).toThrow(/itemId is required/i);
+  });
+});
+
+describe("parseRecordRefundInput", () => {
+  it("accepts a valid refund", () => {
+    const input = parseRecordRefundInput({
+      amount: 1500,
+      method: "cash",
+      receivedAt: "2026-08-05T00:00:00.000Z",
+      reference: "REF-1",
+    });
+    expect(input.amount).toBe(1500);
+    expect(input.method).toBe("cash");
+    expect(input.reference).toBe("REF-1");
+  });
+
+  it("rejects a zero amount", () => {
+    expect(() =>
+      parseRecordRefundInput({ amount: 0, method: "cash", receivedAt: "2026-08-05T00:00:00.000Z" })
+    ).toThrow(/greater than zero/i);
+  });
+
+  it("rejects an invalid method", () => {
+    expect(() =>
+      parseRecordRefundInput({
+        amount: 100,
+        method: "credit",
+        receivedAt: "2026-08-05T00:00:00.000Z",
+      })
+    ).toThrow(/cash, upi or bank/i);
   });
 });

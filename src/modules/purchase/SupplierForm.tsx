@@ -11,6 +11,7 @@ export interface SupplierPayload {
   email?: string;
   gstNumber?: string;
   address?: string;
+  openingBalance?: number;
 }
 
 interface Props {
@@ -34,6 +35,7 @@ const SupplierForm = React.memo(function SupplierForm({
   const [email, setEmail] = React.useState(initial?.email ?? "");
   const [gstNumber, setGstNumber] = React.useState(initial?.gstNumber ?? "");
   const [address, setAddress] = React.useState(initial?.address ?? "");
+  const [openingBalance, setOpeningBalance] = React.useState("");
 
   const handleSubmit = React.useCallback(
     async (event: React.FormEvent) => {
@@ -45,9 +47,11 @@ const SupplierForm = React.memo(function SupplierForm({
         email: email.trim() || undefined,
         gstNumber: gstNumber.trim() || undefined,
         address: address.trim() || undefined,
+        openingBalance:
+          !initial && openingBalance ? Number(openingBalance) : undefined,
       });
     },
-    [onSubmit, name, contactPerson, phone, email, gstNumber, address]
+    [onSubmit, name, contactPerson, phone, email, gstNumber, address, initial, openingBalance]
   );
 
   const inputClass =
@@ -72,6 +76,17 @@ const SupplierForm = React.memo(function SupplierForm({
         <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email (optional)" className={inputClass} />
         <input value={gstNumber} onChange={(e) => setGstNumber(e.target.value)} placeholder="GST number (optional)" className={inputClass} />
         <input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Address (optional)" className={inputClass} />
+        {!initial && (
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            value={openingBalance}
+            onChange={(e) => setOpeningBalance(e.target.value)}
+            placeholder="Outstanding balance (optional)"
+            className={inputClass}
+          />
+        )}
       </div>
 
       <div className="mt-4 flex gap-2">

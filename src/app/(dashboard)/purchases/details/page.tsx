@@ -112,7 +112,14 @@ function PurchaseDetailsContent() {
       <PurchaseDetails
         purchase={purchase}
         onRecordPayment={() => setPaymentOpen(true)}
-        onEdit={() => router.push(`/purchases/new?edit=${purchase.id}`)}
+        onEdit={() => {
+          // Desktop: list-hosted right slide. Mobile: full-page form.
+          if (typeof window !== "undefined" && window.matchMedia("(min-width: 768px)").matches) {
+            router.push(`/purchases?edit=${purchase.id}`);
+            return;
+          }
+          router.push(`/purchases/new?edit=${purchase.id}`);
+        }}
         onCancel={() => {
           setCancelling(true);
           setCancelError(null);

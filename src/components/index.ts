@@ -13,6 +13,7 @@ export { default as Button } from "./ui/Button";
 export { default as LoadingSpinner, Skeleton, PageLoader } from "./ui/LoadingSpinner";
 export { default as PasswordInput } from "./ui/PasswordInput";
 export { default as SearchFilter } from "./ui/SearchFilter";
+export { default as SlideOver } from "./ui/SlideOver";
 export { default as TextInput } from "./ui/TextInput";
 export { 
   Table,

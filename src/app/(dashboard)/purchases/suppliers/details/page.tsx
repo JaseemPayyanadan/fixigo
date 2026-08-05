@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import React, { Suspense } from "react";
 
+import SupplierForm, { type SupplierPayload } from "@/modules/purchase/SupplierForm";
 import SupplierProfile from "@/modules/purchase/SupplierProfile";
 import type { Purchase, Supplier } from "@/types/purchase";
 
@@ -14,6 +15,40 @@ function SupplierDetailsContent() {
   const [purchases, setPurchases] = React.useState<Purchase[]>([]);
   const [error, setError] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(true);
+  const [editing, setEditing] = React.useState(false);
+  const [saving, setSaving] = React.useState(false);
+  const [saveError, setSaveError] = React.useState<string | null>(null);
+
+  const handleUpdate = React.useCallback(
+    async (payload: SupplierPayload) => {
+      setSaving(true);
+      setSaveError(null);
+      try {
+        const response = await fetch(`/api/suppliers/${id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (!response.ok) {
+          const body = (await response.json()) as { error?: string };
+          throw new Error(body.error ?? "Could not save the supplier");
+        }
+        const body = (await response.json()) as { supplier: Supplier };
+        setSupplier({
+          ...body.supplier,
+          lastPurchaseAt: body.supplier.lastPurchaseAt
+            ? new Date(body.supplier.lastPurchaseAt)
+            : undefined,
+        });
+        setEditing(false);
+      } catch (caught) {
+        setSaveError((caught as Error).message);
+      } finally {
+        setSaving(false);
+      }
+    },
+    [id]
+  );
 
   React.useEffect(() => {
     if (!id) {
@@ -75,14 +110,38 @@ function SupplierDetailsContent() {
 
   return (
     <div className="space-y-4 p-4 sm:p-6">
-      <button onClick={() => router.push("/purchases/suppliers")} className="text-sm text-blue-600">
-        ← Suppliers
-      </button>
-      <SupplierProfile
-        supplier={supplier}
-        purchases={purchases}
-        onOpenPurchase={(purchaseId) => router.push(`/purchases/details?id=${purchaseId}`)}
-      />
+      <div className="flex items-center justify-between">
+        <button onClick={() => router.push("/purchases/suppliers")} className="text-sm text-blue-600">
+          ← Suppliers
+        </button>
+        {!editing && (
+          <button
+            onClick={() => setEditing(true)}
+            className="rounded-xl border border-blue-200 px-3 py-1.5 text-sm font-medium text-blue-600"
+          >
+            Edit
+          </button>
+        )}
+      </div>
+
+      {editing ? (
+        <SupplierForm
+          initial={supplier}
+          saving={saving}
+          error={saveError}
+          onSubmit={handleUpdate}
+          onCancel={() => {
+            setEditing(false);
+            setSaveError(null);
+          }}
+        />
+      ) : (
+        <SupplierProfile
+          supplier={supplier}
+          purchases={purchases}
+          onOpenPurchase={(purchaseId) => router.push(`/purchases/details?id=${purchaseId}`)}
+        />
+      )}
     </div>
   );
 }

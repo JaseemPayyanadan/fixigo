@@ -99,7 +99,7 @@ export async function POST(request: NextRequest) {
       ...input,
       shopId: user.shopId as string,
       branchId,
-      purchasedBy: { userId: user.id, name: user.name },
+      purchasedBy: { userId: user.id, name: user.name || "" },
     });
 
     return NextResponse.json({ purchase, duplicateInvoiceWarning }, { status: 201 });

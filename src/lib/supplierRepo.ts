@@ -88,10 +88,12 @@ export async function createSupplier(
     gstNumber: input.gstNumber ?? null,
     address: input.address ?? null,
     status: input.status,
-    // Running totals always start at zero; only purchaseRepo moves them.
+    // Running totals always start at zero and are moved only by purchaseRepo
+    // from here on — `outstanding` is the one exception, seeded once at
+    // creation from a supplier's pre-existing balance.
     totalPurchased: 0,
     totalPaid: 0,
-    outstanding: 0,
+    outstanding: input.openingBalance ?? 0,
     createdAt: now,
     updatedAt: now,
     createdBy: input.createdBy,

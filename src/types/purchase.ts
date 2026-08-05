@@ -54,6 +54,39 @@ export interface PurchaseItem {
   serviceId?: string;
   serviceRef?: string;
   lineTotal: number;
+  /** Sum of quantities already returned against this line. Never exceeds `quantity`. */
+  returnedQuantity: number;
+}
+
+export interface PurchaseReturnLine {
+  itemId: string;
+  name: string;
+  quantity: number;
+  /** Copied from the item's `purchasePrice` at return time, so a later price
+   *  edit can never retroactively change a past return's value. */
+  unitPrice: number;
+  lineTotal: number;
+}
+
+export interface PurchaseReturn {
+  id: string;
+  items: PurchaseReturnLine[];
+  totalAmount: number;
+  reason: string;
+  returnedBy: { userId: string; name: string };
+  returnedAt: Date;
+  createdAt: Date;
+}
+
+export interface PurchaseRefund {
+  id: string;
+  amount: number;
+  method: PurchasePaymentMethod;
+  receivedAt: Date;
+  reference?: string;
+  notes?: string;
+  recordedBy: string;
+  createdAt: Date;
 }
 
 export interface PurchaseDiscount {
@@ -94,8 +127,17 @@ export interface Purchase {
   paidAmount: number;
   balance: number;
   paymentStatus: PurchasePaymentStatus;
-  /** Required when raised on credit. "Overdue" is derived, never stored. */
+  /** Optional. "Overdue" is derived, never stored. */
   dueDate?: Date;
+
+  returns: PurchaseReturn[];
+  /** Sum of every return's `totalAmount`. */
+  returnedAmount: number;
+  refunds: PurchaseRefund[];
+  /** Sum of every refund's `amount`. */
+  refundReceived: number;
+  /** What the supplier still owes back, e.g. items returned after the bill was paid in full. */
+  refundDue: number;
 
   status: PurchaseStatus;
   cancelReason?: string;
