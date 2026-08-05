@@ -22,6 +22,11 @@ function SupplierDetailsContent() {
       return;
     }
 
+    setLoading(true);
+    setError(null);
+    setSupplier(null);
+    setPurchases([]);
+
     const controller = new AbortController();
 
     async function load() {

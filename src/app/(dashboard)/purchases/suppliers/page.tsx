@@ -16,11 +16,16 @@ function SuppliersContent() {
   const [creating, setCreating] = React.useState(openNew);
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [loadError, setLoadError] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(true);
 
   const load = React.useCallback(async () => {
-    const response = await fetch("/api/suppliers");
-    if (response.ok) {
+    try {
+      const response = await fetch("/api/suppliers");
+      if (!response.ok) {
+        const body = (await response.json()) as { error?: string };
+        throw new Error(body.error ?? "Could not load suppliers");
+      }
       const body = (await response.json()) as { suppliers: Supplier[] };
       setSuppliers(
         body.suppliers.map((supplier) => ({
@@ -28,8 +33,12 @@ function SuppliersContent() {
           lastPurchaseAt: supplier.lastPurchaseAt ? new Date(supplier.lastPurchaseAt) : undefined,
         }))
       );
+      setLoadError(null);
+    } catch (caught) {
+      setLoadError((caught as Error).message);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, []);
 
   React.useEffect(() => {
@@ -51,6 +60,7 @@ function SuppliersContent() {
           throw new Error(body.error ?? "Could not save the supplier");
         }
         setCreating(false);
+        if (openNew) router.replace("/purchases/suppliers");
         await load();
       } catch (caught) {
         setError((caught as Error).message);
@@ -58,8 +68,13 @@ function SuppliersContent() {
         setSaving(false);
       }
     },
-    [load]
+    [load, openNew, router]
   );
+
+  const handleCancelCreate = React.useCallback(() => {
+    setCreating(false);
+    if (openNew) router.replace("/purchases/suppliers");
+  }, [openNew, router]);
 
   return (
     <div className="space-y-4 p-4 sm:p-6">
@@ -86,18 +101,24 @@ function SuppliersContent() {
           saving={saving}
           error={error}
           onSubmit={handleSubmit}
-          onCancel={() => setCreating(false)}
+          onCancel={handleCancelCreate}
         />
+      )}
+
+      {loadError && (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          {loadError}
+        </div>
       )}
 
       {loading ? (
         <p className="text-sm text-gray-500">Loading suppliers…</p>
-      ) : (
+      ) : !loadError ? (
         <SupplierList
           suppliers={suppliers}
           onOpen={(id) => router.push(`/purchases/suppliers/details?id=${id}`)}
         />
-      )}
+      ) : null}
     </div>
   );
 }
