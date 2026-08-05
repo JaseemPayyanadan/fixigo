@@ -13,14 +13,11 @@ import {
   ClipboardDocumentListIcon,
   ExclamationTriangleIcon
 } from "@heroicons/react/24/outline";
-import { collection, getDocs, orderBy, query, where } from "firebase/firestore";
-
 import { PermissionGuard, RoleGuard } from "../../../components";
 import { BranchAdminServiceList, ShopAdminServiceList, TechnicianServiceList } from "../../../components/service";
 import { useUser } from "../../../hooks";
 import { useBranches } from "../../../hooks/useBranches";
 import { useTechnicians } from "../../../hooks/useTechnicians";
-import { db } from "../../../lib/firebase";
 import type { ServicePaymentStatus } from "../../../lib/paymentUtils";
 import type { Service } from "../../../types";
 
@@ -246,10 +243,10 @@ function ServicesContent() {
       paymentStatus: data.paymentStatus === "paid" || data.paymentStatus === "pending" ? data.paymentStatus : undefined,
       isReopened: data.isReopened === true,
       reopenReason: typeof data.reopenReason === "string" ? data.reopenReason : undefined,
-      reopenedAt: data.reopenedAt?.toDate?.(),
+      reopenedAt: data.reopenedAt?.toDate?.() || (data.reopenedAt ? new Date(data.reopenedAt) : undefined),
       reopenCount: typeof data.reopenCount === "number" ? data.reopenCount : undefined,
-      createdAt: data.createdAt?.toDate() || new Date(),
-      updatedAt: data.updatedAt?.toDate() || new Date(),
+      createdAt: data.createdAt?.toDate?.() || (data.createdAt ? new Date(data.createdAt) : new Date()),
+      updatedAt: data.updatedAt?.toDate?.() || (data.updatedAt ? new Date(data.updatedAt) : new Date()),
     };
   };
 
@@ -279,132 +276,28 @@ function ServicesContent() {
     };
   };
 
-  // Fetch services
+  // Fetch services via Admin SDK API (client Firestore is blocked by rules)
   useEffect(() => {
     const fetchServices = async () => {
       if (!user?.shopId) return;
 
       setLoading(true);
       try {
-        console.log("Fetching services for:", { shopId: user.shopId, branchId: user.branchId, role: user.role });
-
-        let allServices: Service[] = [];
-
-        try {
-          // Build query based on user role and access level
-          let servicesQuery;
-
-          if (user.branchId) {
-            // Branch admin or technician - only show services for their branch
-            servicesQuery = query(collection(db, "services"), where("shopId", "==", user.shopId), where("branchId", "==", user.branchId), orderBy("createdAt", "desc"));
-          } else {
-            // Shop admin - show all services for the shop
-            servicesQuery = query(collection(db, "services"), where("shopId", "==", user.shopId), orderBy("createdAt", "desc"));
-          }
-
-          const querySnapshot = await getDocs(servicesQuery);
-          const allServicesData = querySnapshot.docs.map((doc) => {
-            const data = { id: doc.id, ...doc.data() } as any;
-            console.log("🔍 Raw service data from Firestore:", {
-              id: data.id,
-              name: data.name,
-              status: data.status,
-              rawData: data
-            });
-            return transformServiceData(data);
-          });
-
-          console.log("Total services fetched:", allServicesData.length);
-
-          // For technicians, filter to show only assigned services or services they created
-          if (user.role === "technician") {
-            console.log("🔍 Filtering services for technician:", {
-              userId: user.id,
-              userUid: user.uid,
-              userBranchId: user.branchId
-            });
-
-            // Resolve technician document ID (canonical technicianId)
-            let technicianDocId: string | null = null;
-            try {
-              const techResponse = await fetch("/api/technicians/me");
-              if (!techResponse.ok) throw new Error("Failed to fetch technician record");
-              const { technician } = await techResponse.json();
-              technicianDocId = technician?.id || null;
-              console.log("👤 Technician document ID:", technicianDocId);
-            } catch (e) {
-              console.warn("⚠️ Failed to resolve technician document ID", e);
-            }
-
-            allServices = allServicesData.filter((service) => {
-              // Get the raw data to check all possible fields
-              const rawData = querySnapshot.docs.find((doc) => doc.id === service.id)?.data() as any;
-              
-              // Check if service is in technician's assigned branch
-              const isInTechnicianBranch = service.branchId === user.branchId;
-              
-              // Check if service is assigned to this technician (prefer technicianDocId)
-              const isAssignedToTechnician =
-                (technicianDocId && (rawData?.technician_id === technicianDocId || service.technician_id === technicianDocId)) ||
-                // Backward-compat: some records may store user id/uid instead of technician doc id
-                rawData?.technician_id === user.id ||
-                rawData?.technician_id === user.uid ||
-                service.technician_id === user.id ||
-                service.technician_id === user.uid;
-
-              // Check if service was created by this technician
-              const isCreatedByTechnician = 
-                rawData?.created_by?.id === user.id ||
-                rawData?.created_by?.id === user.uid ||
-                rawData?.created_by?.uid === user.id ||
-                rawData?.created_by?.uid === user.uid;
-
-              const shouldShow = isInTechnicianBranch && (isAssignedToTechnician || isCreatedByTechnician);
-              
-              return shouldShow;
-            });
-
-            console.log("✅ Technician services after filtering:", {
-              totalFetched: allServicesData.length,
-              totalFiltered: allServices.length,
-              filteredServices: allServices.map(s => ({ id: s.id, name: s.name, branchId: s.branchId, technician_id: s.technician_id }))
-            });
-          } else {
-            allServices = allServicesData;
-          }
-        } catch (error) {
-          console.error("Error fetching services:", error);
-
-          // Fallback: try to get all services and filter in memory
-          try {
-            const servicesRef = collection(db, "services");
-            const allServicesQuery = query(servicesRef);
-            const allServicesSnapshot = await getDocs(allServicesQuery);
-            const allServicesData = allServicesSnapshot.docs.map((doc) => {
-              const data = { id: doc.id, ...doc.data() };
-              return transformServiceData(data);
-            });
-
-            console.log("Fallback - Total services:", allServicesData.length);
-            allServices = allServicesData.filter((service) => service.shopId === user.shopId);
-            console.log("Fallback - Filtered services:", allServices.length);
-          } catch (fallbackError) {
-            console.error("Fallback error:", fallbackError);
-          }
+        const response = await fetch("/api/services");
+        if (!response.ok) {
+          const body = await response.json().catch(() => ({}));
+          throw new Error(
+            (body as { error?: string }).error || "Failed to fetch services"
+          );
         }
 
-        // Transform to ServiceListItem for display
-        console.log("Final services count:", allServices.length);
-        const serviceListItems = allServices.map(transformToServiceListItem);
-        console.log(
-          "ServiceListItem details:",
-          serviceListItems.map((item) => ({
-            id: item.id,
-            name: item.name,
-            technician_id: item.technician_id,
-            status: item.status,
-          }))
+        const body = await response.json();
+        const allServicesData = Array.isArray(body?.services) ? body.services : [];
+        const allServices = allServicesData.map((data: Service) =>
+          transformServiceData(data)
         );
+
+        const serviceListItems = allServices.map(transformToServiceListItem);
         setServices(serviceListItems);
       } catch (error) {
         console.error("Error fetching services:", error);
@@ -413,8 +306,9 @@ function ServicesContent() {
       }
     };
 
-    fetchServices();
-  }, [user?.shopId, user?.branchId, user?.role, user?.id, user?.uid, user?.name, user?.email]);
+    void fetchServices();
+  }, [user?.shopId, user?.branchId, user?.role, user?.id, user?.uid]);
+
 
   // Filtered services
   const filteredServices = useMemo(() => {

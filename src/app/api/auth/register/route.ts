@@ -1,7 +1,8 @@
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 
-import { registerUser, generateToken } from "@/lib/auth";
+import { generateToken } from "@/lib/auth";
+import { registerUser } from "@/lib/authUsers";
 
 export const dynamic = "force-dynamic";
 

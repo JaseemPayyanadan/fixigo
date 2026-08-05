@@ -5,7 +5,8 @@ const registerUser = vi.fn();
 const generateToken = vi.fn(() => "signed-token");
 const cookieSet = vi.fn();
 
-vi.mock("@/lib/auth", () => ({ registerUser, generateToken }));
+vi.mock("@/lib/auth", () => ({ generateToken }));
+vi.mock("@/lib/authUsers", () => ({ registerUser }));
 vi.mock("next/headers", () => ({
   cookies: async () => ({ set: cookieSet }),
 }));

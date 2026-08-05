@@ -3,7 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { doc, setDoc, updateDoc, collection } from "firebase/firestore";
 
-import { verifyToken, getUserById } from "@/lib/auth";
+import { verifyToken } from "@/lib/auth";
+import { getUserById } from "@/lib/authUsers";
 import { db } from "@/lib/firebase";
 
 export const dynamic = "force-dynamic";

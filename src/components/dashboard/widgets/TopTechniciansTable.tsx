@@ -4,7 +4,7 @@ import React from "react";
 
 import Link from "next/link";
 
-import { ArrowRight, Star } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 
 import type { DashboardPeriod, TechnicianRow } from "@/lib/dashboardAnalytics";
 
@@ -59,23 +59,9 @@ export const TopTechniciansTable = React.memo(function TopTechniciansTable({
 
               <p className="w-28 shrink-0 truncate text-sm font-semibold text-gray-900 sm:w-32">{row.name}</p>
 
-              <div className="grid min-w-0 flex-1 grid-cols-2 gap-3 sm:grid-cols-4">
+              <div className="grid min-w-0 flex-1 grid-cols-2 gap-3">
                 <Metric label="Completed" value={row.completed} />
                 <Metric label="Active" value={row.active} />
-                <Metric label="Avg. Time" value={row.avgDays === null ? "—" : `${row.avgDays} Days`} />
-                <Metric
-                  label="Rating"
-                  value={
-                    row.rating === null ? (
-                      "—"
-                    ) : (
-                      <span className="flex items-center gap-1">
-                        {row.rating.toFixed(1)}
-                        <Star className="h-3 w-3 fill-amber-400 text-amber-400" aria-hidden="true" />
-                      </span>
-                    )
-                  }
-                />
               </div>
 
               <RingGauge fraction={row.completionRate} label={`${row.name} completion rate`} />
