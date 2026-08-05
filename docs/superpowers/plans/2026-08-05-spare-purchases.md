@@ -2231,11 +2231,17 @@ describe("updateSupplier", () => {
     expect(after.totalPurchased).toBe(0);
   });
 
-  it("403s across shops", async () => {
+  it("403s across shops and leaves the document untouched", async () => {
     const created = await createSupplier(baseInput);
-    await expect(updateSupplier("shop-2", created.id, { phone: "9000011122" })).rejects.toMatchObject(
-      { status: 403 }
-    );
+    const before = { ...hooks.__doc("suppliers", created.id) };
+
+    await expect(
+      updateSupplier("shop-2", created.id, { phone: "9000011122" })
+    ).rejects.toMatchObject({ status: 403 });
+
+    // The rejection alone is not enough: this pins that the tenancy check runs
+    // BEFORE any write, so a future reordering cannot mutate another shop's data.
+    expect(hooks.__doc("suppliers", created.id)).toEqual(before);
   });
 });
 
