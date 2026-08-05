@@ -1,13 +1,8 @@
 // The single write path for a service's payment flag.
 //
-// Both the Repairs list and the service detail page mark payment, and they
-// previously had no shared code for it. Keeping the write here means the two
-// screens cannot drift into storing different shapes — a `paidAt` set by one
-// and absent from the other would show up as revenue landing on the wrong day.
+// Both the Repairs list and the service detail page mark payment. Writes go
+// through /api/services/[id] (Admin SDK) because the browser has no Firebase Auth.
 
-import { deleteField, doc, updateDoc } from "firebase/firestore";
-
-import { db } from "@/lib/firebase";
 import type { ServicePaymentStatus } from "@/lib/paymentUtils";
 
 export interface PaymentWrite {
@@ -17,23 +12,37 @@ export interface PaymentWrite {
 }
 
 /**
- * Marks a service paid or unpaid.
- *
- * Unmarking clears `paidAt` rather than leaving the old timestamp behind: a
- * payment recorded by mistake should leave no trace of a date on which money
- * supposedly arrived. Returns what was written so callers can mirror it into
- * local state without re-reading the document.
+ * Marks a service paid or unpaid via the authenticated API.
  */
 export async function setServicePayment(
   serviceId: string,
   paid: boolean,
-  now: Date = new Date()
+  _now: Date = new Date()
 ): Promise<PaymentWrite> {
-  await updateDoc(doc(db, "services", serviceId), {
-    paymentStatus: paid ? "paid" : "pending",
-    paidAt: paid ? now : deleteField(),
-    updatedAt: now,
+  const response = await fetch(`/api/services/${encodeURIComponent(serviceId)}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "payment", paid }),
   });
 
-  return paid ? { paymentStatus: "paid", paidAt: now } : { paymentStatus: "pending" };
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    throw new Error(
+      (body as { error?: string }).error || "Failed to update payment"
+    );
+  }
+
+  const body = (await response.json()) as {
+    payment?: { paymentStatus: ServicePaymentStatus; paidAt?: string | Date };
+  };
+
+  const payment = body.payment;
+  if (!payment) {
+    throw new Error("Malformed payment response");
+  }
+
+  return {
+    paymentStatus: payment.paymentStatus,
+    paidAt: payment.paidAt ? new Date(payment.paidAt) : undefined,
+  };
 }

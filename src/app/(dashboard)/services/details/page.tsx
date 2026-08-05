@@ -4,7 +4,6 @@ import React, { Suspense, useCallback, useEffect, useState } from "react";
 
 import { useRouter, useSearchParams } from "next/navigation";
 
-import { arrayUnion, collection, deleteDoc, deleteField, doc, getDoc, getDocs, query, updateDoc, where } from "firebase/firestore";
 import { MdArrowBack, MdRefresh, MdWarning } from "react-icons/md";
 
 import CollectPaymentDialog from "@/components/service/CollectPaymentDialog";
@@ -13,7 +12,6 @@ import ServiceDetailsView from "@/components/service/ServiceDetailsView";
 import ServiceForm from "@/components/service/ServiceForm";
 import { useUser } from "@/hooks";
 import { authUserToUser } from "@/lib/auth";
-import { db } from "@/lib/firebase";
 import { isPaid, shouldOpenCollectPaymentModal, type ServicePaymentStatus } from "@/lib/paymentUtils";
 import { setServicePayment } from "@/lib/servicePayments";
 import { buildReopenFields, canReopenService } from "@/lib/serviceReopen";
@@ -78,6 +76,64 @@ interface Service {
 
 const STATUS_OPTIONS = ["To Do", "In Progress", "Completed", "Pending", "Cancelled", "Awaiting Parts", "Ready for Pickup"];
 
+function toDate(value: unknown): Date | undefined {
+  if (!value) return undefined;
+  if (value instanceof Date) return value;
+  if (typeof value === "string" || typeof value === "number") {
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? undefined : parsed;
+  }
+  if (typeof value === "object" && value !== null && "toDate" in value) {
+    return (value as { toDate: () => Date }).toDate();
+  }
+  return undefined;
+}
+
+function reviveService(raw: Record<string, unknown> & { id: string }): Service {
+  return {
+    ...(raw as unknown as Service),
+    id: raw.id,
+    createdAt: toDate(raw.createdAt) || new Date(),
+    updatedAt: toDate(raw.updatedAt) || new Date(),
+    scheduledDate: toDate(raw.scheduledDate),
+    completedDate: toDate(raw.completedDate),
+    estimatedCompletion: toDate(raw.estimatedCompletion),
+    actualCompletion: toDate(raw.actualCompletion),
+    paidAt: toDate(raw.paidAt),
+    reopenedAt: toDate(raw.reopenedAt),
+    statusHistory: mapStatusHistoryEntries(raw.statusHistory),
+    customerFeedback: raw.customerFeedback
+      ? {
+          ...((raw.customerFeedback as object) || {}),
+          rating: (raw.customerFeedback as { rating?: number }).rating || 0,
+          comment: (raw.customerFeedback as { comment?: string }).comment,
+          date: toDate((raw.customerFeedback as { date?: unknown }).date) || new Date(),
+        }
+      : undefined,
+  };
+}
+
+async function readError(response: Response): Promise<string> {
+  try {
+    const body = await response.json();
+    return body.error || "Request failed";
+  } catch {
+    return `Request failed (${response.status})`;
+  }
+}
+
+async function patchService(serviceId: string, body: unknown): Promise<Service> {
+  const response = await fetch(`/api/services/${encodeURIComponent(serviceId)}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) throw new Error(await readError(response));
+  const payload = await response.json();
+  return reviveService(payload.service);
+}
+
+
 function ServiceDetailsSkeleton() {
   return (
     <div className="min-h-screen bg-gray-50" role="status">
@@ -133,61 +189,18 @@ function ServiceDetailsPage() {
 
     const fetchService = async () => {
       try {
-        const serviceDoc = await getDoc(doc(db, "services", serviceId));
-        if (serviceDoc.exists()) {
-          const data = serviceDoc.data();
+        const response = await fetch(`/api/services/${encodeURIComponent(serviceId)}`);
+        if (!response.ok) throw new Error(await readError(response));
+        const payload = await response.json();
+        const serviceData = reviveService(payload.service);
 
-          const serviceData: Service = {
-            id: serviceDoc.id,
-            name: data.name,
-            description: data.description,
-            price: data.price,
-            shopId: data.shopId,
-            branchId: data.branchId,
-            status: data.status || "pending",
-            priority: data.priority || "medium",
-            customer: data.customer || { name: "", phone: "", email: "" },
-            device: data.device || { brand: "", model: "", imei: "", color: "", type: "" },
-            technician_id: data.technician_id || "",
-            actualDuration: data.actualDuration,
-            scheduledDate: data.scheduledDate?.toDate(),
-            completedDate: data.completedDate?.toDate(),
-            notes: data.notes,
-            workNotes: data.workNotes,
-            partsUsed: data.partsUsed,
-            customerFeedback: data.customerFeedback
-              ? {
-                  rating: data.customerFeedback.rating,
-                  comment: data.customerFeedback.comment,
-                  date: data.customerFeedback.date?.toDate() || new Date(),
-                }
-              : undefined,
-            qualityScore: data.qualityScore,
-            estimatedCompletion: data.estimatedCompletion?.toDate(),
-            actualCompletion: data.actualCompletion?.toDate(),
-            // Left absent when the document predates payment tracking, so
-            // `isPaid` can fall back to the work status.
-            paymentStatus: data.paymentStatus === "paid" || data.paymentStatus === "pending" ? data.paymentStatus : undefined,
-            paidAt: data.paidAt?.toDate(),
-            isReopened: data.isReopened === true,
-            reopenReason: typeof data.reopenReason === "string" ? data.reopenReason : undefined,
-            reopenedAt: data.reopenedAt?.toDate?.(),
-            reopenCount: typeof data.reopenCount === "number" ? data.reopenCount : undefined,
-            statusHistory: mapStatusHistoryEntries(data.statusHistory),
-            createdAt: data.createdAt?.toDate() || new Date(),
-            updatedAt: data.updatedAt?.toDate() || new Date(),
-          };
-          setService(serviceData);
-          setStatusHistory(serviceData.statusHistory ?? []);
-          setStatus(serviceData.status || "To Do");
-          // For technicians, always use their assigned branch
-          if (user?.role === "technician" && user?.branchId) {
-            setBranchId(user.branchId);
-          } else {
-            setBranchId(serviceData.branchId);
-          }
+        setService(serviceData);
+        setStatusHistory(serviceData.statusHistory ?? []);
+        setStatus(serviceData.status || "To Do");
+        if (user?.role === "technician" && user?.branchId) {
+          setBranchId(user.branchId);
         } else {
-          setError("Service not found");
+          setBranchId(serviceData.branchId);
         }
       } catch (err) {
         console.error("Error fetching service:", err);
@@ -200,17 +213,12 @@ function ServiceDetailsPage() {
     const fetchBranches = async () => {
       if (!user?.shopId) return;
       try {
-        const branchesRef = collection(db, "branches");
-        const q = query(branchesRef, where("shopId", "==", user.shopId));
-        const querySnapshot = await getDocs(q);
-        const branchesData = querySnapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        })) as Branch[];
-        setBranches(branchesData);
+        const response = await fetch("/api/branches");
+        if (!response.ok) throw new Error(await readError(response));
+        const payload = await response.json();
+        setBranches(Array.isArray(payload.branches) ? payload.branches : []);
       } catch (err) {
         console.error("Error fetching branches:", err);
-        // Could set error state here if needed
       }
     };
 
@@ -224,7 +232,6 @@ function ServiceDetailsPage() {
         setTechnicians(techniciansData);
       } catch (err) {
         console.error("Error fetching technicians:", err);
-        // Could set error state here if needed
       }
     };
 
@@ -253,24 +260,19 @@ function ServiceDetailsPage() {
         updatedAt: new Date(),
       };
 
-      await updateDoc(doc(db, "services", serviceId!), updateData);
-
-      setService((prev) =>
-        prev
-          ? {
-              ...prev,
-              name: data.service.name,
-              description: data.service.description,
-              price: Number(data.service.price),
-              customer: data.customer,
-              device: data.device,
-              branchId: finalBranchId,
-              technician_id: data.service.technician_id || (user?.role === "technician" ? user.id : ""),
-              status,
-              updatedAt: new Date(),
-            }
-          : null
-      );
+      const updated = await patchService(serviceId!, {
+        fields: {
+          name: data.service.name,
+          description: data.service.description,
+          price: Number(data.service.price),
+          branchId: finalBranchId,
+          technician_id: data.service.technician_id || (user?.role === "technician" ? user.id : ""),
+          customer: data.customer,
+          device: data.device,
+          status,
+        },
+      });
+      setService(updated);
       setEditing(false);
     } catch (err: unknown) {
       console.error("Error updating service:", err);
@@ -284,7 +286,10 @@ function ServiceDetailsPage() {
     if (!window.confirm("Are you sure you want to delete this service?")) return;
     setLoading(true);
     try {
-      await deleteDoc(doc(db, "services", serviceId!));
+      const response = await fetch(`/api/services/${encodeURIComponent(serviceId!)}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) throw new Error(await readError(response));
       router.push("/services");
     } catch (err: unknown) {
       console.error("Error deleting service:", err);
@@ -327,34 +332,23 @@ function ServiceDetailsPage() {
         });
         const nextHistory = appendStatusHistory(statusHistory, historyEntry);
 
-        await updateDoc(doc(db, "services", serviceId), {
+        const fields: Record<string, unknown> = {
           status: newStatus,
-          updatedAt: now,
-          statusHistory: arrayUnion(historyEntry),
           ...(isCompleted
             ? { completedDate: now, actualCompletion: now }
-            : { completedDate: deleteField(), actualCompletion: deleteField() }),
+            : {}),
           ...(recordsPaymentPending ? { paymentStatus: "pending" } : {}),
+        };
+        const deleteFields = isCompleted ? [] : ["completedDate", "actualCompletion"];
+
+        const updated = await patchService(serviceId, {
+          fields,
+          statusHistoryAppend: historyEntry,
+          deleteFields,
         });
+        setService(updated);
+        setStatusHistory(updated.statusHistory ?? nextHistory);
 
-        // Mirror the same change locally. The panel above renders whenever
-        // `completedDate` is set, so leaving stale state behind would keep
-        // showing a completion date for a job that is no longer completed.
-        setService((prev) =>
-          prev
-            ? {
-                ...prev,
-                status: newStatus,
-                updatedAt: now,
-                completedDate: isCompleted ? now : undefined,
-                actualCompletion: isCompleted ? now : undefined,
-                paymentStatus: recordsPaymentPending ? "pending" : prev.paymentStatus,
-                statusHistory: nextHistory,
-              }
-            : null
-        );
-
-        setStatusHistory(nextHistory);
         setStatusUpdateSuccess(true);
         setTimeout(() => setStatusUpdateSuccess(false), 3000); // Hide success message after 3 seconds
 
@@ -390,27 +384,14 @@ function ServiceDetailsPage() {
         updatedBy: user?.name || "Unknown",
       });
       const nextHistory = appendStatusHistory(statusHistory, historyEntry);
-      await updateDoc(doc(db, "services", serviceId), {
-        ...fields,
-        updatedAt: now,
-        statusHistory: arrayUnion(historyEntry),
-        completedDate: deleteField(),
-        actualCompletion: deleteField(),
+      const updated = await patchService(serviceId, {
+        fields: { ...fields },
+        statusHistoryAppend: historyEntry,
+        deleteFields: ["completedDate", "actualCompletion"],
       });
-      setService((prev) =>
-        prev
-          ? {
-              ...prev,
-              ...fields,
-              updatedAt: now,
-              completedDate: undefined,
-              actualCompletion: undefined,
-              statusHistory: nextHistory,
-            }
-          : null
-      );
+      setService(updated);
       setStatus(fields.status);
-      setStatusHistory(nextHistory);
+      setStatusHistory(updated.statusHistory ?? nextHistory);
       setShowReopenDialog(false);
       setStatusUpdateSuccess(true);
       setTimeout(() => setStatusUpdateSuccess(false), 3000);
