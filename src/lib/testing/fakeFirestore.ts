@@ -165,10 +165,22 @@ export function createFakeFirestore() {
       // Snapshot for rollback: a real transaction that throws commits nothing.
       const snapshot = new Map(store);
       const staged: FakeWrite[] = [];
+      let hasWritten = false;
 
       const tx: FakeTransaction = {
-        get: async (ref: { get: () => Promise<unknown> }) => ref.get(),
+        get: async (ref: { get: () => Promise<unknown> }) => {
+          // Real Firestore requires every read to precede every write in a
+          // transaction, and throws FAILED_PRECONDITION otherwise. The fake
+          // enforces it so a repo cannot pass its tests and fail in production.
+          if (hasWritten) {
+            throw new Error(
+              "FAILED_PRECONDITION: Firestore transactions require all reads to be executed before all writes."
+            );
+          }
+          return ref.get();
+        },
         set: (ref, data) => {
+          hasWritten = true;
           staged.push({ op: "set", collection: ref.collectionName, id: ref.id, data });
           store.set(key(ref.collectionName, ref.id), data);
         },
@@ -178,10 +190,12 @@ export function createFakeFirestore() {
           if (current === undefined) {
             throw new Error(`NOT_FOUND: No document to update: ${docKey}`);
           }
+          hasWritten = true;
           staged.push({ op: "update", collection: ref.collectionName, id: ref.id, data });
           store.set(docKey, applyUpdate(current, data));
         },
         delete: (ref) => {
+          hasWritten = true;
           staged.push({ op: "delete", collection: ref.collectionName, id: ref.id, data: {} });
           store.delete(key(ref.collectionName, ref.id));
         },
@@ -220,6 +234,14 @@ export function createFakeFirestore() {
     },
     __doc(collection: string, id: string): DocData | undefined {
       return store.get(key(collection, id));
+    },
+    /**
+     * True when any document key — `${collection}/${id}` — contains `needle`.
+     * Scans the whole store rather than the write log, so it catches a stray
+     * document whatever wrote it and whenever.
+     */
+    __hasKeyContaining(needle: string): boolean {
+      return [...store.keys()].some((storeKey) => storeKey.includes(needle));
     },
     __writes(): FakeWrite[] {
       return [...writes];

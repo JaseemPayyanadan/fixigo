@@ -116,6 +116,30 @@ describe("transactions", () => {
 
     expect(fake.__doc("suppliers", "s1")).toEqual({ outstanding: 0 });
   });
+
+  it("rejects a read issued after a write, as real Firestore does", async () => {
+    fake.__seed("suppliers", "s1", { outstanding: 0 });
+
+    await expect(
+      adminDb.runTransaction(async (tx) => {
+        tx.update(adminDb.collection("suppliers").doc("s1"), { outstanding: 1 });
+        await tx.get(adminDb.collection("suppliers").doc("s1"));
+      })
+    ).rejects.toThrow(/FAILED_PRECONDITION/);
+  });
+
+  it("allows any number of reads before the first write", async () => {
+    fake.__seed("suppliers", "s1", { outstanding: 0 });
+    fake.__seed("purchases", "p1", { grandTotal: 500 });
+
+    await adminDb.runTransaction(async (tx) => {
+      await tx.get(adminDb.collection("suppliers").doc("s1"));
+      await tx.get(adminDb.collection("purchases").doc("p1"));
+      tx.update(adminDb.collection("suppliers").doc("s1"), { outstanding: 500 });
+    });
+
+    expect(fake.__doc("suppliers", "s1")).toEqual({ outstanding: 500 });
+  });
 });
 
 describe("FieldValue array operations", () => {

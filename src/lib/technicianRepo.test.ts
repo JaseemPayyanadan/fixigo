@@ -20,6 +20,7 @@ type TestHooks = {
   __doc: (collection: string, id: string) => Record<string, unknown> | undefined;
   __writes: () => Array<{ op: "set" | "update" | "delete"; collection: string; id: string; data: unknown }>;
   __transactionCount: () => number;
+  __hasKeyContaining: (needle: string) => boolean;
 };
 
 const hooks = firebaseAdminMock as unknown as TestHooks;
@@ -130,10 +131,7 @@ describe("createTechnician", () => {
     // Assert the actual document path used for the member write, not just
     // that BRANCHES === "branches" (which the earlier assertion reduced to).
     expect(`${branchWrite?.collection}/${branchWrite?.id}`).toBe("branches/branch-1");
-    // No write ever targets a "shops" collection (e.g. a nested
-    // shops/{shopId}/branches/{branchId} path) — every write stays under the
-    // flat, top-level collections.
-    expect(hooks.__writes().some((w) => w.collection.includes("shops"))).toBe(false);
+    expect(hooks.__hasKeyContaining("shops")).toBe(false);
     expect(hooks.__doc(BRANCHES, "branch-1")).toBeDefined();
   });
 
