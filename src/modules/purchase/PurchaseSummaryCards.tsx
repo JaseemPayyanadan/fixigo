@@ -40,7 +40,7 @@ function buildCards(summary: PurchaseSummary): Card[] {
       label: "Pending Payments",
       value: formatRupees(summary.pendingPayments),
       hint: `${summary.pendingBillCount} bill${summary.pendingBillCount === 1 ? "" : "s"} pending`,
-      accent: "bg-amber-50 text-amber-600",
+      accent: "bg-orange-50 text-orange-600",
     },
     {
       label: "Suppliers",
@@ -62,7 +62,7 @@ const PurchaseSummaryCards = React.memo(function PurchaseSummaryCards({ summary,
 
   if (loading || !summary) {
     return (
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-5">
         {Array.from({ length: 5 }).map((_, index) => (
           <div key={index} className="h-24 animate-pulse rounded-xl border border-gray-200 bg-gray-50" />
         ))}
@@ -71,7 +71,7 @@ const PurchaseSummaryCards = React.memo(function PurchaseSummaryCards({ summary,
   }
 
   return (
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-5">
       {cards.map((card) => (
         <div key={card.label} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
           <div className={`mb-2 inline-flex rounded-lg px-2 py-1 text-xs font-medium ${card.accent}`}>

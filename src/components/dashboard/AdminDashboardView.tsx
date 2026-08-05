@@ -104,7 +104,7 @@ export function AdminDashboardView({
               {servicesError && <CompactErrorState message={`Services: ${servicesError}`} retry={handleRetry} />}
 
               {/* Band 1 — KPIs */}
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
                 {metrics.map((metric) => (
                   <StatCard key={metric.label} {...metric} />
                 ))}
@@ -129,12 +129,12 @@ export function AdminDashboardView({
                 </div>
               </div>
 
-              {/* Band 3 — most common repairs (60%) beside technician
-                  performance (40%). A 5-column grid, unlike the 12 above, is
-                  what splits exactly 60/40; both cards are `h-full` so the
-                  shorter one still matches the row's height. */}
-              <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
-                <div className="lg:col-span-3">
+              {/* Band 3 — most common repairs beside technician performance,
+                  split 7/5 on a 12-column grid to match Band 2's widths
+                  above; both cards are `h-full` so the shorter one still
+                  matches the row's height. */}
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
+                <div className="lg:col-span-7">
                   <RankedListCard
                     title="Most Common Repairs"
                     items={commonRepairs}
@@ -144,7 +144,7 @@ export function AdminDashboardView({
                     emptyMessage="No services in this period"
                   />
                 </div>
-                <div className="lg:col-span-2">
+                <div className="lg:col-span-5">
                   <TopTechniciansTable
                     rows={technicianRows}
                     period={techniciansPeriod}

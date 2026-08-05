@@ -104,7 +104,7 @@ function PurchaseDetailsContent() {
   }
 
   return (
-    <div className="space-y-4 p-4 sm:p-6">
+    <div className="space-y-4 p-4 md:p-6">
       <button onClick={() => router.push("/purchases")} className="text-sm text-blue-600">
         ← Purchases
       </button>

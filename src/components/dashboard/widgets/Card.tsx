@@ -10,7 +10,7 @@ interface CardProps {
 /** The shared surface every dashboard widget sits on. */
 export const Card = React.memo(function Card({ children, className = "" }: CardProps) {
   return (
-    <div className={`rounded-2xl border border-gray-100 bg-white shadow-sm ${className}`}>{children}</div>
+    <div className={`rounded-2xl border border-gray-100 bg-white ${className}`}>{children}</div>
   );
 });
 

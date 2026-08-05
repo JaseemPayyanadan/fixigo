@@ -11,7 +11,7 @@ function NewPurchaseContent() {
   const editId = useSearchParams().get("edit");
 
   return (
-    <div className="space-y-5 p-4 sm:p-6">
+    <div className="space-y-5 p-4 md:p-6">
       <div>
         <h1 className="text-xl font-semibold text-gray-900">
           {editId ? "Edit Purchase" : "New Purchase"}

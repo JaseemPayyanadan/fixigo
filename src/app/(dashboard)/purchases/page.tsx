@@ -162,7 +162,7 @@ function PurchasesPageContent() {
   const showSlide = slideMode && viewport === "desktop";
 
   return (
-    <div className="space-y-5 p-4 sm:p-6">
+    <div className="space-y-5 p-4 md:p-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl font-semibold text-gray-900">Spare Purchases</h1>

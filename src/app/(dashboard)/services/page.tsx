@@ -65,10 +65,9 @@ interface StatusFilterChip {
 }
 
 /**
- * Phone-sized replacement for the status chip strip: one button carrying the
- * active filter, opening a list of the same statuses with their counts. The
- * chips need a horizontal scroll to fit a phone, which hides most of the
- * statuses behind a swipe — a menu shows all of them at once.
+ * Status filter as a single button carrying the active filter, opening a
+ * list of the same statuses with their counts, rather than a chip strip
+ * that needs horizontal scroll to fit every status.
  */
 function StatusFilterDropdown({
   chips,
@@ -408,9 +407,9 @@ function ServicesContent() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="w-full mx-auto p-4 md:p-6">
 
-        {/* Status Filter Chips - Horizontal Scroll */}
+        {/* Search + status filter button */}
         <div className="mb-4 flex flex-wrap items-center gap-3">
           {/* Search. The app header carries one from `lg` up and hides it
               below that, so this fills the gap on phones and tablets. */}
@@ -429,40 +428,17 @@ function ServicesContent() {
             />
           </div>
 
-          {/* Phones get the filter menu, `sm` and up the chip strip. */}
+          {/* Filter + New Service stay pinned right. Search's `flex-1`
+              already pushes them there below `lg`; `lg:ml-auto` does the
+              same once search is hidden at `lg` and up. */}
+          <div className="flex shrink-0 items-center gap-3 lg:ml-auto">
           <StatusFilterDropdown
             chips={statusFilterChips}
             statusFilter={statusFilter}
             totalCount={services.length}
             onSelect={handleStatusFilterClick}
-            className="shrink-0 sm:hidden"
+            className="shrink-0"
           />
-
-          {/* Chips take the leftover width so the button stays pinned right
-              while the chip strip keeps its own horizontal scroll. */}
-          <div className="relative hidden min-w-0 flex-1 sm:block">
-            {/* Scroll indicator shadows - only show on larger screens */}
-            <div className="hidden sm:block absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-gray-50 to-transparent pointer-events-none z-10 rounded-l-lg"></div>
-            <div className="hidden sm:block absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-gray-50 to-transparent pointer-events-none z-10 rounded-r-lg"></div>
-            
-            {/* Horizontal scrollable container */}
-            <div className="overflow-x-auto scrollbar-hide">
-              <div className="flex gap-3 pb-1 min-w-max px-1">
-                {statusFilterChips.map((filter) => (
-                  <button
-                    key={filter.key}
-                    onClick={() => handleStatusFilterClick(filter.key)}
-                    className={`inline-flex items-center gap-1.5 px-2 rounded-lg text-xs font-medium border transition-all duration-200 hover:scale-105 active:scale-95 whitespace-nowrap ${filter.color}`}
-                  >
-                    {filter.label}
-                    <span className="ml-0.5 px-1.5 py-0.5 bg-white/50 rounded-full text-xs font-bold">
-                      {filter.count}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
 
           {/* New Service Button */}
           <PermissionGuard permissions={["service:write"]} fallback={null}>
@@ -476,6 +452,7 @@ function ServicesContent() {
               <span className="hidden sm:inline">New Service</span>
             </Link>
           </PermissionGuard>
+          </div>
         </div>
 
         {/* Services List */}

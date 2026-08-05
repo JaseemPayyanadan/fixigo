@@ -117,10 +117,10 @@ export function AppBar() {
 
       {/* Greeting */}
       <div className="hidden min-w-0 flex-1 md:block">
-        <p className="truncate text-lg font-bold leading-tight tracking-tight text-gray-900">
+        <p className="truncate text-sm font-bold leading-tight tracking-tight text-gray-900">
           {greeting}, {firstName}!
         </p>
-        <p className="truncate text-[13px] leading-tight text-gray-500">
+        <p className="truncate text-xs leading-tight text-gray-500">
           Here&apos;s what&apos;s happening in your shop today.
         </p>
       </div>
