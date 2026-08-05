@@ -23,11 +23,13 @@
 
 ## Deviations from the spec
 
-Three corrections found while reading the codebase. The spec is authoritative on behavior; these override it on mechanism.
+Corrections found while reading the codebase, plus amendments made during execution. The spec is authoritative on behavior; these override it on mechanism.
 
 1. **Counter path.** The spec says `shops/{shopId}/counters/purchaseRef`. Use a **top-level `purchaseCounters/{shopId}`** instead. Nested subcollections would force the Firestore test fake to model full document paths for no behavioral gain.
 2. **Date helpers.** The spec says day/month boundaries "use the existing helpers in `src/lib/dateUtils.ts`". That file exports only `readOptionalDate` — the helpers do not exist and are added in Task 2.
 3. **GST number validation.** The spec says phone and GST "reuse the existing helpers in `src/lib/validation.ts`". `validatePhone` exists; there is no GST validator, so Task 5 adds `validateGstNumber` to that file.
+4. **Phone length (found during execution).** The shared `validatePhone` is `/^[\+]?[1-9][\d]{0,15}$/` — no minimum length, so `"123"` passes. Task 6 therefore adds a 10–15 digit check **inside the purchases module**, leaving the shared validator and the technician/registration flows that use it untouched. Note also that `validatePhone` is duplicated verbatim in `src/lib/validation.ts:115` and `src/lib/utils.ts:192`; that pre-existing duplication is out of scope here.
+5. **Reference counter shape (found during execution).** See the amendment note under Task 5 — the counter is a per-year map, not `{ year, seq }`.
 
 ## File structure
 
@@ -1360,6 +1362,13 @@ function parsePaymentMethod(value: unknown): PurchasePaymentMethod {
 function parseSupplierFields(raw: Record<string, unknown>): Omit<CreateSupplierInput, "status"> {
   const phone = requireString(raw, "phone");
   if (!validatePhone(phone)) {
+    throw new ApiError(400, "A valid phone number is required");
+  }
+  // The shared validatePhone has no minimum length, and a supplier you cannot
+  // dial is not a usable supplier. Enforced here rather than in the shared
+  // validator so technician and registration flows keep their looser rule.
+  const phoneDigits = phone.replace(/\D/g, "");
+  if (phoneDigits.length < 10 || phoneDigits.length > 15) {
     throw new ApiError(400, "A valid phone number is required");
   }
 
