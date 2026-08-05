@@ -148,6 +148,20 @@ describe("createPurchase", () => {
       status: 404,
     });
   });
+
+  it("rejects an initial payment larger than the grand total and writes nothing", async () => {
+    await expect(
+      createPurchase(
+        purchaseInput({
+          initialPayment: { amount: 999999, method: "cash", paidAt: new Date(2026, 7, 5) },
+        })
+      )
+    ).rejects.toMatchObject({ status: 400 });
+
+    expect(hooks.__doc("suppliers", "sup-1")?.totalPurchased).toBe(0);
+    expect(hooks.__doc("suppliers", "sup-1")?.totalPaid).toBe(0);
+    expect(hooks.__writes()).toHaveLength(0);
+  });
 });
 
 describe("recordPurchasePayment", () => {
@@ -188,8 +202,10 @@ describe("recordPurchasePayment", () => {
     expect(supplier?.totalPaid).toBe(8150);
   });
 
-  it("rejects a payment larger than the remaining balance", async () => {
+  it("rejects a payment larger than the remaining balance and changes nothing", async () => {
     const created = await createPurchase(purchaseInput());
+    const supplierBefore = { ...hooks.__doc("suppliers", "sup-1") };
+
     await expect(
       recordPurchasePayment(
         "shop-1",
@@ -198,6 +214,9 @@ describe("recordPurchasePayment", () => {
         "user-1"
       )
     ).rejects.toMatchObject({ status: 400 });
+
+    expect((await getPurchase("shop-1", created.id)).balance).toBe(8150);
+    expect(hooks.__doc("suppliers", "sup-1")).toEqual(supplierBefore);
   });
 
   it("cannot be overdrawn by successive payments", async () => {

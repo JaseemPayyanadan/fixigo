@@ -151,6 +151,13 @@ export async function createPurchase(input: CreatePurchaseArgs): Promise<Purchas
     transportCharge: input.transportCharge,
   });
 
+  // Defence in depth: the API layer validates this too, but this repository is
+  // the only writer of supplier totals and must not trust its caller. Mirrors
+  // the equivalent guard in recordPurchasePayment.
+  if (input.initialPayment && input.initialPayment.amount > totals.grandTotal) {
+    throw new ApiError(400, "Payment cannot exceed the grand total");
+  }
+
   const payments = input.initialPayment
     ? [buildPayment(input.initialPayment, input.purchasedBy.userId)]
     : [];
