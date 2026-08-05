@@ -45,10 +45,13 @@ export function generateToken(user: AuthUser): string {
   return jwt.sign(
     {
       id: user.id,
+      uid: user.uid || user.id,
       email: user.email,
+      name: user.name || "",
       role: user.role,
       shopId: user.shopId,
       branchId: user.branchId,
+      onboardingCompleted: user.onboardingCompleted,
     },
     JWT_SECRET,
     { expiresIn: "7d" }
@@ -59,7 +62,11 @@ export function generateToken(user: AuthUser): string {
 export function verifyToken(token: string): AuthUser | null {
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as AuthUser;
-    return decoded;
+    return {
+      ...decoded,
+      uid: decoded.uid || decoded.id,
+      name: decoded.name || "",
+    };
   } catch {
     return null;
   }

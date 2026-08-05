@@ -71,6 +71,17 @@ describe("createPurchase", () => {
     expect(purchase.items[0].lineTotal).toBe(5400);
   });
 
+  it("coerces a missing purchasedBy.name to empty string for Firestore", async () => {
+    const purchase = await createPurchase(
+      purchaseInput({
+        purchasedBy: { userId: "user-1", name: undefined as unknown as string },
+      })
+    );
+    expect(purchase.purchasedBy).toEqual({ userId: "user-1", name: "" });
+    const stored = hooks.__doc("purchases", purchase.id);
+    expect(stored?.purchasedBy).toEqual({ userId: "user-1", name: "" });
+  });
+
   it("assigns a sequential per-shop reference", async () => {
     const first = await createPurchase(purchaseInput());
     const second = await createPurchase(purchaseInput());

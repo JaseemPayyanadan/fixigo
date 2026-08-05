@@ -5,6 +5,10 @@ export interface AmountOnly {
   amount: number;
 }
 
+export interface TotalAmountOnly {
+  totalAmount: number;
+}
+
 export interface PaymentSummary {
   paidAmount: number;
   balance: number;
@@ -13,6 +17,10 @@ export interface PaymentSummary {
 
 export function paidAmountOf(payments: AmountOnly[]): number {
   return roundMoney(payments.reduce((sum, payment) => sum + payment.amount, 0));
+}
+
+export function returnedAmountOf(returns: TotalAmountOnly[]): number {
+  return roundMoney(returns.reduce((sum, ret) => sum + ret.totalAmount, 0));
 }
 
 /**
@@ -32,6 +40,45 @@ export function summarizePayments(grandTotal: number, payments: AmountOnly[]): P
     balance === 0 ? "paid" : paidAmount === 0 ? "unpaid" : "partial";
 
   return { paidAmount, balance, paymentStatus };
+}
+
+export interface MoneySummary {
+  paidAmount: number;
+  returnedAmount: number;
+  refundReceived: number;
+  /** What the shop still owes the supplier. */
+  balance: number;
+  /** What the supplier still owes the shop, e.g. items returned after full payment. */
+  refundDue: number;
+  paymentStatus: PurchasePaymentStatus;
+}
+
+/**
+ * The full derivation once returns and refunds exist alongside payments.
+ * `grandTotal` stays the immutable as-billed figure; `returnedAmount` is
+ * subtracted from it to get what's actually still payable, and `refundReceived`
+ * is subtracted from what was paid to get what's still effectively paid — the
+ * two floors (`balance` / `refundDue`) can never both be positive at once.
+ */
+export function summarizePurchaseMoney(
+  grandTotal: number,
+  payments: AmountOnly[],
+  returns: TotalAmountOnly[],
+  refunds: AmountOnly[]
+): MoneySummary {
+  const paidAmount = paidAmountOf(payments);
+  const returnedAmount = returnedAmountOf(returns);
+  const refundReceived = paidAmountOf(refunds);
+
+  const effectiveTotal = roundMoney(Math.max(grandTotal - returnedAmount, 0));
+  const netPaid = roundMoney(paidAmount - refundReceived);
+  const balance = roundMoney(Math.max(effectiveTotal - netPaid, 0));
+  const refundDue = roundMoney(Math.max(netPaid - effectiveTotal, 0));
+
+  const paymentStatus: PurchasePaymentStatus =
+    balance === 0 ? "paid" : paidAmount === 0 ? "unpaid" : "partial";
+
+  return { paidAmount, returnedAmount, refundReceived, balance, refundDue, paymentStatus };
 }
 
 /** Overdue is always derived, never stored — it changes with the clock alone. */

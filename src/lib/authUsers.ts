@@ -18,7 +18,7 @@ function mapUser(id: string, userData: Record<string, unknown>): AuthUser {
     id,
     uid: id,
     email: userData.email as string,
-    name: userData.name as string,
+    name: (userData.name as string) || "",
     role: userData.role as AuthUser["role"],
     shopId: userData.shopId as string | undefined,
     branchId: userData.branchId as string | undefined,

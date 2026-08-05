@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { isOverdue, paidAmountOf, summarizePayments } from "@/lib/purchasePayments";
+import {
+  isOverdue,
+  paidAmountOf,
+  returnedAmountOf,
+  summarizePayments,
+  summarizePurchaseMoney,
+} from "@/lib/purchasePayments";
 
 describe("paidAmountOf", () => {
   it("is 0 for no payments", () => {
@@ -51,6 +57,70 @@ describe("summarizePayments", () => {
 
   it("reports paid for a zero-value purchase with no payments", () => {
     expect(summarizePayments(0, []).paymentStatus).toBe("paid");
+  });
+});
+
+describe("returnedAmountOf", () => {
+  it("is 0 for no returns", () => {
+    expect(returnedAmountOf([])).toBe(0);
+  });
+
+  it("sums and rounds", () => {
+    expect(returnedAmountOf([{ totalAmount: 100 }, { totalAmount: 50.005 }])).toBe(150.01);
+  });
+});
+
+describe("summarizePurchaseMoney", () => {
+  it("matches summarizePayments when there are no returns or refunds", () => {
+    const result = summarizePurchaseMoney(8500, [{ amount: 6000 }], [], []);
+    expect(result.paidAmount).toBe(6000);
+    expect(result.balance).toBe(2500);
+    expect(result.refundDue).toBe(0);
+    expect(result.paymentStatus).toBe("partial");
+  });
+
+  it("returning items reduces the balance on an unpaid purchase", () => {
+    const result = summarizePurchaseMoney(8500, [], [{ totalAmount: 3000 }], []);
+    expect(result.returnedAmount).toBe(3000);
+    expect(result.balance).toBe(5500);
+    expect(result.refundDue).toBe(0);
+    expect(result.paymentStatus).toBe("unpaid");
+  });
+
+  it("a return after full payment produces a refund due instead of a negative balance", () => {
+    const result = summarizePurchaseMoney(8500, [{ amount: 8500 }], [{ totalAmount: 3000 }], []);
+    expect(result.balance).toBe(0);
+    expect(result.refundDue).toBe(3000);
+    expect(result.paymentStatus).toBe("paid");
+  });
+
+  it("a recorded refund reduces refundDue back down", () => {
+    const result = summarizePurchaseMoney(
+      8500,
+      [{ amount: 8500 }],
+      [{ totalAmount: 3000 }],
+      [{ amount: 2000 }]
+    );
+    expect(result.refundDue).toBe(1000);
+    expect(result.balance).toBe(0);
+  });
+
+  it("a full refund settles both balance and refundDue at zero", () => {
+    const result = summarizePurchaseMoney(
+      8500,
+      [{ amount: 8500 }],
+      [{ totalAmount: 3000 }],
+      [{ amount: 3000 }]
+    );
+    expect(result.balance).toBe(0);
+    expect(result.refundDue).toBe(0);
+  });
+
+  it("a full return of an unpaid purchase settles as paid with nothing owed either way", () => {
+    const result = summarizePurchaseMoney(8500, [], [{ totalAmount: 8500 }], []);
+    expect(result.balance).toBe(0);
+    expect(result.refundDue).toBe(0);
+    expect(result.paymentStatus).toBe("paid");
   });
 });
 

@@ -49,6 +49,14 @@ describe("createSupplier", () => {
     const supplier = await createSupplier(baseInput);
     expect(hooks.__doc("suppliers", supplier.id)).toBeDefined();
   });
+
+  it("seeds outstanding from an opening balance, leaving the other totals at zero", async () => {
+    const supplier = await createSupplier({ ...baseInput, openingBalance: 1500 });
+
+    expect(supplier.outstanding).toBe(1500);
+    expect(supplier.totalPurchased).toBe(0);
+    expect(supplier.totalPaid).toBe(0);
+  });
 });
 
 describe("listSuppliers", () => {

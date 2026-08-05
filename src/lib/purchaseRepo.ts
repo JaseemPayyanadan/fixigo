@@ -5,17 +5,29 @@ import type { DocumentReference, Transaction } from "firebase-admin/firestore";
 
 import { ApiError } from "@/lib/apiAuth";
 import { adminDb } from "@/lib/firebaseAdmin";
-import { summarizePayments } from "@/lib/purchasePayments";
+import { summarizePurchaseMoney } from "@/lib/purchasePayments";
 import { formatPurchaseRef, nextRefCounter, type RefCounters } from "@/lib/purchaseRef";
 import { computeTotals, lineTotalOf, roundMoney } from "@/lib/purchaseTotals";
-import type { CreatePurchaseInput, RecordPaymentInput } from "@/lib/purchaseValidation";
+import type {
+  CreatePurchaseInput,
+  RecordPaymentInput,
+  RecordRefundInput,
+  ReturnPurchaseInput,
+} from "@/lib/purchaseValidation";
 import {
   SUPPLIERS,
   assertSupplierInShop,
   toDate,
   toOptionalDate,
 } from "@/lib/supplierRepo";
-import type { Purchase, PurchaseItem, PurchasePayment } from "@/types/purchase";
+import type {
+  Purchase,
+  PurchaseItem,
+  PurchasePayment,
+  PurchaseRefund,
+  PurchaseReturn,
+  PurchaseReturnLine,
+} from "@/types/purchase";
 
 export const PURCHASES = "purchases";
 /** Top-level rather than a subcollection — see the plan's deviation note. */
@@ -42,6 +54,7 @@ function mapItem(raw: Record<string, unknown>): PurchaseItem {
     serviceId: (raw.serviceId as string) || undefined,
     serviceRef: (raw.serviceRef as string) || undefined,
     lineTotal: (raw.lineTotal as number) || 0,
+    returnedQuantity: (raw.returnedQuantity as number) || 0,
   };
 }
 
@@ -58,6 +71,44 @@ function mapPayment(raw: Record<string, unknown>): PurchasePayment {
   };
 }
 
+function mapReturnLine(raw: Record<string, unknown>): PurchaseReturnLine {
+  return {
+    itemId: (raw.itemId as string) || "",
+    name: (raw.name as string) || "",
+    quantity: (raw.quantity as number) || 0,
+    unitPrice: (raw.unitPrice as number) || 0,
+    lineTotal: (raw.lineTotal as number) || 0,
+  };
+}
+
+function mapReturn(raw: Record<string, unknown>): PurchaseReturn {
+  const items = Array.isArray(raw.items)
+    ? (raw.items as Record<string, unknown>[]).map(mapReturnLine)
+    : [];
+  return {
+    id: (raw.id as string) || randomUUID(),
+    items,
+    totalAmount: (raw.totalAmount as number) || 0,
+    reason: (raw.reason as string) || "",
+    returnedBy: (raw.returnedBy as PurchaseReturn["returnedBy"]) || { userId: "", name: "" },
+    returnedAt: toDate(raw.returnedAt),
+    createdAt: toDate(raw.createdAt),
+  };
+}
+
+function mapRefund(raw: Record<string, unknown>): PurchaseRefund {
+  return {
+    id: (raw.id as string) || randomUUID(),
+    amount: (raw.amount as number) || 0,
+    method: (raw.method as PurchaseRefund["method"]) || "cash",
+    receivedAt: toDate(raw.receivedAt),
+    reference: (raw.reference as string) || undefined,
+    notes: (raw.notes as string) || undefined,
+    recordedBy: (raw.recordedBy as string) || "",
+    createdAt: toDate(raw.createdAt),
+  };
+}
+
 /** The single Firestore -> Purchase mapper for the whole codebase. */
 export function mapPurchase(id: string, data: Record<string, unknown>): Purchase {
   const items = Array.isArray(data.items)
@@ -65,6 +116,12 @@ export function mapPurchase(id: string, data: Record<string, unknown>): Purchase
     : [];
   const payments = Array.isArray(data.payments)
     ? (data.payments as Record<string, unknown>[]).map(mapPayment)
+    : [];
+  const returns = Array.isArray(data.returns)
+    ? (data.returns as Record<string, unknown>[]).map(mapReturn)
+    : [];
+  const refunds = Array.isArray(data.refunds)
+    ? (data.refunds as Record<string, unknown>[]).map(mapRefund)
     : [];
   const discount = (data.discount as Record<string, unknown>) ?? {};
 
@@ -94,6 +151,11 @@ export function mapPurchase(id: string, data: Record<string, unknown>): Purchase
     balance: (data.balance as number) || 0,
     paymentStatus: (data.paymentStatus as Purchase["paymentStatus"]) || "unpaid",
     dueDate: toOptionalDate(data.dueDate),
+    returns,
+    returnedAmount: (data.returnedAmount as number) || 0,
+    refunds,
+    refundReceived: (data.refundReceived as number) || 0,
+    refundDue: (data.refundDue as number) || 0,
     status: (data.status as Purchase["status"]) || "active",
     cancelReason: (data.cancelReason as string) || undefined,
     cancelledAt: toOptionalDate(data.cancelledAt),
@@ -117,6 +179,7 @@ function buildItems(input: CreatePurchaseInput): Record<string, unknown>[] {
     serviceId: item.serviceId ?? null,
     serviceRef: item.serviceRef ?? null,
     lineTotal: lineTotalOf(item.quantity, item.purchasePrice),
+    returnedQuantity: 0,
   }));
 }
 
@@ -126,6 +189,19 @@ function buildPayment(input: RecordPaymentInput, recordedBy: string): Record<str
     amount: input.amount,
     method: input.method,
     paidAt: input.paidAt,
+    reference: input.reference ?? null,
+    notes: input.notes ?? null,
+    recordedBy,
+    createdAt: new Date(),
+  };
+}
+
+function buildRefund(input: RecordRefundInput, recordedBy: string): Record<string, unknown> {
+  return {
+    id: randomUUID(),
+    amount: input.amount,
+    method: input.method,
+    receivedAt: input.receivedAt,
     reference: input.reference ?? null,
     notes: input.notes ?? null,
     recordedBy,
@@ -161,7 +237,12 @@ export async function createPurchase(input: CreatePurchaseArgs): Promise<Purchas
   const payments = input.initialPayment
     ? [buildPayment(input.initialPayment, input.purchasedBy.userId)]
     : [];
-  const summary = summarizePayments(totals.grandTotal, payments as Array<{ amount: number }>);
+  const summary = summarizePurchaseMoney(
+    totals.grandTotal,
+    payments as Array<{ amount: number }>,
+    [],
+    []
+  );
   const now = new Date();
 
   const data = await adminDb.runTransaction(async (tx) => {
@@ -189,7 +270,11 @@ export async function createPurchase(input: CreatePurchaseArgs): Promise<Purchas
       supplierId: input.supplierId,
       supplierName: (supplier.name as string) || "",
       purchaseDate: input.purchaseDate,
-      purchasedBy: input.purchasedBy,
+      purchasedBy: {
+        userId: input.purchasedBy.userId,
+        // Firestore rejects undefined; JWTs minted before name was signed may omit it.
+        name: input.purchasedBy.name || "",
+      },
       items: buildItems(input),
       subtotal: totals.subtotal,
       discount: { ...input.discount, amount: totals.discountAmount },
@@ -202,6 +287,11 @@ export async function createPurchase(input: CreatePurchaseArgs): Promise<Purchas
       balance: summary.balance,
       paymentStatus: summary.paymentStatus,
       dueDate: input.dueDate ?? null,
+      returns: [],
+      returnedAmount: 0,
+      refunds: [],
+      refundReceived: 0,
+      refundDue: 0,
       status: "active",
       createdAt: now,
       updatedAt: now,
@@ -262,15 +352,31 @@ export async function recordPurchasePayment(
     const existing = Array.isArray(purchase.payments)
       ? (purchase.payments as Record<string, unknown>[])
       : [];
+    const existingReturns = Array.isArray(purchase.returns)
+      ? (purchase.returns as Record<string, unknown>[])
+      : [];
+    const existingRefunds = Array.isArray(purchase.refunds)
+      ? (purchase.refunds as Record<string, unknown>[])
+      : [];
     const grandTotal = (purchase.grandTotal as number) || 0;
-    const before = summarizePayments(grandTotal, existing as Array<{ amount: number }>);
+    const before = summarizePurchaseMoney(
+      grandTotal,
+      existing as Array<{ amount: number }>,
+      existingReturns as Array<{ totalAmount: number }>,
+      existingRefunds as Array<{ amount: number }>
+    );
 
     if (input.amount > before.balance) {
       throw new ApiError(400, "Payment cannot exceed the outstanding balance");
     }
 
     const payments = [...existing, buildPayment(input, recordedBy)];
-    const after = summarizePayments(grandTotal, payments as Array<{ amount: number }>);
+    const after = summarizePurchaseMoney(
+      grandTotal,
+      payments as Array<{ amount: number }>,
+      existingReturns as Array<{ totalAmount: number }>,
+      existingRefunds as Array<{ amount: number }>
+    );
 
     const supplierRef = adminDb.collection(SUPPLIERS).doc(purchase.supplierId as string);
     const supplierSnap = await tx.get(supplierRef);
@@ -279,29 +385,27 @@ export async function recordPurchasePayment(
     }
     const supplier = supplierSnap.data() as Record<string, unknown>;
 
-    const updated = {
-      ...purchase,
+    const updates: Record<string, unknown> = {
       payments,
       paidAmount: after.paidAmount,
       balance: after.balance,
+      refundDue: after.refundDue,
       paymentStatus: after.paymentStatus,
       updatedAt: now,
     };
 
-    tx.update(purchaseRef, {
-      payments,
-      paidAmount: after.paidAmount,
-      balance: after.balance,
-      paymentStatus: after.paymentStatus,
-      updatedAt: now,
-    });
+    tx.update(purchaseRef, updates);
     tx.update(supplierRef, {
       totalPaid: roundMoney(((supplier.totalPaid as number) || 0) + input.amount),
-      outstanding: roundMoney(((supplier.outstanding as number) || 0) - input.amount),
+      outstanding: roundMoney(
+        ((supplier.outstanding as number) || 0) +
+          (after.balance - after.refundDue) -
+          (before.balance - before.refundDue)
+      ),
       updatedAt: now,
     });
 
-    return updated;
+    return { ...purchase, ...updates };
   });
 
   return mapPurchase(id, data);
