@@ -1587,7 +1587,9 @@ git commit -m "feat: add purchase and supplier request validation"
 - Produces:
   - `createFakeFirestore(): FakeFirestoreModule`
   - `interface FakeWrite { op: "set" | "update" | "delete"; collection: string; id: string; data: Record<string, unknown> }`
-  - The mocked module exposes `adminDb`, `FieldValue`, and the test hooks `__reset()`, `__seed(collection, id, data)`, `__writes(): FakeWrite[]`, `__transactionCount(): number`, `__doc(collection, id)`.
+  - The mocked module exposes `adminDb`, `FieldValue`, and the test hooks `__reset()`, `__seed(collection, id, data)`, `__writes(): FakeWrite[]`, `__transactionCount(): number`, `__doc(collection, id)`, `__hasKeyContaining(needle)`.
+
+**Amended during execution.** Two additions review found necessary. (1) `__hasKeyContaining` scans the whole store keyed by `${collection}/${id}` — `technicianRepo.test.ts` depends on that reach, and narrowing it to the transaction write log silently weakens the assertion. (2) The fake **enforces Firestore's read-before-write rule**: `tx.get` after any `tx.set`/`update`/`delete` throws `FAILED_PRECONDITION`, as the real SDK does. Without it, Task 9's money-moving transaction could pass its tests and still fail in production. All 29 pre-existing technician tests pass under the rule, confirming `technicianRepo.ts` already reads before writing.
 
 **Why this task exists:** `technicianRepo.test.ts` already contains a working in-memory Firestore fake, but it is trapped inside a `vi.mock` factory and supports only a single `.where()` with no `orderBy` or `limit`. `purchaseRepo` needs chained `where`, `orderBy` and `limit`. Extract rather than copy.
 
@@ -1934,10 +1936,22 @@ export function createFakeFirestore() {
       // Snapshot for rollback: a real transaction that throws commits nothing.
       const snapshot = new Map(store);
       const staged: FakeWrite[] = [];
+      let hasWritten = false;
 
       const tx: FakeTransaction = {
-        get: async (ref: { get: () => Promise<unknown> }) => ref.get(),
+        get: async (ref: { get: () => Promise<unknown> }) => {
+          // Real Firestore requires every read to precede every write in a
+          // transaction, and throws FAILED_PRECONDITION otherwise. The fake
+          // enforces it so a repo cannot pass its tests and fail in production.
+          if (hasWritten) {
+            throw new Error(
+              "FAILED_PRECONDITION: Firestore transactions require all reads to be executed before all writes."
+            );
+          }
+          return ref.get();
+        },
         set: (ref, data) => {
+          hasWritten = true;
           staged.push({ op: "set", collection: ref.collectionName, id: ref.id, data });
           store.set(key(ref.collectionName, ref.id), data);
         },
@@ -1947,10 +1961,14 @@ export function createFakeFirestore() {
           if (current === undefined) {
             throw new Error(`NOT_FOUND: No document to update: ${docKey}`);
           }
+          // Set after the existence check, so a failed update does not wrongly
+          // close the read window.
+          hasWritten = true;
           staged.push({ op: "update", collection: ref.collectionName, id: ref.id, data });
           store.set(docKey, applyUpdate(current, data));
         },
         delete: (ref) => {
+          hasWritten = true;
           staged.push({ op: "delete", collection: ref.collectionName, id: ref.id, data: {} });
           store.delete(key(ref.collectionName, ref.id));
         },
@@ -1989,6 +2007,14 @@ export function createFakeFirestore() {
     },
     __doc(collection: string, id: string): DocData | undefined {
       return store.get(key(collection, id));
+    },
+    /**
+     * True when any document key — `${collection}/${id}` — contains `needle`.
+     * Scans the whole store rather than the write log, so it catches a stray
+     * document whatever wrote it and whenever.
+     */
+    __hasKeyContaining(needle: string): boolean {
+      return [...store.keys()].some((key) => key.includes(needle));
     },
     __writes(): FakeWrite[] {
       return [...writes];
