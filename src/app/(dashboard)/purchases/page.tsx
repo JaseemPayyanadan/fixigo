@@ -9,6 +9,7 @@ import { CheckIcon, FunnelIcon } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/Button";
 import { ListPageSkeleton, PageFallback, TableSkeleton } from "@/components/ui/PageSkeleton";
 import SlideOver from "@/components/ui/SlideOver";
+import Toast from "@/components/ui/Toast";
 import PurchaseFormHost from "@/modules/purchase/PurchaseFormHost";
 import PurchaseList from "@/modules/purchase/PurchaseList";
 import PurchaseSummaryCards from "@/modules/purchase/PurchaseSummaryCards";
@@ -139,6 +140,7 @@ function PaymentStatusFilterDropdown({
 function PurchasesPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const toastParam = searchParams.get("toast");
   const newParam = searchParams.get("new");
   const editId = searchParams.get("edit");
   const slideMode = newParam === "1" || Boolean(editId);
@@ -148,6 +150,7 @@ function PurchasesPageContent() {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   // unknown until matchMedia runs — avoid bouncing desktop users to /purchases/new
+  const [toastMessage, setToastMessage] = React.useState<string | null>(null);
   const [viewport, setViewport] = React.useState<"unknown" | "mobile" | "desktop">("unknown");
 
   const [search, setSearch] = React.useState("");
@@ -268,6 +271,12 @@ function PurchasesPageContent() {
     }
   }, [closeSlide, loadPurchases]);
 
+  React.useEffect(() => {
+    if (!toastParam) return;
+    setToastMessage(toastParam);
+    router.replace("/purchases");
+  }, [toastParam, router]);
+
   const showSlide = slideMode && viewport === "desktop";
 
   return (
@@ -342,6 +351,13 @@ function PurchasesPageContent() {
           onAddSupplier={() => router.push("/purchases/suppliers?new=1")}
         />
       </SlideOver>
+
+      <Toast
+        open={Boolean(toastMessage)}
+        message={toastMessage ?? ""}
+        variant="success"
+        onClose={() => setToastMessage(null)}
+      />
     </div>
   );
 }

@@ -152,3 +152,27 @@ export async function updateSupplier(
   await ref.update(updates);
   return mapSupplier(id, { ...current, ...updates });
 }
+
+/**
+ * Soft-delete: marks the supplier inactive so purchase history stays intact.
+ * Inactive suppliers stay visible on the suppliers list but drop out of
+ * "active" counts and should not be offered on new purchase forms.
+ */
+export async function deleteSupplier(shopId: string, id: string): Promise<Supplier> {
+  const ref = adminDb.collection(SUPPLIERS).doc(id);
+  const snap = await ref.get();
+  if (!snap.exists) {
+    throw new ApiError(404, "Supplier not found");
+  }
+  const current = snap.data() as Record<string, unknown>;
+  assertSupplierInShop(current, shopId, id);
+
+  if (current.status === "inactive") {
+    throw new ApiError(409, "Supplier is already inactive");
+  }
+
+  const updates = { status: "inactive", updatedAt: new Date() };
+  await ref.update(updates);
+  return mapSupplier(id, { ...current, ...updates });
+}
+

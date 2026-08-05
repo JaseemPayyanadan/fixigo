@@ -11,38 +11,39 @@ import type { Purchase } from "@/types/purchase";
 interface Props {
   purchase: Purchase;
   onRecordPayment: () => void;
-  onEdit: () => void;
-  onCancel: () => void;
 }
 
 const PurchaseDetails = React.memo(function PurchaseDetails({
   purchase,
   onRecordPayment,
-  onEdit,
-  onCancel,
 }: Props) {
   const status = React.useMemo(() => paymentStatusLabel(purchase, new Date()), [purchase]);
 
-  // Absent rather than disabled: once a payment exists the API will 409, so
-  // the screen must not offer the action at all.
-  const editable = purchase.payments.length === 0 && purchase.status === "active";
-  const payable = purchase.status === "active" && purchase.balance > 0;
+  const isActive = purchase.status === "active";
+  const isLocked = isActive && purchase.payments.length > 0;
+  const payable = isActive && purchase.balance > 0;
 
   return (
     <div className="space-y-4">
       <section className="rounded-xl border border-gray-200 bg-white p-4">
-        <div className="flex items-start justify-between">
-          <div>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
             <h2 className="text-lg font-semibold text-gray-900">{purchase.ref}</h2>
             <p className="text-sm text-gray-500">{formatDateTime(purchase.purchaseDate)}</p>
             {purchase.supplierInvoiceNo && (
               <p className="text-xs text-gray-500">Supplier bill {purchase.supplierInvoiceNo}</p>
             )}
           </div>
-          <span className={`rounded-full px-3 py-1 text-xs font-medium ${status.className}`}>
+          <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium ${status.className}`}>
             {status.label}
           </span>
         </div>
+
+        {isLocked && (
+          <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            Edit and delete are locked because a payment has been recorded on this purchase.
+          </p>
+        )}
 
         {purchase.status === "cancelled" && purchase.cancelReason && (
           <p className="mt-3 rounded-xl bg-gray-50 p-3 text-sm text-gray-600">
@@ -152,7 +153,14 @@ const PurchaseDetails = React.memo(function PurchaseDetails({
       </section>
 
       <section className="rounded-xl border border-gray-200 bg-white p-4">
-        <h3 className="mb-3 text-sm font-semibold text-gray-900">Payment history</h3>
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <h3 className="text-sm font-semibold text-gray-900">Payment history</h3>
+          {payable && (
+            <Button type="button" size="sm" onClick={onRecordPayment}>
+              + Record Payment
+            </Button>
+          )}
+        </div>
         {purchase.payments.length === 0 ? (
           <p className="text-sm text-gray-500">No payments recorded yet.</p>
         ) : (
@@ -176,33 +184,11 @@ const PurchaseDetails = React.memo(function PurchaseDetails({
         )}
         <div className="mt-3 flex justify-between border-t border-gray-100 pt-3 text-sm font-semibold">
           <span className="text-gray-600">Remaining balance</span>
-          <span className="text-red-600">{formatRupees(purchase.balance)}</span>
+          <span className={purchase.balance > 0 ? "text-red-600" : "text-emerald-700"}>
+            {formatRupees(purchase.balance)}
+          </span>
         </div>
       </section>
-
-      <div className="flex flex-col gap-2 sm:flex-row">
-        {payable && (
-          <Button size="lg" fullWidth onClick={onRecordPayment}>
-            + Record Payment
-          </Button>
-        )}
-        {editable && (
-          <>
-            <Button variant="secondary" size="lg" fullWidth onClick={onEdit}>
-              Edit Purchase
-            </Button>
-            <Button
-              variant="secondary"
-              size="lg"
-              fullWidth
-              onClick={onCancel}
-              className="border-red-200 text-red-600 hover:bg-red-50"
-            >
-              Cancel Purchase
-            </Button>
-          </>
-        )}
-      </div>
     </div>
   );
 });
