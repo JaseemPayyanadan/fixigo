@@ -26,8 +26,8 @@ import { useUser } from "@/hooks/useUser";
 import type { Branch } from "@/types";
 
 /**
- * Only routes that exist. Add a row when its page ships — a dead nav item
- * is worse than an absent one.
+ * Only routes that exist. Mark unfinished destinations `comingSoon` so they
+ * stay visible (greyed out) without navigating to placeholder pages.
  */
 const navItems: Array<{
   label: string;
@@ -36,6 +36,7 @@ const navItems: Array<{
   description: string;
   roles: string[];
   prefetch?: boolean;
+  comingSoon?: boolean;
 }> = [
   {
     label: "Dashboard",
@@ -70,13 +71,6 @@ const navItems: Array<{
     prefetch: true,
   },
   {
-    label: "Reports",
-    href: "/reports",
-    icon: BarChart3,
-    description: "Business reporting",
-    roles: ["shop_admin", "branch_admin"],
-  },
-  {
     label: "Branches",
     href: "/branch",
     icon: MapPin,
@@ -85,11 +79,20 @@ const navItems: Array<{
     prefetch: true,
   },
   {
+    label: "Reports",
+    href: "/reports",
+    icon: BarChart3,
+    description: "Coming soon",
+    roles: ["shop_admin", "branch_admin"],
+    comingSoon: true,
+  },
+  {
     label: "Settings",
     href: "/settings",
     icon: Settings,
-    description: "System settings",
+    description: "Coming soon",
     roles: ["shop_admin"],
+    comingSoon: true,
   },
 ];
 
@@ -117,22 +120,45 @@ const NavItem = React.memo(function NavItem({
   onMouseLeave: () => void;
 }) {
   const Icon = item.icon;
+  const disabled = Boolean(item.comingSoon);
 
   return (
     <div className="relative">
       <button
         type="button"
-        onClick={() => onNavigate(item.href)}
+        disabled={disabled}
+        onClick={() => {
+          if (!disabled) onNavigate(item.href);
+        }}
         onMouseEnter={() => onMouseEnter(item.label)}
         onMouseLeave={onMouseLeave}
-        aria-current={isActive ? "page" : undefined}
-        title={collapsed ? item.label : undefined}
-        className={`flex w-full cursor-pointer items-center gap-3 rounded-xl px-3.5 py-2.5 text-[15px] font-semibold transition-colors duration-200 motion-reduce:transition-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 ${
-          isActive ? "bg-blue-600 text-white shadow-sm" : "text-gray-700 hover:bg-gray-100"
+        aria-current={isActive && !disabled ? "page" : undefined}
+        aria-disabled={disabled}
+        title={collapsed ? (disabled ? `${item.label} (Coming soon)` : item.label) : undefined}
+        className={`flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-[15px] font-semibold transition-colors duration-200 motion-reduce:transition-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 ${
+          disabled
+            ? "cursor-not-allowed text-gray-400"
+            : isActive
+              ? "cursor-pointer bg-blue-600 text-white shadow-sm"
+              : "cursor-pointer text-gray-700 hover:bg-gray-100"
         } ${collapsed ? "justify-center px-0" : ""}`}
       >
-        <Icon className={`h-5 w-5 shrink-0 ${isActive ? "text-white" : "text-gray-500"}`} aria-hidden="true" />
-        {!collapsed && <span className="truncate">{item.label}</span>}
+        <Icon
+          className={`h-5 w-5 shrink-0 ${
+            disabled ? "text-gray-300" : isActive ? "text-white" : "text-gray-500"
+          }`}
+          aria-hidden="true"
+        />
+        {!collapsed && (
+          <span className="flex min-w-0 flex-1 items-center justify-between gap-2">
+            <span className="truncate">{item.label}</span>
+            {disabled && (
+              <span className="shrink-0 rounded-md bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-gray-400">
+                Soon
+              </span>
+            )}
+          </span>
+        )}
       </button>
 
       {collapsed && hoveredItem === item.label && (
@@ -274,7 +300,9 @@ const SideNavBar = React.memo(() => {
   }, [user]);
 
   React.useEffect(() => {
-    filteredNavItems.filter((item) => item.prefetch).forEach((item) => router.prefetch(item.href));
+    filteredNavItems
+      .filter((item) => item.prefetch && !item.comingSoon)
+      .forEach((item) => router.prefetch(item.href));
   }, [filteredNavItems, router]);
 
   const handleNavigation = useCallback((href: string) => navigate(href), [navigate]);
