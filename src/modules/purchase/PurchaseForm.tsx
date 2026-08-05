@@ -5,7 +5,7 @@ import React from "react";
 
 import { formatRupees } from "@/lib/purchaseFormat";
 import { computeTotals } from "@/lib/purchaseTotals";
-import type { Supplier } from "@/types/purchase";
+import type { Purchase, Supplier } from "@/types/purchase";
 
 export interface Suggestions {
   names: string[];
@@ -46,6 +46,8 @@ interface Props {
   error: string | null;
   onSubmit: (payload: PurchasePayload) => Promise<void>;
   onAddSupplier: () => void;
+  initial?: Purchase | null;
+  submitLabel?: string;
 }
 
 function emptyRow(): ItemRow {
@@ -75,15 +77,43 @@ const PurchaseForm = React.memo(function PurchaseForm({
   error,
   onSubmit,
   onAddSupplier,
+  initial,
+  submitLabel,
 }: Props) {
-  const [supplierId, setSupplierId] = React.useState("");
-  const [supplierInvoiceNo, setSupplierInvoiceNo] = React.useState("");
-  const [purchaseDate, setPurchaseDate] = React.useState(todayIso());
-  const [rows, setRows] = React.useState<ItemRow[]>([emptyRow()]);
-  const [discountMode, setDiscountMode] = React.useState<"amount" | "percent">("amount");
-  const [discountValue, setDiscountValue] = React.useState("0");
-  const [gstRate, setGstRate] = React.useState("0");
-  const [transportCharge, setTransportCharge] = React.useState("0");
+  const [supplierId, setSupplierId] = React.useState(initial?.supplierId ?? "");
+  const [supplierInvoiceNo, setSupplierInvoiceNo] = React.useState(
+    initial?.supplierInvoiceNo ?? ""
+  );
+  const [purchaseDate, setPurchaseDate] = React.useState(
+    initial ? new Date(initial.purchaseDate).toISOString().slice(0, 10) : todayIso()
+  );
+  const [rows, setRows] = React.useState<ItemRow[]>(
+    initial
+      ? initial.items.map((item) => ({
+          key: item.id,
+          name: item.name,
+          brand: item.brand ?? "",
+          model: item.model ?? "",
+          quantity: String(item.quantity),
+          purchasePrice: String(item.purchasePrice),
+          sellingPrice: item.sellingPrice === undefined ? "" : String(item.sellingPrice),
+          warrantyMonths:
+            item.warrantyMonths === undefined ? "" : String(item.warrantyMonths),
+          remarks: item.remarks ?? "",
+          serviceId: item.serviceId ?? "",
+        }))
+      : [emptyRow()]
+  );
+  const [discountMode, setDiscountMode] = React.useState<"amount" | "percent">(
+    initial?.discount.mode ?? "amount"
+  );
+  const [discountValue, setDiscountValue] = React.useState(
+    String(initial?.discount.value ?? 0)
+  );
+  const [gstRate, setGstRate] = React.useState(String(initial?.gstRate ?? 0));
+  const [transportCharge, setTransportCharge] = React.useState(
+    String(initial?.transportCharge ?? 0)
+  );
   const [paymentType, setPaymentType] = React.useState<"cash" | "upi" | "bank" | "credit">("cash");
   const [amountPaid, setAmountPaid] = React.useState("");
   const [reference, setReference] = React.useState("");
@@ -500,7 +530,7 @@ const PurchaseForm = React.memo(function PurchaseForm({
         disabled={submitting}
         className="w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
       >
-        {submitting ? "Saving…" : "Save purchase"}
+        {submitting ? "Saving…" : submitLabel ?? "Save purchase"}
       </button>
     </form>
   );
