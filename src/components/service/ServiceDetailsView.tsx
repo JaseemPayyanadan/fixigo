@@ -23,6 +23,7 @@ import {
 } from "react-icons/md";
 
 import { getStatusConfig } from "@/lib/statusUtils";
+import ServicePartsOrdered from "@/modules/purchase/ServicePartsOrdered";
 import type { StatusHistoryEntry, Technician } from "@/types";
 
 export interface ServiceDetailsViewModel {
@@ -541,6 +542,8 @@ export default function ServiceDetailsView({
             </div>
           </section>
         )}
+
+        <ServicePartsOrdered serviceId={service.id} />
 
         {service.customerFeedback && (
           <section className={`${cardClass} p-5`}>

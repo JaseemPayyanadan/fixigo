@@ -21,6 +21,9 @@ export type Permission =
   | "service:read"
   | "service:write"
   | "service:delete"
+  | "purchase:read"
+  | "purchase:write"
+  | "purchase:delete"
 
   | "user:read"
   | "user:write"
@@ -298,3 +301,15 @@ export interface Device {
 
 
 export type Priority = "low" | "medium" | "high" | "urgent";
+
+export type {
+  Supplier,
+  SupplierStatus,
+  Purchase,
+  PurchaseItem,
+  PurchaseDiscount,
+  PurchasePayment,
+  PurchasePaymentMethod,
+  PurchasePaymentStatus,
+  PurchaseStatus,
+} from "./purchase";

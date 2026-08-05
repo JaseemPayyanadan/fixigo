@@ -116,3 +116,6 @@ build/
 
 # Superpowers SDD scratch
 .superpowers/
+
+# Claude Code worktrees
+.claude/worktrees/

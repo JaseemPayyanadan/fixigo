@@ -653,6 +653,74 @@
           "order": "DESCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "purchases",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "shopId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "branchId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "purchaseDate",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "purchases",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "shopId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "supplierId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "purchaseDate",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "purchases",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "shopId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "paymentStatus",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "dueDate",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "suppliers",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "shopId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "name",
+          "order": "ASCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": []
