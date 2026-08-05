@@ -7,6 +7,7 @@ const cookieSet = vi.fn();
 
 vi.mock("@/lib/auth", () => ({ generateToken }));
 vi.mock("@/lib/authUsers", () => ({ registerUser }));
+vi.mock("@/lib/firebaseCustomToken", () => ({ mintCustomTokenForUser: vi.fn(async () => "custom-token") }));
 vi.mock("next/headers", () => ({
   cookies: async () => ({ set: cookieSet }),
 }));

@@ -1,9 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
 
-import { collection, getDocs, orderBy, query, where } from "firebase/firestore";
-
-import { db } from "@/lib/firebase";
 import { logger } from "@/lib/logger";
 
 import { useUser } from "./useUser";
@@ -23,6 +20,18 @@ export interface DashboardStats {
     customer: string;
     createdAt: Date;
   }>;
+}
+
+function toDate(value: unknown): Date {
+  if (value instanceof Date) return value;
+  if (typeof value === "string" || typeof value === "number") {
+    const parsed = new Date(value);
+    if (!Number.isNaN(parsed.getTime())) return parsed;
+  }
+  if (value && typeof value === "object" && "toDate" in value) {
+    return (value as { toDate: () => Date }).toDate();
+  }
+  return new Date();
 }
 
 export function useDashboardStats(shopId?: string, branchId?: string) {
@@ -45,75 +54,73 @@ export function useDashboardStats(shopId?: string, branchId?: string) {
           return;
         }
 
-        let services: any[] = [];
-        let technicians: any[] = [];
-        let branches: any[] = [];
+        const servicesUrl = branchId
+          ? `/api/services?branchId=${encodeURIComponent(branchId)}`
+          : "/api/services";
+        const techniciansUrl = branchId
+          ? `/api/technicians?branchId=${encodeURIComponent(branchId)}`
+          : "/api/technicians";
 
-        if (branchId) {
-          // Fetch data for specific branch using new flat structure
-          const servicesQuery = query(collection(db, "services"), where("shopId", "==", shopId), where("branchId", "==", branchId), orderBy("createdAt", "desc"));
-          const servicesSnapshot = await getDocs(servicesQuery);
-          services = servicesSnapshot.docs.map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-          }));
+        const [servicesRes, techniciansRes, branchesRes] = await Promise.all([
+          fetch(servicesUrl),
+          fetch(techniciansUrl),
+          branchId ? Promise.resolve(null) : fetch("/api/branches"),
+        ]);
 
-          const techniciansQuery = query(collection(db, "technicians"), where("shopId", "==", shopId), where("branchId", "==", branchId), orderBy("createdAt", "desc"));
-          const techniciansSnapshot = await getDocs(techniciansQuery);
-          technicians = techniciansSnapshot.docs.map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-          }));
+        if (!servicesRes.ok) throw new Error("Failed to fetch services");
+        if (!techniciansRes.ok) throw new Error("Failed to fetch technicians");
 
-          // For branch-specific view, we only have 1 branch
-          branches = [{ id: branchId }];
-        } else {
-          // Fetch data across all branches in the shop using new flat structure
-          const branchesQuery = query(collection(db, "branches"), where("shopId", "==", shopId), orderBy("createdAt", "desc"));
-          const branchesSnapshot = await getDocs(branchesQuery);
-          branches = branchesSnapshot.docs.map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-          }));
+        const servicesBody = await servicesRes.json();
+        const techniciansBody = await techniciansRes.json();
+        const services = Array.isArray(servicesBody.services) ? servicesBody.services : [];
+        const technicians = Array.isArray(techniciansBody.technicians)
+          ? techniciansBody.technicians
+          : [];
 
-          // Aggregate services from all branches using new flat structure
-          const servicesQuery = query(collection(db, "services"), where("shopId", "==", shopId), orderBy("createdAt", "desc"));
-          const servicesSnapshot = await getDocs(servicesQuery);
-          services = servicesSnapshot.docs.map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-          }));
-
-          // Aggregate technicians from all branches using new flat structure
-          const techniciansQuery = query(collection(db, "technicians"), where("shopId", "==", shopId), orderBy("createdAt", "desc"));
-          const techniciansSnapshot = await getDocs(techniciansQuery);
-          technicians = techniciansSnapshot.docs.map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-          }));
+        let branches: unknown[] = branchId ? [{ id: branchId }] : [];
+        if (!branchId) {
+          if (!branchesRes || !branchesRes.ok) throw new Error("Failed to fetch branches");
+          const branchesBody = await branchesRes.json();
+          branches = Array.isArray(branchesBody.branches) ? branchesBody.branches : [];
         }
 
-        // Calculate stats
         const totalServices = services.length;
-        const completedServices = services.filter((service: Record<string, unknown>) => service.status === "completed").length;
-        const pendingServices = services.filter((service: Record<string, unknown>) => service.status === "pending" || service.status === "in_progress").length;
+        const completedServices = services.filter(
+          (service: { status?: string }) => service.status === "completed"
+        ).length;
+        const pendingServices = services.filter(
+          (service: { status?: string }) =>
+            service.status === "pending" || service.status === "in_progress"
+        ).length;
         const totalTechnicians = technicians.length;
         const totalBranches = branches.length;
-        // Revenue counts completed jobs only — open work may never be billed.
         const totalRevenue = services
-          .filter((service: Record<string, unknown>) => service.status === "completed")
-          .reduce((sum: number, service: Record<string, unknown>) => sum + (Number(service.totalPrice) || 0), 0);
-        const customerSatisfaction = completedServices > 0 ? (completedServices / totalServices) * 100 : 0;
+          .filter((service: { status?: string }) => service.status === "completed")
+          .reduce(
+            (sum: number, service: { totalPrice?: number; price?: number }) =>
+              sum + (Number(service.totalPrice) || Number(service.price) || 0),
+            0
+          );
+        const customerSatisfaction =
+          completedServices > 0 ? (completedServices / totalServices) * 100 : 0;
 
-        const recentServices = services.slice(0, 5).map((service: Record<string, unknown>) => ({
-          id: String(service.id || ""),
-          name: String(service.name || "Unknown Service"),
-          status: String(service.status || "pending"),
-          customer: String((service.customer as Record<string, unknown>)?.name || "Unknown Customer"),
-          createdAt: (service.createdAt as { toDate?: () => Date })?.toDate?.() || new Date(),
-        }));
+        const recentServices = services.slice(0, 5).map(
+          (service: {
+            id?: string;
+            name?: string;
+            status?: string;
+            customer?: { name?: string };
+            createdAt?: unknown;
+          }) => ({
+            id: String(service.id || ""),
+            name: String(service.name || "Unknown Service"),
+            status: String(service.status || "pending"),
+            customer: String(service.customer?.name || "Unknown Customer"),
+            createdAt: toDate(service.createdAt),
+          })
+        );
 
-        const calculatedStats: DashboardStats = {
+        setStats({
           totalServices,
           completedServices,
           pendingServices,
@@ -122,25 +129,17 @@ export function useDashboardStats(shopId?: string, branchId?: string) {
           totalRevenue,
           customerSatisfaction,
           recentServices,
-        };
-
-        setStats(calculatedStats);
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : "Failed to fetch dashboard stats";
-        setError(errorMessage);
-        logger.error("Error fetching dashboard data", {
-          error: errorMessage,
-          userId: user.id,
-          role: user.role,
-          shopId: user.shopId,
-          ...(user.branchId && { branchId: user.branchId }),
         });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Failed to fetch dashboard stats";
+        setError(message);
+        logger.error("Error fetching dashboard stats", { error: message });
       } finally {
         setLoading(false);
       }
     };
 
-    fetchStats();
+    void fetchStats();
   }, [user, shopId, branchId]);
 
   return { stats, loading, error };

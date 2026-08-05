@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { generateToken } from "@/lib/auth";
 import { registerUser } from "@/lib/authUsers";
+import { mintCustomTokenForUser } from "@/lib/firebaseCustomToken";
 
 export const dynamic = "force-dynamic";
 
@@ -48,6 +49,7 @@ export async function POST(request: NextRequest) {
 
     const user = await registerUser({ name, email, password, role });
     const token = generateToken(user);
+    const customToken = await mintCustomTokenForUser(user);
 
     // Set HttpOnly cookie
     const cookieStore = await cookies();
@@ -62,8 +64,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       user: {
         ...user,
-        uid: user.id, // Include uid for compatibility
+        uid: user.id,
       },
+      customToken,
     });
   } catch (error) {
     console.error("Registration error:", error);

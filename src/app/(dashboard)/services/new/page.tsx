@@ -4,12 +4,9 @@ import React, { useState } from "react";
 
 import { useRouter } from "next/navigation";
 
-import { addDoc, collection, serverTimestamp } from "firebase/firestore";
-
 import { useTechnicians, useUser } from "@/hooks";
 import { useBranches } from "@/hooks/useBranches";
 import { authUserToUser } from "@/lib/auth";
-import { db } from "@/lib/firebase";
 import ServiceForm from "@/components/service/ServiceForm";
 
 export default function NewServicePage() {
@@ -80,21 +77,24 @@ export default function NewServicePage() {
     
     setLoading(true);
     try {
-      await addDoc(collection(db, "services"), {
-        name: data.service.name,
-        description: data.service.description,
-        price: Number(data.service.price),
-        shopId,
-        branchId: finalBranchId,
-        technician_id: data.service.technician_id || (user?.role === "technician" ? user.id : ""),
-        priority: data.service.priority || "medium",
-        customer: data.customer,
-        device: data.device, // color included
-        created_by: { role: user?.role || "", name: user?.name || "" },
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-        status: "pending",
+      const response = await fetch("/api/services", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: data.service.name,
+          description: data.service.description,
+          price: Number(data.service.price),
+          branchId: finalBranchId,
+          technician_id: data.service.technician_id || (user?.role === "technician" ? user.id : ""),
+          priority: data.service.priority || "medium",
+          customer: data.customer,
+          device: data.device,
+        }),
       });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error((body as { error?: string }).error || "Failed to create service");
+      }
       router.push("/services");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : String(err));

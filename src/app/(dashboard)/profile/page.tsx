@@ -2,10 +2,8 @@
 
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { collection, getDocs, query, where } from "firebase/firestore";
 import { HiMail, HiPhone, HiStar, HiLogout } from "react-icons/hi";
 import { useAuth } from "@/contexts/AuthContext";
-import { db } from "@/lib/firebase";
 
 interface TechnicianProfile {
   id: string;
@@ -84,25 +82,19 @@ export default function ProfilePage() {
               profileData.experience = technicianDoc.experience || 0;
               profileData.rating = technicianDoc.rating || 0;
 
-              // Fetch work statistics for technicians
-              const servicesQuery = query(collection(db, "services"), where("technician_id", "==", user.id));
-              const servicesSnapshot = await getDocs(servicesQuery);
-              const services = servicesSnapshot.docs.map((doc) => doc.data());
+              // Fetch work statistics for technicians via API (Admin SDK)
+              const servicesResponse = await fetch("/api/services");
+              if (!servicesResponse.ok) throw new Error("Failed to fetch services");
+              const servicesBody = await servicesResponse.json();
+              const services = Array.isArray(servicesBody.services) ? servicesBody.services : [];
 
-              const completedJobs = services.filter((s) => (s as Record<string, unknown>).status === "completed").length;
+              const completedJobs = services.filter((s: { status?: string }) => s.status === "completed").length;
               const ratings = services
-                .filter((s) => {
-                  const feedback = (s as Record<string, unknown>).customerFeedback;
-                  return feedback && 
-                    typeof feedback === 'object' &&
-                    feedback !== null &&
-                    'rating' in feedback &&
-                    typeof (feedback as Record<string, unknown>).rating === 'number';
-                })
-                .map((s) => ((s as Record<string, unknown>).customerFeedback as Record<string, unknown>).rating as number);
-              
-              const avgRating = ratings.length > 0 
-                ? ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length 
+                .filter((s: { customerFeedback?: { rating?: number } }) => typeof s.customerFeedback?.rating === "number")
+                .map((s: { customerFeedback: { rating: number } }) => s.customerFeedback.rating);
+
+              const avgRating = ratings.length > 0
+                ? ratings.reduce((sum: number, rating: number) => sum + rating, 0) / ratings.length
                 : 0;
 
               setPerformanceStats({

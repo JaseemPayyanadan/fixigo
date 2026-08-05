@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { readJsonBody, requireUser, toErrorResponse } from "@/lib/apiAuth";
+import { ApiError, requireUser, toErrorResponse } from "@/lib/apiAuth";
 import {
   markAllNotificationsRead,
   markNotificationRead,
@@ -9,19 +9,34 @@ import { logger } from "@/lib/logger";
 
 export const dynamic = "force-dynamic";
 
+function parseMarkReadBody(raw: string): string | undefined {
+  if (!raw.trim()) {
+    return undefined;
+  }
+
+  let body: unknown;
+  try {
+    body = JSON.parse(raw);
+  } catch {
+    throw new ApiError(400, "Request body must be valid JSON");
+  }
+
+  if (
+    body &&
+    typeof body === "object" &&
+    typeof (body as { notificationId?: unknown }).notificationId === "string" &&
+    (body as { notificationId: string }).notificationId.trim()
+  ) {
+    return (body as { notificationId: string }).notificationId.trim();
+  }
+
+  return undefined;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const user = await requireUser();
-
-    let notificationId: string | undefined;
-    try {
-      const body = (await readJsonBody(request)) as { notificationId?: unknown };
-      if (typeof body?.notificationId === "string" && body.notificationId.trim()) {
-        notificationId = body.notificationId.trim();
-      }
-    } catch {
-      // Empty body = mark all
-    }
+    const notificationId = parseMarkReadBody(await request.text());
 
     if (notificationId) {
       await markNotificationRead(notificationId, user.id);

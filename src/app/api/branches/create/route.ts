@@ -1,20 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { collection, addDoc, setDoc, doc, query, where, getDocs } from "firebase/firestore";
-
-import { requireUser, toErrorResponse, ApiError } from "@/lib/apiAuth";
+import { ApiError, requireUser, toErrorResponse } from "@/lib/apiAuth";
 import { hashPassword } from "@/lib/auth";
-import { db } from "@/lib/firebase";
-import { Branch } from "@/types";
+import { adminDb } from "@/lib/firebaseAdmin";
+import type { Branch } from "@/types";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {
   try {
-    // This endpoint mints a `branch_admin` login with a caller-supplied
-    // password. Unauthenticated, and trusting `shopId` from the body, it let
-    // anyone create a working admin account in any shop — so the session is
-    // the only acceptable source for the shop being written to.
     const user = await requireUser();
 
     if (user.role !== "shop_admin") {
@@ -25,18 +19,9 @@ export async function POST(request: NextRequest) {
     }
     const shopId = user.shopId;
 
-        const {
-      name,
-      location,
-      phone,
-      email,
-      password,
-      managerName,
-      managerPhone
-    } = await request.json();
+    const { name, location, phone, email, password, managerName, managerPhone } =
+      await request.json();
 
-    // Validate required fields. `shopId` is deliberately absent: it comes from
-    // the session above, and any value in the body is ignored.
     if (!name || !location || !phone || !email || !password) {
       return NextResponse.json(
         { error: "Name, location, phone, email, and password are required" },
@@ -44,52 +29,46 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if branch already exists with same name in the shop
-    const branchesRef = collection(db, "branches");
-    const branchQuery = query(branchesRef, where("shopId", "==", shopId), where("name", "==", name));
-    const branchQuerySnapshot = await getDocs(branchQuery);
-    
-    if (!branchQuerySnapshot.empty) {
+    const branchQuery = await adminDb
+      .collection("branches")
+      .where("shopId", "==", shopId)
+      .where("name", "==", name)
+      .get();
+
+    if (!branchQuery.empty) {
       return NextResponse.json(
         { error: "A branch with this name already exists in your shop" },
         { status: 400 }
       );
     }
 
-    // Check if user already exists
-    const usersRef = collection(db, "users");
-    const userQuery = query(usersRef, where("email", "==", email));
-    const userQuerySnapshot = await getDocs(userQuery);
-    
-    if (!userQuerySnapshot.empty) {
+    const userQuery = await adminDb.collection("users").where("email", "==", email).get();
+    if (!userQuery.empty) {
       return NextResponse.json(
         { error: "User with this email already exists" },
         { status: 400 }
       );
     }
 
-    // Hash password
     const hashedPassword = await hashPassword(password);
+    const now = new Date();
+    const userRef = adminDb.collection("users").doc();
 
-    // Create user document for branch manager
     const userData = {
-      name: managerName || `${name  } Manager`,
+      name: managerName || `${name} Manager`,
       email,
       password: hashedPassword,
-      role: "branch_admin",
+      role: "branch_admin" as const,
       shopId,
       phone: managerPhone || phone,
       status: "active",
       onboardingCompleted: true,
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      createdAt: now,
+      updatedAt: now,
     };
 
-    // Add user to Firestore
-    const userRef = doc(collection(db, "users"));
-    await setDoc(userRef, userData);
+    await userRef.set(userData);
 
-    // Create branch document
     const branchData: Omit<Branch, "id" | "createdAt" | "updatedAt"> = {
       name,
       location,
@@ -97,18 +76,20 @@ export async function POST(request: NextRequest) {
       email,
       status: "active",
       shopId,
-      managerId: userRef.id, // Link to the user account
-      managerName: managerName || `${name  } Manager`,
+      managerId: userRef.id,
+      managerName: managerName || `${name} Manager`,
       managerEmail: email,
       managerPhone: managerPhone || phone,
     };
 
-    // Add branch to Firestore
-    const branchRef = await addDoc(collection(db, "branches"), {
+    const branchRef = await adminDb.collection("branches").add({
       ...branchData,
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      createdAt: now,
+      updatedAt: now,
     });
+
+    // Link branch admin to their branch
+    await userRef.update({ branchId: branchRef.id, updatedAt: now });
 
     return NextResponse.json({
       success: true,

@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 
 import { AuthUser } from "@/lib/auth";
+import { clearFirebaseSession, establishFirebaseSession } from "@/lib/firebaseSession";
 
 interface AuthContextType {
   user: AuthUser | null;
@@ -14,13 +15,18 @@ interface AuthContextType {
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+async function applyFirebaseSession(customToken: unknown): Promise<void> {
+  if (typeof customToken === "string" && customToken.length > 0) {
+    await establishFirebaseSession(customToken);
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Check authentication status on mount
   useEffect(() => {
-    checkAuth();
+    void checkAuth();
   }, []);
 
   const checkAuth = async () => {
@@ -28,8 +34,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const response = await fetch("/api/auth/me");
       if (response.ok) {
         const data = await response.json();
+        await applyFirebaseSession(data.customToken);
         setUser(data.user);
       } else {
+        await clearFirebaseSession();
         setUser(null);
       }
     } catch (error) {
@@ -43,9 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, password: string) => {
     const response = await fetch("/api/auth/login", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password }),
     });
 
@@ -55,15 +61,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const data = await response.json();
+    await applyFirebaseSession(data.customToken);
     setUser(data.user);
   };
 
   const register = async (name: string, email: string, password: string, role: string) => {
     const response = await fetch("/api/auth/register", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name, email, password, role }),
     });
 
@@ -73,13 +78,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const data = await response.json();
+    await applyFirebaseSession(data.customToken);
     setUser(data.user);
   };
 
   const logout = async () => {
-    await fetch("/api/auth/logout", {
-      method: "POST",
-    });
+    await fetch("/api/auth/logout", { method: "POST" });
+    await clearFirebaseSession();
     setUser(null);
   };
 
@@ -96,4 +101,4 @@ export function useAuth() {
     throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
-} 
+}

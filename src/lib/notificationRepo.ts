@@ -2,6 +2,7 @@ import { ApiError } from "@/lib/apiAuth";
 import { adminDb } from "@/lib/firebaseAdmin";
 
 export const NOTIFICATIONS = "notifications";
+const FIRESTORE_BATCH_LIMIT = 500;
 
 export interface Notification {
   id: string;
@@ -47,22 +48,28 @@ export async function listNotifications(
   userId: string,
   max = 50
 ): Promise<{ notifications: Notification[]; unreadCount: number }> {
-  // No orderBy/limit in the query: without a composite index, limit would be
-  // arbitrary and unreadCount would be wrong. Sort + slice in memory instead.
-  const snapshot = await adminDb
-    .collection(NOTIFICATIONS)
-    .where("userId", "==", userId)
-    .get();
+  // List is limited server-side; unread uses a separate equality query so the
+  // badge stays accurate without loading the full history into memory.
+  // Requires indexes: userId+createdAt and userId+read (userId+read+createdAt exists).
+  const [listSnap, unreadSnap] = await Promise.all([
+    adminDb
+      .collection(NOTIFICATIONS)
+      .where("userId", "==", userId)
+      .orderBy("createdAt", "desc")
+      .limit(max)
+      .get(),
+    adminDb
+      .collection(NOTIFICATIONS)
+      .where("userId", "==", userId)
+      .where("read", "==", false)
+      .get(),
+  ]);
 
-  const all = snapshot.docs.map((docSnap) =>
+  const notifications = listSnap.docs.map((docSnap) =>
     mapNotification(docSnap.id, docSnap.data() as Record<string, unknown>)
   );
-  const unreadCount = all.filter((n) => !n.read).length;
-  const notifications = all
-    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-    .slice(0, max);
 
-  return { notifications, unreadCount };
+  return { notifications, unreadCount: unreadSnap.size };
 }
 
 export async function markAllNotificationsRead(userId: string): Promise<number> {
@@ -73,13 +80,18 @@ export async function markAllNotificationsRead(userId: string): Promise<number> 
     .get();
 
   const now = new Date();
-  await Promise.all(
-    snapshot.docs.map((docSnap) =>
-      docSnap.ref.update({ read: true, readAt: now, updatedAt: now })
-    )
-  );
+  const docs = snapshot.docs;
 
-  return snapshot.docs.length;
+  for (let i = 0; i < docs.length; i += FIRESTORE_BATCH_LIMIT) {
+    const chunk = docs.slice(i, i + FIRESTORE_BATCH_LIMIT);
+    const batch = adminDb.batch();
+    for (const docSnap of chunk) {
+      batch.update(docSnap.ref, { read: true, readAt: now, updatedAt: now });
+    }
+    await batch.commit();
+  }
+
+  return docs.length;
 }
 
 export async function markNotificationRead(
