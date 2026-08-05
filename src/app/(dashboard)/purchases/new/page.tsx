@@ -4,6 +4,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import React, { Suspense } from "react";
 
+import { PageFallback } from "@/components/ui/PageSkeleton";
 import PurchaseFormHost from "@/modules/purchase/PurchaseFormHost";
 
 function NewPurchaseContent() {
@@ -30,7 +31,7 @@ function NewPurchaseContent() {
 
 export default function NewPurchasePage() {
   return (
-    <Suspense fallback={<div className="p-6 text-sm text-gray-500">Loading…</div>}>
+    <Suspense fallback={<PageFallback label="Loading purchase form" />}>
       <NewPurchaseContent />
     </Suspense>
   );

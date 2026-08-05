@@ -8,6 +8,7 @@ import {
   BranchAdminDashboard, 
   TechnicianDashboard 
 } from '@/components/dashboard';
+import { PageFallback } from '@/components/ui/PageSkeleton';
 import { useUser } from '@/hooks/useUser';
 
 // Main Dashboard Component
@@ -15,14 +16,7 @@ const DashboardContent: React.FC = () => {
   const { user } = useUser();
 
   if (!user) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="text-center">
-          <div className="animate-spin w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full mx-auto mb-2"></div>
-          <p className="text-sm text-gray-600">Loading user data...</p>
-        </div>
-      </div>
-    );
+    return <PageFallback label="Loading dashboard" />;
   }
 
   // Render role-specific dashboard

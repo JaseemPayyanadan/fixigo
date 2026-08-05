@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { BuildingOfficeIcon, PhoneIcon, EnvelopeIcon, UserGroupIcon, PencilIcon, TrashIcon } from "@heroicons/react/24/outline";
 
 import { Branch, Technician } from "../../types";
+import { TableSkeleton } from "@/components/ui/PageSkeleton";
 
 interface ShopAdminBranchListProps {
   branches: Branch[];
@@ -74,14 +75,7 @@ export const ShopAdminBranchList: React.FC<ShopAdminBranchListProps> = ({ branch
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <div className="text-center">
-          <div className="animate-spin w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full mx-auto mb-3"></div>
-          <p className="text-sm text-gray-600">Loading branches...</p>
-        </div>
-      </div>
-    );
+    return <TableSkeleton rows={5} />;
   }
 
   if (error) {

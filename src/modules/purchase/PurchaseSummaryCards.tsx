@@ -4,6 +4,7 @@
 import React from "react";
 
 import { Card } from "@/components/dashboard/widgets";
+import { SummaryCardsSkeleton } from "@/components/ui/PageSkeleton";
 import { formatRupees } from "@/lib/purchaseFormat";
 import type { PurchaseSummary } from "@/lib/purchaseSummary";
 
@@ -57,13 +58,7 @@ const PurchaseSummaryCards = React.memo(function PurchaseSummaryCards({ summary,
   const cards = React.useMemo(() => (summary ? buildCards(summary) : []), [summary]);
 
   if (loading || !summary) {
-    return (
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, index) => (
-          <div key={index} className="h-24 animate-pulse rounded-2xl border border-gray-100 bg-gray-50" />
-        ))}
-      </div>
-    );
+    return <SummaryCardsSkeleton count={4} />;
   }
 
   return (

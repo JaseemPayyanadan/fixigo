@@ -15,7 +15,8 @@ import {
   GlobeAmericasIcon
 } from "@heroicons/react/24/outline";
 
-import { Button, TextInput, LoadingSpinner } from "@/components/ui";
+import { Button, TextInput } from "@/components/ui";
+import { FormSkeleton } from "@/components/ui/PageSkeleton";
 import type { Branch, Technician, User } from "@/types";
 
 // Service Form Types
@@ -293,8 +294,8 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <LoadingSpinner size="lg" />
+      <div className="space-y-5 p-4 md:p-6">
+        <FormSkeleton sections={3} />
       </div>
     );
   }

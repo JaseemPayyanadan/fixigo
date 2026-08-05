@@ -6,6 +6,7 @@ import Link from "next/link";
 
 import { BranchAdminBranchList, ShopAdminBranchList, TechnicianBranchList } from "@/components/branch";
 import { SearchFilter } from "@/components/ui";
+import { ListPageSkeleton } from "@/components/ui/PageSkeleton";
 import { useUser } from "@/hooks";
 import { useBranches } from "@/hooks/useBranches";
 
@@ -58,11 +59,8 @@ export default function BranchPage() {
   // Render loading state
   if (loading) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading branches...</p>
-        </div>
+      <div className="space-y-5 p-4 md:p-6">
+        <ListPageSkeleton cards={0} rows={6} label="Loading branches" />
       </div>
     );
   }

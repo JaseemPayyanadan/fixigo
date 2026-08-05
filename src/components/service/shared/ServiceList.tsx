@@ -17,7 +17,8 @@ import {
 } from "@heroicons/react/24/outline";
 import Link from "next/link";
 
-import { Button, LoadingSpinner } from "@/components/ui";
+import { Button } from "@/components/ui";
+import { TableSkeleton } from "@/components/ui/PageSkeleton";
 import ServiceCard from "./ServiceCard";
 import type { ServiceListProps } from "./types";
 import type { Branch, Technician, User } from "@/types";
@@ -188,15 +189,7 @@ const ServiceList: React.FC<ServiceListSharedProps> = ({
 }) => {
   // Loading state
   if (loading) {
-    return (
-      <div className="space-y-4">
-        <div className="text-center py-16">
-          <LoadingSpinner size="lg" />
-          <p className="text-gray-600 mt-6 text-lg">Loading services...</p>
-          <p className="text-gray-500 mt-2 text-sm">Please wait while we fetch your service data</p>
-        </div>
-      </div>
-    );
+    return <TableSkeleton rows={8} />;
   }
 
   // Error state

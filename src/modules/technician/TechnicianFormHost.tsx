@@ -3,6 +3,7 @@
 
 import React from "react";
 
+import { FormSkeleton } from "@/components/ui/PageSkeleton";
 import { useUser } from "@/hooks";
 import { useBranches } from "@/hooks/useBranches";
 import { useTechnicians } from "@/hooks/useTechnicians";
@@ -135,7 +136,7 @@ export default function TechnicianFormHost({
   );
 
   if (loadingEdit) {
-    return <div className="text-sm text-gray-500">Loading technician…</div>;
+    return <FormSkeleton sections={2} />;
   }
 
   if (editLoadError) {

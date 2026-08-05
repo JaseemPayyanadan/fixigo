@@ -7,6 +7,7 @@ import React, { Suspense, useEffect, useRef, useState } from "react";
 import { CheckIcon, FunnelIcon } from "@heroicons/react/24/outline";
 
 import { Button } from "@/components/ui/Button";
+import { ListPageSkeleton, PageFallback, TableSkeleton } from "@/components/ui/PageSkeleton";
 import SlideOver from "@/components/ui/SlideOver";
 import PurchaseFormHost from "@/modules/purchase/PurchaseFormHost";
 import PurchaseList from "@/modules/purchase/PurchaseList";
@@ -301,9 +302,7 @@ function PurchasesPageContent() {
       </div>
 
       {loading ? (
-        <div className="rounded-xl border border-gray-200 bg-white p-10 text-center text-sm text-gray-500">
-          Loading purchases…
-        </div>
+        <TableSkeleton rows={8} />
       ) : (
         <PurchaseList purchases={visible} onOpen={handleOpen} />
       )}
@@ -349,7 +348,7 @@ function PurchasesPageContent() {
 
 export default function PurchasesPage() {
   return (
-    <Suspense fallback={<div className="p-6 text-sm text-gray-500">Loading…</div>}>
+    <Suspense fallback={<ListPageSkeleton cards={4} rows={8} label="Loading purchases" />}>
       <PurchasesPageContent />
     </Suspense>
   );

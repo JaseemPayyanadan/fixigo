@@ -8,6 +8,7 @@ import { CheckIcon, FunnelIcon, PlusIcon, UserGroupIcon } from "@heroicons/react
 
 import { PermissionGuard, RoleGuard } from "@/components";
 import { Button } from "@/components/ui/Button";
+import { ListPageSkeleton, TableSkeleton } from "@/components/ui/PageSkeleton";
 import SlideOver from "@/components/ui/SlideOver";
 import { useUser } from "@/hooks";
 import { useBranches } from "@/hooks/useBranches";
@@ -150,7 +151,7 @@ export default function TechniciansPage() {
   return (
     <RoleGuard allowedRoles={["shop_admin", "branch_admin"]}>
       <PermissionGuard permissions={["technician:read"]}>
-        <Suspense fallback={null}>
+        <Suspense fallback={<ListPageSkeleton cards={0} rows={8} label="Loading technicians" />}>
           <TechniciansContent />
         </Suspense>
       </PermissionGuard>
@@ -304,12 +305,7 @@ function TechniciansContent() {
         </div>
 
         {loading ? (
-          <div className="rounded-2xl border border-gray-100 bg-white p-12 text-center shadow-sm">
-            <div className="inline-flex items-center gap-3">
-              <div className="h-6 w-6 animate-spin rounded-full border-b-2 border-blue-600"></div>
-              <span className="font-medium text-gray-600">Loading technicians...</span>
-            </div>
-          </div>
+          <TableSkeleton rows={8} />
         ) : (
           <TechnicianTable
             technicians={filteredTechnicians}

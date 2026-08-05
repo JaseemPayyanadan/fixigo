@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import React, { Suspense } from "react";
 
 import { Button } from "@/components/ui/Button";
+import { FormSkeleton, PageFallback } from "@/components/ui/PageSkeleton";
 import PurchaseDetails from "@/modules/purchase/PurchaseDetails";
 import RecordPaymentModal from "@/modules/purchase/RecordPaymentModal";
 import type { Purchase } from "@/types/purchase";
@@ -88,7 +89,11 @@ function PurchaseDetailsContent() {
   }, [purchase, cancelReason]);
 
   if (loading) {
-    return <div className="p-6 text-sm text-gray-500">Loading purchase…</div>;
+    return (
+      <div className="space-y-4 p-4 md:p-6">
+        <FormSkeleton sections={3} />
+      </div>
+    );
   }
 
   if (error || !purchase) {
@@ -174,7 +179,7 @@ function PurchaseDetailsContent() {
 export default function PurchaseDetailsPage() {
   // useSearchParams requires a Suspense boundary in the App Router.
   return (
-    <Suspense fallback={<div className="p-6 text-sm text-gray-500">Loading…</div>}>
+    <Suspense fallback={<PageFallback label="Loading purchase" />}>
       <PurchaseDetailsContent />
     </Suspense>
   );

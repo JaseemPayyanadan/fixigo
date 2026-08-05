@@ -16,6 +16,7 @@ import { useDashboardData } from "@/hooks/useDashboardData";
 import { useUser } from "@/hooks/useUser";
 import { getStatusConfig, normalizeStatus } from "@/lib/statusUtils";
 import type { Service } from "@/types";
+import { PageFallback } from "@/components/ui/PageSkeleton";
 import { formatCurrency } from "./shared/DashboardUtils";
 import { ServiceMetricsGauge } from "./shared";
 
@@ -235,14 +236,7 @@ export default function TechnicianDashboard() {
   }, [router]);
 
   if (!user) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full mx-auto mb-3"></div>
-          <p className="text-sm text-gray-600">Loading user data...</p>
-        </div>
-      </div>
-    );
+    return <PageFallback label="Loading dashboard" />;
   }
 
   if (user.role !== "technician") {
@@ -279,10 +273,7 @@ export default function TechnicianDashboard() {
       <div className="px-4 py-6 space-y-6">
         {/* Loading State */}
         {(isLoading || technicianServicesLoading) && (
-          <div className="text-center py-12">
-            <div className="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full mx-auto mb-3"></div>
-            <p className="text-sm text-gray-600">Loading your services...</p>
-          </div>
+          <PageFallback label="Loading your services" />
         )}
 
         {/* Error State */}

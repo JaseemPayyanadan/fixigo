@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { HiMail, HiPhone, HiStar, HiLogout } from "react-icons/hi";
 import { useAuth } from "@/contexts/AuthContext";
+import { FormSkeleton } from "@/components/ui/PageSkeleton";
 
 interface TechnicianProfile {
   id: string;
@@ -213,8 +214,8 @@ export default function ProfilePage() {
 
   if (profileLoading) {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="space-y-5 p-4 md:p-6">
+        <FormSkeleton sections={2} />
       </div>
     );
   }
