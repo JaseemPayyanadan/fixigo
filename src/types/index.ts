@@ -21,6 +21,9 @@ export type Permission =
   | "service:read"
   | "service:write"
   | "service:delete"
+  | "purchase:read"
+  | "purchase:write"
+  | "purchase:delete"
 
   | "user:read"
   | "user:write"

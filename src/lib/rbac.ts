@@ -31,6 +31,9 @@ export const ROLE_PERMISSIONS: Record<Role, RolePermissions> = {
       "service:read",
       "service:write",
       "service:delete",
+      "purchase:read",
+      "purchase:write",
+      "purchase:delete",
       "user:read",
       "user:write",
       "user:delete",
@@ -42,7 +45,7 @@ export const ROLE_PERMISSIONS: Record<Role, RolePermissions> = {
   },
   branch_admin: {
     role: "branch_admin",
-    permissions: ["dashboard:read", "branch:read", "branch:write", "technician:read", "technician:write", "service:read", "service:write", "user:read", "report:read", "setting:read"],
+    permissions: ["dashboard:read", "branch:read", "branch:write", "technician:read", "technician:write", "service:read", "service:write", "purchase:read", "purchase:write", "user:read", "report:read", "setting:read"],
     inheritsFrom: ["shop_admin"],
   },
   technician: {

@@ -19,7 +19,10 @@ import { cookies } from "next/headers";
 
 import {
   ApiError,
+  assertCanManageSuppliers,
+  assertCanReadPurchase,
   assertCanReadTechnician,
+  assertCanWritePurchase,
   assertCanWriteTechnician,
   listScopeFor,
   readJsonBody,
@@ -239,6 +242,109 @@ describe("readJsonBody", () => {
       expect(error).toBeInstanceOf(ApiError);
       expect((error as ApiError).status).toBe(400);
     }
+  });
+});
+
+function purchaseUser(overrides: Partial<AuthUser>): AuthUser {
+  return {
+    id: "u1",
+    email: "a@b.com",
+    role: "shop_admin",
+    shopId: "shop-1",
+    branchId: "branch-1",
+    ...overrides,
+  } as AuthUser;
+}
+
+describe("assertCanWritePurchase", () => {
+  it("allows a shop_admin anywhere in their own shop", () => {
+    expect(() =>
+      assertCanWritePurchase(purchaseUser({ role: "shop_admin" }), {
+        shopId: "shop-1",
+        branchId: "branch-9",
+      })
+    ).not.toThrow();
+  });
+
+  it("allows a branch_admin in their own branch", () => {
+    expect(() =>
+      assertCanWritePurchase(purchaseUser({ role: "branch_admin" }), {
+        shopId: "shop-1",
+        branchId: "branch-1",
+      })
+    ).not.toThrow();
+  });
+
+  it("rejects a branch_admin in another branch", () => {
+    expect(() =>
+      assertCanWritePurchase(purchaseUser({ role: "branch_admin" }), {
+        shopId: "shop-1",
+        branchId: "branch-2",
+      })
+    ).toThrow(/not permitted/i);
+  });
+
+  it("rejects a technician outright", () => {
+    expect(() =>
+      assertCanWritePurchase(purchaseUser({ role: "technician" }), {
+        shopId: "shop-1",
+        branchId: "branch-1",
+      })
+    ).toThrow(/not permitted/i);
+  });
+
+  it("rejects any user from another shop", () => {
+    expect(() =>
+      assertCanWritePurchase(purchaseUser({ role: "shop_admin", shopId: "shop-2" }), {
+        shopId: "shop-1",
+        branchId: "branch-1",
+      })
+    ).toThrow(/not permitted/i);
+  });
+
+  it("rejects a user with no shop", () => {
+    expect(() =>
+      assertCanWritePurchase(purchaseUser({ shopId: undefined }), {
+        shopId: "shop-1",
+        branchId: "branch-1",
+      })
+    ).toThrow(/not permitted/i);
+  });
+});
+
+describe("assertCanReadPurchase", () => {
+  it("rejects a technician", () => {
+    expect(() =>
+      assertCanReadPurchase(purchaseUser({ role: "technician" }), {
+        shopId: "shop-1",
+        branchId: "branch-1",
+      })
+    ).toThrow(/not permitted/i);
+  });
+
+  it("allows a branch_admin in their own branch", () => {
+    expect(() =>
+      assertCanReadPurchase(purchaseUser({ role: "branch_admin" }), {
+        shopId: "shop-1",
+        branchId: "branch-1",
+      })
+    ).not.toThrow();
+  });
+});
+
+describe("assertCanManageSuppliers", () => {
+  it("returns the shopId for a shop_admin", () => {
+    expect(assertCanManageSuppliers(purchaseUser({ role: "shop_admin" }))).toBe("shop-1");
+  });
+
+  it("allows a branch_admin — suppliers are shop-wide", () => {
+    expect(assertCanManageSuppliers(purchaseUser({ role: "branch_admin" }))).toBe("shop-1");
+  });
+
+  it("rejects a technician", () => {
+    expect(() => assertCanManageSuppliers(purchaseUser({ role: "technician" }))).toThrow(
+      /not permitted/i
+    );
   });
 });
 
