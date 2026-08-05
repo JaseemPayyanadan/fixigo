@@ -14,6 +14,8 @@ function NewPurchaseContent() {
   const router = useRouter();
   const editId = useSearchParams().get("edit");
   const [initial, setInitial] = React.useState<Purchase | null>(null);
+  const [loadingEdit, setLoadingEdit] = React.useState(Boolean(editId));
+  const [editLoadError, setEditLoadError] = React.useState<string | null>(null);
   const [suppliers, setSuppliers] = React.useState<Supplier[]>([]);
   const [suggestions, setSuggestions] = React.useState<Suggestions>({
     names: [],
@@ -24,14 +26,32 @@ function NewPurchaseContent() {
   const [error, setError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
-    if (!editId) return;
+    if (!editId) {
+      setLoadingEdit(false);
+      return;
+    }
+
+    setLoadingEdit(true);
+    setEditLoadError(null);
+    setInitial(null);
+
     const controller = new AbortController();
 
     async function loadExisting() {
-      const response = await fetch(`/api/purchases/${editId}`, { signal: controller.signal });
-      if (response.ok) {
+      try {
+        const response = await fetch(`/api/purchases/${editId}`, { signal: controller.signal });
+        if (!response.ok) {
+          const body = (await response.json()) as { error?: string };
+          throw new Error(body.error ?? "Could not load the purchase");
+        }
         const body = (await response.json()) as { purchase: Purchase };
         setInitial({ ...body.purchase, purchaseDate: new Date(body.purchase.purchaseDate) });
+      } catch (caught) {
+        if ((caught as Error).name !== "AbortError") {
+          setEditLoadError((caught as Error).message);
+        }
+      } finally {
+        setLoadingEdit(false);
       }
     }
 
@@ -66,6 +86,8 @@ function NewPurchaseContent() {
 
   const handleSubmit = React.useCallback(
     async (payload: PurchasePayload) => {
+      if (editId && !initial) return;
+
       setSubmitting(true);
       setError(null);
 
@@ -103,8 +125,28 @@ function NewPurchaseContent() {
         setSubmitting(false);
       }
     },
-    [router, editId]
+    [router, editId, initial]
   );
+
+  if (loadingEdit) {
+    return <div className="p-6 text-sm text-gray-500">Loading purchase…</div>;
+  }
+
+  if (editLoadError) {
+    return (
+      <div className="p-6">
+        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          {editLoadError}
+        </div>
+        <button
+          onClick={() => router.push("/purchases")}
+          className="mt-3 text-sm text-blue-600"
+        >
+          Back to purchases
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-5 p-4 sm:p-6">

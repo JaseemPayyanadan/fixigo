@@ -31,6 +31,7 @@ function PurchaseDetailsContent() {
   const [paymentOpen, setPaymentOpen] = React.useState(false);
   const [cancelling, setCancelling] = React.useState(false);
   const [cancelReason, setCancelReason] = React.useState("");
+  const [cancelError, setCancelError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     if (!id) {
@@ -64,6 +65,8 @@ function PurchaseDetailsContent() {
   const handleCancel = React.useCallback(async () => {
     if (!purchase || cancelReason.trim() === "") return;
 
+    setCancelError(null);
+
     const response = await fetch(`/api/purchases/${purchase.id}/cancel`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -72,7 +75,7 @@ function PurchaseDetailsContent() {
 
     if (!response.ok) {
       const body = (await response.json()) as { error?: string };
-      setError(body.error ?? "Could not cancel the purchase");
+      setCancelError(body.error ?? "Could not cancel the purchase");
       return;
     }
 
@@ -80,6 +83,7 @@ function PurchaseDetailsContent() {
     setPurchase(revive(body.purchase));
     setCancelling(false);
     setCancelReason("");
+    setCancelError(null);
   }, [purchase, cancelReason]);
 
   if (loading) {
@@ -109,7 +113,10 @@ function PurchaseDetailsContent() {
         purchase={purchase}
         onRecordPayment={() => setPaymentOpen(true)}
         onEdit={() => router.push(`/purchases/new?edit=${purchase.id}`)}
-        onCancel={() => setCancelling(true)}
+        onCancel={() => {
+          setCancelling(true);
+          setCancelError(null);
+        }}
       />
 
       {cancelling && (
@@ -123,9 +130,17 @@ function PurchaseDetailsContent() {
             className="h-11 w-full rounded-xl border border-red-200 px-3 text-sm"
             placeholder="e.g. wrong supplier"
           />
+          {cancelError && (
+            <div className="mt-3 rounded-xl border border-red-300 bg-red-100 p-3 text-sm text-red-700">
+              {cancelError}
+            </div>
+          )}
           <div className="mt-3 flex gap-2">
             <button
-              onClick={() => setCancelling(false)}
+              onClick={() => {
+                setCancelling(false);
+                setCancelError(null);
+              }}
               className="flex-1 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm"
             >
               Keep purchase
