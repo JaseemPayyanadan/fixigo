@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 import { requireUser, toErrorResponse } from "@/lib/apiAuth";
 import { listNotifications } from "@/lib/notificationRepo";
@@ -6,7 +6,7 @@ import { logger } from "@/lib/logger";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(_request: NextRequest) {
   try {
     // Owner comes from the session only — never from a userId query param.
     const user = await requireUser();

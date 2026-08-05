@@ -4,14 +4,10 @@ import { useCallback, useEffect, useState } from "react";
 
 import Link from "next/link";
 
-import { collection, doc, getDoc, getDocs, query, where } from "firebase/firestore";
-
 import { BranchAdminBranchList, ShopAdminBranchList, TechnicianBranchList } from "@/components/branch";
 import { SearchFilter } from "@/components/ui";
 import { useUser } from "@/hooks";
 import { useBranches } from "@/hooks/useBranches";
-import { db } from "@/lib/firebase";
-import { logger } from "@/lib/logger";
 
 export default function BranchPage() {
   const { user } = useUser();
@@ -35,66 +31,6 @@ export default function BranchPage() {
     console.log("Branch page - shopId:", shopId);
   }, [branches, statusFilter, user, shopId]);
 
-  // Fetch technicians for each branch
-  useEffect(() => {
-    const fetchTechnicians = async () => {
-      if (!branches.length || !shopId) return;
-
-      try {
-        logger.info("Fetching technicians for branches", { branchCount: branches.length });
-
-        const byBranch: Record<string, string[]> = {};
-
-        // Fetch technicians from branch members array for each branch
-        for (const branch of branches) {
-          try {
-            const branchDoc = await getDoc(doc(db, "shops", shopId, "branches", branch.id));
-            if (branchDoc.exists()) {
-              const branchData = branchDoc.data();
-              const members = branchData.members || [];
-
-              const technicianNames: string[] = [];
-
-              // Fetch user names for each technician
-              for (const member of members) {
-                if (member.role === "technician" && member.userId) {
-                  try {
-                    // Fetch user name from users collection
-                    const userQuery = query(collection(db, "users"), where("uid", "==", member.userId));
-                    const userSnapshot = await getDocs(userQuery);
-
-                    if (!userSnapshot.empty) {
-                      const userData = userSnapshot.docs[0].data();
-                      const userName = userData.name || "Unknown User";
-                      technicianNames.push(userName);
-                    }
-                  } catch (userError) {
-                    logger.warn(`Error fetching user for userId ${member.userId}:`, { error: String(userError) });
-                  }
-                }
-              }
-
-              if (technicianNames.length > 0) {
-                byBranch[branch.id] = technicianNames;
-              }
-
-              logger.debug(`Fetched ${technicianNames.length} technicians for branch ${branch.id}`);
-            }
-          } catch (error) {
-            logger.warn(`Error fetching technicians for branch ${branch.id}:`, { error: String(error) });
-            // Continue with other branches even if one fails
-          }
-        }
-
-        logger.debug("Technicians grouped by branch", { branchCount: Object.keys(byBranch).length });
-      } catch (error) {
-        logger.error("Error fetching technicians", { error: error as Error });
-        // Don't set error state here as it's not critical for the page to function
-      }
-    };
-
-    fetchTechnicians();
-  }, [branches, shopId]);
 
   const handleDeleteBranch = useCallback(
     (branch: { id: string }) => {

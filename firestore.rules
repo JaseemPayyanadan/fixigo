@@ -1,110 +1,126 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Helper functions
-    function isAuthenticated() {
+    function signedIn() {
       return request.auth != null;
     }
 
-    function isOwner(userId) {
-      return request.auth.uid == userId;
+    function userDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
 
-    function isShopOwner(shopId) {
-      return isAuthenticated() &&
-        exists(/databases/$(database)/documents/shops/$(shopId)) &&
-        resource.data.ownerId == request.auth.uid;
+    function userShopId() {
+      return userDoc().shopId;
     }
 
-    function isBranchAdmin(branchId) {
-      return isAuthenticated() &&
-        exists(/databases/$(database)/documents/branches/$(branchId)) &&
-        resource.data.adminId == request.auth.uid;
+    function userRole() {
+      return userDoc().role;
     }
 
-    function isTechnician(technicianId) {
-      return isAuthenticated() &&
-        request.auth.uid == technicianId;
+    function userBranchId() {
+      return userDoc().branchId;
     }
 
-    // Users collection
+    function sameShop(shopId) {
+      return signedIn()
+        && shopId is string
+        && shopId.size() > 0
+        && userShopId() == shopId;
+    }
+
+    function isShopAdmin() {
+      return signedIn() && userRole() == 'shop_admin';
+    }
+
+    function isSelf(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
     match /users/{userId} {
-      allow read: if isAuthenticated() && (isOwner(userId) || isShopOwner(resource.data.shopId));
-      allow write: if isAuthenticated() && isOwner(userId);
-      allow delete: if false; // Prevent user deletion
+      allow read: if isSelf(userId)
+        || (signedIn() && resource.data.keys().hasAny(['shopId']) && resource.data.shopId == userShopId());
+      allow create: if false;
+      allow update: if isSelf(userId)
+        || (isShopAdmin() && resource.data.shopId == userShopId());
+      allow delete: if false;
     }
 
-    // Shops collection
     match /shops/{shopId} {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated() && isShopOwner(shopId);
-      allow delete: if false; // Prevent shop deletion
+      allow read: if signedIn() && shopId == userShopId();
+      allow write: if false;
+      allow delete: if false;
+
+      match /branches/{branchId} {
+        allow read: if sameShop(shopId);
+        allow write: if false;
+
+        match /technicians/{technicianId} {
+          allow read: if sameShop(shopId);
+          allow write: if false;
+        }
+      }
     }
 
-    // Branches collection
     match /branches/{branchId} {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated() && (isShopOwner(resource.data.shopId) || isBranchAdmin(branchId));
-      allow delete: if false; // Prevent branch deletion
+      allow read: if sameShop(resource.data.shopId);
+      allow create: if sameShop(request.resource.data.shopId) && isShopAdmin();
+      allow update: if sameShop(resource.data.shopId)
+        && (isShopAdmin() || (userRole() == 'branch_admin' && userBranchId() == branchId));
+      allow delete: if false;
     }
 
-    // Technicians collection
     match /technicians/{technicianId} {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated() && (isTechnician(technicianId) || isBranchAdmin(resource.data.branchId));
-      allow delete: if false; // Prevent technician deletion
+      allow read: if sameShop(resource.data.shopId);
+      allow create: if sameShop(request.resource.data.shopId)
+        && (isShopAdmin() || userRole() == 'branch_admin');
+      allow update: if sameShop(resource.data.shopId)
+        && (isShopAdmin()
+          || (userRole() == 'branch_admin' && userBranchId() == resource.data.branchId)
+          || request.auth.uid == resource.data.userId);
+      allow delete: if false;
     }
 
-    // Services collection
     match /services/{serviceId} {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated() && (isTechnician(resource.data.assignedTo) || isBranchAdmin(resource.data.branchId));
-      allow delete: if false; // Prevent service deletion
+      allow read: if sameShop(resource.data.shopId);
+      allow create: if sameShop(request.resource.data.shopId);
+      allow update: if sameShop(resource.data.shopId);
+      allow delete: if sameShop(resource.data.shopId) && isShopAdmin();
     }
 
-    // Customers collection
     match /customers/{customerId} {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated() && isBranchAdmin(resource.data.branchId);
-      allow delete: if false; // Prevent customer deletion
+      allow read: if sameShop(resource.data.shopId);
+      allow create: if sameShop(request.resource.data.shopId);
+      allow update: if sameShop(resource.data.shopId);
+      allow delete: if false;
     }
 
-    // Parts collection
     match /parts/{partId} {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated() && isBranchAdmin(resource.data.branchId);
-      allow delete: if false; // Prevent part deletion
+      allow read: if sameShop(resource.data.shopId);
+      allow create: if sameShop(request.resource.data.shopId);
+      allow update: if sameShop(resource.data.shopId);
+      allow delete: if false;
     }
 
-    // Notifications collection
     match /notifications/{notificationId} {
-      allow read: if isAuthenticated() && isOwner(resource.data.userId);
-      allow write: if isAuthenticated() && isOwner(resource.data.userId);
-      allow delete: if isAuthenticated() && isOwner(resource.data.userId);
+      allow read, update, delete: if isSelf(resource.data.userId);
+      allow create: if isSelf(request.resource.data.userId);
     }
 
-    // Audit logs collection (read-only for admins)
     match /audit_logs/{logId} {
-      allow read: if isAuthenticated() && (isShopOwner(resource.data.shopId) || isBranchAdmin(resource.data.branchId));
-      allow write: if false; // System only
-      allow delete: if false; // Never delete audit logs
+      allow read: if sameShop(resource.data.shopId);
+      allow write, delete: if false;
     }
 
-    // Suppliers collection (server writes via adminDb)
     match /suppliers/{supplierId} {
-      allow read: if isAuthenticated()
-        && resource.data.shopId == request.auth.token.shopId;
+      allow read: if sameShop(resource.data.shopId);
       allow write: if false;
     }
 
-    // Purchases collection (server writes via adminDb)
     match /purchases/{purchaseId} {
-      allow read: if isAuthenticated()
-        && resource.data.shopId == request.auth.token.shopId;
+      allow read: if sameShop(resource.data.shopId);
       allow write: if false;
     }
 
-    // Purchase counters (server-only)
     match /purchaseCounters/{shopId} {
       allow read, write: if false;
     }

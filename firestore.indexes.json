@@ -96,7 +96,6 @@
         }
       ]
     },
-
     {
       "collectionGroup": "technicians",
       "queryScope": "COLLECTION",
@@ -473,13 +472,6 @@
         }
       ]
     },
-
-
-
-
-
-
-
     {
       "collectionGroup": "customers",
       "queryScope": "COLLECTION",
@@ -565,6 +557,20 @@
         {
           "fieldPath": "sku",
           "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "notifications",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "userId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
         }
       ]
     },

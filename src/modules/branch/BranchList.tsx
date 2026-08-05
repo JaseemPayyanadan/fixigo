@@ -2,10 +2,8 @@ import React, { useEffect, useState } from "react";
 
 import { useRouter } from "next/navigation";
 
-import { collection, doc, getDoc, getDocs, query, where } from "firebase/firestore";
 
 import { useUser } from "../../hooks/useUser";
-import { db } from "../../lib/firebase";
 import { Branch } from "../../types";
 
 interface BranchListProps {
@@ -30,74 +28,24 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, loading, error
       }
 
       try {
+        const response = await fetch("/api/technicians");
+        if (!response.ok) throw new Error("Failed to fetch technicians");
+        const body = await response.json();
+        const technicians = Array.isArray(body.technicians) ? body.technicians : [];
         const byBranch: Record<string, string[]> = {};
-
-        // Fetch technicians from branch members array for each branch
         for (const branch of branches) {
-          try {
-            const branchDoc = await getDoc(doc(db, "shops", shopId, "branches", branch.id));
-            if (branchDoc.exists()) {
-              const branchData = branchDoc.data();
-              const members = branchData.members || [];
-
-              const technicianNames: string[] = [];
-
-              // Fetch user names for each technician
-              for (const member of members) {
-                if (member.role === "technician" && member.userId) {
-                  try {
-                    // Try to get user document directly by ID first
-                    try {
-                      const userDoc = await getDoc(doc(db, "users", member.userId));
-                      if (userDoc.exists()) {
-                        const userData = userDoc.data();
-                        const userName = userData.name || "Unknown User";
-                        technicianNames.push(userName);
-                        continue; // Skip the query method if direct access worked
-                      }
-                    } catch (directError) {
-                      // Direct access failed, try query method
-                    }
-
-                    // Method 2: Try query method
-                    const userQuery = query(collection(db, "users"), where("uid", "==", member.userId));
-                    const userSnapshot = await getDocs(userQuery);
-
-                    if (!userSnapshot.empty) {
-                      const userData = userSnapshot.docs[0].data();
-                      const userName = userData.name || "Unknown User";
-                      technicianNames.push(userName);
-                    } else {
-                      // Fallback: Use name from member data if available
-                      if (member.name) {
-                        technicianNames.push(member.name);
-                      }
-                    }
-                  } catch (userError) {
-                    // Fallback: Use name from member data if available
-                    if (member.name) {
-                      technicianNames.push(member.name);
-                    }
-                  }
-                }
-              }
-
-              byBranch[branch.id] = technicianNames;
-            } else {
-              byBranch[branch.id] = [];
-            }
-          } catch (error) {
-            byBranch[branch.id] = [];
-          }
+          byBranch[branch.id] = technicians
+            .filter((t: { branchId?: string; status?: string }) => t.branchId === branch.id && t.status !== "inactive")
+            .map((t: { name?: string }) => t.name || "Unknown");
         }
-
         setTechniciansByBranch(byBranch);
-      } catch (error) {
+      } catch {
         setTechniciansByBranch({});
       }
     };
-    fetchTechnicians();
+    void fetchTechnicians();
   }, [branches, shopId]);
+
 
   // Helper function to get the correct field values
   const getBranchField = (branch: Branch, field: "location" | "phone" | "email") => {

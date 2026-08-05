@@ -167,3 +167,39 @@ export async function setServicePaymentAdmin(
   await updateService(id, shopId, { fields, deleteFields });
   return paid ? { paymentStatus: "paid", paidAt: now } : { paymentStatus: "pending" };
 }
+
+
+export async function createService(
+  input: {
+    shopId: string;
+    branchId: string;
+    name: string;
+    description?: string;
+    price: number;
+    technician_id?: string;
+    priority?: string;
+    customer?: Record<string, unknown>;
+    device?: Record<string, unknown>;
+    created_by?: Record<string, unknown>;
+    status?: string;
+  }
+): Promise<ServiceRecord> {
+  const now = new Date();
+  const ref = await adminDb.collection(SERVICES).add({
+    name: input.name,
+    description: input.description || "",
+    price: input.price,
+    shopId: input.shopId,
+    branchId: input.branchId,
+    technician_id: input.technician_id || "",
+    priority: input.priority || "medium",
+    customer: input.customer || {},
+    device: input.device || {},
+    created_by: input.created_by || {},
+    status: input.status || "pending",
+    createdAt: now,
+    updatedAt: now,
+  });
+  const created = await ref.get();
+  return mapServiceRecord(created.id, created.data() as Record<string, unknown>);
+}

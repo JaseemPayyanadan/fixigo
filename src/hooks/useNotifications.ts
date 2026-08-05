@@ -74,10 +74,19 @@ export function useNotifications() {
         body: JSON.stringify({ notificationId }),
       });
       if (!response.ok) throw new Error(await readError(response));
-      setNotifications((prev) =>
-        prev.map((n) => (n.id === notificationId ? { ...n, read: true } : n))
-      );
-      setUnreadCount((prev) => Math.max(0, prev - 1));
+
+      // Drop in-flight poll responses so they cannot restore pre-mark state.
+      requestSeq.current += 1;
+
+      let shouldDecrement = false;
+      setNotifications((prev) => {
+        const target = prev.find((n) => n.id === notificationId);
+        shouldDecrement = Boolean(target && !target.read);
+        return prev.map((n) => (n.id === notificationId ? { ...n, read: true } : n));
+      });
+      if (shouldDecrement) {
+        setUnreadCount((prev) => Math.max(0, prev - 1));
+      }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Failed to mark notification as read";
       logger.error("Error marking notification as read", { error: errorMessage, notificationId });
@@ -91,6 +100,9 @@ export function useNotifications() {
     try {
       const response = await fetch("/api/notifications/mark-read", { method: "POST" });
       if (!response.ok) throw new Error(await readError(response));
+
+      // Drop in-flight poll responses so they cannot restore pre-mark state.
+      requestSeq.current += 1;
       setUnreadCount(0);
       setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
     } catch (err) {

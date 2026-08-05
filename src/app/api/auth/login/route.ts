@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { generateToken } from "@/lib/auth";
 import { loginUser } from "@/lib/authUsers";
+import { mintCustomTokenForUser } from "@/lib/firebaseCustomToken";
 
 export const dynamic = "force-dynamic";
 
@@ -19,22 +20,23 @@ export async function POST(request: NextRequest) {
 
     const user = await loginUser({ email, password });
     const token = generateToken(user);
+    const customToken = await mintCustomTokenForUser(user);
 
-    // Set HttpOnly cookie
     const cookieStore = await cookies();
     cookieStore.set("session", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
-      maxAge: 60 * 60 * 24 * 7, // 7 days
+      maxAge: 60 * 60 * 24 * 7,
       path: "/",
     });
 
     return NextResponse.json({
       user: {
         ...user,
-        uid: user.id, // Include uid for compatibility
+        uid: user.id,
       },
+      customToken,
     });
   } catch (error) {
     console.error("Login error:", error);
@@ -43,4 +45,4 @@ export async function POST(request: NextRequest) {
       { status: 401 }
     );
   }
-} 
+}

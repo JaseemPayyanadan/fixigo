@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 import { cert, getApps, initializeApp, type App } from "firebase-admin/app";
+import { getAuth, type Auth } from "firebase-admin/auth";
 import { getFirestore, type Firestore } from "firebase-admin/firestore";
 
 // Server-only. Bypasses Firestore security rules via a service account.
@@ -114,3 +115,33 @@ export const adminDb = new Proxy({} as Firestore, {
 }) as Firestore;
 
 export { FieldValue, Timestamp } from "firebase-admin/firestore";
+
+
+let authSingleton: Auth | undefined;
+
+function getAdminAuth(): Auth {
+  if (!authSingleton) {
+    authSingleton = getAuth(initAdminApp());
+  }
+  return authSingleton;
+}
+
+/** Lazily initialized Admin Auth — same pattern as adminDb. */
+export const adminAuth = new Proxy({} as Auth, {
+  get(_target, prop, receiver) {
+    const auth = getAdminAuth();
+    const value = Reflect.get(auth, prop, auth);
+    return typeof value === "function" ? value.bind(auth) : value;
+  },
+}) as Auth;
+
+/**
+ * Mint a Firebase Auth custom token whose UID is the Firestore users/{id} doc id.
+ * Client signs in with this so Firestore rules see request.auth.uid.
+ */
+export async function createSessionCustomToken(
+  userId: string,
+  claims?: { shopId?: string; role?: string; branchId?: string }
+): Promise<string> {
+  return getAdminAuth().createCustomToken(userId, claims);
+}
