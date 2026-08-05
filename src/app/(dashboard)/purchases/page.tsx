@@ -4,6 +4,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import React, { Suspense } from "react";
 
+import { Button } from "@/components/ui/Button";
 import SlideOver from "@/components/ui/SlideOver";
 import PurchaseFormHost from "@/modules/purchase/PurchaseFormHost";
 import PurchaseList from "@/modules/purchase/PurchaseList";
@@ -163,24 +164,12 @@ function PurchasesPageContent() {
 
   return (
     <div className="space-y-5 p-4 md:p-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl font-semibold text-gray-900">Spare Purchases</h1>
-          <p className="text-sm text-gray-500">Manage spare purchases, suppliers and payments</p>
-        </div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
         <div className="flex gap-2">
-          <button
-            onClick={() => router.push("/purchases/suppliers")}
-            className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-          >
+          <Button variant="secondary" onClick={() => router.push("/purchases/suppliers")}>
             Suppliers
-          </button>
-          <button
-            onClick={openNewPurchase}
-            className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-          >
-            + New Purchase
-          </button>
+          </Button>
+          <Button onClick={openNewPurchase}>+ New Purchase</Button>
         </div>
       </div>
 
@@ -237,22 +226,23 @@ function PurchasesPageContent() {
         maxWidthClassName="max-w-2xl"
         footer={
           <div className="flex gap-3">
-            <button
+            <Button
               type="button"
+              variant="secondary"
+              fullWidth
               onClick={closeSlide}
               disabled={slideFormState.submitting}
-              className="h-11 flex-1 rounded-xl border border-gray-200 bg-white px-4 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
               form={purchaseSlideFormId}
+              fullWidth
               disabled={!slideFormState.canSubmit || slideFormState.submitting}
-              className="h-11 flex-1 rounded-xl bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
             >
               {slideFormState.submitting ? "Saving…" : slideFormState.submitLabel}
-            </button>
+            </Button>
           </div>
         }
       >

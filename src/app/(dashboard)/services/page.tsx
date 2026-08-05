@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
   CheckCircleIcon,
@@ -14,6 +13,7 @@ import {
   ExclamationTriangleIcon
 } from "@heroicons/react/24/outline";
 import { PermissionGuard, RoleGuard } from "../../../components";
+import { Button } from "../../../components/ui/Button";
 import { BranchAdminServiceList, ShopAdminServiceList, TechnicianServiceList } from "../../../components/service";
 import { useUser } from "../../../hooks";
 import { useBranches } from "../../../hooks/useBranches";
@@ -407,10 +407,10 @@ function ServicesContent() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="w-full mx-auto p-4 md:p-6">
+      <div className="w-full mx-auto space-y-5 p-4 md:p-6">
 
         {/* Search + status filter button */}
-        <div className="mb-4 flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           {/* Search. The app header carries one from `lg` up and hides it
               below that, so this fills the gap on phones and tablets. */}
           <div className="relative min-w-0 flex-1 sm:max-w-xs lg:hidden">
@@ -443,14 +443,10 @@ function ServicesContent() {
           {/* New Service Button */}
           <PermissionGuard permissions={["service:write"]} fallback={null}>
             {/* Square icon button on phones, labelled button from `sm` up. */}
-            <Link
-              href="/services/new"
-              aria-label="New service"
-              className="inline-flex h-11 w-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-blue-600 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:bg-blue-700 hover:shadow-md sm:h-auto sm:w-auto sm:px-4 sm:py-2.5"
-            >
+            <Button href="/services/new" aria-label="New service" size="icon" className="sm:w-auto sm:px-4">
               <PlusIcon className="w-4 h-4" />
               <span className="hidden sm:inline">New Service</span>
-            </Link>
+            </Button>
           </PermissionGuard>
           </div>
         </div>

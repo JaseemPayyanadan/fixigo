@@ -2,6 +2,7 @@
 
 import React from "react";
 
+import { Button } from "@/components/ui/Button";
 import type { Supplier } from "@/types/purchase";
 
 export interface SupplierPayload {
@@ -90,12 +91,12 @@ const SupplierForm = React.memo(function SupplierForm({
       </div>
 
       <div className="mt-4 flex gap-2">
-        <button type="button" onClick={onCancel} className="flex-1 rounded-xl border border-gray-200 px-4 py-3 text-sm font-medium text-gray-700">
+        <Button type="button" variant="secondary" size="lg" fullWidth onClick={onCancel}>
           Cancel
-        </button>
-        <button type="submit" disabled={saving} className="flex-1 rounded-xl bg-blue-600 px-4 py-3 text-sm font-medium text-white disabled:opacity-60">
+        </Button>
+        <Button type="submit" size="lg" fullWidth disabled={saving}>
           {saving ? "Saving…" : "Save supplier"}
-        </button>
+        </Button>
       </div>
     </form>
   );

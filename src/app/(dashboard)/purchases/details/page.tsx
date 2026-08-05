@@ -4,6 +4,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import React, { Suspense } from "react";
 
+import { Button } from "@/components/ui/Button";
 import PurchaseDetails from "@/modules/purchase/PurchaseDetails";
 import RecordPaymentModal from "@/modules/purchase/RecordPaymentModal";
 import type { Purchase } from "@/types/purchase";
@@ -143,22 +144,19 @@ function PurchaseDetailsContent() {
             </div>
           )}
           <div className="mt-3 flex gap-2">
-            <button
+            <Button
+              variant="secondary"
+              fullWidth
               onClick={() => {
                 setCancelling(false);
                 setCancelError(null);
               }}
-              className="flex-1 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm"
             >
               Keep purchase
-            </button>
-            <button
-              onClick={handleCancel}
-              disabled={cancelReason.trim() === ""}
-              className="flex-1 rounded-xl bg-red-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
-            >
+            </Button>
+            <Button variant="danger" fullWidth onClick={handleCancel} disabled={cancelReason.trim() === ""}>
               Confirm cancel
-            </button>
+            </Button>
           </div>
         </div>
       )}

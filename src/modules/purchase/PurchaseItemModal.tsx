@@ -4,6 +4,8 @@
 import React from "react";
 import { createPortal } from "react-dom";
 
+import { Button } from "@/components/ui/Button";
+
 export interface ItemFormValues {
   key: string;
   name: string;
@@ -209,19 +211,12 @@ const PurchaseItemModal = React.memo(function PurchaseItemModal({
         </div>
 
         <div className="mt-5 flex gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex-1 rounded-xl border border-gray-200 px-4 py-3 text-sm font-medium text-gray-700"
-          >
+          <Button type="button" variant="secondary" size="lg" fullWidth onClick={onClose}>
             Cancel
-          </button>
-          <button
-            type="submit"
-            className="flex-1 rounded-xl bg-blue-600 px-4 py-3 text-sm font-medium text-white"
-          >
+          </Button>
+          <Button type="submit" size="lg" fullWidth>
             {initial ? "Save item" : "Add item"}
-          </button>
+          </Button>
         </div>
       </form>
     </div>,

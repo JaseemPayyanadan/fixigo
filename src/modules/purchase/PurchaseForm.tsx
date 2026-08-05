@@ -3,6 +3,7 @@
 
 import React from "react";
 
+import { Button } from "@/components/ui/Button";
 import { formatRupees } from "@/lib/purchaseFormat";
 import { computeTotals, lineTotalOf } from "@/lib/purchaseTotals";
 import type { Branch } from "@/types";
@@ -425,13 +426,9 @@ const PurchaseForm = React.memo(function PurchaseForm({
       </section>
 
       {!hideSubmit && (
-        <button
-          type="submit"
-          disabled={submitting || rows.length === 0}
-          className="w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
-        >
+        <Button type="submit" size="lg" fullWidth disabled={submitting || rows.length === 0}>
           {submitting ? "Saving…" : submitLabel ?? "Save purchase"}
-        </button>
+        </Button>
       )}
 
       <PurchaseItemModal

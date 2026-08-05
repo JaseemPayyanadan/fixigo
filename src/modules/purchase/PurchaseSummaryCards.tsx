@@ -3,6 +3,7 @@
 
 import React from "react";
 
+import { Card } from "@/components/dashboard/widgets";
 import { formatRupees } from "@/lib/purchaseFormat";
 import type { PurchaseSummary } from "@/lib/purchaseSummary";
 
@@ -64,7 +65,7 @@ const PurchaseSummaryCards = React.memo(function PurchaseSummaryCards({ summary,
     return (
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-5">
         {Array.from({ length: 5 }).map((_, index) => (
-          <div key={index} className="h-24 animate-pulse rounded-xl border border-gray-200 bg-gray-50" />
+          <div key={index} className="h-24 animate-pulse rounded-2xl border border-gray-100 bg-gray-50" />
         ))}
       </div>
     );
@@ -73,13 +74,13 @@ const PurchaseSummaryCards = React.memo(function PurchaseSummaryCards({ summary,
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-5">
       {cards.map((card) => (
-        <div key={card.label} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+        <Card key={card.label} className="p-5">
           <div className={`mb-2 inline-flex rounded-lg px-2 py-1 text-xs font-medium ${card.accent}`}>
             {card.label}
           </div>
-          <p className="text-xl font-semibold text-gray-900">{card.value}</p>
-          <p className="mt-1 text-xs text-gray-500">{card.hint}</p>
-        </div>
+          <p className="text-lg font-bold leading-none tracking-tight text-gray-900">{card.value}</p>
+          <p className="mt-1 text-xs text-gray-400">{card.hint}</p>
+        </Card>
       ))}
     </div>
   );

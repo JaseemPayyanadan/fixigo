@@ -1,30 +1,76 @@
+// src/components/ui/Button.tsx
+"use client";
+
 import React from "react";
 
-interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: "primary" | "secondary" | "danger" | "outline";
-}
+import Link from "next/link";
 
-const base =
-  "px-4 py-2 rounded-lg font-semibold transition shadow focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed";
-const variants = {
+export type ButtonVariant = "primary" | "secondary" | "danger";
+export type ButtonSize = "sm" | "md" | "lg" | "icon";
+
+const VARIANT_CLASSES: Record<ButtonVariant, string> = {
   primary: "bg-blue-600 text-white hover:bg-blue-700",
-  secondary: "bg-gray-200 text-gray-800 hover:bg-gray-300",
+  secondary: "border border-gray-200 bg-white text-gray-700 hover:bg-gray-50",
   danger: "bg-red-600 text-white hover:bg-red-700",
-  outline: "border border-gray-300 text-gray-800 hover:bg-gray-100",
 };
 
-const Button: React.FC<ButtonProps> = ({
-  children,
-  variant = "primary",
-  className = "",
-  ...props
-}) => (
-  <button
-    className={`${base} ${variants[variant]} ${className}`}
-    {...props}
-  >
-    {children}
-  </button>
-);
+const SIZE_CLASSES: Record<ButtonSize, string> = {
+  sm: "h-9 px-3 text-sm",
+  md: "h-11 px-4 text-sm",
+  lg: "h-12 px-4 text-sm",
+  icon: "h-11 w-11",
+};
 
-export default Button; 
+const BASE_CLASSES =
+  "inline-flex shrink-0 items-center justify-center gap-2 rounded-xl font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60 disabled:pointer-events-none";
+
+interface CommonProps {
+  variant?: ButtonVariant;
+  size?: ButtonSize;
+  fullWidth?: boolean;
+  className?: string;
+  children: React.ReactNode;
+}
+
+type ButtonAsButton = CommonProps &
+  Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, "className"> & { href?: undefined };
+
+type ButtonAsLink = CommonProps &
+  Omit<React.ComponentProps<typeof Link>, "className"> & { href: string };
+
+export type ButtonProps = ButtonAsButton | ButtonAsLink;
+
+/** Shared button surface: one place for the primary/secondary/danger look
+ * every purchase and repair action button was previously rebuilding by hand.
+ * Renders a `<Link>` when `href` is passed, a `<button>` otherwise, so call
+ * sites don't need two components for the same visual style. */
+export function Button({
+  variant = "primary",
+  size = "md",
+  fullWidth = false,
+  className = "",
+  children,
+  ...rest
+}: ButtonProps) {
+  const classes = [BASE_CLASSES, VARIANT_CLASSES[variant], SIZE_CLASSES[size], fullWidth ? "w-full" : "", className]
+    .filter(Boolean)
+    .join(" ");
+
+  if (rest.href !== undefined) {
+    const { href, ...linkRest } = rest as ButtonAsLink;
+    return (
+      <Link href={href} className={classes} {...linkRest}>
+        {children}
+      </Link>
+    );
+  }
+
+  const { type = "button", ...buttonRest } = rest as ButtonAsButton;
+  return (
+    <button type={type} className={classes} {...buttonRest}>
+      {children}
+    </button>
+  );
+}
+
+export default Button;

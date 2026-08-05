@@ -498,13 +498,13 @@ function ServiceDetailsPage() {
           <div className="flex gap-3 justify-center">
             <button
               onClick={handleGoBack}
-              className="inline-flex min-h-11 items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors motion-reduce:transition-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="inline-flex min-h-11 items-center px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors motion-reduce:transition-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               Go Back
             </button>
             <button
               onClick={handleReload}
-              className="inline-flex min-h-11 items-center px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors motion-reduce:transition-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="inline-flex min-h-11 items-center px-4 py-2 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-100 transition-colors motion-reduce:transition-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <MdRefresh className="w-4 h-4 inline mr-1" />
               Retry
@@ -524,7 +524,7 @@ function ServiceDetailsPage() {
           <div className="flex items-center mb-6">
             <button
               onClick={handleCancelEdit}
-              className="mr-4 inline-flex min-h-11 min-w-11 items-center justify-center p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors motion-reduce:transition-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="mr-4 inline-flex min-h-11 min-w-11 items-center justify-center p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-xl transition-colors motion-reduce:transition-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500"
               aria-label="Cancel edit"
             >
               <MdArrowBack className="w-6 h-6" />

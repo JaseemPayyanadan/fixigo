@@ -365,7 +365,7 @@ export function ServiceTable({
       // counter's screen.
       columnHelper.accessor("price", {
         id: "price",
-        header: "Price",
+        header: "Amount",
         meta: { headerClass: "text-right", cellClass: "text-right" },
         cell: ({ row, getValue }) => {
           const paid = isPaid(row.original);

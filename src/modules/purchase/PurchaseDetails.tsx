@@ -3,6 +3,7 @@
 
 import React from "react";
 
+import { Button } from "@/components/ui/Button";
 import { formatRupees, paymentStatusLabel } from "@/lib/purchaseFormat";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import type { Purchase } from "@/types/purchase";
@@ -169,27 +170,24 @@ const PurchaseDetails = React.memo(function PurchaseDetails({
 
       <div className="flex flex-col gap-2 sm:flex-row">
         {payable && (
-          <button
-            onClick={onRecordPayment}
-            className="flex-1 rounded-xl bg-blue-600 px-4 py-3 text-sm font-medium text-white hover:bg-blue-700"
-          >
+          <Button size="lg" fullWidth onClick={onRecordPayment}>
             + Record Payment
-          </button>
+          </Button>
         )}
         {editable && (
           <>
-            <button
-              onClick={onEdit}
-              className="flex-1 rounded-xl border border-gray-200 px-4 py-3 text-sm font-medium text-gray-700"
-            >
+            <Button variant="secondary" size="lg" fullWidth onClick={onEdit}>
               Edit Purchase
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="secondary"
+              size="lg"
+              fullWidth
               onClick={onCancel}
-              className="flex-1 rounded-xl border border-red-200 px-4 py-3 text-sm font-medium text-red-600"
+              className="border-red-200 text-red-600 hover:bg-red-50"
             >
               Cancel Purchase
-            </button>
+            </Button>
           </>
         )}
       </div>
