@@ -22,7 +22,7 @@ const SIZE_CLASSES: Record<ButtonSize, string> = {
 };
 
 const BASE_CLASSES =
-  "inline-flex shrink-0 items-center justify-center gap-2 rounded-xl font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60 disabled:pointer-events-none";
+  "inline-flex items-center justify-center gap-2 rounded-xl font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60 disabled:pointer-events-none";
 
 interface CommonProps {
   variant?: ButtonVariant;
@@ -52,7 +52,15 @@ export function Button({
   children,
   ...rest
 }: ButtonProps) {
-  const classes = [BASE_CLASSES, VARIANT_CLASSES[variant], SIZE_CLASSES[size], fullWidth ? "w-full" : "", className]
+  // fullWidth must be allowed to shrink inside flex footers; shrink-0 only for
+  // intrinsic-width buttons so they don't get crushed by siblings.
+  const classes = [
+    BASE_CLASSES,
+    VARIANT_CLASSES[variant],
+    SIZE_CLASSES[size],
+    fullWidth ? "w-full min-w-0 flex-1" : "shrink-0",
+    className,
+  ]
     .filter(Boolean)
     .join(" ");
 

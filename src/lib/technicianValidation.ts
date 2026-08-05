@@ -6,6 +6,7 @@ export interface CreateTechnicianInput {
   phone: string;
   password: string;
   branchId: string;
+  experience?: number;
 }
 
 export interface UpdateTechnicianInput {
@@ -14,6 +15,7 @@ export interface UpdateTechnicianInput {
   phone?: string;
   branchId?: string;
   status?: "active" | "inactive";
+  experience?: number;
 }
 
 const EMAIL_PATTERN = /^\S+@\S+\.\S+$/;
@@ -31,6 +33,17 @@ function asObject(body: unknown): Record<string, unknown> {
     throw new ApiError(400, "Request body must be an object");
   }
   return body as Record<string, unknown>;
+}
+
+function parseExperience(raw: Record<string, unknown>): number | undefined {
+  if (raw.experience === undefined || raw.experience === null || raw.experience === "") {
+    return undefined;
+  }
+  const experience = Number(raw.experience);
+  if (!Number.isFinite(experience) || experience < 0) {
+    throw new ApiError(400, "experience must be a non-negative number");
+  }
+  return experience;
 }
 
 export function parseCreateInput(body: unknown): CreateTechnicianInput {
@@ -53,6 +66,7 @@ export function parseCreateInput(body: unknown): CreateTechnicianInput {
     phone: requireString(raw, "phone"),
     password,
     branchId: requireString(raw, "branchId"),
+    experience: parseExperience(raw),
   };
 }
 
@@ -77,6 +91,11 @@ export function parseUpdateInput(body: unknown): UpdateTechnicianInput {
       throw new ApiError(400, "status must be 'active' or 'inactive'");
     }
     update.status = raw.status;
+  }
+
+  if (raw.experience !== undefined) {
+    const experience = parseExperience(raw);
+    if (experience !== undefined) update.experience = experience;
   }
 
   if (Object.keys(update).length === 0) {

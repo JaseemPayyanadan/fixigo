@@ -157,7 +157,7 @@ export async function createTechnician(
       status: "active",
       bio: "",
       specializations: [],
-      experience: 0,
+      experience: input.experience ?? 0,
       rating: 0,
       totalServices: 0,
       completedServices: 0,

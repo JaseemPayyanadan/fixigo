@@ -1,7 +1,7 @@
 // src/lib/purchaseRepo.ts
 import { randomUUID } from "node:crypto";
 
-import type { DocumentReference, Transaction } from "firebase-admin/firestore";
+import type { DocumentReference, Query, Transaction } from "firebase-admin/firestore";
 
 import { ApiError } from "@/lib/apiAuth";
 import { adminDb } from "@/lib/firebaseAdmin";
@@ -159,6 +159,44 @@ export function mapPurchase(id: string, data: Record<string, unknown>): Purchase
     status: (data.status as Purchase["status"]) || "active",
     cancelReason: (data.cancelReason as string) || undefined,
     cancelledAt: toOptionalDate(data.cancelledAt),
+    createdAt: toDate(data.createdAt),
+    updatedAt: toDate(data.updatedAt),
+  };
+}
+
+/**
+ * List/summary rows only — skips nested payments/items/returns so the purchases
+ * index page stays fast as history grows.
+ */
+export function mapPurchaseListRow(id: string, data: Record<string, unknown>): Purchase {
+  return {
+    id,
+    shopId: (data.shopId as string) || "",
+    branchId: (data.branchId as string) || "",
+    ref: (data.ref as string) || "",
+    supplierInvoiceNo: (data.supplierInvoiceNo as string) || undefined,
+    supplierId: (data.supplierId as string) || "",
+    supplierName: (data.supplierName as string) || "",
+    purchaseDate: toDate(data.purchaseDate),
+    purchasedBy: { userId: "", name: "" },
+    items: [],
+    subtotal: 0,
+    discount: { mode: "amount", value: 0, amount: 0 },
+    gstRate: 0,
+    gstAmount: 0,
+    transportCharge: 0,
+    grandTotal: (data.grandTotal as number) || 0,
+    payments: [],
+    paidAmount: (data.paidAmount as number) || 0,
+    balance: (data.balance as number) || 0,
+    paymentStatus: (data.paymentStatus as Purchase["paymentStatus"]) || "unpaid",
+    dueDate: toOptionalDate(data.dueDate),
+    returns: [],
+    returnedAmount: 0,
+    refunds: [],
+    refundReceived: 0,
+    refundDue: 0,
+    status: (data.status as Purchase["status"]) || "active",
     createdAt: toDate(data.createdAt),
     updatedAt: toDate(data.updatedAt),
   };
@@ -546,14 +584,42 @@ export async function listPurchases(scope: {
   branchId?: string;
   supplierId?: string;
   includeCancelled?: boolean;
+  /** List/summary views only need money + identity fields, not nested history. */
+  light?: boolean;
 }): Promise<Purchase[]> {
-  let query = adminDb.collection(PURCHASES).where("shopId", "==", scope.shopId);
+  let query: Query = adminDb.collection(PURCHASES).where("shopId", "==", scope.shopId);
   if (scope.branchId) query = query.where("branchId", "==", scope.branchId);
   if (scope.supplierId) query = query.where("supplierId", "==", scope.supplierId);
 
+  // Field mask keeps list payloads small — nested payments/returns/items are
+  // loaded on the details endpoint instead.
+  if (scope.light) {
+    query = query.select(
+      "shopId",
+      "branchId",
+      "ref",
+      "supplierInvoiceNo",
+      "supplierId",
+      "supplierName",
+      "purchaseDate",
+      "grandTotal",
+      "paidAmount",
+      "balance",
+      "paymentStatus",
+      "status",
+      "dueDate",
+      "createdAt",
+      "updatedAt"
+    );
+  }
+
   const snap = await query.get();
   return snap.docs
-    .map((doc) => mapPurchase(doc.id, doc.data() as Record<string, unknown>))
+    .map((doc) =>
+      scope.light
+        ? mapPurchaseListRow(doc.id, doc.data() as Record<string, unknown>)
+        : mapPurchase(doc.id, doc.data() as Record<string, unknown>)
+    )
     .filter((purchase) => scope.includeCancelled || purchase.status !== "cancelled")
     .sort((a, b) => b.purchaseDate.getTime() - a.purchaseDate.getTime());
 }
@@ -567,17 +633,24 @@ const SUGGESTION_SAMPLE_SIZE = 200;
 export async function listItemSuggestions(
   shopId: string
 ): Promise<{ names: string[]; brands: string[]; models: string[] }> {
-  const purchases = (await listPurchases({ shopId })).slice(0, SUGGESTION_SAMPLE_SIZE);
+  // Only pull item names — not full purchase documents / payment history.
+  const snap = await adminDb
+    .collection(PURCHASES)
+    .where("shopId", "==", shopId)
+    .select("items")
+    .limit(SUGGESTION_SAMPLE_SIZE)
+    .get();
 
   const names = new Set<string>();
   const brands = new Set<string>();
   const models = new Set<string>();
 
-  for (const purchase of purchases) {
-    for (const item of purchase.items) {
-      if (item.name) names.add(item.name);
-      if (item.brand) brands.add(item.brand);
-      if (item.model) models.add(item.model);
+  for (const doc of snap.docs) {
+    const items = Array.isArray(doc.data().items) ? (doc.data().items as Record<string, unknown>[]) : [];
+    for (const item of items) {
+      if (typeof item.name === "string" && item.name) names.add(item.name);
+      if (typeof item.brand === "string" && item.brand) brands.add(item.brand);
+      if (typeof item.model === "string" && item.model) models.add(item.model);
     }
   }
 

@@ -20,8 +20,9 @@ interface Card {
 }
 
 /**
- * Five cards, not six. Low Stock Alerts needs stock levels this module does
- * not have, and a card that can only ever render 0 is worse than no card.
+ * Four cards. Low Stock Alerts needs stock levels this module does not have,
+ * and Items Purchased Today is omitted — unit counts are less useful than
+ * rupee totals on this screen.
  */
 function buildCards(summary: PurchaseSummary): Card[] {
   return [
@@ -49,12 +50,6 @@ function buildCards(summary: PurchaseSummary): Card[] {
       hint: "Active suppliers",
       accent: "bg-purple-50 text-purple-600",
     },
-    {
-      label: "Items Purchased Today",
-      value: String(summary.itemsPurchasedToday),
-      hint: "Units received",
-      accent: "bg-sky-50 text-sky-600",
-    },
   ];
 }
 
@@ -63,8 +58,8 @@ const PurchaseSummaryCards = React.memo(function PurchaseSummaryCards({ summary,
 
   if (loading || !summary) {
     return (
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-5">
-        {Array.from({ length: 5 }).map((_, index) => (
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, index) => (
           <div key={index} className="h-24 animate-pulse rounded-2xl border border-gray-100 bg-gray-50" />
         ))}
       </div>
@@ -72,7 +67,7 @@ const PurchaseSummaryCards = React.memo(function PurchaseSummaryCards({ summary,
   }
 
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-5">
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
       {cards.map((card) => (
         <Card key={card.label} className="p-5">
           <div className={`mb-2 inline-flex rounded-lg px-2 py-1 text-xs font-medium ${card.accent}`}>

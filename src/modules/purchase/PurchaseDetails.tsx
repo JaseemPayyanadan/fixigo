@@ -63,13 +63,25 @@ const PurchaseDetails = React.memo(function PurchaseDetails({
             <dt className="text-gray-500">Total amount</dt>
             <dd className="font-medium text-gray-900">{formatRupees(purchase.grandTotal)}</dd>
           </div>
-          <div className="flex justify-between">
-            <dt className="text-gray-500">Paid amount</dt>
-            <dd className="text-gray-900">{formatRupees(purchase.paidAmount)}</dd>
-          </div>
-          <div className="flex justify-between">
-            <dt className="text-gray-500">Balance</dt>
-            <dd className="font-semibold text-red-600">{formatRupees(purchase.balance)}</dd>
+          <div className="flex justify-between sm:col-span-2">
+            <div className="grid w-full grid-cols-2 gap-3 rounded-xl bg-gray-50 p-3">
+              <div>
+                <p className="text-xs text-gray-500">Paid amount</p>
+                <p className="text-base font-semibold text-gray-900">
+                  {formatRupees(purchase.paidAmount)}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">Balance</p>
+                <p
+                  className={`text-base font-semibold ${
+                    purchase.balance > 0 ? "text-red-600" : "text-emerald-700"
+                  }`}
+                >
+                  {formatRupees(purchase.balance)}
+                </p>
+              </div>
+            </div>
           </div>
           {purchase.dueDate && (
             <div className="flex justify-between">

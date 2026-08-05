@@ -16,7 +16,7 @@ import {
 } from "@/lib/purchaseRepo";
 import { summarizePurchases } from "@/lib/purchaseSummary";
 import { parseCreatePurchaseInput } from "@/lib/purchaseValidation";
-import { listSuppliers } from "@/lib/supplierRepo";
+import { countActiveSuppliers } from "@/lib/supplierRepo";
 
 export const dynamic = "force-dynamic";
 
@@ -30,19 +30,18 @@ export async function GET(request: NextRequest) {
     // listScopeFor already pins a non-shop-admin to their own branch.
     const scope = listScopeFor(user, request.nextUrl.searchParams.get("branchId") ?? undefined);
 
-    const [purchases, suppliers] = await Promise.all([
-      listPurchases(scope),
-      listSuppliers(scope.shopId),
+    const serviceId = request.nextUrl.searchParams.get("serviceId");
+    // serviceId needs item rows; the main list page uses the light projection.
+    const [purchases, activeSuppliers] = await Promise.all([
+      listPurchases({ ...scope, light: !serviceId }),
+      countActiveSuppliers(scope.shopId),
     ]);
 
-    const serviceId = request.nextUrl.searchParams.get("serviceId");
     const scoped = serviceId
       ? purchases.filter((purchase) =>
           purchase.items.some((item) => item.serviceId === serviceId)
         )
       : purchases;
-
-    const activeSuppliers = suppliers.filter((supplier) => supplier.status === "active").length;
 
     return NextResponse.json({
       purchases: scoped,
