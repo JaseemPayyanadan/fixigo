@@ -1,6 +1,6 @@
-export interface RefCounter {
-  year: number;
-  seq: number;
+/** Last-issued sequence per year, e.g. `{ "2025": 480, "2026": 12 }`. */
+export interface RefCounters {
+  [year: string]: number;
 }
 
 /** "PUR-2026-0012". Four-digit padding is a minimum, not a cap. */
@@ -9,13 +9,16 @@ export function formatPurchaseRef(year: number, seq: number): string {
 }
 
 /**
- * Advances the per-shop counter. Any change of year restarts the sequence —
- * including a backwards change, so a backdated entry cannot continue a
- * different year's run and mint a duplicate reference.
+ * Advances the sequence for `year` alone, leaving every other year's
+ * high-water mark intact. Keeping one counter per year is what makes the
+ * reference safe under backdating: entering a December bill in January
+ * continues December's run, and the next current-year entry still picks up
+ * where the current year left off, so no reference is ever re-issued.
  */
-export function nextRefCounter(current: RefCounter | undefined, year: number): RefCounter {
-  if (!current || current.year !== year) {
-    return { year, seq: 1 };
-  }
-  return { year, seq: current.seq + 1 };
+export function nextRefCounter(
+  current: RefCounters | undefined,
+  year: number
+): { counters: RefCounters; seq: number } {
+  const seq = (current?.[String(year)] ?? 0) + 1;
+  return { counters: { ...current, [String(year)]: seq }, seq };
 }
