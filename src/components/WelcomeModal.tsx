@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
 import Link from "next/link";
 
@@ -15,9 +15,6 @@ interface WelcomeModalProps {
 export default function WelcomeModal({ isOpen, onClose, user }: WelcomeModalProps) {
   const [currentStep, setCurrentStep] = useState(0);
   const [showConfetti, setShowConfetti] = useState(false);
-
-  const handlePreviousStep = useCallback(() => setCurrentStep((prev) => prev - 1), []);
-  const handleCloseModal = useCallback(() => onClose(), [onClose]);
 
   useEffect(() => {
     if (isOpen) {

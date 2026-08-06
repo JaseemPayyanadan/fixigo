@@ -293,21 +293,16 @@ export function shouldShowIndexLoadingState(error: string | null): boolean {
 }
 
 // Performance utilities
-export function measureTime<T>(fn: () => T, label: string): T {
-  const start = performance.now();
-  const result = fn();
-  const end = performance.now();
-  return result;
+export function measureTime<T>(fn: () => T, _label: string): T {
+  return fn();
 }
 
-export async function measureAsyncTime<T>(fn: () => Promise<T>, label: string): Promise<T> {
-  const start = performance.now();
-  const result = await fn();
-  const end = performance.now();
-  return result;
+export async function measureAsyncTime<T>(fn: () => Promise<T>, _label: string): Promise<T> {
+  return await fn();
 }
 
 // Service data transformation utilities
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- raw, loosely-shaped Firestore document
 export function transformFirestoreServiceData(docData: any, docId: string): any {
   try {
     // Handle both new and legacy service structures
@@ -323,6 +318,7 @@ export function transformFirestoreServiceData(docData: any, docId: string): any 
     };
 
     // Transform items array to ensure consistency
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- raw, loosely-shaped Firestore item
     const items = (docData.items || []).map((item: any) => ({
       name: item.name || "",
       description: item.description || "",
@@ -353,8 +349,10 @@ export function normalizeServiceStatus(status: string): string {
   return statusMap[status] || "active";
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- raw, loosely-shaped Firestore document
 export function sanitizeServiceData(data: any): any {
   // Remove undefined values and ensure proper types
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- values are heterogeneous by key
   const sanitized: Record<string, any> = {};
 
   Object.entries(data).forEach(([key, value]) => {
@@ -362,6 +360,7 @@ export function sanitizeServiceData(data: any): any {
       if (key === "price" || key === "tax") {
         sanitized[key] = Math.max(0, Number(value) || 0);
       } else if (key === "items" && Array.isArray(value)) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- raw, loosely-shaped Firestore item
         sanitized[key] = value.map((item: any) => ({
           name: String(item.name || ""),
           description: item.description ? String(item.description) : undefined,
@@ -370,7 +369,7 @@ export function sanitizeServiceData(data: any): any {
           quantity: Math.max(1, Number(item.quantity || 1)),
         }));
       } else {
-        sanitized[key] = value as any;
+        sanitized[key] = value;
       }
     }
   });

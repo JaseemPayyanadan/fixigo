@@ -1,10 +1,8 @@
 "use client";
 import React, { useState } from "react";
 
-import { 
-  ExclamationTriangleIcon, 
-  InformationCircleIcon,
-  NoSymbolIcon,
+import {
+  ExclamationTriangleIcon,
   DevicePhoneMobileIcon,
   PlusIcon,
   ChevronDownIcon,
@@ -21,31 +19,20 @@ import { Button } from "@/components/ui";
 import { TableSkeleton } from "@/components/ui/PageSkeleton";
 import ServiceCard from "./ServiceCard";
 import type { ServiceListProps } from "./types";
-import type { Branch, Technician, User } from "@/types";
+import type { Branch, Service, Technician, User } from "@/types";
 
 interface ServiceListSharedProps extends ServiceListProps {
-  services: any[]; // Using any for compatibility
-  branches: Branch[];
-  technicians: Technician[];
-  loading: boolean;
-  error?: string | null;
-  user: User | null;
-  onEdit?: (service: any) => void;
-  onDelete?: (id: string) => void;
-  onRetry?: () => void;
   onViewDetails?: (id: string) => void;
 }
 
 // Mobile Service Item Component
 const MobileServiceItem: React.FC<{
-  service: any;
+  service: Service;
   branches: Branch[];
   technicians: Technician[];
   user: User;
-  onEdit?: (service: any) => void;
-  onDelete?: (id: string) => void;
-  onViewDetails?: (id: string) => void;
-}> = ({ service, branches, technicians, user, onEdit, onDelete, onViewDetails }) => {
+  onEdit?: (service: Service) => void;
+}> = ({ service, branches, technicians, user, onEdit }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const branchName = branches.find(b => b.id === service.branchId)?.name || "Unknown Branch";
   const technicianName = technicians.find(t => t.id === service.technician_id)?.name || "Unassigned";
@@ -284,8 +271,6 @@ const ServiceList: React.FC<ServiceListSharedProps> = ({
             technicians={technicians}
             user={user!}
             onEdit={onEdit}
-            onDelete={onDelete}
-            onViewDetails={onViewDetails}
           />
         ))}
       </div>

@@ -15,7 +15,10 @@ const eslintConfig = [
     rules: {
       // 🚫 ESSENTIAL RULES - NO VIOLATIONS ALLOWED
       "@typescript-eslint/no-explicit-any": "warn", // Warn about any types
-      "@typescript-eslint/no-unused-vars": "warn", // Warn about unused variables
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_", caughtErrorsIgnorePattern: "^_" },
+      ], // Warn about unused variables (underscore-prefixed are intentional placeholders)
       "react-hooks/exhaustive-deps": "warn", // Warn about hook dependencies
 
       // 🏗️ NEXT.JS ESSENTIAL RULES

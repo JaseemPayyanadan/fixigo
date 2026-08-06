@@ -1,4 +1,4 @@
-import type { Branch, Technician, User } from "@/types";
+import type { Branch, Service, Technician, User } from "@/types";
 
 // Service Form Types
 export interface ServiceFormData {
@@ -44,14 +44,14 @@ export interface ServiceFormProps {
 
 // Service List Types
 export interface ServiceListProps {
-  services: any[]; // Using any for now to maintain compatibility
+  services: Service[];
   branches: Branch[];
   technicians: Technician[];
   loading: boolean;
   error?: string | null;
   search?: string;
   user: User | null;
-  onEdit?: (service: any) => void;
+  onEdit?: (service: Service) => void;
   onDelete?: (id: string) => void;
   onRetry?: () => void;
 }
@@ -137,11 +137,11 @@ export interface ServiceStats {
 
 // Service Card Props
 export interface ServiceCardProps {
-  service: any; // Using any for now to maintain compatibility
+  service: Service;
   branches: Branch[];
   technicians: Technician[];
   user: User;
-  onEdit?: (service: any) => void;
+  onEdit?: (service: Service) => void;
   onDelete?: (id: string) => void;
   onViewDetails?: (id: string) => void;
 }
@@ -191,5 +191,5 @@ export interface ServiceTimelineEvent {
   userId: string;
   userName: string;
   description: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }

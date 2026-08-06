@@ -81,7 +81,7 @@ export async function syncTechniciansWithBranchMembers(shopId: string) {
         const members = branchData.members || [];
         
         // Check if technician is already in members array
-        const isAlreadyMember = members.some((member: any) => 
+        const isAlreadyMember = members.some((member: { userId?: string; role?: string }) =>
           member.userId === userId && member.role === "technician"
         );
 

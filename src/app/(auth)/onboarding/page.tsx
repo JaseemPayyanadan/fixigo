@@ -31,40 +31,43 @@ export default function OnboardingPage() {
     { id: 3, title: "Location", description: "Where your business is located" },
   ];
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
       [name]: value,
     }));
-  };
+  }, []);
 
-  const validateStep = (step: number): boolean => {
-    switch (step) {
-      case 1:
-        return formData.shopName.trim() !== "" && formData.ownerName.trim() !== "";
-      case 2:
-        return formData.email.trim() !== "" && formData.phone.trim() !== "";
-      case 3:
-        return formData.address.trim() !== "" && formData.city.trim() !== "" && formData.pinCode.trim() !== "";
-      default:
-        return true;
-    }
-  };
+  const validateStep = useCallback(
+    (step: number): boolean => {
+      switch (step) {
+        case 1:
+          return formData.shopName.trim() !== "" && formData.ownerName.trim() !== "";
+        case 2:
+          return formData.email.trim() !== "" && formData.phone.trim() !== "";
+        case 3:
+          return formData.address.trim() !== "" && formData.city.trim() !== "" && formData.pinCode.trim() !== "";
+        default:
+          return true;
+      }
+    },
+    [formData.shopName, formData.ownerName, formData.email, formData.phone, formData.address, formData.city, formData.pinCode]
+  );
 
-  const nextStep = () => {
+  const nextStep = useCallback(() => {
     if (validateStep(currentStep)) {
       setCurrentStep((prev) => Math.min(prev + 1, 3));
       setError("");
     } else {
       setError("Please fill in all required fields");
     }
-  };
+  }, [validateStep, currentStep]);
 
-  const prevStep = () => {
+  const prevStep = useCallback(() => {
     setCurrentStep((prev) => Math.max(prev - 1, 1));
     setError("");
-  };
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -101,7 +104,7 @@ export default function OnboardingPage() {
   };
 
   const renderStepIndicator = useCallback(
-    (step: (typeof steps)[0], index: number) => (
+    (step: (typeof steps)[0]) => (
       <div key={step.id} className="flex flex-col items-center">
         <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium ${currentStep > step.id ? "bg-green-500 text-white" : currentStep === step.id ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-600"}`}>{currentStep > step.id ? "✓" : step.id}</div>
         <div className="mt-2 text-center">
@@ -203,7 +206,7 @@ export default function OnboardingPage() {
         </div>
       </div>
     ),
-    [formData.shopName, formData.ownerName, formData.email, formData.phone, formData.address, formData.city, formData.gstNumber, handleInputChange]
+    [formData.shopName, formData.ownerName, formData.email, formData.phone, formData.address, formData.city, formData.pinCode, formData.gstNumber, handleInputChange]
   );
 
   const renderSubmitButton = useCallback(

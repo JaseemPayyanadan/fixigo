@@ -1,14 +1,17 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 
 import Link from "next/link";
 
 import { BranchAdminBranchList, ShopAdminBranchList, TechnicianBranchList } from "@/components/branch";
 import { SearchFilter } from "@/components/ui";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { ListPageSkeleton } from "@/components/ui/PageSkeleton";
+import Toast, { type ToastVariant } from "@/components/ui/Toast";
 import { useUser } from "@/hooks";
 import { useBranches } from "@/hooks/useBranches";
+import type { Branch } from "@/types";
 
 export default function BranchPage() {
   const { user } = useUser();
@@ -16,31 +19,40 @@ export default function BranchPage() {
   const { branches, loading, error, deleteBranch } = useBranches(shopId);
 
   const [statusFilter, setStatusFilter] = useState("All");
+  const [branchToDelete, setBranchToDelete] = useState<Branch | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ message: string; variant: ToastVariant } | null>(null);
 
-  // Debug logging - moved to top to maintain hooks order
-  useEffect(() => {
-    console.log("Branch page - branches:", branches);
-    console.log("Branch page - filtered branches:", branches.filter((branch) => {
-      // For branch admins, only show their own branch
-      if (user?.role === "branch_admin" && user?.branchId && branch.id !== user.branchId) {
-        return false;
-      }
+  const handleRequestDelete = useCallback((branch: Branch) => {
+    setDeleteError(null);
+    setBranchToDelete(branch);
+  }, []);
 
-      return statusFilter === "All" || branch.status === statusFilter;
-    }));
-    console.log("Branch page - user:", user);
-    console.log("Branch page - shopId:", shopId);
-  }, [branches, statusFilter, user, shopId]);
+  const handleCloseDeleteDialog = useCallback(() => {
+    if (deleting) return;
+    setBranchToDelete(null);
+    setDeleteError(null);
+  }, [deleting]);
 
+  const handleConfirmDelete = useCallback(async () => {
+    if (!branchToDelete?.id) return;
 
-  const handleDeleteBranch = useCallback(
-    (branch: { id: string }) => {
-      if (branch.id) {
-        deleteBranch(branch.id);
-      }
-    },
-    [deleteBranch]
-  );
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await deleteBranch(branchToDelete.id);
+      setBranchToDelete(null);
+      setToast({
+        message: `"${branchToDelete.name}" was deleted`,
+        variant: "success",
+      });
+    } catch (caught) {
+      setDeleteError(caught instanceof Error ? caught.message : "Could not delete the branch");
+    } finally {
+      setDeleting(false);
+    }
+  }, [branchToDelete, deleteBranch]);
 
   const handleClearFilters = useCallback(() => {
     setStatusFilter("All");
@@ -140,31 +152,24 @@ export default function BranchPage() {
       {/* Header */}
       <div className="border-b border-gray-100 bg-white sticky top-0 z-10">
         <div className="px-6 py-4">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <div>
-              <h1 className="text-2xl font-semibold text-gray-900">{user.role === "shop_admin" ? "Branches" : "Branch"}</h1>
-              <p className="text-sm text-gray-600 mt-1">{user.role === "shop_admin" ? "Manage your business locations" : "View your branch information"}</p>
-            </div>
-
-        {/* Search and Filter */}
-        <div className="flex flex-row gap-5">
-          <SearchFilter
-            filters={[
-              {
-                key: "status",
-                label: "Status",
-                value: statusFilter,
-                options: [
-                  { value: "All", label: "All" },
-                  { value: "active", label: "Active" },
-                  { value: "inactive", label: "Inactive" },
-                ],
-                onChange: setStatusFilter,
-              },
-            ]}
-            onClear={handleClearFilters}
-            showClear={true}
-          />
+          <div className="flex flex-row flex-wrap items-center justify-end gap-5">
+            <SearchFilter
+              filters={[
+                {
+                  key: "status",
+                  label: "Status",
+                  value: statusFilter,
+                  options: [
+                    { value: "All", label: "All" },
+                    { value: "active", label: "Active" },
+                    { value: "inactive", label: "Inactive" },
+                  ],
+                  onChange: setStatusFilter,
+                },
+              ]}
+              onClear={handleClearFilters}
+              showClear={true}
+            />
             {user.role === "shop_admin" && (
               <Link href="/branch/new" className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -173,17 +178,60 @@ export default function BranchPage() {
                 Add Branch
               </Link>
             )}
-            </div>
           </div>
         </div>
       </div>
 
       {/* Content */}
       <div className="flex-1">
-        {user?.role === "shop_admin" && <ShopAdminBranchList branches={filteredBranches} loading={loading} error={error} shopId={shopId} onDeleteBranch={handleDeleteBranch} />}
-        {user?.role === "branch_admin" && <BranchAdminBranchList branches={filteredBranches} loading={loading} error={error} shopId={shopId} />}
-        {user?.role === "technician" && <TechnicianBranchList branches={filteredBranches} loading={loading} error={error} shopId={shopId} />}
+        {user?.role === "shop_admin" && (
+          <ShopAdminBranchList
+            branches={filteredBranches}
+            loading={loading}
+            error={error}
+            shopId={shopId}
+            onDeleteBranch={handleRequestDelete}
+          />
+        )}
+        {user?.role === "branch_admin" && (
+          <BranchAdminBranchList
+            branches={filteredBranches}
+            loading={loading}
+            error={error}
+            shopId={shopId}
+          />
+        )}
+        {user?.role === "technician" && (
+          <TechnicianBranchList
+            branches={filteredBranches}
+            loading={loading}
+            error={error}
+            shopId={shopId}
+          />
+        )}
       </div>
+
+      <ConfirmDialog
+        open={branchToDelete !== null}
+        title="Delete branch"
+        description={
+          branchToDelete
+            ? `Delete "${branchToDelete.name}"? This cannot be undone.`
+            : "Delete this branch? This cannot be undone."
+        }
+        confirmLabel="Delete"
+        confirming={deleting}
+        error={deleteError}
+        onConfirm={handleConfirmDelete}
+        onClose={handleCloseDeleteDialog}
+      />
+
+      <Toast
+        open={toast !== null}
+        message={toast?.message ?? ""}
+        variant={toast?.variant}
+        onClose={() => setToast(null)}
+      />
     </div>
   );
 }

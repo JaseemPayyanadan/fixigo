@@ -271,11 +271,13 @@ const PurchaseForm = React.memo(function PurchaseForm({
                 className={inputClass}
               >
                 <option value="">Select supplier</option>
-                {suppliers.map((supplier) => (
-                  <option key={supplier.id} value={supplier.id}>
-                    {supplier.name}
-                  </option>
-                ))}
+                {suppliers
+                  .filter((supplier) => supplier.status === "active" || supplier.id === supplierId)
+                  .map((supplier) => (
+                    <option key={supplier.id} value={supplier.id}>
+                      {supplier.name}
+                    </option>
+                  ))}
               </select>
               <button
                 type="button"

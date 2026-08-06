@@ -3,7 +3,7 @@ interface ValidationRule {
   minLength?: number;
   maxLength?: number;
   pattern?: RegExp;
-  custom?: (value: any) => string | null;
+  custom?: (value: unknown) => string | null;
 }
 
 interface ValidationSchema {
@@ -22,7 +22,7 @@ export class Validator {
     this.schema = schema;
   }
 
-  validate(data: Record<string, any>): ValidationResult {
+  validate(data: Record<string, unknown>): ValidationResult {
     const errors: Record<string, string> = {};
 
     for (const [field, rules] of Object.entries(this.schema)) {

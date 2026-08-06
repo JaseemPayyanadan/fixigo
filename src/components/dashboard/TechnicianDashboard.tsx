@@ -1,13 +1,9 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
+import React, { useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
-  CheckCircle,
   ClipboardList,
-  Clock,
-  AlertTriangle,
-  TrendingUp,
   ChevronRight,
   List
 } from "lucide-react";
@@ -26,8 +22,8 @@ import { ServiceMetricsGauge } from "./shared";
 
 // Enhanced Service Card with Swipe Actions
 const ServiceCard: React.FC<{ service: Service; onViewDetails: (id: string) => void }> = ({ service, onViewDetails }) => {
-  const [isSwiped, setIsSwiped] = useState(false);
-  
+  const isSwiped = false;
+
 
 
   const statusConfig = getStatusConfig(service.status);
@@ -93,7 +89,7 @@ const ServiceCard: React.FC<{ service: Service; onViewDetails: (id: string) => v
 export default function TechnicianDashboard() {
   const router = useRouter();
   const { user } = useUser();
-  const { services, isLoading, servicesLoading, servicesError } = useDashboardData(user?.shopId, user?.branchId);
+  const { services, isLoading, servicesError } = useDashboardData(user?.shopId, user?.branchId);
 
   // State for technician's services
   const [myServices, setMyServices] = React.useState<Service[]>([]);

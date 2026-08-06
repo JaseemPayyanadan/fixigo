@@ -11,8 +11,6 @@ import { computeTotals, lineTotalOf, roundMoney } from "@/lib/purchaseTotals";
 import type {
   CreatePurchaseInput,
   RecordPaymentInput,
-  RecordRefundInput,
-  ReturnPurchaseInput,
 } from "@/lib/purchaseValidation";
 import {
   SUPPLIERS,
@@ -227,19 +225,6 @@ function buildPayment(input: RecordPaymentInput, recordedBy: string): Record<str
     amount: input.amount,
     method: input.method,
     paidAt: input.paidAt,
-    reference: input.reference ?? null,
-    notes: input.notes ?? null,
-    recordedBy,
-    createdAt: new Date(),
-  };
-}
-
-function buildRefund(input: RecordRefundInput, recordedBy: string): Record<string, unknown> {
-  return {
-    id: randomUUID(),
-    amount: input.amount,
-    method: input.method,
-    receivedAt: input.receivedAt,
     reference: input.reference ?? null,
     notes: input.notes ?? null,
     recordedBy,

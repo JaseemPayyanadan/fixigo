@@ -1,9 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import React, { Suspense } from "react";
 
-import { FormSkeleton, PageFallback } from "@/components/ui/PageSkeleton";
+import { Button } from "@/components/ui/Button";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import { SupplierDetailsSkeleton } from "@/components/ui/PageSkeleton";
 import SupplierForm, { type SupplierPayload } from "@/modules/purchase/SupplierForm";
 import SupplierProfile from "@/modules/purchase/SupplierProfile";
 import type { Purchase, Supplier } from "@/types/purchase";
@@ -19,6 +22,9 @@ function SupplierDetailsContent() {
   const [editing, setEditing] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
   const [saveError, setSaveError] = React.useState<string | null>(null);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = React.useState(false);
+  const [deleting, setDeleting] = React.useState(false);
+  const [deleteError, setDeleteError] = React.useState<string | null>(null);
 
   const handleUpdate = React.useCallback(
     async (payload: SupplierPayload) => {
@@ -51,8 +57,32 @@ function SupplierDetailsContent() {
     [id]
   );
 
+  const handleDeleteConfirm = React.useCallback(async () => {
+    if (!id || !supplier) return;
+
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      const response = await fetch(`/api/suppliers/${id}`, { method: "DELETE" });
+      if (!response.ok) {
+        const body = (await response.json()) as { error?: string };
+        throw new Error(body.error ?? "Could not delete the supplier");
+      }
+      setConfirmDeleteOpen(false);
+      router.push(
+        `/purchases/suppliers?toast=${encodeURIComponent(`"${supplier.name}" was deactivated`)}`
+      );
+    } catch (caught) {
+      setDeleteError((caught as Error).message);
+    } finally {
+      setDeleting(false);
+    }
+  }, [id, supplier, router]);
+
   React.useEffect(() => {
     if (!id) {
+      setSupplier(null);
+      setPurchases([]);
       setError("No supplier selected");
       setLoading(false);
       return;
@@ -73,6 +103,7 @@ function SupplierDetailsContent() {
           throw new Error(body.error ?? "Could not load the supplier");
         }
         const body = (await response.json()) as { supplier: Supplier; purchases: Purchase[] };
+        if (controller.signal.aborted) return;
         setSupplier({
           ...body.supplier,
           lastPurchaseAt: body.supplier.lastPurchaseAt
@@ -86,10 +117,16 @@ function SupplierDetailsContent() {
             dueDate: purchase.dueDate ? new Date(purchase.dueDate) : undefined,
           }))
         );
+        setError(null);
       } catch (caught) {
-        if ((caught as Error).name !== "AbortError") setError((caught as Error).message);
+        if ((caught as Error).name === "AbortError" || controller.signal.aborted) return;
+        setError((caught as Error).message);
+        setSupplier(null);
+        setPurchases([]);
       } finally {
-        setLoading(false);
+        if (!controller.signal.aborted) {
+          setLoading(false);
+        }
       }
     }
 
@@ -98,11 +135,7 @@ function SupplierDetailsContent() {
   }, [id]);
 
   if (loading) {
-    return (
-      <div className="space-y-4 p-4 md:p-6">
-        <FormSkeleton sections={2} />
-      </div>
-    );
+    return <SupplierDetailsSkeleton />;
   }
 
   if (error || !supplier) {
@@ -115,21 +148,65 @@ function SupplierDetailsContent() {
     );
   }
 
+  const isInactive = supplier.status === "inactive";
+  const outstandingNote =
+    supplier.outstanding > 0
+      ? ` Outstanding balance of ₹${supplier.outstanding.toLocaleString("en-IN")} will remain on past purchases.`
+      : "";
+
   return (
     <div className="space-y-4 p-4 md:p-6">
-      <div className="flex items-center justify-between">
-        <button onClick={() => router.push("/purchases/suppliers")} className="text-sm text-blue-600">
-          ← Suppliers
-        </button>
-        {!editing && (
-          <button
-            onClick={() => setEditing(true)}
-            className="rounded-xl border border-blue-200 px-3 py-1.5 text-sm font-medium text-blue-600"
+      <div className="flex items-center justify-between gap-3">
+        <nav className="flex min-w-0 flex-wrap items-center gap-1.5 text-xs text-gray-500" aria-label="Breadcrumb">
+          <Link
+            href="/purchases"
+            className="hover:text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
-            Edit
-          </button>
+            Purchases
+          </Link>
+          <span aria-hidden="true">•</span>
+          <Link
+            href="/purchases/suppliers"
+            className="hover:text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            Suppliers
+          </Link>
+          <span aria-hidden="true">•</span>
+          <span className="truncate text-gray-700">{supplier.name}</span>
+        </nav>
+        {!editing && (
+          <div className="flex shrink-0 items-center gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => setEditing(true)}
+            >
+              Edit
+            </Button>
+            {!isInactive && (
+              <Button
+                type="button"
+                variant="danger"
+                size="sm"
+                onClick={() => {
+                  setDeleteError(null);
+                  setConfirmDeleteOpen(true);
+                }}
+                disabled={deleting}
+              >
+                Delete
+              </Button>
+            )}
+          </div>
         )}
       </div>
+
+      {isInactive && !editing && (
+        <div className="rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm text-gray-600">
+          This supplier is inactive and will not appear when adding new purchases.
+        </div>
+      )}
 
       {editing ? (
         <SupplierForm
@@ -149,13 +226,29 @@ function SupplierDetailsContent() {
           onOpenPurchase={(purchaseId) => router.push(`/purchases/details?id=${purchaseId}`)}
         />
       )}
+
+      <ConfirmDialog
+        open={confirmDeleteOpen}
+        title="Delete supplier?"
+        description={`Deactivate "${supplier.name}"? They will no longer appear when adding purchases.${outstandingNote}`}
+        confirmLabel="Delete supplier"
+        confirming={deleting}
+        error={deleteError}
+        onConfirm={handleDeleteConfirm}
+        onClose={() => {
+          if (!deleting) {
+            setConfirmDeleteOpen(false);
+            setDeleteError(null);
+          }
+        }}
+      />
     </div>
   );
 }
 
 export default function SupplierDetailsPage() {
   return (
-    <Suspense fallback={<PageFallback label="Loading supplier" />}>
+    <Suspense fallback={<SupplierDetailsSkeleton />}>
       <SupplierDetailsContent />
     </Suspense>
   );

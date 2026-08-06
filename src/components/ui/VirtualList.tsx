@@ -105,7 +105,7 @@ export function VirtualList<T>({ items, height, itemHeight, renderItem, overscan
 // Performance-optimized wrapper for virtual lists
 export const withVirtualScrolling = <P extends object>(
   Component: React.ComponentType<P>,
-  options: {
+  _options: {
     itemHeight: number;
     overscan?: number;
   }
