@@ -1,14 +1,15 @@
 import React, { useState, useEffect, ChangeEvent, FormEvent } from "react";
 
-import { 
-  UserIcon, 
-  EnvelopeIcon, 
-  PhoneIcon, 
-  CheckCircleIcon,
+import {
+  UserIcon,
+  EnvelopeIcon,
+  PhoneIcon,
+  ExclamationTriangleIcon,
   LockClosedIcon,
-  BuildingOfficeIcon
+  ClockIcon
 } from "@heroicons/react/24/outline";
 
+import { Button } from "../../components/ui/Button";
 import PasswordInput from "../../components/ui/PasswordInput";
 import TextInput from "../../components/ui/TextInput";
 
@@ -26,49 +27,58 @@ interface TechnicianFormProps {
     password: string;
     branchId: string;
     role: "technician";
-  }) => void;
+    experience: number;
+  }) => void | Promise<void>;
   loading: boolean;
   editing: boolean;
-  initialData?: { 
-    name: string; 
-    email: string; 
+  initialData?: {
+    name: string;
+    email: string;
     phone: string;
     branchId?: string;
     role?: "technician";
+    experience?: number;
   };
   onCancel: () => void;
   branches: Branch[];
   userRole: "shop_admin" | "branch_admin";
   currentUserBranchId?: string;
+  /** Lets a host footer submit via `form={formId}`. */
+  formId?: string;
+  /** Hide the inline Cancel/Submit row (use a slide-over footer instead). */
+  hideSubmit?: boolean;
 }
 
-export default function TechnicianForm({ 
-  onSubmit, 
-  loading, 
-  editing, 
-  initialData, 
-  onCancel, 
+export default function TechnicianForm({
+  onSubmit,
+  loading,
+  editing,
+  initialData,
+  onCancel,
   branches,
   userRole,
-  currentUserBranchId
+  currentUserBranchId,
+  formId,
+  hideSubmit = false,
 }: TechnicianFormProps) {
-  const [form, setForm] = useState<{ 
-    name: string; 
-    email: string; 
-    phone: string; 
+  const [form, setForm] = useState<{
+    name: string;
+    email: string;
+    phone: string;
     password: string;
     branchId: string;
     role: "technician";
-  }>({ 
-    name: "", 
-    email: "", 
-    phone: "", 
+    experience: string;
+  }>({
+    name: "",
+    email: "",
+    phone: "",
     password: "",
     branchId: "",
     role: "technician",
+    experience: "",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [success, setSuccess] = useState<string | null>(null);
 
   // Update form data when initialData changes
   useEffect(() => {
@@ -78,6 +88,7 @@ export default function TechnicianForm({
         password: "",
         branchId: initialData.branchId || "",
         role: initialData.role || "technician",
+        experience: initialData.experience === undefined ? "" : String(initialData.experience),
       });
     } else if (userRole === "branch_admin" && currentUserBranchId) {
       // For branch_admin, pre-select their branch
@@ -129,63 +140,51 @@ export default function TechnicianForm({
     if (userRole === "shop_admin" && !form.branchId) {
       newErrors.branchId = "Branch selection is required";
     }
-    
+
+    if (form.experience.trim() !== "") {
+      const experience = Number(form.experience);
+      if (!Number.isFinite(experience) || experience < 0) {
+        newErrors.experience = "Enter a valid number of years";
+      }
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setSuccess(null);
-    
+
     if (!validateForm()) {
       return;
     }
-    
+
     try {
-      onSubmit({
+      // The caller decides what "done" means — navigate away, close a
+      // slide-over, refetch a list — so success here is silent, not a banner.
+      await onSubmit({
         name: form.name.trim(),
         email: form.email.trim(),
         phone: form.phone.trim(),
         password: form.password,
         branchId: form.branchId,
         role: form.role,
+        experience: form.experience.trim() === "" ? 0 : Number(form.experience),
       });
-
-      if (!editing) {
-        setForm({
-          name: "",
-          email: "",
-          phone: "",
-          password: "",
-          branchId: "",
-          role: "technician",
-        });
-      }
-      setSuccess(editing ? "Technician updated successfully!" : "Technician created successfully!");
     } catch (error: unknown) {
-      console.error('TechnicianForm - Error in onSubmit:', error);
       setErrors({ submit: error instanceof Error ? error.message : String(error) });
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      {/* Technician Information Section */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-            <UserIcon className="w-6 h-6 text-blue-600" />
-          </div>
-          <div>
-            <h3 className="text-xl font-semibold text-gray-900">Technician Information</h3>
-            <p className="text-gray-600 text-sm">
-              {editing ? "Update the technician&apos;s details" : "Enter the technician&apos;s details"}
-            </p>
-          </div>
-        </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <form id={formId} onSubmit={handleSubmit} className="space-y-5">
+      <section className="rounded-2xl border border-gray-100 bg-white p-5">
+        <h2 className="mb-1 text-sm font-semibold text-gray-900">Technician information</h2>
+        <p className="mb-4 text-sm text-gray-500">
+          {editing ? "Update the technician's details" : "Enter the technician's details"}
+        </p>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <TextInput
             id="name"
             name="name"
@@ -194,11 +193,11 @@ export default function TechnicianForm({
             value={form.name}
             onChange={handleChange}
             required
-            placeholder="Enter technician&apos;s full name"
+            placeholder="Full name"
             icon={<UserIcon className="h-5 w-5 text-gray-400" />}
             error={errors.name}
           />
-          
+
           <TextInput
             id="email"
             name="email"
@@ -207,11 +206,11 @@ export default function TechnicianForm({
             value={form.email}
             onChange={handleChange}
             required
-            placeholder="Enter email address"
+            placeholder="Email address"
             icon={<EnvelopeIcon className="h-5 w-5 text-gray-400" />}
             error={errors.email}
           />
-          
+
           <TextInput
             id="phone"
             name="phone"
@@ -220,146 +219,90 @@ export default function TechnicianForm({
             value={form.phone}
             onChange={handleChange}
             required
-            placeholder="Enter phone number"
+            placeholder="Phone number"
             icon={<PhoneIcon className="h-5 w-5 text-gray-400" />}
             error={errors.phone}
           />
-        </div>
-      </div>
 
-      {/* Branch Selection Section - Only for shop_admin */}
-      {userRole === "shop_admin" && (
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-              <BuildingOfficeIcon className="w-6 h-6 text-green-600" />
-            </div>
-            <div>
-              <h3 className="text-xl font-semibold text-gray-900">Branch Assignment</h3>
-              <p className="text-gray-600 text-sm">
-                Select the branch for this technician
-              </p>
-            </div>
-          </div>
-          
-          <div className="space-y-2">
-            <label htmlFor="branchId" className="block text-sm font-medium text-gray-700">
-              Branch *
-            </label>
-            <select
-              id="branchId"
-              name="branchId"
-              value={form.branchId}
-              onChange={handleChange}
-              required
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="">Select a branch</option>
-              {branches.map((branch) => (
-                <option key={branch.id} value={branch.id}>
-                  {branch.name} - {branch.location}
-                </option>
-              ))}
-            </select>
-            {errors.branchId && (
-              <p className="text-sm text-red-600">{errors.branchId}</p>
-            )}
-          </div>
-        </div>
-      )}
+          <TextInput
+            id="experience"
+            name="experience"
+            type="number"
+            min="0"
+            step="1"
+            label="Experience (years)"
+            value={form.experience}
+            onChange={handleChange}
+            placeholder="e.g. 3"
+            icon={<ClockIcon className="h-5 w-5 text-gray-400" />}
+            error={errors.experience}
+          />
 
-      {/* Account Setup Section - Only for new technicians */}
-      {!editing && (
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
-              <LockClosedIcon className="w-6 h-6 text-purple-600" />
-            </div>
-            <div>
-              <h3 className="text-xl font-semibold text-gray-900">Account Setup</h3>
-              <p className="text-gray-600 text-sm">
-                Create login credentials for the technician
-              </p>
-            </div>
-          </div>
-          
-          <div className="space-y-4">
-            <PasswordInput
-              id="password"
-              name="password"
-              label="Password"
-              value={form.password}
-              onChange={handleChange}
-              required
-              placeholder="Enter password"
-              icon={<LockClosedIcon className="h-5 w-5 text-gray-400" />}
-              error={errors.password}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* Error Message */}
-      {errors.submit && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <svg className="h-5 w-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <div className="ml-3">
-              <p className="text-sm text-red-800">{errors.submit}</p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Success Message */}
-      {success && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <CheckCircleIcon className="h-5 w-5 text-green-400" />
-            </div>
-            <div className="ml-3">
-              <p className="text-sm text-green-800">{success}</p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Action Buttons */}
-      <div className="flex items-center justify-between">
-        <button
-          type="button"
-          onClick={onCancel}
-          className="px-6 py-3 text-gray-600 hover:text-gray-800 font-medium transition-colors"
-        >
-          Cancel
-        </button>
-        <button
-          type="submit"
-          disabled={loading}
-          className="px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-lg hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
-          aria-busy={loading}
-        >
-          {loading ? (
-            <div className="flex items-center gap-2">
-              <svg className="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-              {editing ? "Saving..." : "Creating..."}
-            </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <UserIcon className="w-5 h-5" />
-              {editing ? "Save Changes" : "Create Technician"}
+          {userRole === "shop_admin" && (
+            <div className="sm:col-span-2">
+              <label htmlFor="branchId" className="mb-2 block text-xs md:text-sm font-normal text-gray-700">
+                Branch *
+              </label>
+              <select
+                id="branchId"
+                name="branchId"
+                value={form.branchId}
+                onChange={handleChange}
+                required
+                className={`h-11 w-full rounded-xl border px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  errors.branchId ? "border-red-400" : "border-gray-200"
+                }`}
+              >
+                <option value="">Select a branch</option>
+                {branches.map((branch) => (
+                  <option key={branch.id} value={branch.id}>
+                    {branch.name} - {branch.location}
+                  </option>
+                ))}
+              </select>
+              {errors.branchId && <p className="mt-1 text-xs text-red-600">{errors.branchId}</p>}
             </div>
           )}
-        </button>
-      </div>
+        </div>
+      </section>
+
+      {/* Only for new technicians — an existing technician already has login credentials. */}
+      {!editing && (
+        <section className="rounded-2xl border border-gray-100 bg-white p-5">
+          <h2 className="mb-1 text-sm font-semibold text-gray-900">Account setup</h2>
+          <p className="mb-4 text-sm text-gray-500">Create login credentials for the technician</p>
+
+          <PasswordInput
+            id="password"
+            name="password"
+            label="Password"
+            value={form.password}
+            onChange={handleChange}
+            required
+            placeholder="Enter password"
+            icon={<LockClosedIcon className="h-5 w-5 text-gray-400" />}
+            error={errors.password}
+          />
+        </section>
+      )}
+
+      {errors.submit && (
+        <div className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          <ExclamationTriangleIcon className="h-5 w-5 shrink-0 text-red-400" />
+          <p>{errors.submit}</p>
+        </div>
+      )}
+
+      {!hideSubmit && (
+        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-end">
+          <Button type="button" variant="secondary" onClick={onCancel} disabled={loading}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={loading} aria-busy={loading}>
+            {loading ? (editing ? "Saving…" : "Creating…") : editing ? "Save Changes" : "Create Technician"}
+          </Button>
+        </div>
+      )}
     </form>
   );
-} 
+}

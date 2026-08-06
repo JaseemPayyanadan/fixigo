@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import React, { Suspense } from "react";
 
+import { FormSkeleton, PageFallback } from "@/components/ui/PageSkeleton";
 import SupplierForm, { type SupplierPayload } from "@/modules/purchase/SupplierForm";
 import SupplierProfile from "@/modules/purchase/SupplierProfile";
 import type { Purchase, Supplier } from "@/types/purchase";
@@ -96,7 +97,13 @@ function SupplierDetailsContent() {
     return () => controller.abort();
   }, [id]);
 
-  if (loading) return <div className="p-6 text-sm text-gray-500">Loading supplier…</div>;
+  if (loading) {
+    return (
+      <div className="space-y-4 p-4 md:p-6">
+        <FormSkeleton sections={2} />
+      </div>
+    );
+  }
 
   if (error || !supplier) {
     return (
@@ -109,7 +116,7 @@ function SupplierDetailsContent() {
   }
 
   return (
-    <div className="space-y-4 p-4 sm:p-6">
+    <div className="space-y-4 p-4 md:p-6">
       <div className="flex items-center justify-between">
         <button onClick={() => router.push("/purchases/suppliers")} className="text-sm text-blue-600">
           ← Suppliers
@@ -148,7 +155,7 @@ function SupplierDetailsContent() {
 
 export default function SupplierDetailsPage() {
   return (
-    <Suspense fallback={<div className="p-6 text-sm text-gray-500">Loading…</div>}>
+    <Suspense fallback={<PageFallback label="Loading supplier" />}>
       <SupplierDetailsContent />
     </Suspense>
   );

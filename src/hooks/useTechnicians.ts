@@ -71,6 +71,7 @@ export function useTechnicians(shopId?: string, branchId?: string) {
       phone: string;
       password: string;
       branchId: string;
+      experience?: number;
     }) => {
       const response = await fetch("/api/technicians", {
         method: "POST",

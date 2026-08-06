@@ -3,6 +3,8 @@
 
 import React from "react";
 
+import { Card } from "@/components/dashboard/widgets";
+import { SummaryCardsSkeleton } from "@/components/ui/PageSkeleton";
 import { formatRupees } from "@/lib/purchaseFormat";
 import type { PurchaseSummary } from "@/lib/purchaseSummary";
 
@@ -19,8 +21,9 @@ interface Card {
 }
 
 /**
- * Five cards, not six. Low Stock Alerts needs stock levels this module does
- * not have, and a card that can only ever render 0 is worse than no card.
+ * Four cards. Low Stock Alerts needs stock levels this module does not have,
+ * and Items Purchased Today is omitted — unit counts are less useful than
+ * rupee totals on this screen.
  */
 function buildCards(summary: PurchaseSummary): Card[] {
   return [
@@ -40,19 +43,13 @@ function buildCards(summary: PurchaseSummary): Card[] {
       label: "Pending Payments",
       value: formatRupees(summary.pendingPayments),
       hint: `${summary.pendingBillCount} bill${summary.pendingBillCount === 1 ? "" : "s"} pending`,
-      accent: "bg-amber-50 text-amber-600",
+      accent: "bg-orange-50 text-orange-600",
     },
     {
       label: "Suppliers",
       value: String(summary.activeSupplierCount),
       hint: "Active suppliers",
       accent: "bg-purple-50 text-purple-600",
-    },
-    {
-      label: "Items Purchased Today",
-      value: String(summary.itemsPurchasedToday),
-      hint: "Units received",
-      accent: "bg-sky-50 text-sky-600",
     },
   ];
 }
@@ -61,25 +58,19 @@ const PurchaseSummaryCards = React.memo(function PurchaseSummaryCards({ summary,
   const cards = React.useMemo(() => (summary ? buildCards(summary) : []), [summary]);
 
   if (loading || !summary) {
-    return (
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-        {Array.from({ length: 5 }).map((_, index) => (
-          <div key={index} className="h-24 animate-pulse rounded-xl border border-gray-200 bg-gray-50" />
-        ))}
-      </div>
-    );
+    return <SummaryCardsSkeleton count={4} />;
   }
 
   return (
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
       {cards.map((card) => (
-        <div key={card.label} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+        <Card key={card.label} className="p-5">
           <div className={`mb-2 inline-flex rounded-lg px-2 py-1 text-xs font-medium ${card.accent}`}>
             {card.label}
           </div>
-          <p className="text-xl font-semibold text-gray-900">{card.value}</p>
-          <p className="mt-1 text-xs text-gray-500">{card.hint}</p>
-        </div>
+          <p className="text-lg font-bold leading-none tracking-tight text-gray-900">{card.value}</p>
+          <p className="mt-1 text-xs text-gray-400">{card.hint}</p>
+        </Card>
       ))}
     </div>
   );

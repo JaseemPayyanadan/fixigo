@@ -96,12 +96,6 @@ const navItems: Array<{
   },
 ];
 
-const ROLE_LABELS: Record<string, string> = {
-  shop_admin: "Owner",
-  branch_admin: "Branch Admin",
-  technician: "Technician",
-};
-
 const NavItem = React.memo(function NavItem({
   item,
   isActive,
@@ -135,16 +129,16 @@ const NavItem = React.memo(function NavItem({
         aria-current={isActive && !disabled ? "page" : undefined}
         aria-disabled={disabled}
         title={collapsed ? (disabled ? `${item.label} (Coming soon)` : item.label) : undefined}
-        className={`flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-[15px] font-semibold transition-colors duration-200 motion-reduce:transition-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 ${
+        className={`flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium transition-colors duration-200 motion-reduce:transition-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 ${
           disabled
             ? "cursor-not-allowed text-gray-400"
             : isActive
-              ? "cursor-pointer bg-blue-600 text-white shadow-sm"
+              ? "cursor-pointer bg-blue-600 text-white"
               : "cursor-pointer text-gray-700 hover:bg-gray-100"
         } ${collapsed ? "justify-center px-0" : ""}`}
       >
         <Icon
-          className={`h-5 w-5 shrink-0 ${
+          className={`h-4 w- shrink-0 ${
             disabled ? "text-gray-300" : isActive ? "text-white" : "text-gray-500"
           }`}
           aria-hidden="true"
@@ -309,7 +303,6 @@ const SideNavBar = React.memo(() => {
   const handleMouseEnter = useCallback((key: string) => setHoveredItem(key), []);
   const handleMouseLeave = useCallback(() => setHoveredItem(null), []);
 
-  const initial = user?.name?.trim().charAt(0).toUpperCase() || "U";
   const canSwitchBranch = user?.role === "shop_admin";
 
   const currentBranchLabel =
@@ -364,25 +357,6 @@ const SideNavBar = React.memo(() => {
               onManageAll={() => handleNavigation("/branch")}
               onSelectBranch={(branchId) => handleNavigation(`/branch/edit?id=${encodeURIComponent(branchId)}`)}
             />
-
-            <button
-              type="button"
-              onClick={() => handleNavigation("/profile")}
-              className="flex min-h-11 w-full cursor-pointer items-center gap-2.5 rounded-xl px-3 py-2.5 text-left transition-colors duration-200 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 motion-reduce:transition-none"
-            >
-              <span
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-600 text-sm font-semibold text-white"
-                aria-hidden="true"
-              >
-                {initial}
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-semibold text-gray-900">{user?.name || "Account"}</span>
-                <span className="block truncate text-xs text-gray-400">
-                  {user?.role ? ROLE_LABELS[user.role] ?? user.role : ""}
-                </span>
-              </span>
-            </button>
           </div>
         )}
       </aside>

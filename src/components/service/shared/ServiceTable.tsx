@@ -283,14 +283,10 @@ export function ServiceTable({
                 {service.name || "Repair"}
               </Link>
               {/* Created date rides under the repair name instead of holding
-                  its own column — it identifies the job the same way the
-                  reference number does. */}
-              <p className="truncate text-xs text-gray-400">
-                #{service.id.slice(-8)}
-                {date && !Number.isNaN(date.getTime()) && (
-                  <span className="text-gray-400"> · {formatDate(date)}</span>
-                )}
-              </p>
+                  its own column. */}
+              {date && !Number.isNaN(date.getTime()) && (
+                <p className="truncate text-xs text-gray-400">{formatDate(date)}</p>
+              )}
             </div>
           );
         },
@@ -369,7 +365,7 @@ export function ServiceTable({
       // counter's screen.
       columnHelper.accessor("price", {
         id: "price",
-        header: "Price",
+        header: "Amount",
         meta: { headerClass: "text-right", cellClass: "text-right" },
         cell: ({ row, getValue }) => {
           const paid = isPaid(row.original);

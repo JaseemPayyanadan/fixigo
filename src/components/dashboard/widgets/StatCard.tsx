@@ -38,16 +38,16 @@ export const StatCard = React.memo(function StatCard({
   const isPositive = hasDelta && delta >= 0;
 
   return (
-    <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-shadow duration-200 hover:shadow-md motion-reduce:transition-none">
+    <div className="rounded-2xl border border-gray-100 bg-white p-5">
       <div className="flex items-start gap-3">
-        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${iconClassName}`} aria-hidden="true">
-          <Icon className="h-5 w-5 text-white" />
+        <div className={`flex h-7 w-7 lg:h-10 lg:w-10 shrink-0 items-center justify-center rounded-xl ${iconClassName}`} aria-hidden="true">
+          <Icon className="h-3 w-3 lg:h-5 lg:w-5 text-white" />
         </div>
 
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium text-gray-500">{label}</p>
+          <p className="truncate text-xs xl:text-sm font-medium text-gray-500">{label}</p>
           <div className="mt-1 flex items-baseline gap-2">
-            <span className="truncate text-lg font-bold leading-none tracking-tight text-gray-900" title={value}>
+            <span className="truncate text-base lg  :text-lg font-bold leading-none tracking-tight text-gray-900" title={value}>
               {value}
             </span>
             {note && <span className="truncate text-xs text-gray-400">{note}</span>}

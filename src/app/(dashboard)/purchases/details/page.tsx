@@ -4,6 +4,8 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import React, { Suspense } from "react";
 
+import { Button } from "@/components/ui/Button";
+import { FormSkeleton, PageFallback } from "@/components/ui/PageSkeleton";
 import PurchaseDetails from "@/modules/purchase/PurchaseDetails";
 import RecordPaymentModal from "@/modules/purchase/RecordPaymentModal";
 import type { Purchase } from "@/types/purchase";
@@ -87,7 +89,11 @@ function PurchaseDetailsContent() {
   }, [purchase, cancelReason]);
 
   if (loading) {
-    return <div className="p-6 text-sm text-gray-500">Loading purchase…</div>;
+    return (
+      <div className="space-y-4 p-4 md:p-6">
+        <FormSkeleton sections={3} />
+      </div>
+    );
   }
 
   if (error || !purchase) {
@@ -104,7 +110,7 @@ function PurchaseDetailsContent() {
   }
 
   return (
-    <div className="space-y-4 p-4 sm:p-6">
+    <div className="space-y-4 p-4 md:p-6">
       <button onClick={() => router.push("/purchases")} className="text-sm text-blue-600">
         ← Purchases
       </button>
@@ -143,22 +149,19 @@ function PurchaseDetailsContent() {
             </div>
           )}
           <div className="mt-3 flex gap-2">
-            <button
+            <Button
+              variant="secondary"
+              fullWidth
               onClick={() => {
                 setCancelling(false);
                 setCancelError(null);
               }}
-              className="flex-1 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm"
             >
               Keep purchase
-            </button>
-            <button
-              onClick={handleCancel}
-              disabled={cancelReason.trim() === ""}
-              className="flex-1 rounded-xl bg-red-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
-            >
+            </Button>
+            <Button variant="danger" fullWidth onClick={handleCancel} disabled={cancelReason.trim() === ""}>
               Confirm cancel
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -176,7 +179,7 @@ function PurchaseDetailsContent() {
 export default function PurchaseDetailsPage() {
   // useSearchParams requires a Suspense boundary in the App Router.
   return (
-    <Suspense fallback={<div className="p-6 text-sm text-gray-500">Loading…</div>}>
+    <Suspense fallback={<PageFallback label="Loading purchase" />}>
       <PurchaseDetailsContent />
     </Suspense>
   );

@@ -3,6 +3,7 @@
 
 import React from "react";
 
+import { Button } from "@/components/ui/Button";
 import { formatRupees } from "@/lib/purchaseFormat";
 import { computeTotals, lineTotalOf } from "@/lib/purchaseTotals";
 import type { Branch } from "@/types";
@@ -106,6 +107,15 @@ const PurchaseForm = React.memo(function PurchaseForm({
   const [paymentType, setPaymentType] = React.useState<"cash" | "upi" | "bank" | "credit">("cash");
   const [amountPaid, setAmountPaid] = React.useState("");
 
+  // This form has no inputs for these, so when editing, keep the purchase's
+  // existing values instead of silently zeroing them out on save.
+  const discount = React.useMemo<{ mode: "amount" | "percent"; value: number }>(
+    () => ({ mode: initial?.discount.mode ?? "amount", value: initial?.discount.value ?? 0 }),
+    [initial]
+  );
+  const gstRate = initial?.gstRate ?? 0;
+  const transportCharge = initial?.transportCharge ?? 0;
+
   React.useEffect(() => {
     onCanSubmitChange?.(rows.length > 0);
   }, [rows.length, onCanSubmitChange]);
@@ -119,11 +129,11 @@ const PurchaseForm = React.memo(function PurchaseForm({
           quantity: Number(row.quantity) || 0,
           purchasePrice: Number(row.purchasePrice) || 0,
         })),
-        discount: { mode: "amount", value: 0 },
-        gstRate: 0,
-        transportCharge: 0,
+        discount,
+        gstRate,
+        transportCharge,
       }),
-    [rows]
+    [rows, discount, gstRate, transportCharge]
   );
 
   const isCredit = paymentType === "credit";
@@ -175,9 +185,9 @@ const PurchaseForm = React.memo(function PurchaseForm({
           remarks: row.remarks.trim() || undefined,
           serviceId: row.serviceId.trim() || undefined,
         })),
-        discount: { mode: "amount", value: 0 },
-        gstRate: 0,
-        transportCharge: 0,
+        discount,
+        gstRate,
+        transportCharge,
         initialPayment:
           isCredit || paid <= 0
             ? undefined
@@ -195,6 +205,9 @@ const PurchaseForm = React.memo(function PurchaseForm({
       supplierInvoiceNo,
       purchaseDate,
       rows,
+      discount,
+      gstRate,
+      transportCharge,
       isCredit,
       paid,
       paymentType,
@@ -413,13 +426,9 @@ const PurchaseForm = React.memo(function PurchaseForm({
       </section>
 
       {!hideSubmit && (
-        <button
-          type="submit"
-          disabled={submitting || rows.length === 0}
-          className="w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
-        >
+        <Button type="submit" size="lg" fullWidth disabled={submitting || rows.length === 0}>
           {submitting ? "Saving…" : submitLabel ?? "Save purchase"}
-        </button>
+        </Button>
       )}
 
       <PurchaseItemModal

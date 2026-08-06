@@ -2,8 +2,12 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import React, { Suspense } from "react";
+import React, { Suspense, useEffect, useRef, useState } from "react";
 
+import { CheckIcon, FunnelIcon } from "@heroicons/react/24/outline";
+
+import { Button } from "@/components/ui/Button";
+import { ListPageSkeleton, PageFallback, TableSkeleton } from "@/components/ui/PageSkeleton";
 import SlideOver from "@/components/ui/SlideOver";
 import PurchaseFormHost from "@/modules/purchase/PurchaseFormHost";
 import PurchaseList from "@/modules/purchase/PurchaseList";
@@ -11,8 +15,13 @@ import PurchaseSummaryCards from "@/modules/purchase/PurchaseSummaryCards";
 import type { PurchaseSummary } from "@/lib/purchaseSummary";
 import type { Purchase } from "@/types/purchase";
 
-type DateFilter = "all" | "today" | "week" | "month";
 type StatusFilter = "all" | "unpaid" | "partial" | "paid";
+
+const STATUS_FILTERS: Array<{ key: StatusFilter; label: string }> = [
+  { key: "unpaid", label: "Pending" },
+  { key: "partial", label: "Partially paid" },
+  { key: "paid", label: "Paid" },
+];
 
 const DESKTOP_MQ = "(min-width: 768px)";
 
@@ -26,6 +35,105 @@ function revivePurchases(purchases: Purchase[]): Purchase[] {
     purchaseDate: new Date(purchase.purchaseDate),
     dueDate: purchase.dueDate ? new Date(purchase.dueDate) : undefined,
   }));
+}
+
+function PaymentStatusFilterDropdown({
+  chips,
+  statusFilter,
+  totalCount,
+  onSelect,
+}: {
+  chips: Array<{ key: StatusFilter; label: string; count: number }>;
+  statusFilter: StatusFilter;
+  totalCount: number;
+  onSelect: (key: StatusFilter) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const isFiltered = statusFilter !== "all";
+  const activeLabel = chips.find((chip) => chip.key === statusFilter)?.label;
+
+  useEffect(() => {
+    if (!open) return;
+
+    function handlePointerDown(event: MouseEvent) {
+      if (!containerRef.current?.contains(event.target as Node)) setOpen(false);
+    }
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpen(false);
+    }
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open]);
+
+  const choose = (key: StatusFilter) => {
+    onSelect(key);
+    setOpen(false);
+  };
+
+  return (
+    <div ref={containerRef} className="relative shrink-0">
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label={`Filter by payment status: ${activeLabel ?? "All statuses"}`}
+        className={`relative flex h-11 w-11 items-center justify-center rounded-xl border transition-colors ${
+          isFiltered
+            ? "border-blue-200 bg-blue-50 text-blue-700"
+            : "border-gray-200 bg-white text-gray-600"
+        }`}
+      >
+        <FunnelIcon className="h-5 w-5" />
+        {isFiltered && (
+          <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-blue-600" aria-hidden="true" />
+        )}
+      </button>
+
+      {open && (
+        <div
+          role="listbox"
+          className="absolute right-0 z-50 mt-2 w-60 overflow-hidden rounded-xl border border-gray-100 bg-white py-1 shadow-lg"
+        >
+          <button
+            type="button"
+            role="option"
+            aria-selected={!isFiltered}
+            onClick={() => choose("all")}
+            className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-gray-700 transition-colors hover:bg-gray-50"
+          >
+            <CheckIcon className={`h-4 w-4 shrink-0 ${isFiltered ? "invisible" : "text-blue-600"}`} />
+            <span>All statuses</span>
+            <span className="ml-auto text-xs font-semibold text-gray-500">{totalCount}</span>
+          </button>
+
+          {chips.map((chip) => {
+            const selected = chip.key === statusFilter;
+            return (
+              <button
+                key={chip.key}
+                type="button"
+                role="option"
+                aria-selected={selected}
+                onClick={() => choose(chip.key)}
+                className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-gray-700 transition-colors hover:bg-gray-50"
+              >
+                <CheckIcon className={`h-4 w-4 shrink-0 ${selected ? "text-blue-600" : "invisible"}`} />
+                <span className="truncate">{chip.label}</span>
+                <span className="ml-auto text-xs font-semibold text-gray-500">{chip.count}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function PurchasesPageContent() {
@@ -43,7 +151,6 @@ function PurchasesPageContent() {
   const [viewport, setViewport] = React.useState<"unknown" | "mobile" | "desktop">("unknown");
 
   const [search, setSearch] = React.useState("");
-  const [dateFilter, setDateFilter] = React.useState<DateFilter>("all");
   const [statusFilter, setStatusFilter] = React.useState<StatusFilter>("all");
   const [slideFormState, setSlideFormState] = React.useState({
     canSubmit: false,
@@ -117,7 +224,6 @@ function PurchasesPageContent() {
   }, [router]);
 
   const visible = React.useMemo(() => {
-    const now = new Date();
     const term = search.trim().toLowerCase();
 
     return purchases.filter((purchase) => {
@@ -135,15 +241,18 @@ function PurchasesPageContent() {
 
       if (statusFilter !== "all" && purchase.paymentStatus !== statusFilter) return false;
 
-      if (dateFilter !== "all") {
-        const days = dateFilter === "today" ? 1 : dateFilter === "week" ? 7 : 31;
-        const cutoff = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
-        if (purchase.purchaseDate < cutoff) return false;
-      }
-
       return true;
     });
-  }, [purchases, search, statusFilter, dateFilter]);
+  }, [purchases, search, statusFilter]);
+
+  const statusFilterChips = React.useMemo(
+    () =>
+      STATUS_FILTERS.map((filter) => ({
+        ...filter,
+        count: purchases.filter((purchase) => purchase.paymentStatus === filter.key).length,
+      })),
+    [purchases]
+  );
 
   const handleOpen = React.useCallback(
     (id: string) => router.push(`/purchases/details?id=${id}`),
@@ -162,28 +271,7 @@ function PurchasesPageContent() {
   const showSlide = slideMode && viewport === "desktop";
 
   return (
-    <div className="space-y-5 p-4 sm:p-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl font-semibold text-gray-900">Spare Purchases</h1>
-          <p className="text-sm text-gray-500">Manage spare purchases, suppliers and payments</p>
-        </div>
-        <div className="flex gap-2">
-          <button
-            onClick={() => router.push("/purchases/suppliers")}
-            className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-          >
-            Suppliers
-          </button>
-          <button
-            onClick={openNewPurchase}
-            className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-          >
-            + New Purchase
-          </button>
-        </div>
-      </div>
-
+    <div className="space-y-5 p-4 md:p-6">
       <PurchaseSummaryCards summary={summary} loading={loading} />
 
       {error && (
@@ -192,39 +280,29 @@ function PurchasesPageContent() {
         </div>
       )}
 
-      <div className="flex flex-col gap-2 sm:flex-row">
+      <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
         <input
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           placeholder="Search reference, supplier, item…"
           className="h-11 flex-1 rounded-xl border border-gray-200 px-3 text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
-        <select
-          value={dateFilter}
-          onChange={(event) => setDateFilter(event.target.value as DateFilter)}
-          className="h-11 rounded-xl border border-gray-200 bg-white px-3 text-sm"
-        >
-          <option value="all">All dates</option>
-          <option value="today">Today</option>
-          <option value="week">This week</option>
-          <option value="month">This month</option>
-        </select>
-        <select
-          value={statusFilter}
-          onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}
-          className="h-11 rounded-xl border border-gray-200 bg-white px-3 text-sm"
-        >
-          <option value="all">All statuses</option>
-          <option value="unpaid">Pending</option>
-          <option value="partial">Partially paid</option>
-          <option value="paid">Paid</option>
-        </select>
+        <div className="flex gap-2 lg:ml-auto">
+          <PaymentStatusFilterDropdown
+            chips={statusFilterChips}
+            statusFilter={statusFilter}
+            totalCount={purchases.length}
+            onSelect={setStatusFilter}
+          />
+          <Button variant="secondary" onClick={() => router.push("/purchases/suppliers")}>
+            Suppliers
+          </Button>
+          <Button onClick={openNewPurchase}>+ New Purchase</Button>
+        </div>
       </div>
 
       {loading ? (
-        <div className="rounded-xl border border-gray-200 bg-white p-10 text-center text-sm text-gray-500">
-          Loading purchases…
-        </div>
+        <TableSkeleton rows={8} />
       ) : (
         <PurchaseList purchases={visible} onOpen={handleOpen} />
       )}
@@ -236,23 +314,22 @@ function PurchasesPageContent() {
         onClose={closeSlide}
         maxWidthClassName="max-w-2xl"
         footer={
-          <div className="flex gap-3">
-            <button
+          <div className="flex items-center justify-end gap-3">
+            <Button
               type="button"
+              variant="secondary"
               onClick={closeSlide}
               disabled={slideFormState.submitting}
-              className="h-11 flex-1 rounded-xl border border-gray-200 bg-white px-4 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
               form={purchaseSlideFormId}
               disabled={!slideFormState.canSubmit || slideFormState.submitting}
-              className="h-11 flex-1 rounded-xl bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
             >
               {slideFormState.submitting ? "Saving…" : slideFormState.submitLabel}
-            </button>
+            </Button>
           </div>
         }
       >
@@ -271,7 +348,7 @@ function PurchasesPageContent() {
 
 export default function PurchasesPage() {
   return (
-    <Suspense fallback={<div className="p-6 text-sm text-gray-500">Loading…</div>}>
+    <Suspense fallback={<ListPageSkeleton cards={4} rows={8} label="Loading purchases" />}>
       <PurchasesPageContent />
     </Suspense>
   );

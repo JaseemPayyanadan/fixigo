@@ -48,10 +48,10 @@ export async function listNotifications(
   userId: string,
   max = 50
 ): Promise<{ notifications: Notification[]; unreadCount: number }> {
-  // List is limited server-side; unread uses a separate equality query so the
-  // badge stays accurate without loading the full history into memory.
-  // Requires indexes: userId+createdAt and userId+read (userId+read+createdAt exists).
-  const [listSnap, unreadSnap] = await Promise.all([
+  // List is limited server-side; unread uses a count aggregation so the badge
+  // stays accurate without downloading every unread document.
+  // Requires indexes: userId+createdAt and userId+read.
+  const [listSnap, unreadAgg] = await Promise.all([
     adminDb
       .collection(NOTIFICATIONS)
       .where("userId", "==", userId)
@@ -62,6 +62,7 @@ export async function listNotifications(
       .collection(NOTIFICATIONS)
       .where("userId", "==", userId)
       .where("read", "==", false)
+      .count()
       .get(),
   ]);
 
@@ -69,7 +70,7 @@ export async function listNotifications(
     mapNotification(docSnap.id, docSnap.data() as Record<string, unknown>)
   );
 
-  return { notifications, unreadCount: unreadSnap.size };
+  return { notifications, unreadCount: unreadAgg.data().count };
 }
 
 export async function markAllNotificationsRead(userId: string): Promise<number> {

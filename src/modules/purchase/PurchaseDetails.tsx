@@ -3,6 +3,7 @@
 
 import React from "react";
 
+import { Button } from "@/components/ui/Button";
 import { formatRupees, paymentStatusLabel } from "@/lib/purchaseFormat";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import type { Purchase } from "@/types/purchase";
@@ -62,13 +63,25 @@ const PurchaseDetails = React.memo(function PurchaseDetails({
             <dt className="text-gray-500">Total amount</dt>
             <dd className="font-medium text-gray-900">{formatRupees(purchase.grandTotal)}</dd>
           </div>
-          <div className="flex justify-between">
-            <dt className="text-gray-500">Paid amount</dt>
-            <dd className="text-gray-900">{formatRupees(purchase.paidAmount)}</dd>
-          </div>
-          <div className="flex justify-between">
-            <dt className="text-gray-500">Balance</dt>
-            <dd className="font-semibold text-red-600">{formatRupees(purchase.balance)}</dd>
+          <div className="flex justify-between sm:col-span-2">
+            <div className="grid w-full grid-cols-2 gap-3 rounded-xl bg-gray-50 p-3">
+              <div>
+                <p className="text-xs text-gray-500">Paid amount</p>
+                <p className="text-base font-semibold text-gray-900">
+                  {formatRupees(purchase.paidAmount)}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">Balance</p>
+                <p
+                  className={`text-base font-semibold ${
+                    purchase.balance > 0 ? "text-red-600" : "text-emerald-700"
+                  }`}
+                >
+                  {formatRupees(purchase.balance)}
+                </p>
+              </div>
+            </div>
           </div>
           {purchase.dueDate && (
             <div className="flex justify-between">
@@ -169,27 +182,24 @@ const PurchaseDetails = React.memo(function PurchaseDetails({
 
       <div className="flex flex-col gap-2 sm:flex-row">
         {payable && (
-          <button
-            onClick={onRecordPayment}
-            className="flex-1 rounded-xl bg-blue-600 px-4 py-3 text-sm font-medium text-white hover:bg-blue-700"
-          >
+          <Button size="lg" fullWidth onClick={onRecordPayment}>
             + Record Payment
-          </button>
+          </Button>
         )}
         {editable && (
           <>
-            <button
-              onClick={onEdit}
-              className="flex-1 rounded-xl border border-gray-200 px-4 py-3 text-sm font-medium text-gray-700"
-            >
+            <Button variant="secondary" size="lg" fullWidth onClick={onEdit}>
               Edit Purchase
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="secondary"
+              size="lg"
+              fullWidth
               onClick={onCancel}
-              className="flex-1 rounded-xl border border-red-200 px-4 py-3 text-sm font-medium text-red-600"
+              className="border-red-200 text-red-600 hover:bg-red-50"
             >
               Cancel Purchase
-            </button>
+            </Button>
           </>
         )}
       </div>

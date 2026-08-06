@@ -2,14 +2,7 @@
 
 import React from "react";
 
-function Pulse({ className = "" }: { className?: string }) {
-  return (
-    <div
-      className={`animate-pulse rounded-lg bg-gray-100 motion-reduce:animate-none ${className}`}
-      aria-hidden="true"
-    />
-  );
-}
+import { Pulse } from "@/components/ui/PageSkeleton";
 
 function KpiSkeleton() {
   return (

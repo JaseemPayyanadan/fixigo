@@ -4,7 +4,7 @@ import React from "react";
 
 import { DevicePhoneMobileIcon } from "@heroicons/react/24/outline";
 
-import { LoadingSpinner } from "@/components/ui";
+import { TableSkeleton } from "@/components/ui/PageSkeleton";
 import type { Technician } from "@/types";
 
 import { ServiceTable, type ServiceTableItem } from "./shared/ServiceTable";
@@ -36,12 +36,7 @@ const TechnicianServiceList: React.FC<TechnicianServiceListProps> = ({
   onDelete,
 }) => {
   if (loading) {
-    return (
-      <div className="py-16 text-center">
-        <LoadingSpinner size="lg" />
-        <p className="mt-6 text-lg text-gray-600">Loading repairs...</p>
-      </div>
-    );
+    return <TableSkeleton rows={8} />;
   }
 
   if (services.length === 0) {

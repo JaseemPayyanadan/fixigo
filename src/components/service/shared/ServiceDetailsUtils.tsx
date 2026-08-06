@@ -3,6 +3,7 @@ import React from "react";
 import type { Branch, Service, Technician } from "@/types";
 import type { ServiceStatus, ServicePriority } from "./types";
 
+import { FormSkeleton } from "@/components/ui/PageSkeleton";
 import { formatServicePrice, getServiceAge, getServicePriorityConfig, getServiceStatusConfig, getTechnicianDisplayInfo } from "./ServiceUtils";
 
 // Service details loading state
@@ -10,11 +11,9 @@ export const ServiceDetailsLoadingState: React.FC<{
   message?: string;
   className?: string;
 }> = ({ message = "Loading service details...", className = "" }) => (
-  <div className={`min-h-screen bg-gray-50 flex items-center justify-center ${className}`}>
-    <div className="text-center">
-      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4" aria-hidden="true" />
-      <p className="text-gray-600">{message}</p>
-    </div>
+  <div className={`min-h-screen bg-gray-50 p-4 md:p-6 ${className}`} role="status" aria-live="polite" aria-busy="true">
+    <span className="sr-only">{message}</span>
+    <FormSkeleton sections={3} />
   </div>
 );
 

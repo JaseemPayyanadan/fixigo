@@ -3,6 +3,8 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import React, { Suspense } from "react";
 
+import { Button } from "@/components/ui/Button";
+import { PageFallback, TableSkeleton } from "@/components/ui/PageSkeleton";
 import SupplierForm, { type SupplierPayload } from "@/modules/purchase/SupplierForm";
 import SupplierList from "@/modules/purchase/SupplierList";
 import type { Supplier } from "@/types/purchase";
@@ -85,14 +87,7 @@ function SuppliersContent() {
           </button>
           <h1 className="text-xl font-semibold text-gray-900">Suppliers</h1>
         </div>
-        {!creating && (
-          <button
-            onClick={() => setCreating(true)}
-            className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white"
-          >
-            + Add Supplier
-          </button>
-        )}
+        {!creating && <Button onClick={() => setCreating(true)}>+ Add Supplier</Button>}
       </div>
 
       {creating && (
@@ -112,7 +107,7 @@ function SuppliersContent() {
       )}
 
       {loading ? (
-        <p className="text-sm text-gray-500">Loading suppliers…</p>
+        <TableSkeleton rows={6} />
       ) : !loadError ? (
         <SupplierList
           suppliers={suppliers}
@@ -125,7 +120,7 @@ function SuppliersContent() {
 
 export default function SuppliersPage() {
   return (
-    <Suspense fallback={<div className="p-6 text-sm text-gray-500">Loading…</div>}>
+    <Suspense fallback={<PageFallback label="Loading suppliers" />}>
       <SuppliersContent />
     </Suspense>
   );

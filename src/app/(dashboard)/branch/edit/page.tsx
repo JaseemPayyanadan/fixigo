@@ -4,7 +4,7 @@ import { Suspense, useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 
-import { LoadingSpinner } from "@/components/ui";
+import { FormSkeleton, PageFallback } from "@/components/ui/PageSkeleton";
 import { useUser } from "@/hooks";
 import { useBranches } from "@/hooks/useBranches";
 import { BranchForm } from "@/modules/branch/BranchForm";
@@ -12,7 +12,7 @@ import { Branch } from "@/types";
 
 export default function EditBranchPage() {
   return (
-    <Suspense fallback={<LoadingSpinner text="Loading branch..." />}>
+    <Suspense fallback={<PageFallback label="Loading branch" />}>
       <EditBranchContent />
     </Suspense>
   );
@@ -111,8 +111,8 @@ function EditBranchContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <LoadingSpinner text="Loading branch details..." />
+      <div className="space-y-5 p-4 md:p-6">
+        <FormSkeleton sections={2} />
       </div>
     );
   }

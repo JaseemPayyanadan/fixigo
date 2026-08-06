@@ -100,36 +100,56 @@ export function createFakeFirestore() {
     collection: string,
     clauses: WhereClause[],
     order?: { field: string; direction: "asc" | "desc" },
-    max?: number
+    max?: number,
+    fields?: string[]
   ) {
+    function matchingRows() {
+      const prefix = `${collection}/`;
+      let rows = [...store.entries()]
+        .filter(([docKey]) => docKey.startsWith(prefix))
+        .map(([docKey, data]) => ({ id: docKey.slice(prefix.length), data }))
+        .filter((row) => clauses.every((clause) => row.data[clause.field] === clause.value));
+
+      if (order) {
+        const direction = order.direction === "desc" ? -1 : 1;
+        rows = rows.sort(
+          (a, b) => compare(a.data[order.field], b.data[order.field]) * direction
+        );
+      }
+
+      if (max !== undefined) rows = rows.slice(0, max);
+      return rows;
+    }
+
     const query = {
       where(field: string, _op: string, value: unknown) {
-        return makeQuery(collection, [...clauses, { field, value }], order, max);
+        return makeQuery(collection, [...clauses, { field, value }], order, max, fields);
       },
       orderBy(field: string, direction: "asc" | "desc" = "asc") {
-        return makeQuery(collection, clauses, { field, direction }, max);
+        return makeQuery(collection, clauses, { field, direction }, max, fields);
       },
       limit(count: number) {
-        return makeQuery(collection, clauses, order, count);
+        return makeQuery(collection, clauses, order, count, fields);
+      },
+      select(...selected: string[]) {
+        return makeQuery(collection, clauses, order, max, selected);
+      },
+      count() {
+        return {
+          async get() {
+            return { data: () => ({ count: matchingRows().length }) };
+          },
+        };
       },
       async get() {
-        const prefix = `${collection}/`;
-        let rows = [...store.entries()]
-          .filter(([docKey]) => docKey.startsWith(prefix))
-          .map(([docKey, data]) => ({ id: docKey.slice(prefix.length), data }))
-          .filter((row) => clauses.every((clause) => row.data[clause.field] === clause.value));
-
-        if (order) {
-          const direction = order.direction === "desc" ? -1 : 1;
-          rows = rows.sort(
-            (a, b) => compare(a.data[order.field], b.data[order.field]) * direction
-          );
-        }
-
-        if (max !== undefined) rows = rows.slice(0, max);
-
-        const docs = rows.map((row) => ({ id: row.id, data: () => row.data }));
-        return { docs, empty: docs.length === 0 };
+        const docs = matchingRows().map((row) => {
+          const data =
+            fields === undefined
+              ? row.data
+              : Object.fromEntries(fields.map((field) => [field, row.data[field]]));
+          return { id: row.id, data: () => data };
+        });
+        return { docs, empty: docs.length === 0, size: docs.length };
       },
     };
     return query;

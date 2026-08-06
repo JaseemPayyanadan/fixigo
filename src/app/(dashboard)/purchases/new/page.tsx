@@ -4,6 +4,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import React, { Suspense } from "react";
 
+import { PageFallback } from "@/components/ui/PageSkeleton";
 import PurchaseFormHost from "@/modules/purchase/PurchaseFormHost";
 
 function NewPurchaseContent() {
@@ -11,7 +12,7 @@ function NewPurchaseContent() {
   const editId = useSearchParams().get("edit");
 
   return (
-    <div className="space-y-5 p-4 sm:p-6">
+    <div className="space-y-5 p-4 md:p-6">
       <div>
         <h1 className="text-xl font-semibold text-gray-900">
           {editId ? "Edit Purchase" : "New Purchase"}
@@ -30,7 +31,7 @@ function NewPurchaseContent() {
 
 export default function NewPurchasePage() {
   return (
-    <Suspense fallback={<div className="p-6 text-sm text-gray-500">Loading…</div>}>
+    <Suspense fallback={<PageFallback label="Loading purchase form" />}>
       <NewPurchaseContent />
     </Suspense>
   );

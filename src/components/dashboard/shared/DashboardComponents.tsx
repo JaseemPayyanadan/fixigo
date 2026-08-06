@@ -19,6 +19,8 @@ import {
   Speaker
 } from "lucide-react";
 
+import { PageFallback, Pulse } from "@/components/ui/PageSkeleton";
+
 import { Service } from "@/types";
 
 import { ErrorState, formatCurrency, getStatusColor } from "./DashboardUtils";
@@ -200,7 +202,7 @@ export const RecentServicesCard: React.FC<{
         <div className="space-y-2 px-2 py-2" role="status" aria-live="polite" aria-busy="true">
           <span className="sr-only">Loading services</span>
           {Array.from({ length: 4 }, (_, index) => (
-            <div key={index} className="h-14 animate-pulse rounded-xl bg-gray-100 motion-reduce:animate-none" aria-hidden="true" />
+            <Pulse key={index} className="h-14 w-full rounded-xl" />
           ))}
         </div>
       ) : services.length > 0 ? (
@@ -317,26 +319,22 @@ DashboardHeader.displayName = "DashboardHeader";
 
 // Enhanced Loading State Component
 export const DashboardLoadingState: React.FC<{ message?: string }> = React.memo(({ message = "Loading dashboard data..." }) => (
-  <div className="bg-blue-50 border border-blue-200 rounded-2xl p-6 shadow-sm" role="status" aria-live="polite">
-    <div className="flex items-center justify-center">
-      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mr-3" aria-hidden="true"></div>
-      <p className="text-blue-800 text-base font-medium">{message}</p>
+  <div role="status" aria-live="polite" aria-busy="true">
+    <span className="sr-only">{message}</span>
+    <div className="space-y-3">
+      <Pulse className="h-24 w-full rounded-2xl" />
+      <Pulse className="h-24 w-full rounded-2xl" />
     </div>
   </div>
 ));
 
 DashboardLoadingState.displayName = "DashboardLoadingState";
 
-// Full-page spinner shown while the session is still resolving, before any
+// Full-page placeholder shown while the session is still resolving, before any
 // shop or branch scope is known. Distinct from DashboardLoadingState, which
 // sits inside an already-rendered dashboard while its data loads.
 export const DashboardUserLoading: React.FC = React.memo(() => (
-  <div className="flex min-h-screen items-center justify-center bg-gray-50" role="status" aria-live="polite">
-    <div className="text-center">
-      <div className="mx-auto mb-2 h-5 w-5 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" aria-hidden="true" />
-      <p className="text-sm text-gray-600">Loading user data...</p>
-    </div>
-  </div>
+  <PageFallback label="Loading user data" />
 ));
 
 DashboardUserLoading.displayName = "DashboardUserLoading";

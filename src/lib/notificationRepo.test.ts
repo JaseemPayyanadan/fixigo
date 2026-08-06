@@ -47,6 +47,18 @@ vi.mock("@/lib/firebaseAdmin", () => {
             limitCount = n;
             return chain;
           },
+          count() {
+            return {
+              async get() {
+                const prefix = `${collection}/`;
+                const matched = [...store.entries()].filter(([k, data]) => {
+                  if (!k.startsWith(prefix) || k.slice(prefix.length).includes("/")) return false;
+                  return filters.every((f) => data[f.field] === f.value);
+                });
+                return { data: () => ({ count: matched.length }) };
+              },
+            };
+          },
           async get() {
             const prefix = `${collection}/`;
             let docs = [...store.entries()]

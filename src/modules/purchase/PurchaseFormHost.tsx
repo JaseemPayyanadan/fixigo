@@ -3,6 +3,7 @@
 
 import React from "react";
 
+import { FormSkeleton } from "@/components/ui/PageSkeleton";
 import { useUser } from "@/hooks";
 import { useBranches } from "@/hooks/useBranches";
 import PurchaseForm, {
@@ -170,7 +171,7 @@ export default function PurchaseFormHost({
   );
 
   if (loadingEdit) {
-    return <div className="text-sm text-gray-500">Loading purchase…</div>;
+    return <FormSkeleton sections={2} />;
   }
 
   if (editLoadError) {

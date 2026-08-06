@@ -22,6 +22,7 @@ import {
   MdRefresh,
 } from "react-icons/md";
 
+import { Button } from "@/components/ui/Button";
 import { getStatusConfig } from "@/lib/statusUtils";
 import ServicePartsOrdered from "@/modules/purchase/ServicePartsOrdered";
 import type { StatusHistoryEntry, Technician } from "@/types";
@@ -192,7 +193,7 @@ export default function ServiceDetailsView({
             <button
               type="button"
               onClick={onGoBack}
-              className="inline-flex min-h-11 min-w-11 cursor-pointer items-center justify-center rounded-lg text-gray-600 hover:bg-gray-100 hover:text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="inline-flex min-h-11 min-w-11 cursor-pointer items-center justify-center rounded-xl text-gray-600 hover:bg-gray-100 hover:text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
               aria-label="Go back"
             >
               <MdArrowBack className="h-5 w-5" />
@@ -217,25 +218,22 @@ export default function ServiceDetailsView({
           </div>
 
           <div className="flex flex-wrap items-center gap-2 pl-14 sm:pl-0">
-            <button
-              type="button"
-              onClick={onEdit}
-              className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
+            <Button type="button" onClick={onEdit}>
               <MdEdit className="h-4 w-4" />
               Edit Service
-            </button>
+            </Button>
             <div className="relative dropdown-container">
-              <button
+              <Button
                 type="button"
+                variant="secondary"
+                size="icon"
                 onClick={onToggleDropdown}
-                className="inline-flex min-h-11 min-w-11 cursor-pointer items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 aria-label="More options"
               >
                 <MdMoreVert className="h-5 w-5" />
-              </button>
+              </Button>
               {showDropdown && (
-                <div className="absolute right-0 z-50 mt-2 w-48 rounded-lg border border-gray-100 bg-white py-1 shadow-lg">
+                <div className="absolute right-0 z-50 mt-2 w-48 rounded-xl border border-gray-100 bg-white py-1 shadow-lg">
                   <button
                     type="button"
                     onClick={handleHistoryClick}
@@ -347,7 +345,7 @@ export default function ServiceDetailsView({
                 value={status}
                 onChange={onStatusChange}
                 disabled={updatingStatus}
-                className="min-h-11 w-full cursor-pointer rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 sm:max-w-xs"
+                className="min-h-11 w-full cursor-pointer rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 sm:max-w-xs"
               >
                 {statusOptions.map((opt) => (
                   <option key={opt} value={opt}>
@@ -371,7 +369,7 @@ export default function ServiceDetailsView({
                 <button
                   type="button"
                   onClick={onReopenClick}
-                  className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-900 hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-900 hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-amber-500"
                 >
                   <MdRefresh className="h-4 w-4" />
                   Reopen Service
@@ -381,7 +379,7 @@ export default function ServiceDetailsView({
                 type="button"
                 onClick={onPaymentToggle}
                 disabled={updatingPayment}
-                className={`inline-flex min-h-11 cursor-pointer items-center rounded-lg px-4 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 ${
+                className={`inline-flex min-h-11 cursor-pointer items-center rounded-xl px-4 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 ${
                   servicePaid
                     ? "border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
                     : "bg-emerald-600 text-white hover:bg-emerald-700"

@@ -63,6 +63,17 @@ export async function listSuppliers(shopId: string): Promise<Supplier[]> {
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
+/** Active supplier count for summary cards — avoids loading full supplier docs. */
+export async function countActiveSuppliers(shopId: string): Promise<number> {
+  const snap = await adminDb
+    .collection(SUPPLIERS)
+    .where("shopId", "==", shopId)
+    .where("status", "==", "active")
+    .count()
+    .get();
+  return snap.data().count;
+}
+
 export async function getSupplier(shopId: string, id: string): Promise<Supplier> {
   const snap = await adminDb.collection(SUPPLIERS).doc(id).get();
   if (!snap.exists) {

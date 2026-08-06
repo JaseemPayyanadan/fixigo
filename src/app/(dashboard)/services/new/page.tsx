@@ -8,6 +8,7 @@ import { useTechnicians, useUser } from "@/hooks";
 import { useBranches } from "@/hooks/useBranches";
 import { authUserToUser } from "@/lib/auth";
 import ServiceForm from "@/components/service/ServiceForm";
+import { FormSkeleton } from "@/components/ui/PageSkeleton";
 
 export default function NewServicePage() {
   const { user, loading: userLoading } = useUser();
@@ -35,11 +36,8 @@ export default function NewServicePage() {
   // Show loading state while user data is being fetched
   if (userLoading) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full mx-auto mb-3"></div>
-          <p className="text-sm text-gray-600">Loading user data...</p>
-        </div>
+      <div className="space-y-5 p-4 md:p-6">
+        <FormSkeleton sections={3} />
       </div>
     );
   }
