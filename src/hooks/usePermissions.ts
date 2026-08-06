@@ -1,6 +1,6 @@
 "use client";
 import { authUserToUser } from "@/lib/auth";
-import { canAccessBranch, canAccessShop, canDeleteResource, canManageResource, canViewResource, CRUD_PERMISSIONS, getUserPermissions, hasAllPermissions, hasAnyPermission, hasAnyRole, hasPermission, hasRole, hasRoleLevel, PERMISSION_ACTIONS, PermissionUtils } from "@/lib/rbac";
+import { canAccessBranch, canAccessShop, canDeleteResource, canManageResource, canViewResource, CRUD_PERMISSIONS, getUserPermissions, hasAllPermissions, hasAnyPermission, hasAnyRole, hasPermission, hasRole, hasRoleLevel, PERMISSION_ACTIONS, PermissionUtils, type ResourceData } from "@/lib/rbac";
 import type { Permission, Role } from "@/types";
 
 import { useUser } from "./useUser";
@@ -74,9 +74,9 @@ export function usePermissions() {
     hasRoleLevel: (requiredRole: Role) => hasRoleLevel(userForPermissions, requiredRole),
     canAccessShop: (shopId: string) => canAccessShop(userForPermissions, shopId),
     canAccessBranch: (branchId: string) => canAccessBranch(userForPermissions, branchId),
-    canViewResource: (resourceType: string, resourceData: any) => canViewResource(userForPermissions, resourceType, resourceData),
-    canManageResource: (resourceType: string, resourceData: any) => canManageResource(userForPermissions, resourceType, resourceData),
-    canDeleteResource: (resourceType: string, resourceData: any) => canDeleteResource(userForPermissions, resourceType, resourceData),
+    canViewResource: (resourceType: string, resourceData: ResourceData) => canViewResource(userForPermissions, resourceType, resourceData),
+    canManageResource: (resourceType: string, resourceData: ResourceData) => canManageResource(userForPermissions, resourceType, resourceData),
+    canDeleteResource: (resourceType: string, resourceData: ResourceData) => canDeleteResource(userForPermissions, resourceType, resourceData),
     canCreate: (resourceType: string) => CRUD_PERMISSIONS.canCreate(userForPermissions, resourceType),
     canRead: (resourceType: string) => CRUD_PERMISSIONS.canRead(userForPermissions, resourceType),
     canUpdate: (resourceType: string) => CRUD_PERMISSIONS.canUpdate(userForPermissions, resourceType),

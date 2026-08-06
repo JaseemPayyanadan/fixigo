@@ -15,7 +15,7 @@ export const cssContainment = {
 export type CSSContainment = (typeof cssContainment)[keyof typeof cssContainment];
 
 // Debounce function for expensive operations
-export function debounce<T extends (...args: any[]) => any>(func: T, wait: number, immediate = false): (...args: Parameters<T>) => void {
+export function debounce<T extends (...args: unknown[]) => unknown>(func: T, wait: number, immediate = false): (...args: Parameters<T>) => void {
   let timeout: NodeJS.Timeout | null = null;
 
   return function executedFunction(...args: Parameters<T>) {
@@ -34,7 +34,7 @@ export function debounce<T extends (...args: any[]) => any>(func: T, wait: numbe
 }
 
 // Throttle function for frequent events
-export function throttle<T extends (...args: any[]) => any>(func: T, limit: number): (...args: Parameters<T>) => void {
+export function throttle<T extends (...args: unknown[]) => unknown>(func: T, limit: number): (...args: Parameters<T>) => void {
   let inThrottle: boolean;
 
   return function executedFunction(...args: Parameters<T>) {
@@ -47,7 +47,7 @@ export function throttle<T extends (...args: any[]) => any>(func: T, limit: numb
 }
 
 // Request animation frame wrapper for smooth animations
-export function rafThrottle<T extends (...args: any[]) => any>(func: T): (...args: Parameters<T>) => void {
+export function rafThrottle<T extends (...args: unknown[]) => unknown>(func: T): (...args: Parameters<T>) => void {
   let ticking = false;
 
   return function executedFunction(...args: Parameters<T>) {
@@ -112,7 +112,7 @@ export class PerformanceTimer {
     if (typeof performance !== "undefined" && performance.measure) {
       try {
         performance.measure(`${this.name}-${label}`, `${this.name}-start`, `${this.name}-${label}`);
-      } catch (error) {
+      } catch {
         // Measure already exists
       }
     }
@@ -122,7 +122,7 @@ export class PerformanceTimer {
 // Memory usage monitoring
 export function getMemoryUsage(): PerformanceMemory | null {
   if (typeof performance !== "undefined" && "memory" in performance) {
-    return (performance as any).memory;
+    return (performance as Performance & { memory: PerformanceMemory }).memory;
   }
   return null;
 }
@@ -209,7 +209,7 @@ export function monitorWebVitals(): void {
       });
 
       lcpObserver.observe({ entryTypes: ["largest-contentful-paint"] });
-    } catch (error) {
+    } catch {
       console.warn("LCP monitoring not supported");
     }
   }
@@ -222,7 +222,7 @@ export function monitorWebVitals(): void {
         entries.forEach((entry) => {
           // Check if processingStart exists (PerformanceEventTiming interface)
           if ('processingStart' in entry) {
-            const fid = (entry as any).processingStart - entry.startTime;
+            const fid = (entry as PerformanceEventTiming).processingStart - entry.startTime;
             if (fid > 100) {
               console.warn(`🚨 Slow FID detected: ${fid.toFixed(2)}ms`);
             }
@@ -231,7 +231,7 @@ export function monitorWebVitals(): void {
       });
 
       fidObserver.observe({ entryTypes: ["first-input"] });
-    } catch (error) {
+    } catch {
       console.warn("FID monitoring not supported");
     }
   }

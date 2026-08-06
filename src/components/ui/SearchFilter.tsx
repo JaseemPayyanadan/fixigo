@@ -28,7 +28,7 @@ const SearchFilter: React.FC<SearchFilterProps> = ({ search = "", onSearchChange
     setIsFilterOpen(!isFilterOpen);
   }, [isFilterOpen]);
 
-  const handleFilterChange = useCallback((filter: any, optionValue: string) => {
+  const handleFilterChange = useCallback((filter: NonNullable<SearchFilterProps["filters"]>[number], optionValue: string) => {
     filter.onChange(optionValue);
     if (optionValue === filter.options[0]?.value) {
       setIsFilterOpen(false);

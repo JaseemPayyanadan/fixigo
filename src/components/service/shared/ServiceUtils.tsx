@@ -1,16 +1,15 @@
-import { 
-  CheckCircleIcon, 
-  ClockIcon, 
-  ExclamationTriangleIcon, 
-  PauseIcon, 
-  TruckIcon, 
+import {
+  CheckCircleIcon,
+  ClockIcon,
+  ExclamationTriangleIcon,
+  PauseIcon,
+  TruckIcon,
   XCircleIcon,
-  CubeIcon,
-  UserIcon
+  CubeIcon
 } from "@heroicons/react/24/outline";
 
 import type { Branch, Service, Technician, User } from "@/types";
-import type { ServiceActions, ServiceFilters, ServiceSortOptions, ServiceDisplayInfo, ServiceStats, ServiceValidationErrors } from "./types";
+import type { ServiceActions, ServiceFilters, ServiceFormData, ServiceDisplayInfo, ServiceStats, ServiceValidationErrors } from "./types";
 
 // Service Status Configuration
 export const SERVICE_STATUS_CONFIG = {
@@ -247,8 +246,8 @@ export const filterServices = (services: Service[], filters: ServiceFilters): Se
 // Sort services based on field and direction
 export const sortServices = (services: Service[], field: string, direction: "asc" | "desc"): Service[] => {
   return [...services].sort((a, b) => {
-    let aValue: any;
-    let bValue: any;
+    let aValue: string | number | Date;
+    let bValue: string | number | Date;
     
     switch (field) {
       case 'createdAt':
@@ -368,7 +367,7 @@ export const calculateServiceStats = (services: Service[]): ServiceStats => {
 
 
 // Validate service form data
-export const validateServiceForm = (data: any): ServiceValidationErrors => {
+export const validateServiceForm = (data: Partial<ServiceFormData>): ServiceValidationErrors => {
   const errors: ServiceValidationErrors = {};
 
   // Customer validation

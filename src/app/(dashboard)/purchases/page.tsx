@@ -7,7 +7,7 @@ import React, { Suspense, useEffect, useRef, useState } from "react";
 import { CheckIcon, FunnelIcon } from "@heroicons/react/24/outline";
 
 import { Button } from "@/components/ui/Button";
-import { ListPageSkeleton, PageFallback, TableSkeleton } from "@/components/ui/PageSkeleton";
+import { ListPageSkeleton, TableSkeleton } from "@/components/ui/PageSkeleton";
 import SlideOver from "@/components/ui/SlideOver";
 import Toast from "@/components/ui/Toast";
 import PurchaseFormHost from "@/modules/purchase/PurchaseFormHost";

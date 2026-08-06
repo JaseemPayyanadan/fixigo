@@ -11,8 +11,7 @@ import {
   MapPinIcon,
   IdentificationIcon,
   PaintBrushIcon,
-  WrenchIcon,
-  GlobeAmericasIcon
+  WrenchIcon
 } from "@heroicons/react/24/outline";
 
 import { Button, TextInput } from "@/components/ui";
@@ -149,7 +148,6 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
   branchId,
   setBranchId,
   user,
-  shopId,
   initialData,
   onCancelEdit
 }) => {
@@ -231,7 +229,7 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
     const hasExact = technicians.some(t => t.id === current);
     if (hasExact) return;
 
-    const alt = technicians.find(t => (t as any).userId === current || (t as any).user_id === current || (t as any).created_by === current);
+    const alt = technicians.find(t => t.userId === current || t.created_by === current);
     if (alt) {
       setFormData(prev => ({
         ...prev,

@@ -248,18 +248,6 @@ function ServiceDetailsPage() {
       // For technicians, always use their assigned branch
       const finalBranchId = user?.role === "technician" && user?.branchId ? user.branchId : data.service.branchId;
       
-      const updateData = {
-        name: data.service.name,
-        description: data.service.description,
-        price: Number(data.service.price),
-        branchId: finalBranchId,
-        technician_id: data.service.technician_id || (user?.role === "technician" ? user.id : ""),
-        customer: data.customer,
-        device: data.device,
-        status,
-        updatedAt: new Date(),
-      };
-
       const updated = await patchService(serviceId!, {
         fields: {
           name: data.service.name,

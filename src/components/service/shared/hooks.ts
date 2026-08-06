@@ -1,13 +1,13 @@
 import { useState, useCallback, useMemo } from "react";
-import type { Service, Branch, Technician, User } from "@/types";
-import type { ServiceFilters, ServiceSortOptions, ServiceStats } from "./types";
+import type { Service, User } from "@/types";
+import type { ServiceFilters, ServiceSortOptions } from "./types";
 import { filterServices, sortServices, calculateServiceStats } from "./ServiceUtils";
 
 // Hook for managing service filters
 export const useServiceFilters = (initialFilters: ServiceFilters = {}) => {
   const [filters, setFilters] = useState<ServiceFilters>(initialFilters);
 
-  const updateFilter = useCallback((key: keyof ServiceFilters, value: any) => {
+  const updateFilter = useCallback(<K extends keyof ServiceFilters>(key: K, value: ServiceFilters[K]) => {
     setFilters(prev => ({
       ...prev,
       [key]: value
@@ -325,10 +325,8 @@ export const useServiceData = (
   pagination: { currentPage: number; pageSize: number }
 ) => {
   const processedServices = useMemo(() => {
-    let filtered = filterServices(services, filters);
-    let sorted = sortServices(filtered, sortOptions.field, sortOptions.direction);
-    
-    return sorted;
+    const filtered = filterServices(services, filters);
+    return sortServices(filtered, sortOptions.field, sortOptions.direction);
   }, [services, filters, sortOptions]);
 
   const paginatedServices = useMemo(() => {

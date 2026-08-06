@@ -46,8 +46,6 @@ interface ServiceListItem {
   updatedAt: Date;
 }
 
-const STATUS_OPTIONS = ["All", "To Do", "In Progress", "Awaiting Parts", "Ready for Pickup", "Completed", "Cancelled", "Pending"];
-
 // Status filter chips configuration
 const STATUS_FILTERS = [
   { key: "completed", label: "Completed", count: 0, color: "bg-emerald-100 text-emerald-800 border-emerald-200 hover:bg-emerald-200", icon: CheckCircleIcon },
@@ -207,6 +205,7 @@ function ServicesContent() {
   const [statusFilter, setStatusFilter] = useState("All");
 
   // Transform legacy data to match current schema for internal use
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- raw, loosely-shaped Firestore document
   const transformServiceData = (data: any): Service => {
     // Keep the original status value instead of transforming it
     const status = data.status || "To Do";

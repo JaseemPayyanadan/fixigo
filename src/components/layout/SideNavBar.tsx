@@ -244,7 +244,7 @@ function BranchSwitcher({
           aria-label="Branches"
           className="absolute bottom-full left-0 z-50 mb-2 max-h-56 w-full overflow-y-auto rounded-xl border border-gray-100 bg-white py-1 shadow-lg"
         >
-          <li role="option">
+          <li role="option" aria-selected={false}>
             <button
               type="button"
               className="flex w-full cursor-pointer items-center gap-2 px-3 py-2.5 text-left text-sm font-medium text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none"

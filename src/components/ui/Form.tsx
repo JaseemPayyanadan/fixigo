@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 
 import { logger } from '@/lib/logger';
 import { Validator, ValidationSchema } from '@/lib/validation';
@@ -9,7 +9,7 @@ interface ValidationRule {
   minLength?: number;
   maxLength?: number;
   pattern?: RegExp;
-  custom?: (value: string) => string | null;
+  custom?: (value: unknown) => string | null;
 }
 
 interface FormField {
@@ -43,14 +43,15 @@ export function Form({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const validationSchema: ValidationSchema = {};
-  fields.forEach(field => {
-    if (field.validation) {
-      validationSchema[field.name] = field.validation;
-    }
-  });
-
-  const validator = new Validator(validationSchema);
+  const validator = useMemo(() => {
+    const validationSchema: ValidationSchema = {};
+    fields.forEach(field => {
+      if (field.validation) {
+        validationSchema[field.name] = field.validation;
+      }
+    });
+    return new Validator(validationSchema);
+  }, [fields]);
 
   const handleInputChange = useCallback((name: string, value: string | boolean) => {
     setFormData(prev => ({ ...prev, [name]: String(value) }));
@@ -87,7 +88,7 @@ export function Form({
     } finally {
       setIsSubmitting(false);
     }
-  }, [formData, onSubmit, validateForm]);
+  }, [formData, onSubmit, validateForm, errors]);
 
   const renderField = (field: FormField) => {
     const { name, label, type, required, placeholder, options } = field;

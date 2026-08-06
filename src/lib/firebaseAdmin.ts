@@ -107,7 +107,7 @@ function getAdminDb(): Firestore {
 // FIREBASE_SERVICE_ACCOUNT_KEY or throws. The credentials are only read,
 // and the app only initialized, the first time `adminDb` is actually used.
 export const adminDb = new Proxy({} as Firestore, {
-  get(_target, prop, receiver) {
+  get(_target, prop, _receiver) {
     const db = getAdminDb();
     const value = Reflect.get(db, prop, db);
     return typeof value === "function" ? value.bind(db) : value;
@@ -128,7 +128,7 @@ function getAdminAuth(): Auth {
 
 /** Lazily initialized Admin Auth — same pattern as adminDb. */
 export const adminAuth = new Proxy({} as Auth, {
-  get(_target, prop, receiver) {
+  get(_target, prop, _receiver) {
     const auth = getAdminAuth();
     const value = Reflect.get(auth, prop, auth);
     return typeof value === "function" ? value.bind(auth) : value;
