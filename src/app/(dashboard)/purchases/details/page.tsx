@@ -224,7 +224,7 @@ function PurchaseDetailsContent() {
               Delete purchase?
             </h2>
             <p className="mt-1 text-sm text-gray-600">
-              This cancels "{purchase.ref}". Purchase history is kept, but the bill will no longer
+              This cancels &quot;{purchase.ref}&quot;. Purchase history is kept, but the bill will no longer
               count toward totals.
             </p>
             <label className="mt-4 mb-1 block text-sm font-medium text-gray-700">
