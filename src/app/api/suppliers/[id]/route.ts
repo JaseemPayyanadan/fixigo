@@ -8,7 +8,7 @@ import {
 } from "@/lib/apiAuth";
 import { listPurchases } from "@/lib/purchaseRepo";
 import { parseUpdateSupplierInput } from "@/lib/purchaseValidation";
-import { getSupplier, updateSupplier } from "@/lib/supplierRepo";
+import { deleteSupplier, getSupplier, updateSupplier } from "@/lib/supplierRepo";
 
 export const dynamic = "force-dynamic";
 
@@ -44,3 +44,16 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
     return toErrorResponse(error);
   }
 }
+
+export async function DELETE(_request: NextRequest, { params }: RouteContext) {
+  try {
+    const user = await requireUser();
+    const shopId = assertCanManageSuppliers(user);
+    const { id } = await params;
+
+    return NextResponse.json({ supplier: await deleteSupplier(shopId, id) });
+  } catch (error) {
+    return toErrorResponse(error);
+  }
+}
+

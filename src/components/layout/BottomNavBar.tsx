@@ -6,7 +6,6 @@ import { usePathname, useRouter } from "next/navigation";
 import { Bars3Icon, BuildingOfficeIcon, Cog8ToothIcon, HomeIcon, ShoppingCartIcon, UserGroupIcon, UserIcon, XMarkIcon } from "@heroicons/react/24/outline";
 
 import { useAuth } from "@/contexts/AuthContext";
-import { Settings2Icon } from "lucide-react";
 
 const navItems = [
   {
@@ -56,9 +55,6 @@ export function BottomNavBar() {
 
   // Filter navigation items based on user role
   const filteredNavItems = navItems.filter((item) => item.roles.includes(user?.role || ""));
-
-  // Get active item
-  const activeItem = filteredNavItems.find((item) => pathname.startsWith(item.href));
 
   const handleNavigation = (href: string) => {
     router.push(href);

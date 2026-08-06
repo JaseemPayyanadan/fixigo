@@ -3,7 +3,6 @@ import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 
-import { useUser } from "../../hooks/useUser";
 import { Branch } from "../../types";
 import { TableSkeleton } from "@/components/ui/PageSkeleton";
 
@@ -20,7 +19,6 @@ interface BranchListProps {
 export const BranchList: React.FC<BranchListProps> = ({ branches, loading, error, shopId, onAddBranch, onDeleteBranch }) => {
   const [techniciansByBranch, setTechniciansByBranch] = useState<Record<string, string[]>>({});
   const router = useRouter();
-  const { user } = useUser();
 
   useEffect(() => {
     const fetchTechnicians = async () => {

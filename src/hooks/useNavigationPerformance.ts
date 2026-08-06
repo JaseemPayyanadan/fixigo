@@ -96,7 +96,7 @@ export function useNavigationPerformance(options: NavigationPerformanceOptions =
 
       // Use requestIdleCallback for non-critical preloading
       if (typeof window !== "undefined" && "requestIdleCallback" in window) {
-        (window as any).requestIdleCallback(() => {
+        (window as Window & { requestIdleCallback: (callback: () => void) => void }).requestIdleCallback(() => {
           routes.forEach((route) => preloadRoute(route));
 
           const totalTime = performance.now() - startTime;

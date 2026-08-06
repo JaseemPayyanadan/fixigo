@@ -19,13 +19,9 @@ import {
 import { Button } from "@/components/ui";
 import { normalizeStatus } from "@/lib/statusUtils";
 import type { ServiceCardProps } from "./types";
-import { 
-  getServiceStatusConfig, 
-  getServicePriorityConfig, 
-  getTechnicianDisplayInfo, 
-  getBranchDisplayInfo,
-  formatServicePrice,
-  getServiceAge
+import {
+  getTechnicianDisplayInfo,
+  getBranchDisplayInfo
 } from "./ServiceUtils";
 
 // Status badge configuration with improved styling
@@ -105,12 +101,9 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
   technicians,
   user,
   onEdit,
-  onDelete,
-  onViewDetails
+  onDelete
 }) => {
-  const statusConfig = getServiceStatusConfig(service.status as any);
-  const priorityConfig = getServicePriorityConfig(service.priority as any);
-  const technicianName = getTechnicianDisplayInfo(service.assignedTechnicianId, technicians);
+  const technicianName = getTechnicianDisplayInfo(service.technician_id, technicians);
   const branchName = getBranchDisplayInfo(service.branchId, branches);
   const statusBadge = getStatusBadgeConfig(service.status);
 

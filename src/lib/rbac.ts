@@ -144,7 +144,7 @@ export function canAccessBranch(user: User, branchId: string): boolean {
 }
 
 // Resource data interface for type safety
-interface ResourceData {
+export interface ResourceData {
   shopId?: string;
   branchId?: string;
   id?: string;

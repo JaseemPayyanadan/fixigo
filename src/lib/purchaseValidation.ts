@@ -133,7 +133,7 @@ function parseSupplierFields(raw: Record<string, unknown>): Omit<CreateSupplierI
 
   const email = optionalString(raw, "email");
   if (email && !EMAIL_PATTERN.test(email)) {
-    throw new ApiError(400, "A valid email address is required");
+    throw new ApiError(400, "Enter a valid email address");
   }
 
   const gstNumber = optionalString(raw, "gstNumber");
