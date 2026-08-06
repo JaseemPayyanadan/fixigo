@@ -1,11 +1,41 @@
-import React, { useEffect, useState } from "react";
+"use client";
+
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 
 import { useRouter } from "next/navigation";
 
-import { BuildingOfficeIcon, PhoneIcon, EnvelopeIcon, UserGroupIcon, PencilIcon, TrashIcon } from "@heroicons/react/24/outline";
+import {
+  BuildingOfficeIcon,
+  ChevronDownIcon,
+  ChevronUpDownIcon,
+  ChevronUpIcon,
+  EnvelopeIcon,
+  PencilIcon,
+  PhoneIcon,
+  TrashIcon,
+  UserGroupIcon,
+} from "@heroicons/react/24/outline";
+import {
+  createColumnHelper,
+  flexRender,
+  getCoreRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
+  useReactTable,
+  type SortingState,
+} from "@tanstack/react-table";
 
-import { Branch, Technician } from "../../types";
 import { TableSkeleton } from "@/components/ui/PageSkeleton";
+import type { Branch, Technician } from "@/types";
+
+const PAGE_SIZE = 10;
+const HEADER_CLASS = "px-2 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500";
+
+const STATUS_STYLE: Record<string, string> = {
+  active: "text-emerald-700 bg-emerald-50",
+  inactive: "text-gray-600 bg-gray-100",
+  maintenance: "text-amber-700 bg-amber-50",
+};
 
 interface ShopAdminBranchListProps {
   branches: Branch[];
@@ -17,62 +47,274 @@ interface ShopAdminBranchListProps {
   onDeleteBranch?: (branch: Branch) => void;
 }
 
-export const ShopAdminBranchList: React.FC<ShopAdminBranchListProps> = ({ branches, loading, error, shopId, onAddBranch, onDeleteBranch }) => {
-  const [techniciansByBranch, setTechniciansByBranch] = useState<Record<string, string[]>>({});
+interface BranchRow extends Branch {
+  technicianNames: string[];
+  technicianCount: number;
+  locationLabel: string;
+  phoneLabel: string;
+  emailLabel: string;
+}
+
+const columnHelper = createColumnHelper<BranchRow>();
+
+function BranchCard({
+  branch,
+  onEdit,
+  onDelete,
+}: {
+  branch: BranchRow;
+  onEdit: (branch: Branch) => void;
+  onDelete?: (branch: Branch) => void;
+}) {
+  const statusClass = STATUS_STYLE[branch.status] ?? STATUS_STYLE.inactive;
+
+  return (
+    <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50">
+            <BuildingOfficeIcon className="h-5 w-5 text-blue-600" />
+          </div>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold text-gray-900">{branch.name}</p>
+            <p className="truncate text-xs text-gray-500">{branch.locationLabel}</p>
+          </div>
+        </div>
+        <span
+          className={`inline-flex shrink-0 items-center whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium leading-4 capitalize ${statusClass}`}
+        >
+          {branch.status}
+        </span>
+      </div>
+
+      <div className="mt-3 space-y-1 text-xs text-gray-500">
+        <p className="flex items-center gap-1.5">
+          <PhoneIcon className="h-3.5 w-3.5 shrink-0" />
+          {branch.phoneLabel}
+        </p>
+        <p className="flex items-center gap-1.5">
+          <EnvelopeIcon className="h-3.5 w-3.5 shrink-0" />
+          {branch.emailLabel}
+        </p>
+        <p className="flex items-center gap-1.5">
+          <UserGroupIcon className="h-3.5 w-3.5 shrink-0" />
+          {branch.technicianCount} {branch.technicianCount === 1 ? "technician" : "technicians"}
+        </p>
+        {branch.technicianNames.length > 0 && (
+          <p className="pl-5 text-gray-400">
+            {branch.technicianNames.slice(0, 2).join(", ")}
+            {branch.technicianNames.length > 2 && ` +${branch.technicianNames.length - 2} more`}
+          </p>
+        )}
+      </div>
+
+      <div className="mt-3 flex items-center justify-end gap-1 border-t border-gray-100 pt-2">
+        <button
+          type="button"
+          onClick={() => onEdit(branch)}
+          className="inline-flex h-9 w-9 items-center justify-center rounded-xl text-gray-500 transition-colors hover:bg-blue-50 hover:text-blue-600"
+          aria-label="Edit branch"
+        >
+          <PencilIcon className="h-4 w-4" />
+        </button>
+        {onDelete && (
+          <button
+            type="button"
+            onClick={() => onDelete(branch)}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-xl text-gray-500 transition-colors hover:bg-red-50 hover:text-red-600"
+            aria-label="Delete branch"
+          >
+            <TrashIcon className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Branches list as a TanStack data table: sortable headers, pagination, cards below `md`. */
+export const ShopAdminBranchList: React.FC<ShopAdminBranchListProps> = ({
+  branches,
+  loading,
+  error,
+  shopId,
+  onAddBranch,
+  onDeleteBranch,
+}) => {
   const router = useRouter();
+  const [techniciansByBranch, setTechniciansByBranch] = useState<Record<string, string[]>>({});
+  const [sorting, setSorting] = useState<SortingState>([{ id: "name", desc: false }]);
 
   useEffect(() => {
     const fetchTechnicians = async () => {
-      if (!branches.length || !shopId) {
-        return;
-      }
+      if (!branches.length || !shopId) return;
 
       try {
-        const byBranch: Record<string, string[]> = {};
-
         const response = await fetch("/api/technicians");
         if (!response.ok) throw new Error("Failed to fetch technicians");
-        const { technicians } = await response.json();
+        const { technicians } = (await response.json()) as { technicians: Technician[] };
 
-        // Group technicians by branch
+        const byBranch: Record<string, string[]> = {};
         for (const branch of branches) {
-          try {
-            const forBranch = technicians.filter(
-              (technician: Technician) =>
-                technician.branchId === branch.id && technician.status === "active"
-            );
-
-            byBranch[branch.id] = forBranch
-              .map((technician: Technician) => technician.name)
-              .filter(Boolean);
-          } catch (error) {
-            console.error(`Error fetching technicians for branch ${branch.id}:`, error);
-            byBranch[branch.id] = [];
-          }
+          const forBranch = technicians.filter(
+            (technician) => technician.branchId === branch.id && technician.status === "active"
+          );
+          byBranch[branch.id] = forBranch.map((technician) => technician.name).filter(Boolean);
         }
-
         setTechniciansByBranch(byBranch);
-      } catch (error) {
-        console.error("Error fetching technicians:", error);
+      } catch (fetchError) {
+        console.error("Error fetching technicians:", fetchError);
         setTechniciansByBranch({});
       }
     };
-    fetchTechnicians();
+
+    void fetchTechnicians();
   }, [branches, shopId]);
 
-  // Helper function to get the correct field values
-  const getBranchField = (branch: Branch, field: "location" | "phone" | "email") => {
-    switch (field) {
-      case "location":
-        return branch.location || "No location";
-      case "phone":
-        return branch.phone || "No phone";
-      case "email":
-        return branch.email || "No email";
-      default:
-        return "";
-    }
-  };
+  const data = useMemo<BranchRow[]>(
+    () =>
+      branches.map((branch) => {
+        const technicianNames = techniciansByBranch[branch.id] ?? [];
+        return {
+          ...branch,
+          technicianNames,
+          technicianCount: technicianNames.length,
+          locationLabel: branch.location || "No location",
+          phoneLabel: branch.phone || "No phone",
+          emailLabel: branch.email || "No email",
+        };
+      }),
+    [branches, techniciansByBranch]
+  );
+
+  const handleEdit = useCallback(
+    (branch: Branch) => {
+      if (branch.id) router.push(`/branch/edit?id=${encodeURIComponent(branch.id)}`);
+    },
+    [router]
+  );
+
+  const columns = useMemo(
+    () => [
+      columnHelper.accessor("name", {
+        id: "name",
+        header: "Branch",
+        cell: ({ row }) => (
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-50">
+              <BuildingOfficeIcon className="h-4 w-4 text-blue-600" />
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-gray-900">{row.original.name}</p>
+              <p className="truncate text-xs text-gray-400">{row.original.locationLabel}</p>
+            </div>
+          </div>
+        ),
+      }),
+      columnHelper.accessor("phoneLabel", {
+        id: "contact",
+        header: "Contact",
+        meta: { headerClass: "hidden lg:table-cell", cellClass: "hidden lg:table-cell" },
+        cell: ({ row }) => (
+          <div className="space-y-1">
+            <p className="flex items-center gap-1.5 text-sm text-gray-700">
+              <PhoneIcon className="h-3.5 w-3.5 shrink-0 text-gray-400" />
+              {row.original.phoneLabel}
+            </p>
+            <p className="flex items-center gap-1.5 text-xs text-gray-500">
+              <EnvelopeIcon className="h-3.5 w-3.5 shrink-0 text-gray-400" />
+              {row.original.emailLabel}
+            </p>
+          </div>
+        ),
+      }),
+      columnHelper.accessor("technicianCount", {
+        id: "technicians",
+        header: "Technicians",
+        cell: ({ row }) => (
+          <div>
+            <p className="flex items-center gap-1.5 text-sm text-gray-700">
+              <UserGroupIcon className="h-3.5 w-3.5 shrink-0 text-gray-400" />
+              {row.original.technicianCount}{" "}
+              {row.original.technicianCount === 1 ? "technician" : "technicians"}
+            </p>
+            {row.original.technicianNames.length > 0 && (
+              <p className="mt-0.5 text-xs text-gray-400">
+                {row.original.technicianNames.slice(0, 2).join(", ")}
+                {row.original.technicianNames.length > 2 &&
+                  ` +${row.original.technicianNames.length - 2} more`}
+              </p>
+            )}
+          </div>
+        ),
+      }),
+      columnHelper.accessor("status", {
+        id: "status",
+        header: "Status",
+        cell: ({ getValue }) => {
+          const status = getValue();
+          const statusClass = STATUS_STYLE[status] ?? STATUS_STYLE.inactive;
+          return (
+            <span
+              className={`inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium leading-4 capitalize ${statusClass}`}
+            >
+              {status}
+            </span>
+          );
+        },
+      }),
+      columnHelper.display({
+        id: "actions",
+        header: () => <span className="sr-only">Actions</span>,
+        meta: { headerClass: "text-right", cellClass: "text-right" },
+        cell: ({ row }) => {
+          const branch = row.original;
+          return (
+            <div className="inline-flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => handleEdit(branch)}
+                className="inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl text-blue-600 transition-colors hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                title="Edit"
+                aria-label="Edit branch"
+              >
+                <PencilIcon className="h-4 w-4" />
+              </button>
+              {onDeleteBranch && (
+                <button
+                  type="button"
+                  onClick={() => onDeleteBranch(branch)}
+                  className="inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl text-red-600 transition-colors hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  title="Delete"
+                  aria-label="Delete branch"
+                >
+                  <TrashIcon className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+          );
+        },
+      }),
+    ],
+    [handleEdit, onDeleteBranch]
+  );
+
+  const table = useReactTable({
+    data,
+    columns,
+    state: { sorting },
+    onSortingChange: setSorting,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    initialState: { pagination: { pageSize: PAGE_SIZE } },
+  });
+
+  const pageIndex = table.getState().pagination.pageIndex;
+  const rows = table.getRowModel().rows;
+  const totalRows = table.getFilteredRowModel().rows.length;
+  const firstRow = totalRows === 0 ? 0 : pageIndex * table.getState().pagination.pageSize + 1;
+  const lastRow = Math.min(firstRow + table.getState().pagination.pageSize - 1, totalRows);
 
   if (loading) {
     return <TableSkeleton rows={5} />;
@@ -81,13 +323,18 @@ export const ShopAdminBranchList: React.FC<ShopAdminBranchListProps> = ({ branch
   if (error) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="text-center max-w-sm mx-auto px-4">
-          <div className="w-12 h-12 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        <div className="mx-auto max-w-sm px-4 text-center">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-50">
+            <svg className="h-6 w-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
             </svg>
           </div>
-          <h3 className="text-lg font-medium text-gray-900 mb-2">Error Loading Branches</h3>
+          <h3 className="mb-2 text-lg font-medium text-gray-900">Error Loading Branches</h3>
           <p className="text-sm text-gray-600">{error}</p>
         </div>
       </div>
@@ -97,16 +344,27 @@ export const ShopAdminBranchList: React.FC<ShopAdminBranchListProps> = ({ branch
   if (branches.length === 0) {
     return (
       <div className="flex items-center justify-center py-16">
-        <div className="text-center max-w-sm mx-auto px-4">
-          <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
+        <div className="mx-auto max-w-sm px-4 text-center">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gray-50">
             <BuildingOfficeIcon className="h-8 w-8 text-gray-400" />
           </div>
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No branches yet</h3>
-          <p className="text-sm text-gray-600 mb-6">Get started by adding your first branch to manage multiple locations.</p>
+          <h3 className="mb-2 text-lg font-medium text-gray-900">No branches yet</h3>
+          <p className="mb-6 text-sm text-gray-600">
+            Get started by adding your first branch to manage multiple locations.
+          </p>
           {onAddBranch && (
-            <button onClick={onAddBranch} className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            <button
+              type="button"
+              onClick={onAddBranch}
+              className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                />
               </svg>
               Add Your First Branch
             </button>
@@ -118,168 +376,111 @@ export const ShopAdminBranchList: React.FC<ShopAdminBranchListProps> = ({ branch
 
   return (
     <div className="p-6">
-      {/* Desktop Table View */}
-      <div className="hidden lg:block">
-        <div className="overflow-hidden rounded-lg border border-gray-200">
-          <table className="min-w-full divide-y divide-gray-200">
+      <div className="rounded-2xl md:overflow-hidden md:border md:border-gray-100 md:bg-white md:shadow-sm">
+        <div className="space-y-3 md:hidden">
+          {rows.map((row) => (
+            <BranchCard
+              key={row.id}
+              branch={row.original}
+              onEdit={handleEdit}
+              onDelete={onDeleteBranch}
+            />
+          ))}
+        </div>
+
+        <div className="hidden overflow-x-auto md:block">
+          <table className="min-w-full divide-y divide-gray-100 text-left">
             <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Branch</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Technicians</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-              </tr>
+              {table.getHeaderGroups().map((headerGroup) => (
+                <tr key={headerGroup.id}>
+                  {headerGroup.headers.map((header) => {
+                    const meta = header.column.columnDef.meta as
+                      | { headerClass?: string; cellClass?: string }
+                      | undefined;
+                    const sorted = header.column.getIsSorted();
+                    const canSort = header.column.getCanSort();
+                    return (
+                      <th
+                        key={header.id}
+                        scope="col"
+                        aria-sort={
+                          sorted === "asc" ? "ascending" : sorted === "desc" ? "descending" : undefined
+                        }
+                        className={`${HEADER_CLASS} ${meta?.headerClass ?? ""}`}
+                      >
+                        {canSort ? (
+                          <button
+                            type="button"
+                            onClick={header.column.getToggleSortingHandler()}
+                            className="inline-flex cursor-pointer items-center gap-1 rounded uppercase transition-colors hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          >
+                            {flexRender(header.column.columnDef.header, header.getContext())}
+                            {sorted === "asc" ? (
+                              <ChevronUpIcon className="h-3 w-3" />
+                            ) : sorted === "desc" ? (
+                              <ChevronDownIcon className="h-3 w-3" />
+                            ) : (
+                              <ChevronUpDownIcon className="h-3 w-3 text-gray-300" />
+                            )}
+                          </button>
+                        ) : (
+                          flexRender(header.column.columnDef.header, header.getContext())
+                        )}
+                      </th>
+                    );
+                  })}
+                </tr>
+              ))}
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {branches.map((branch) => (
-                <tr key={branch.id || `branch-${Math.random()}`} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4">
-                    <div className="flex items-center">
-                      <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
-                        <BuildingOfficeIcon className="w-4 h-4 text-blue-600" />
-                      </div>
-                      <div>
-                        <div className="text-sm font-medium text-gray-900">{branch.name}</div>
-                        <div className="text-xs text-gray-500">{getBranchField(branch, "location")}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="space-y-1">
-                      <div className="flex items-center text-sm text-gray-900">
-                        <PhoneIcon className="w-4 h-4 text-gray-400 mr-2" />
-                        {getBranchField(branch, "phone")}
-                      </div>
-                      <div className="flex items-center text-sm text-gray-900">
-                        <EnvelopeIcon className="w-4 h-4 text-gray-400 mr-2" />
-                        {getBranchField(branch, "email")}
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center">
-                      <UserGroupIcon className="w-4 h-4 text-gray-400 mr-2" />
-                      <span className="text-sm text-gray-900">
-                        {techniciansByBranch[branch.id]?.length || 0} {techniciansByBranch[branch.id]?.length === 1 ? "technician" : "technicians"}
-                      </span>
-                    </div>
-                    {techniciansByBranch[branch.id]?.length > 0 && (
-                      <div className="text-xs text-gray-500 mt-1">
-                        {techniciansByBranch[branch.id]?.slice(0, 2).join(", ")}
-                        {techniciansByBranch[branch.id]?.length > 2 && ` +${techniciansByBranch[branch.id]?.length - 2} more`}
-                      </div>
-                    )}
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${branch.status === "active" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
-                      <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${branch.status === "active" ? "bg-green-400" : "bg-red-400"}`}></span>
-                      {branch.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <button className="text-gray-400 hover:text-blue-600 transition-colors" onClick={() => {
-                        console.log("Edit button clicked for branch:", branch);
-                        console.log("Branch ID:", branch.id);
-                        console.log("Branch structure:", branch);
-                        branch.id && router.push(`/branch/edit?id=${branch.id}`);
-                      }} title="Edit branch">
-                        <PencilIcon className="w-4 h-4" />
-                      </button>
-                      {onDeleteBranch && (
-                        <button
-                          className="text-gray-400 hover:text-red-600 transition-colors"
-                          onClick={() => {
-                            if (window.confirm(`Are you sure you want to delete branch '${branch.name}'?`)) {
-                              onDeleteBranch(branch);
-                            }
-                          }}
-                          title="Delete branch"
-                        >
-                          <TrashIcon className="w-4 h-4" />
-                        </button>
-                      )}
-                    </div>
-                  </td>
+            <tbody className="divide-y divide-gray-100">
+              {rows.map((row) => (
+                <tr key={row.id} className="transition-colors hover:bg-gray-50">
+                  {row.getVisibleCells().map((cell) => {
+                    const meta = cell.column.columnDef.meta as
+                      | { headerClass?: string; cellClass?: string }
+                      | undefined;
+                    return (
+                      <td key={cell.id} className={`px-2 py-3 ${meta?.cellClass ?? ""}`}>
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </td>
+                    );
+                  })}
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-      </div>
 
-      {/* Mobile/Tablet Card View */}
-      <div className="lg:hidden">
-        <div className="space-y-4">
-          {branches.map((branch) => (
-            <div key={branch.id || `branch-${Math.random()}`} className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-sm transition-shadow">
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <BuildingOfficeIcon className="w-5 h-5 text-blue-600" />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-900">{branch.name}</h4>
-                    <p className="text-xs text-gray-500">{getBranchField(branch, "location")}</p>
-                  </div>
-                </div>
-                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${branch.status === "active" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
-                  <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${branch.status === "active" ? "bg-green-400" : "bg-red-400"}`}></span>
-                  {branch.status}
-                </span>
-              </div>
-
-              <div className="space-y-2 mb-3">
-                <div className="flex items-center text-xs text-gray-600">
-                  <PhoneIcon className="w-3 h-3 text-gray-400 mr-2" />
-                  <span>{getBranchField(branch, "phone")}</span>
-                </div>
-                <div className="flex items-center text-xs text-gray-600">
-                  <EnvelopeIcon className="w-3 h-3 text-gray-400 mr-2" />
-                  <span>{getBranchField(branch, "email")}</span>
-                </div>
-                <div className="flex items-center text-xs text-gray-600">
-                  <UserGroupIcon className="w-3 h-3 text-gray-400 mr-2" />
-                  <span>
-                    {techniciansByBranch[branch.id]?.length || 0} {techniciansByBranch[branch.id]?.length === 1 ? "technician" : "technicians"}
-                  </span>
-                </div>
-                {techniciansByBranch[branch.id]?.length > 0 && (
-                  <div className="text-xs text-gray-500 ml-5">
-                    {techniciansByBranch[branch.id]?.slice(0, 2).join(", ")}
-                    {techniciansByBranch[branch.id]?.length > 2 && ` +${techniciansByBranch[branch.id]?.length - 2} more`}
-                  </div>
-                )}
-              </div>
-
-              <div className="flex gap-2 pt-3 border-t border-gray-100">
-                <button className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-blue-600 hover:text-blue-700 text-xs font-medium transition-colors border border-blue-200 rounded-md hover:bg-blue-50" onClick={() => {
-                  console.log("Mobile edit button clicked for branch:", branch);
-                  console.log("Mobile branch ID:", branch.id);
-                  console.log("Mobile branch structure:", branch);
-                  branch.id && router.push(`/branch/edit?id=${branch.id}`);
-                }}>
-                  <PencilIcon className="w-3 h-3" />
-                  Edit
-                </button>
-                {onDeleteBranch && (
-                  <button
-                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-red-600 hover:text-red-700 text-xs font-medium transition-colors border border-red-200 rounded-md hover:bg-red-50"
-                    onClick={() => {
-                      if (window.confirm(`Are you sure you want to delete branch '${branch.name}'?`)) {
-                        onDeleteBranch(branch);
-                      }
-                    }}
-                  >
-                    <TrashIcon className="w-3 h-3" />
-                    Delete
-                  </button>
-                )}
-              </div>
+        {totalRows > 0 && (
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-100 bg-white px-4 py-3 shadow-sm md:mt-0 md:rounded-none md:border-x-0 md:border-b-0 md:shadow-none">
+            <p className="text-xs text-gray-500">
+              Showing <span className="font-medium text-gray-700">{firstRow}</span>–
+              <span className="font-medium text-gray-700">{lastRow}</span> of{" "}
+              <span className="font-medium text-gray-700">{totalRows}</span>
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => table.previousPage()}
+                disabled={!table.getCanPreviousPage()}
+                className="rounded-xl border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Previous
+              </button>
+              <span className="text-xs text-gray-500">
+                Page {pageIndex + 1} of {Math.max(table.getPageCount(), 1)}
+              </span>
+              <button
+                type="button"
+                onClick={() => table.nextPage()}
+                disabled={!table.getCanNextPage()}
+                className="rounded-xl border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Next
+              </button>
             </div>
-          ))}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );
