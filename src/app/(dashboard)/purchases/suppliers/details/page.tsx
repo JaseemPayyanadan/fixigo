@@ -150,7 +150,7 @@ function SupplierDetailsContent() {
   const isInactive = supplier.status === "inactive";
   const outstandingNote =
     supplier.outstanding > 0
-      ? ` Outstanding balance of ₹${supplier.outstanding.toLocaleString("en-IN")} will remain on past purchases.`
+      ? ` The outstanding balance of ₹${supplier.outstanding.toLocaleString("en-IN")} will be cleared.`
       : "";
 
   return (
@@ -229,7 +229,7 @@ function SupplierDetailsContent() {
       <ConfirmDialog
         open={confirmDeleteOpen}
         title="Delete supplier?"
-        description={`Deactivate "${supplier.name}"? They will no longer appear when adding purchases.${outstandingNote}`}
+        description={`Deactivate "${supplier.name}"? They will no longer appear when adding purchases, and all of their purchases will be cancelled.${outstandingNote}`}
         confirmLabel="Delete supplier"
         confirming={deleting}
         error={deleteError}

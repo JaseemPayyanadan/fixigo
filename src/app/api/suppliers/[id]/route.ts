@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 
 import {
   assertCanManageSuppliers,
+  assertCanWritePurchase,
   readJsonBody,
   requireUser,
   toErrorResponse,
 } from "@/lib/apiAuth";
-import { listPurchases } from "@/lib/purchaseRepo";
+import { cancelPurchase, listPurchases } from "@/lib/purchaseRepo";
 import { parseUpdateSupplierInput } from "@/lib/purchaseValidation";
 import { deleteSupplier, getSupplier, updateSupplier } from "@/lib/supplierRepo";
 
@@ -50,6 +51,20 @@ export async function DELETE(_request: NextRequest, { params }: RouteContext) {
     const user = await requireUser();
     const shopId = assertCanManageSuppliers(user);
     const { id } = await params;
+
+    const supplier = await getSupplier(shopId, id);
+    const purchases = await listPurchases({ shopId, supplierId: id });
+
+    // Fail closed before mutating anything: a branch_admin can manage a
+    // shop-wide supplier but may not have write access to every branch that
+    // bought from them.
+    for (const purchase of purchases) {
+      assertCanWritePurchase(user, { shopId: purchase.shopId, branchId: purchase.branchId });
+    }
+
+    for (const purchase of purchases) {
+      await cancelPurchase(shopId, purchase.id, `Supplier "${supplier.name}" was deleted`);
+    }
 
     return NextResponse.json({ supplier: await deleteSupplier(shopId, id) });
   } catch (error) {

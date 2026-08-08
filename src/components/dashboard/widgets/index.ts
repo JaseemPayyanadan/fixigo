@@ -10,4 +10,5 @@ export { ServicesOverviewCard } from "./ServicesOverviewCard";
 export { StatCard } from "./StatCard";
 export type { StatCardProps } from "./StatCard";
 export { StatTileRow } from "./StatTileRow";
+export { TodayRepairsCard } from "./TodayRepairsCard";
 export { TopTechniciansTable } from "./TopTechniciansTable";

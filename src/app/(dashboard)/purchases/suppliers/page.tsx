@@ -222,9 +222,9 @@ function SuppliersContent() {
         title="Delete supplier?"
         description={
           deleteTarget
-            ? `Deactivate "${deleteTarget.name}"? They will no longer appear when adding purchases.${
+            ? `Deactivate "${deleteTarget.name}"? They will no longer appear when adding purchases, and all of their purchases will be cancelled.${
                 deleteTarget.outstanding > 0
-                  ? ` Outstanding balance of ₹${deleteTarget.outstanding.toLocaleString("en-IN")} will remain on past purchases.`
+                  ? ` The outstanding balance of ₹${deleteTarget.outstanding.toLocaleString("en-IN")} will be cleared.`
                   : ""
               }`
             : ""

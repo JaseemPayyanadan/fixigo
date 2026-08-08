@@ -12,14 +12,14 @@ import {
   revenueTrend,
   summarize,
   technicianPerformance,
-  topServices,
+  todayRepairsList,
+  todayRepairsSummary,
   type DashboardPeriod,
   type DayMetrics,
   type TrendWindow,
 } from "@/lib/dashboardAnalytics";
 import type { Service, Technician } from "@/types";
 
-import { CHART_COLORS } from "./charts/palette";
 import {
   CompactErrorState,
   DashboardErrorBoundary,
@@ -28,9 +28,9 @@ import {
 import { formatCurrency } from "./shared/DashboardUtils";
 import {
   DashboardSkeleton,
-  RankedListCard,
   RevenueTrendCard,
   StatCard,
+  TodayRepairsCard,
   TopTechniciansTable,
   type StatCardProps,
 } from "./widgets";
@@ -68,7 +68,6 @@ export function AdminDashboardView({
   now: nowOverride,
 }: AdminDashboardViewProps) {
   const [techniciansPeriod, setTechniciansPeriod] = React.useState<DashboardPeriod>("this_month");
-  const [repairsPeriod, setRepairsPeriod] = React.useState<DashboardPeriod>("this_month");
   const [trendWindow, setTrendWindow] = React.useState<TrendWindow>(30);
 
   // Pinned per render pass so every widget measures against the same instant
@@ -84,10 +83,8 @@ export function AdminDashboardView({
     [services, technicians, techniciansPeriod, now]
   );
 
-  const commonRepairs = React.useMemo(
-    () => topServices(filterByRange(services, getPeriodRange(repairsPeriod, now).current)),
-    [services, repairsPeriod, now]
-  );
+  const todayRepairs = React.useMemo(() => todayRepairsSummary(services, now), [services, now]);
+  const todayRepairItems = React.useMemo(() => todayRepairsList(services, now), [services, now]);
 
   const handleRetry = React.useCallback(() => {
     window.location.reload();
@@ -129,20 +126,13 @@ export function AdminDashboardView({
                 </div>
               </div>
 
-              {/* Band 3 — most common repairs beside technician performance,
+              {/* Band 3 — today's repairs beside technician performance,
                   split 7/5 on a 12-column grid to match Band 2's widths
                   above; both cards are `h-full` so the shorter one still
                   matches the row's height. */}
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
                 <div className="lg:col-span-7">
-                  <RankedListCard
-                    title="Most Common Repairs"
-                    items={commonRepairs}
-                    color={CHART_COLORS.series.total}
-                    period={repairsPeriod}
-                    onPeriodChange={setRepairsPeriod}
-                    emptyMessage="No services in this period"
-                  />
+                  <TodayRepairsCard summary={todayRepairs} items={todayRepairItems} now={now} />
                 </div>
                 <div className="lg:col-span-5">
                   <TopTechniciansTable
