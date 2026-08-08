@@ -5,7 +5,9 @@ import { useRouter, useSearchParams } from "next/navigation";
 import React, { Suspense } from "react";
 
 import { Button } from "@/components/ui/Button";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { PurchaseDetailsSkeleton } from "@/components/ui/PageSkeleton";
+import { toastHref } from "@/hooks/useCrossNavToast";
 import PurchaseDetails from "@/modules/purchase/PurchaseDetails";
 import RecordPaymentModal from "@/modules/purchase/RecordPaymentModal";
 import type { Purchase } from "@/types/purchase";
@@ -111,9 +113,7 @@ function PurchaseDetailsContent() {
       setCancelling(false);
       setCancelReason("");
       setCancelError(null);
-      router.push(
-        `/purchases?toast=${encodeURIComponent(`Purchase ${body.purchase.ref} was cancelled`)}`
-      );
+      router.push(toastHref("/purchases", `Purchase ${body.purchase.ref} was cancelled`));
     } finally {
       setCancellingSubmit(false);
     }
@@ -182,12 +182,7 @@ function PurchaseDetailsContent() {
               variant="danger"
               size="sm"
               onClick={openDelete}
-              disabled={isLocked}
-              title={
-                isLocked
-                  ? "Delete is unavailable after a payment is recorded"
-                  : "Delete purchase"
-              }
+              title="Delete purchase"
             >
               Delete
             </Button>
@@ -200,72 +195,34 @@ function PurchaseDetailsContent() {
         onRecordPayment={() => setPaymentOpen(true)}
       />
 
-      {cancelling && (
-        <div className="fixed inset-0 z-[10001] flex items-center justify-center p-4">
-          <button
-            type="button"
-            className="absolute inset-0 bg-black/50"
-            aria-label="Close dialog"
-            onClick={() => {
-              if (!cancellingSubmit) {
-                setCancelling(false);
-                setCancelError(null);
-              }
-            }}
-            disabled={cancellingSubmit}
-          />
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="cancel-purchase-title"
-            className="relative w-full max-w-md rounded-2xl bg-white p-5 shadow-xl"
-          >
-            <h2 id="cancel-purchase-title" className="text-lg font-semibold text-gray-900">
-              Delete purchase?
-            </h2>
-            <p className="mt-1 text-sm text-gray-600">
-              This cancels &quot;{purchase.ref}&quot;. Purchase history is kept, but the bill will no longer
-              count toward totals.
-            </p>
-            <label className="mt-4 mb-1 block text-sm font-medium text-gray-700">
-              Reason <span className="text-red-600">*</span>
-            </label>
-            <input
-              value={cancelReason}
-              onChange={(event) => setCancelReason(event.target.value)}
-              className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="e.g. wrong supplier"
-              disabled={cancellingSubmit}
-            />
-            {cancelError && (
-              <p className="mt-2 text-sm text-red-600" role="alert">
-                {cancelError}
-              </p>
-            )}
-            <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-              <Button
-                type="button"
-                variant="secondary"
-                disabled={cancellingSubmit}
-                onClick={() => {
-                  setCancelling(false);
-                  setCancelError(null);
-                }}
-              >
-                Keep purchase
-              </Button>
-              <Button
-                type="button"
-                variant="danger"
-                onClick={handleCancel}
-                disabled={cancelReason.trim() === "" || cancellingSubmit}
-              >
-                {cancellingSubmit ? "Deleting…" : "Delete purchase"}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog
+        open={cancelling}
+        title="Delete purchase?"
+        description={`This cancels "${purchase.ref}". Purchase history is kept, but the bill will no longer count toward totals.`}
+        confirmLabel={cancellingSubmit ? "Deleting…" : "Delete purchase"}
+        cancelLabel="Keep purchase"
+        confirming={cancellingSubmit}
+        confirmDisabled={cancelReason.trim() === ""}
+        error={cancelError}
+        onConfirm={handleCancel}
+        onClose={() => {
+          if (!cancellingSubmit) {
+            setCancelling(false);
+            setCancelError(null);
+          }
+        }}
+      >
+        <label className="mb-1 block text-sm font-medium text-gray-700">
+          Reason <span className="text-red-600">*</span>
+        </label>
+        <input
+          value={cancelReason}
+          onChange={(event) => setCancelReason(event.target.value)}
+          className="mb-4 h-11 w-full rounded-xl border border-gray-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          placeholder="e.g. wrong supplier"
+          disabled={cancellingSubmit}
+        />
+      </ConfirmDialog>
 
       <RecordPaymentModal
         purchase={purchase}

@@ -41,7 +41,7 @@ const PurchaseDetails = React.memo(function PurchaseDetails({
 
         {isLocked && (
           <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-800">
-            Edit and delete are locked because a payment has been recorded on this purchase.
+            Edit is locked because a payment has been recorded on this purchase.
           </p>
         )}
 

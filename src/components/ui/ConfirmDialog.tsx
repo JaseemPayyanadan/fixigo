@@ -13,11 +13,14 @@ interface ConfirmDialogProps {
   confirmLabel?: string;
   cancelLabel?: string;
   confirming?: boolean;
+  confirmDisabled?: boolean;
   error?: string | null;
   /** Defaults to danger for destructive actions. */
   variant?: "danger" | "primary";
   onConfirm: () => void;
   onClose: () => void;
+  /** Extra body content rendered between the description and error, e.g. a reason input. */
+  children?: React.ReactNode;
 }
 
 /** Centered confirm modal used for destructive or irreversible actions. */
@@ -28,10 +31,12 @@ export default function ConfirmDialog({
   confirmLabel = "Confirm",
   cancelLabel = "Cancel",
   confirming = false,
+  confirmDisabled = false,
   error = null,
   variant = "danger",
   onConfirm,
   onClose,
+  children,
 }: ConfirmDialogProps) {
   const titleId = useId();
 
@@ -99,6 +104,8 @@ export default function ConfirmDialog({
 
         <p className="mb-4 text-sm text-gray-600">{description}</p>
 
+        {children}
+
         {error ? (
           <p className="mb-3 text-sm text-red-600" role="alert">
             {error}
@@ -113,7 +120,7 @@ export default function ConfirmDialog({
             type="button"
             variant={variant === "danger" ? "danger" : "primary"}
             onClick={onConfirm}
-            disabled={confirming}
+            disabled={confirming || confirmDisabled}
           >
             {confirming ? "Please wait…" : confirmLabel}
           </Button>

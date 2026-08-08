@@ -218,6 +218,56 @@ export default function ServiceDetailsView({
           </div>
 
           <div className="flex flex-wrap items-center gap-2 pl-14 sm:pl-0">
+            {/* Desktop-only: the same control lives in the Actions bar below
+                for mobile/tablet, hidden here so it doesn't render twice. */}
+            <div className="hidden items-center gap-2 lg:flex">
+              <span className="shrink-0 text-sm font-medium text-gray-600">Update Status</span>
+              <select
+                value={status}
+                onChange={onStatusChange}
+                disabled={updatingStatus}
+                className="min-h-11 cursor-pointer rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+              >
+                {statusOptions.map((opt) => (
+                  <option key={opt} value={opt}>
+                    {opt}
+                  </option>
+                ))}
+              </select>
+              {updatingStatus && <span className="text-xs text-gray-500">Updating…</span>}
+              {statusUpdateSuccess && (
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600">
+                  <MdCheckCircle className="h-4 w-4" />
+                  Updated
+                </span>
+              )}
+            </div>
+
+            {/* Desktop-only: mirrors the Actions bar's Reopen/payment buttons
+                below, which are hidden at `lg` so nothing renders twice. */}
+            {userCanReopen && (
+              <button
+                type="button"
+                onClick={onReopenClick}
+                className="hidden min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-900 hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-amber-500 lg:inline-flex"
+              >
+                <MdRefresh className="h-4 w-4" />
+                Reopen Service
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onPaymentToggle}
+              disabled={updatingPayment}
+              className={`hidden min-h-11 cursor-pointer items-center rounded-xl px-4 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 lg:inline-flex ${
+                servicePaid
+                  ? "border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                  : "bg-emerald-600 text-white hover:bg-emerald-700"
+              }`}
+            >
+              {updatingPayment ? "Saving…" : servicePaid ? "Mark as Unpaid" : "Mark as Paid"}
+            </button>
+
             <Button type="button" onClick={onEdit}>
               <MdEdit className="h-4 w-4" />
               Edit Service
@@ -256,6 +306,12 @@ export default function ServiceDetailsView({
             </div>
           </div>
         </div>
+
+        {paymentError && (
+          <p role="alert" className="text-sm text-red-600">
+            {paymentError}
+          </p>
+        )}
 
         {/* Summary hero */}
         <section className={`${cardClass} p-5 md:p-6`}>
@@ -296,7 +352,6 @@ export default function ServiceDetailsView({
                 <span
                   className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${statusConfig.color} ${statusConfig.bg}`}
                 >
-                  <span aria-hidden="true">{statusConfig.icon}</span>
                   {statusConfig.label}
                 </span>
               </div>
@@ -336,8 +391,9 @@ export default function ServiceDetailsView({
           </div>
         </section>
 
-        {/* Actions bar */}
-        <section className={`${cardClass} p-4`}>
+        {/* Actions bar — mobile/tablet only; the header's top-right row
+            carries the same controls at `lg`. */}
+        <section className={`${cardClass} p-4 lg:hidden`}>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
             <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
               <span className="shrink-0 text-sm font-medium text-gray-600">Update Status</span>
@@ -387,11 +443,6 @@ export default function ServiceDetailsView({
               >
                 {updatingPayment ? "Saving…" : servicePaid ? "Mark as Unpaid" : "Mark as Paid"}
               </button>
-              {paymentError && (
-                <p role="alert" className="w-full text-sm text-red-600 sm:text-right">
-                  {paymentError}
-                </p>
-              )}
             </div>
           </div>
         </section>

@@ -5,9 +5,11 @@ import { useRouter, useSearchParams } from "next/navigation";
 import React, { Suspense } from "react";
 
 import { Button } from "@/components/ui/Button";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { PageFallback, TableSkeleton } from "@/components/ui/PageSkeleton";
 import SlideOver from "@/components/ui/SlideOver";
 import Toast from "@/components/ui/Toast";
+import { useCrossNavToast } from "@/hooks/useCrossNavToast";
 import SupplierForm, { type SupplierPayload } from "@/modules/purchase/SupplierForm";
 import SupplierList from "@/modules/purchase/SupplierList";
 import type { Supplier } from "@/types/purchase";
@@ -20,7 +22,6 @@ function SuppliersContent() {
   // The Add Purchase form's "+ Add" button links here with ?new=1.
   const searchParams = useSearchParams();
   const openNew = searchParams.get("new") === "1";
-  const toastParam = searchParams.get("toast");
 
   const [suppliers, setSuppliers] = React.useState<Supplier[]>([]);
   const [creating, setCreating] = React.useState(openNew);
@@ -28,8 +29,11 @@ function SuppliersContent() {
   const [error, setError] = React.useState<string | null>(null);
   const [loadError, setLoadError] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(true);
-  const [toastMessage, setToastMessage] = React.useState<string | null>(null);
+  const [toastMessage, setToastMessage] = useCrossNavToast("/purchases/suppliers");
   const [viewport, setViewport] = React.useState<"unknown" | "mobile" | "desktop">("unknown");
+  const [deleteTarget, setDeleteTarget] = React.useState<Supplier | null>(null);
+  const [deleting, setDeleting] = React.useState(false);
+  const [deleteError, setDeleteError] = React.useState<string | null>(null);
 
   const load = React.useCallback(async () => {
     try {
@@ -56,12 +60,6 @@ function SuppliersContent() {
   React.useEffect(() => {
     load();
   }, [load]);
-
-  React.useEffect(() => {
-    if (!toastParam) return;
-    setToastMessage(toastParam);
-    router.replace("/purchases/suppliers");
-  }, [toastParam, router]);
 
   React.useEffect(() => {
     const media = window.matchMedia(DESKTOP_MQ);
@@ -108,6 +106,27 @@ function SuppliersContent() {
     setCreating(true);
   }, []);
 
+  const handleDeleteConfirm = React.useCallback(async () => {
+    if (!deleteTarget) return;
+
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      const response = await fetch(`/api/suppliers/${deleteTarget.id}`, { method: "DELETE" });
+      if (!response.ok) {
+        const body = (await response.json()) as { error?: string };
+        throw new Error(body.error ?? "Could not delete the supplier");
+      }
+      setToastMessage(`"${deleteTarget.name}" was deactivated`);
+      setDeleteTarget(null);
+      await load();
+    } catch (caught) {
+      setDeleteError((caught as Error).message);
+    } finally {
+      setDeleting(false);
+    }
+  }, [deleteTarget, load, setToastMessage]);
+
   const showSlide = creating && viewport === "desktop";
   const showInline = creating && viewport === "mobile";
 
@@ -152,6 +171,10 @@ function SuppliersContent() {
         <SupplierList
           suppliers={suppliers}
           onOpen={(id) => router.push(`/purchases/suppliers/details?id=${id}`)}
+          onDelete={(supplier) => {
+            setDeleteError(null);
+            setDeleteTarget(supplier);
+          }}
         />
       ) : null}
 
@@ -192,6 +215,30 @@ function SuppliersContent() {
         message={toastMessage ?? ""}
         variant="success"
         onClose={() => setToastMessage(null)}
+      />
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title="Delete supplier?"
+        description={
+          deleteTarget
+            ? `Deactivate "${deleteTarget.name}"? They will no longer appear when adding purchases, and all of their purchases will be cancelled.${
+                deleteTarget.outstanding > 0
+                  ? ` The outstanding balance of ₹${deleteTarget.outstanding.toLocaleString("en-IN")} will be cleared.`
+                  : ""
+              }`
+            : ""
+        }
+        confirmLabel="Delete supplier"
+        confirming={deleting}
+        error={deleteError}
+        onConfirm={handleDeleteConfirm}
+        onClose={() => {
+          if (!deleting) {
+            setDeleteTarget(null);
+            setDeleteError(null);
+          }
+        }}
       />
     </div>
   );

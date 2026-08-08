@@ -6,9 +6,6 @@ import { useRouter } from "next/navigation";
 
 import {
   BuildingOfficeIcon,
-  ChevronDownIcon,
-  ChevronUpDownIcon,
-  ChevronUpIcon,
   EnvelopeIcon,
   PencilIcon,
   PhoneIcon,
@@ -25,6 +22,7 @@ import {
   type SortingState,
 } from "@tanstack/react-table";
 
+import { SortableTableHeader, TablePaginationFooter } from "@/components/ui/DataTable";
 import { TableSkeleton } from "@/components/ui/PageSkeleton";
 import type { Branch, Technician } from "@/types";
 
@@ -310,11 +308,7 @@ export const ShopAdminBranchList: React.FC<ShopAdminBranchListProps> = ({
     initialState: { pagination: { pageSize: PAGE_SIZE } },
   });
 
-  const pageIndex = table.getState().pagination.pageIndex;
   const rows = table.getRowModel().rows;
-  const totalRows = table.getFilteredRowModel().rows.length;
-  const firstRow = totalRows === 0 ? 0 : pageIndex * table.getState().pagination.pageSize + 1;
-  const lastRow = Math.min(firstRow + table.getState().pagination.pageSize - 1, totalRows);
 
   if (loading) {
     return <TableSkeleton rows={5} />;
@@ -390,48 +384,7 @@ export const ShopAdminBranchList: React.FC<ShopAdminBranchListProps> = ({
 
         <div className="hidden overflow-x-auto md:block">
           <table className="min-w-full divide-y divide-gray-100 text-left">
-            <thead className="bg-gray-50">
-              {table.getHeaderGroups().map((headerGroup) => (
-                <tr key={headerGroup.id}>
-                  {headerGroup.headers.map((header) => {
-                    const meta = header.column.columnDef.meta as
-                      | { headerClass?: string; cellClass?: string }
-                      | undefined;
-                    const sorted = header.column.getIsSorted();
-                    const canSort = header.column.getCanSort();
-                    return (
-                      <th
-                        key={header.id}
-                        scope="col"
-                        aria-sort={
-                          sorted === "asc" ? "ascending" : sorted === "desc" ? "descending" : undefined
-                        }
-                        className={`${HEADER_CLASS} ${meta?.headerClass ?? ""}`}
-                      >
-                        {canSort ? (
-                          <button
-                            type="button"
-                            onClick={header.column.getToggleSortingHandler()}
-                            className="inline-flex cursor-pointer items-center gap-1 rounded uppercase transition-colors hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          >
-                            {flexRender(header.column.columnDef.header, header.getContext())}
-                            {sorted === "asc" ? (
-                              <ChevronUpIcon className="h-3 w-3" />
-                            ) : sorted === "desc" ? (
-                              <ChevronDownIcon className="h-3 w-3" />
-                            ) : (
-                              <ChevronUpDownIcon className="h-3 w-3 text-gray-300" />
-                            )}
-                          </button>
-                        ) : (
-                          flexRender(header.column.columnDef.header, header.getContext())
-                        )}
-                      </th>
-                    );
-                  })}
-                </tr>
-              ))}
-            </thead>
+            <SortableTableHeader table={table} headerClass={HEADER_CLASS} />
             <tbody className="divide-y divide-gray-100">
               {rows.map((row) => (
                 <tr key={row.id} className="transition-colors hover:bg-gray-50">
@@ -451,36 +404,7 @@ export const ShopAdminBranchList: React.FC<ShopAdminBranchListProps> = ({
           </table>
         </div>
 
-        {totalRows > 0 && (
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-100 bg-white px-4 py-3 shadow-sm md:mt-0 md:rounded-none md:border-x-0 md:border-b-0 md:shadow-none">
-            <p className="text-xs text-gray-500">
-              Showing <span className="font-medium text-gray-700">{firstRow}</span>–
-              <span className="font-medium text-gray-700">{lastRow}</span> of{" "}
-              <span className="font-medium text-gray-700">{totalRows}</span>
-            </p>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => table.previousPage()}
-                disabled={!table.getCanPreviousPage()}
-                className="rounded-xl border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                Previous
-              </button>
-              <span className="text-xs text-gray-500">
-                Page {pageIndex + 1} of {Math.max(table.getPageCount(), 1)}
-              </span>
-              <button
-                type="button"
-                onClick={() => table.nextPage()}
-                disabled={!table.getCanNextPage()}
-                className="rounded-xl border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                Next
-              </button>
-            </div>
-          </div>
-        )}
+        <TablePaginationFooter table={table} />
       </div>
     </div>
   );

@@ -21,7 +21,6 @@ export interface PurchaseFormActionState {
 export interface PurchaseFormHostProps {
   editId?: string | null;
   onSuccess: (purchaseId: string) => void;
-  onAddSupplier: () => void;
   formId?: string;
   hideSubmit?: boolean;
   onActionStateChange?: (state: PurchaseFormActionState) => void;
@@ -34,7 +33,6 @@ export interface PurchaseFormHostProps {
 export default function PurchaseFormHost({
   editId,
   onSuccess,
-  onAddSupplier,
   formId,
   hideSubmit = false,
   onActionStateChange,
@@ -57,6 +55,10 @@ export default function PurchaseFormHost({
   const [canSubmit, setCanSubmit] = React.useState(false);
 
   const submitLabel = editId ? "Update purchase" : "Save purchase";
+
+  const handleSupplierCreated = React.useCallback((supplier: Supplier) => {
+    setSuppliers((current) => [...current, supplier]);
+  }, []);
 
   React.useEffect(() => {
     onActionStateChange?.({ canSubmit, submitting, submitLabel });
@@ -192,7 +194,7 @@ export default function PurchaseFormHost({
       submitting={submitting}
       error={error}
       onSubmit={handleSubmit}
-      onAddSupplier={onAddSupplier}
+      onSupplierCreated={handleSupplierCreated}
       branches={branches}
       showBranchSelector={isShopAdmin}
       branchId={branchId}

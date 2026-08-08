@@ -494,6 +494,93 @@ export function todayCounts(services: Service[], now: Date = new Date()): TodayC
   return counts;
 }
 
+export interface TodayRepairsSummary {
+  /** Services received today — matches the repairs table filtered to today's date. */
+  total: number;
+  completed: number;
+  cancelled: number;
+}
+
+export interface TodayRepairItem {
+  service: Service;
+  /** When the service was received. */
+  timestamp: Date;
+}
+
+/**
+ * The most recent time `service` entered `status`, per its status history.
+ * `updatedAt` is deliberately not used as a fallback here: it moves on *any*
+ * edit (price, notes, technician reassignment...), so a status change from
+ * last month plus an unrelated edit today would otherwise be misread as
+ * happening today. No history entry means no honest answer, so this returns
+ * `null` rather than guessing.
+ */
+function lastStatusChange(service: Service, status: string): Date | null {
+  let latest: Date | null = null;
+
+  for (const entry of service.statusHistory ?? []) {
+    if (normalizeStatus(entry.status) !== status) continue;
+    const timestamp = toDate(entry.timestamp);
+    if (timestamp && (!latest || timestamp > latest)) latest = timestamp;
+  }
+
+  return latest;
+}
+
+/**
+ * Services received today, newest first — the same set the main repairs
+ * table shows when filtered to today's date. `completed`/`cancelled` on
+ * `TodayRepairsSummary` are independent counts of *when those events
+ * happened* today, which is a different question from *when the service
+ * arrived*, so they intentionally don't widen this list: a service completed
+ * today but received last week still shows up in the repairs table under
+ * last week's date, not today's.
+ */
+export function todayRepairsList(services: Service[], now: Date = new Date()): TodayRepairItem[] {
+  const items: TodayRepairItem[] = [];
+
+  for (const service of services) {
+    const created = toDate(service.createdAt);
+    if (created && isSameDay(created, now)) {
+      items.push({ service, timestamp: created });
+    }
+  }
+
+  return items.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+}
+
+/**
+ * Today's repair activity: how many jobs came in, finished, or were called
+ * off since midnight. `total` counts intake (`createdAt`), matching
+ * `todayRepairsList` and the repairs table filtered to today. `completed`
+ * and `cancelled` count those events independently and may include services
+ * received on an earlier day.
+ *
+ * Cancellation has no dedicated date field, and older records may lack a
+ * completion one too; both fall back to `statusHistory` (see
+ * `lastStatusChange`) rather than `updatedAt`, which would also move on
+ * edits unrelated to the status.
+ */
+export function todayRepairsSummary(services: Service[], now: Date = new Date()): TodayRepairsSummary {
+  const summary: TodayRepairsSummary = { total: todayRepairsList(services, now).length, completed: 0, cancelled: 0 };
+
+  for (const service of services) {
+    const status = normalizeStatus(service.status);
+
+    if (status === "completed") {
+      const completed = toDate(service.completedDate) ?? toDate(service.actualCompletion) ?? lastStatusChange(service, "completed");
+      if (completed && isSameDay(completed, now)) summary.completed += 1;
+    }
+
+    if (status === "cancelled") {
+      const cancelled = lastStatusChange(service, "cancelled");
+      if (cancelled && isSameDay(cancelled, now)) summary.cancelled += 1;
+    }
+  }
+
+  return summary;
+}
+
 /**
  * Open work whose estimated completion has passed. Services with no estimate
  * are not counted: an absent estimate is unknown, not overdue.
