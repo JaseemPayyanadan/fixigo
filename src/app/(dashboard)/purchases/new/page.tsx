@@ -23,7 +23,6 @@ function NewPurchaseContent() {
       <PurchaseFormHost
         editId={editId}
         onSuccess={(purchaseId) => router.push(`/purchases/details?id=${purchaseId}`)}
-        onAddSupplier={() => router.push("/purchases/suppliers?new=1")}
       />
     </div>
   );

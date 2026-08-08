@@ -9,6 +9,7 @@ import { computeTotals, lineTotalOf } from "@/lib/purchaseTotals";
 import type { Branch } from "@/types";
 import type { Purchase, Supplier } from "@/types/purchase";
 
+import AddSupplierModal from "./AddSupplierModal";
 import PurchaseItemModal, { type ItemFormValues } from "./PurchaseItemModal";
 
 export interface Suggestions {
@@ -37,7 +38,7 @@ interface Props {
   submitting: boolean;
   error: string | null;
   onSubmit: (payload: PurchasePayload) => Promise<void>;
-  onAddSupplier: () => void;
+  onSupplierCreated: (supplier: Supplier) => void;
   initial?: Purchase | null;
   submitLabel?: string;
   /** Only shop_admin picks a branch; other roles are pinned to their own and this stays empty. */
@@ -67,7 +68,7 @@ const PurchaseForm = React.memo(function PurchaseForm({
   submitting,
   error,
   onSubmit,
-  onAddSupplier,
+  onSupplierCreated,
   initial,
   submitLabel,
   branches = [],
@@ -104,6 +105,7 @@ const PurchaseForm = React.memo(function PurchaseForm({
   );
   const [itemModalOpen, setItemModalOpen] = React.useState(false);
   const [editingItem, setEditingItem] = React.useState<ItemFormValues | null>(null);
+  const [supplierModalOpen, setSupplierModalOpen] = React.useState(false);
   const [paymentType, setPaymentType] = React.useState<"cash" | "upi" | "bank" | "credit">("cash");
   const [amountPaid, setAmountPaid] = React.useState("");
 
@@ -150,6 +152,15 @@ const PurchaseForm = React.memo(function PurchaseForm({
   }, []);
 
   const closeItemModal = React.useCallback(() => setItemModalOpen(false), []);
+
+  const handleSupplierCreated = React.useCallback(
+    (supplier: Supplier) => {
+      setSupplierId(supplier.id);
+      setSupplierModalOpen(false);
+      onSupplierCreated(supplier);
+    },
+    [onSupplierCreated]
+  );
 
   const saveItem = React.useCallback((values: ItemFormValues) => {
     setRows((current) => {
@@ -281,7 +292,7 @@ const PurchaseForm = React.memo(function PurchaseForm({
               </select>
               <button
                 type="button"
-                onClick={onAddSupplier}
+                onClick={() => setSupplierModalOpen(true)}
                 className="h-11 shrink-0 rounded-xl border border-blue-200 px-3 text-sm font-medium text-blue-600"
               >
                 + Add supplier
@@ -438,6 +449,12 @@ const PurchaseForm = React.memo(function PurchaseForm({
         initial={editingItem}
         onClose={closeItemModal}
         onSave={saveItem}
+      />
+
+      <AddSupplierModal
+        open={supplierModalOpen}
+        onClose={() => setSupplierModalOpen(false)}
+        onCreated={handleSupplierCreated}
       />
     </form>
   );

@@ -342,7 +342,6 @@ function PurchasesPageContent() {
           hideSubmit
           onActionStateChange={setSlideFormState}
           onSuccess={handleSlideSuccess}
-          onAddSupplier={() => router.push("/purchases/suppliers?new=1")}
         />
       </SlideOver>
 
