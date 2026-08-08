@@ -7,6 +7,7 @@ import React, { Suspense } from "react";
 import { Button } from "@/components/ui/Button";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { SupplierDetailsSkeleton } from "@/components/ui/PageSkeleton";
+import { toastHref } from "@/hooks/useCrossNavToast";
 import SupplierForm, { type SupplierPayload } from "@/modules/purchase/SupplierForm";
 import SupplierProfile from "@/modules/purchase/SupplierProfile";
 import type { Purchase, Supplier } from "@/types/purchase";
@@ -69,9 +70,7 @@ function SupplierDetailsContent() {
         throw new Error(body.error ?? "Could not delete the supplier");
       }
       setConfirmDeleteOpen(false);
-      router.push(
-        `/purchases/suppliers?toast=${encodeURIComponent(`"${supplier.name}" was deactivated`)}`
-      );
+      router.push(toastHref("/purchases/suppliers", `"${supplier.name}" was deactivated`));
     } catch (caught) {
       setDeleteError((caught as Error).message);
     } finally {

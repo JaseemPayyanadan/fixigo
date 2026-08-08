@@ -17,6 +17,7 @@ import {
 } from "@heroicons/react/24/outline";
 
 import { Button } from "@/components/ui";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { normalizeStatus } from "@/lib/statusUtils";
 import type { ServiceCardProps } from "./types";
 import {
@@ -106,6 +107,7 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
   const technicianName = getTechnicianDisplayInfo(service.technician_id, technicians);
   const branchName = getBranchDisplayInfo(service.branchId, branches);
   const statusBadge = getStatusBadgeConfig(service.status);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = React.useState(false);
 
   const handleEdit = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -116,9 +118,12 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
-    if (window.confirm("Are you sure you want to delete this service?")) {
-      onDelete?.(service.id);
-    }
+    setConfirmDeleteOpen(true);
+  };
+
+  const handleDeleteConfirm = () => {
+    onDelete?.(service.id);
+    setConfirmDeleteOpen(false);
   };
 
 
@@ -134,6 +139,7 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
   };
 
   return (
+    <>
     <Link href={`/services/details?id=${service.id}`} className="block">
       <div className="bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-lg transition-all duration-300 hover:scale-[1.02] group cursor-pointer">
         {/* Top Bar - Service ID + Status Badge */}
@@ -269,6 +275,15 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
         </div>
       </div>
     </Link>
+    <ConfirmDialog
+      open={confirmDeleteOpen}
+      title="Delete service?"
+      description="Are you sure you want to delete this service? This cannot be undone."
+      confirmLabel="Delete"
+      onConfirm={handleDeleteConfirm}
+      onClose={() => setConfirmDeleteOpen(false)}
+    />
+    </>
   );
 };
 

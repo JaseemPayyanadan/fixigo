@@ -2,11 +2,7 @@
 
 import React, { useMemo, useState } from "react";
 
-import {
-  ChevronDownIcon,
-  ChevronUpDownIcon,
-  ChevronUpIcon,
-} from "@heroicons/react/24/outline";
+import { TrashIcon } from "@heroicons/react/24/outline";
 import {
   createColumnHelper,
   flexRender,
@@ -17,6 +13,7 @@ import {
   type SortingState,
 } from "@tanstack/react-table";
 
+import { SortableTableHeader, TablePaginationFooter } from "@/components/ui/DataTable";
 import { formatRupees } from "@/lib/purchaseFormat";
 import { formatDate } from "@/lib/utils";
 import type { Supplier } from "@/types/purchase";
@@ -27,6 +24,7 @@ const HEADER_CLASS = "px-4 py-3 text-xs font-semibold uppercase tracking-wide te
 interface Props {
   suppliers: Supplier[];
   onOpen: (id: string) => void;
+  onDelete?: (supplier: Supplier) => void;
 }
 
 const columnHelper = createColumnHelper<Supplier>();
@@ -34,53 +32,65 @@ const columnHelper = createColumnHelper<Supplier>();
 function SupplierCard({
   supplier,
   onOpen,
+  onDelete,
 }: {
   supplier: Supplier;
   onOpen: (id: string) => void;
+  onDelete?: (supplier: Supplier) => void;
 }) {
   return (
-    <button
-      type="button"
-      onClick={() => onOpen(supplier.id)}
-      className="w-full rounded-2xl border border-gray-100 bg-white p-4 text-left shadow-sm"
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="truncate font-medium text-gray-900">{supplier.name}</p>
-          <p className="text-xs text-gray-500">{supplier.phone}</p>
-          {supplier.contactPerson ? (
-            <p className="text-xs text-gray-500">{supplier.contactPerson}</p>
+    <div className="w-full rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+      <button type="button" onClick={() => onOpen(supplier.id)} className="w-full text-left">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="truncate font-medium text-gray-900">{supplier.name}</p>
+            <p className="text-xs text-gray-500">{supplier.phone}</p>
+            {supplier.contactPerson ? (
+              <p className="text-xs text-gray-500">{supplier.contactPerson}</p>
+            ) : null}
+          </div>
+          {supplier.status === "inactive" ? (
+            <span className="shrink-0 rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600">
+              Inactive
+            </span>
+          ) : (
+            <span className="shrink-0 rounded-full bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700">
+              Active
+            </span>
+          )}
+        </div>
+        <div className="mt-2 flex items-end justify-between gap-3">
+          <div className="space-y-0.5 text-sm">
+            <p className={`font-semibold ${supplier.outstanding > 0 ? "text-red-600" : "text-gray-900"}`}>
+              Outstanding {formatRupees(supplier.outstanding)}
+            </p>
+            <p className="text-xs text-gray-500">
+              Purchased {formatRupees(supplier.totalPurchased)}
+            </p>
+          </div>
+          {supplier.lastPurchaseAt ? (
+            <span className="text-xs text-gray-500">Last {formatDate(supplier.lastPurchaseAt)}</span>
           ) : null}
         </div>
-        {supplier.status === "inactive" ? (
-          <span className="shrink-0 rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600">
-            Inactive
-          </span>
-        ) : (
-          <span className="shrink-0 rounded-full bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700">
-            Active
-          </span>
-        )}
-      </div>
-      <div className="mt-2 flex items-end justify-between gap-3">
-        <div className="space-y-0.5 text-sm">
-          <p className={`font-semibold ${supplier.outstanding > 0 ? "text-red-600" : "text-gray-900"}`}>
-            Outstanding {formatRupees(supplier.outstanding)}
-          </p>
-          <p className="text-xs text-gray-500">
-            Purchased {formatRupees(supplier.totalPurchased)}
-          </p>
+      </button>
+      {onDelete && supplier.status !== "inactive" && (
+        <div className="mt-3 flex justify-end border-t border-gray-100 pt-2">
+          <button
+            type="button"
+            onClick={() => onDelete(supplier)}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-xl text-gray-500 transition-colors hover:bg-red-50 hover:text-red-600"
+            aria-label="Delete supplier"
+          >
+            <TrashIcon className="h-4 w-4" />
+          </button>
         </div>
-        {supplier.lastPurchaseAt ? (
-          <span className="text-xs text-gray-500">Last {formatDate(supplier.lastPurchaseAt)}</span>
-        ) : null}
-      </div>
-    </button>
+      )}
+    </div>
   );
 }
 
 /** Suppliers list as a TanStack data table: sortable headers, pagination, cards below `md`. */
-const SupplierList = React.memo(function SupplierList({ suppliers, onOpen }: Props) {
+const SupplierList = React.memo(function SupplierList({ suppliers, onOpen, onDelete }: Props) {
   const [sorting, setSorting] = useState<SortingState>([{ id: "outstanding", desc: true }]);
 
   const columns = useMemo(
@@ -150,8 +160,32 @@ const SupplierList = React.memo(function SupplierList({ suppliers, onOpen }: Pro
           return <span className="text-gray-500">{value ? formatDate(value) : "—"}</span>;
         },
       }),
+      columnHelper.display({
+        id: "actions",
+        header: () => <span className="sr-only">Actions</span>,
+        meta: { headerClass: "text-right", cellClass: "text-right" },
+        enableSorting: false,
+        cell: ({ row }) => {
+          const supplier = row.original;
+          if (!onDelete || supplier.status === "inactive") return null;
+          return (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                onDelete(supplier);
+              }}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-xl text-gray-500 transition-colors hover:bg-red-50 hover:text-red-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              title="Delete"
+              aria-label="Delete supplier"
+            >
+              <TrashIcon className="h-4 w-4" />
+            </button>
+          );
+        },
+      }),
     ],
-    []
+    [onDelete]
   );
 
   const table = useReactTable({
@@ -165,11 +199,7 @@ const SupplierList = React.memo(function SupplierList({ suppliers, onOpen }: Pro
     initialState: { pagination: { pageSize: PAGE_SIZE } },
   });
 
-  const pageIndex = table.getState().pagination.pageIndex;
   const rows = table.getRowModel().rows;
-  const totalRows = table.getFilteredRowModel().rows.length;
-  const firstRow = totalRows === 0 ? 0 : pageIndex * table.getState().pagination.pageSize + 1;
-  const lastRow = Math.min(firstRow + table.getState().pagination.pageSize - 1, totalRows);
 
   if (suppliers.length === 0) {
     return (
@@ -184,54 +214,13 @@ const SupplierList = React.memo(function SupplierList({ suppliers, onOpen }: Pro
     <div className="rounded-2xl md:overflow-hidden md:border md:border-gray-100 md:bg-white md:shadow-sm">
       <div className="space-y-3 md:hidden">
         {rows.map((row) => (
-          <SupplierCard key={row.id} supplier={row.original} onOpen={onOpen} />
+          <SupplierCard key={row.id} supplier={row.original} onOpen={onOpen} onDelete={onDelete} />
         ))}
       </div>
 
       <div className="hidden overflow-x-auto md:block">
         <table className="min-w-full divide-y divide-gray-100 text-left text-sm">
-          <thead className="bg-gray-50">
-            {table.getHeaderGroups().map((headerGroup) => (
-              <tr key={headerGroup.id}>
-                {headerGroup.headers.map((header) => {
-                  const meta = header.column.columnDef.meta as
-                    | { headerClass?: string; cellClass?: string }
-                    | undefined;
-                  const sorted = header.column.getIsSorted();
-                  const canSort = header.column.getCanSort();
-                  return (
-                    <th
-                      key={header.id}
-                      scope="col"
-                      aria-sort={
-                        sorted === "asc" ? "ascending" : sorted === "desc" ? "descending" : undefined
-                      }
-                      className={`${HEADER_CLASS} ${meta?.headerClass ?? ""}`}
-                    >
-                      {canSort ? (
-                        <button
-                          type="button"
-                          onClick={header.column.getToggleSortingHandler()}
-                          className="inline-flex cursor-pointer items-center gap-1 rounded uppercase transition-colors hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                          {flexRender(header.column.columnDef.header, header.getContext())}
-                          {sorted === "asc" ? (
-                            <ChevronUpIcon className="h-3 w-3" />
-                          ) : sorted === "desc" ? (
-                            <ChevronDownIcon className="h-3 w-3" />
-                          ) : (
-                            <ChevronUpDownIcon className="h-3 w-3 text-gray-300" />
-                          )}
-                        </button>
-                      ) : (
-                        flexRender(header.column.columnDef.header, header.getContext())
-                      )}
-                    </th>
-                  );
-                })}
-              </tr>
-            ))}
-          </thead>
+          <SortableTableHeader table={table} headerClass={HEADER_CLASS} />
           <tbody className="divide-y divide-gray-100">
             {rows.map((row) => (
               <tr
@@ -255,36 +244,7 @@ const SupplierList = React.memo(function SupplierList({ suppliers, onOpen }: Pro
         </table>
       </div>
 
-      {totalRows > 0 && (
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-100 bg-white px-4 py-3 shadow-sm md:mt-0 md:rounded-none md:border-x-0 md:border-b-0 md:shadow-none">
-          <p className="text-xs text-gray-500">
-            Showing <span className="font-medium text-gray-700">{firstRow}</span>–
-            <span className="font-medium text-gray-700">{lastRow}</span> of{" "}
-            <span className="font-medium text-gray-700">{totalRows}</span>
-          </p>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => table.previousPage()}
-              disabled={!table.getCanPreviousPage()}
-              className="rounded-xl border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              Previous
-            </button>
-            <span className="text-xs text-gray-500">
-              Page {pageIndex + 1} of {Math.max(table.getPageCount(), 1)}
-            </span>
-            <button
-              type="button"
-              onClick={() => table.nextPage()}
-              disabled={!table.getCanNextPage()}
-              className="rounded-xl border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              Next
-            </button>
-          </div>
-        </div>
-      )}
+      <TablePaginationFooter table={table} />
     </div>
   );
 });

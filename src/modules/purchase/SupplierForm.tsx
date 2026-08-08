@@ -3,13 +3,16 @@
 import React from "react";
 
 import { Button } from "@/components/ui/Button";
+import TextInput from "@/components/ui/TextInput";
 import type { Supplier } from "@/types/purchase";
 
 export interface SupplierPayload {
   name: string;
   contactPerson: string;
   phone: string;
+  email?: string;
   gstNumber?: string;
+  address?: string;
   openingBalance?: number;
 }
 
@@ -37,7 +40,9 @@ const SupplierForm = React.memo(function SupplierForm({
   const [name, setName] = React.useState(initial?.name ?? "");
   const [contactPerson, setContactPerson] = React.useState(initial?.contactPerson ?? "");
   const [phone, setPhone] = React.useState(initial?.phone ?? "");
+  const [email, setEmail] = React.useState(initial?.email ?? "");
   const [gstNumber, setGstNumber] = React.useState(initial?.gstNumber ?? "");
+  const [address, setAddress] = React.useState(initial?.address ?? "");
   const [openingBalance, setOpeningBalance] = React.useState("");
 
   const handleSubmit = React.useCallback(
@@ -47,16 +52,15 @@ const SupplierForm = React.memo(function SupplierForm({
         name: name.trim(),
         contactPerson: contactPerson.trim(),
         phone: phone.trim(),
+        email: email.trim() || undefined,
         gstNumber: gstNumber.trim() || undefined,
+        address: address.trim() || undefined,
         openingBalance:
           !initial && openingBalance ? Number(openingBalance) : undefined,
       });
     },
-    [onSubmit, name, contactPerson, phone, gstNumber, initial, openingBalance]
+    [onSubmit, name, contactPerson, phone, email, gstNumber, address, initial, openingBalance]
   );
-
-  const inputClass =
-    "h-11 w-full rounded-xl border border-gray-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500";
 
   return (
     <form
@@ -77,64 +81,65 @@ const SupplierForm = React.memo(function SupplierForm({
       )}
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <div>
-          <label className="mb-1 block text-xs text-gray-600">
-            Shop name <span className="text-red-500">*</span>
-          </label>
-          <input
-            required
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Shop name"
-            className={inputClass}
-          />
-        </div>
-        <div>
-          <label className="mb-1 block text-xs text-gray-600">
-            Contact person <span className="text-red-500">*</span>
-          </label>
-          <input
-            required
-            value={contactPerson}
-            onChange={(e) => setContactPerson(e.target.value)}
-            placeholder="Contact person"
-            className={inputClass}
-          />
-        </div>
-        <div>
-          <label className="mb-1 block text-xs text-gray-600">
-            Phone <span className="text-red-500">*</span>
-          </label>
-          <input
-            required
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            placeholder="Phone"
-            className={inputClass}
-          />
-        </div>
-        <div>
-          <label className="mb-1 block text-xs text-gray-600">GST number (optional)</label>
-          <input
-            value={gstNumber}
-            onChange={(e) => setGstNumber(e.target.value)}
-            placeholder="GST number"
-            className={inputClass}
+        <TextInput
+          id="supplier-name"
+          label="Shop name"
+          required
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Shop name"
+        />
+        <TextInput
+          id="supplier-contact-person"
+          label="Contact person"
+          required
+          value={contactPerson}
+          onChange={(e) => setContactPerson(e.target.value)}
+          placeholder="Contact person"
+        />
+        <TextInput
+          id="supplier-phone"
+          label="Phone"
+          required
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          placeholder="Phone"
+        />
+        <TextInput
+          id="supplier-email"
+          label="Email (optional)"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="Email"
+        />
+        <TextInput
+          id="supplier-gst-number"
+          label="GST number (optional)"
+          value={gstNumber}
+          onChange={(e) => setGstNumber(e.target.value)}
+          placeholder="GST number"
+        />
+        <div className="sm:col-span-2">
+          <TextInput
+            id="supplier-address"
+            label="Address (optional)"
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+            placeholder="Address"
           />
         </div>
         {!initial && (
-          <div>
-            <label className="mb-1 block text-xs text-gray-600">Outstanding balance (optional)</label>
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              value={openingBalance}
-              onChange={(e) => setOpeningBalance(e.target.value)}
-              placeholder="0"
-              className={inputClass}
-            />
-          </div>
+          <TextInput
+            id="supplier-opening-balance"
+            label="Outstanding balance (optional)"
+            type="number"
+            min="0"
+            step="0.01"
+            value={openingBalance}
+            onChange={(e) => setOpeningBalance(e.target.value)}
+            placeholder="0"
+          />
         )}
       </div>
 
