@@ -182,12 +182,7 @@ function PurchaseDetailsContent() {
               variant="danger"
               size="sm"
               onClick={openDelete}
-              disabled={isLocked}
-              title={
-                isLocked
-                  ? "Delete is unavailable after a payment is recorded"
-                  : "Delete purchase"
-              }
+              title="Delete purchase"
             >
               Delete
             </Button>

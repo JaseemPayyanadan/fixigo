@@ -516,10 +516,12 @@ export async function cancelPurchase(
     if (purchase.status === "cancelled") {
       throw new ApiError(409, "Purchase is already cancelled");
     }
-    const payments = Array.isArray(purchase.payments) ? purchase.payments : [];
-    if (payments.length > 0) {
-      throw new ApiError(409, "A purchase with recorded payments cannot be cancelled");
-    }
+    const payments = Array.isArray(purchase.payments)
+      ? (purchase.payments as Record<string, unknown>[])
+      : [];
+    const paidAmount = roundMoney(
+      payments.reduce((sum, payment) => sum + ((payment.amount as number) || 0), 0)
+    );
 
     const supplierRef = adminDb.collection(SUPPLIERS).doc(purchase.supplierId as string);
     const supplierSnap = await tx.get(supplierRef);
@@ -538,10 +540,14 @@ export async function cancelPurchase(
       updatedAt: now,
     };
 
-    // Soft cancel: the document stays, the money reverses.
+    // Soft cancel: the document stays, the money reverses. Any payments
+    // already recorded against this purchase were added to the supplier's
+    // totalPaid when recorded — that must reverse too, or the supplier's
+    // paid-total stays inflated for a purchase that no longer counts.
     tx.update(purchaseRef, updates);
     tx.update(supplierRef, {
       totalPurchased: roundMoney(((supplier.totalPurchased as number) || 0) - grandTotal),
+      totalPaid: roundMoney(((supplier.totalPaid as number) || 0) - paidAmount),
       outstanding: roundMoney(((supplier.outstanding as number) || 0) - balance),
       updatedAt: now,
     });
