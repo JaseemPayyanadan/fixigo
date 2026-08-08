@@ -1,5 +1,8 @@
 # Purchase Form Step Wizard Implementation Plan
 
+> **Superseded** by [2026-08-08-purchase-form-inline-table.md](2026-08-08-purchase-form-inline-table.md).
+> Not executed — no tasks were dispatched against this plan. Kept for history.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Replace the single long-scroll New/Edit Purchase form with a 3-step wizard (Supplier & Details → Items → Payment & Review) and replace the item-entry popup with inline, no-modal item rows.

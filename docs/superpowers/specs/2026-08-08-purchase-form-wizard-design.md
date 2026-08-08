@@ -1,5 +1,11 @@
 # New Purchase form: step wizard revamp
 
+> **Superseded** by [2026-08-08-purchase-form-inline-table-design.md](2026-08-08-purchase-form-inline-table-design.md).
+> After this spec was approved, the user supplied a reference mockup showing
+> New Purchase as a single page with an inline item table, not a wizard.
+> Nothing in this spec was implemented in code — only this doc and its
+> plan existed. Kept for history.
+
 ## Problem
 
 The New/Edit Purchase form (`PurchaseForm.tsx`) is a single long scroll: supplier
