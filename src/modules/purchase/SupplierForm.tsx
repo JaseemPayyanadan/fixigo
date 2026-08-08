@@ -10,9 +10,7 @@ export interface SupplierPayload {
   name: string;
   contactPerson: string;
   phone: string;
-  email?: string;
   gstNumber?: string;
-  address?: string;
   openingBalance?: number;
 }
 
@@ -40,9 +38,7 @@ const SupplierForm = React.memo(function SupplierForm({
   const [name, setName] = React.useState(initial?.name ?? "");
   const [contactPerson, setContactPerson] = React.useState(initial?.contactPerson ?? "");
   const [phone, setPhone] = React.useState(initial?.phone ?? "");
-  const [email, setEmail] = React.useState(initial?.email ?? "");
   const [gstNumber, setGstNumber] = React.useState(initial?.gstNumber ?? "");
-  const [address, setAddress] = React.useState(initial?.address ?? "");
   const [openingBalance, setOpeningBalance] = React.useState("");
 
   const handleSubmit = React.useCallback(
@@ -52,14 +48,12 @@ const SupplierForm = React.memo(function SupplierForm({
         name: name.trim(),
         contactPerson: contactPerson.trim(),
         phone: phone.trim(),
-        email: email.trim() || undefined,
         gstNumber: gstNumber.trim() || undefined,
-        address: address.trim() || undefined,
         openingBalance:
           !initial && openingBalance ? Number(openingBalance) : undefined,
       });
     },
-    [onSubmit, name, contactPerson, phone, email, gstNumber, address, initial, openingBalance]
+    [onSubmit, name, contactPerson, phone, gstNumber, initial, openingBalance]
   );
 
   return (
@@ -106,29 +100,12 @@ const SupplierForm = React.memo(function SupplierForm({
           placeholder="Phone"
         />
         <TextInput
-          id="supplier-email"
-          label="Email (optional)"
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="Email"
-        />
-        <TextInput
           id="supplier-gst-number"
           label="GST number (optional)"
           value={gstNumber}
           onChange={(e) => setGstNumber(e.target.value)}
           placeholder="GST number"
         />
-        <div className="sm:col-span-2">
-          <TextInput
-            id="supplier-address"
-            label="Address (optional)"
-            value={address}
-            onChange={(e) => setAddress(e.target.value)}
-            placeholder="Address"
-          />
-        </div>
         {!initial && (
           <TextInput
             id="supplier-opening-balance"
