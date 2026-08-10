@@ -11,7 +11,7 @@ import ReopenServiceDialog from "@/components/service/ReopenServiceDialog";
 import ServiceDetailsView from "@/components/service/ServiceDetailsView";
 import ServiceForm from "@/components/service/ServiceForm";
 import { useUser } from "@/hooks";
-import { toastHref } from "@/hooks/useCrossNavToast";
+import Toast from "@/components/ui/Toast";
 import { authUserToUser } from "@/lib/auth";
 import {
   paymentLabelOf,
@@ -194,6 +194,7 @@ function ServiceDetailsPage() {
   const [editLoading, setEditLoading] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const [showRequestSparePart, setShowRequestSparePart] = useState(false);
+  const [sparePartToast, setSparePartToast] = useState<string | null>(null);
 
   useEffect(() => {
     if (!serviceId) return;
@@ -461,13 +462,10 @@ function ServiceDetailsPage() {
     };
   };
 
-  const handleSparePartRequested = useCallback(
-    (request: PurchaseRequest) => {
-      setShowRequestSparePart(false);
-      router.push(toastHref("/purchases/requests", `Request ${request.ref} was submitted`));
-    },
-    [router]
-  );
+  const handleSparePartRequested = useCallback((request: PurchaseRequest) => {
+    setShowRequestSparePart(false);
+    setSparePartToast(`Request ${request.ref} was submitted`);
+  }, []);
 
   // Memoized handlers to avoid arrow functions in JSX
   const handleGoBack = useCallback(() => router.back(), [router]);
@@ -649,10 +647,18 @@ function ServiceDetailsPage() {
       <RequestSparePartModal
         open={showRequestSparePart}
         serviceId={service.id}
+        repairLabel={`Repair #${service.id.slice(-8)}`}
+        customerName={service.customer?.name || ""}
         deviceBrand={service.device?.brand}
         deviceModel={service.device?.model}
         onClose={() => setShowRequestSparePart(false)}
         onCreated={handleSparePartRequested}
+      />
+      <Toast
+        open={Boolean(sparePartToast)}
+        message={sparePartToast ?? ""}
+        variant="success"
+        onClose={() => setSparePartToast(null)}
       />
       <ReopenServiceDialog
         isOpen={showReopenDialog}

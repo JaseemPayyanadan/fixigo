@@ -3,16 +3,18 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-const TABS = [
-  { href: "/purchases/requests", label: "Purchase Requests" },
-  { href: "/purchases", label: "Purchases" },
-  { href: "/purchases/suppliers", label: "Suppliers" },
-  { href: "/purchases/returns", label: "Returns" },
-];
+import { useUser } from "@/hooks";
+import { purchaseTabsForRole } from "@/lib/purchaseTabs";
 
 /** Switches between the purchase requests, purchases, suppliers, and returns lists. */
 export default function PurchaseTabs() {
   const pathname = usePathname();
+  const { user } = useUser();
+  const tabs = purchaseTabsForRole(user?.role);
+
+  // Technicians only have one destination — hide a useless single-tab strip.
+  if (tabs.length <= 1) return null;
+
   const onRequests = pathname.startsWith("/purchases/requests");
   const onSuppliers = pathname.startsWith("/purchases/suppliers");
   const onReturns = pathname.startsWith("/purchases/returns");
@@ -20,7 +22,7 @@ export default function PurchaseTabs() {
 
   return (
     <div className="flex gap-4 border-b border-gray-200" role="tablist" aria-label="Purchases sections">
-      {TABS.map((tab) => {
+      {tabs.map((tab) => {
         const isActive =
           tab.href === "/purchases/requests"
             ? onRequests

@@ -14,6 +14,9 @@ const REQUEST_MODAL_FORM_ID = "request-spare-part-modal-form";
 interface Props {
   open: boolean;
   serviceId: string;
+  /** Short repair label shown read-only, e.g. "Repair #a1b2c3d4". */
+  repairLabel: string;
+  customerName: string;
   deviceBrand?: string;
   deviceModel?: string;
   onClose: () => void;
@@ -24,6 +27,8 @@ interface Props {
 const RequestSparePartModal = React.memo(function RequestSparePartModal({
   open,
   serviceId,
+  repairLabel,
+  customerName,
   deviceBrand,
   deviceModel,
   onClose,
@@ -73,7 +78,7 @@ const RequestSparePartModal = React.memo(function RequestSparePartModal({
       <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-white p-5 shadow-xl sm:rounded-2xl">
         <h2 className="text-base font-semibold text-gray-900">Request spare part</h2>
         <p className="mt-1 text-sm text-gray-500">
-          The repair id and customer name are attached automatically.
+          Parts are requested against this repair for admin approval.
         </p>
 
         <div className="mt-4">
@@ -82,6 +87,8 @@ const RequestSparePartModal = React.memo(function RequestSparePartModal({
             saving={saving}
             error={error}
             onSubmit={handleSubmit}
+            repairLabel={repairLabel}
+            customerName={customerName}
             deviceBrand={deviceBrand}
             deviceModel={deviceModel}
           />

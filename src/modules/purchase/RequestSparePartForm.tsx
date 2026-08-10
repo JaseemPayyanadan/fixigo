@@ -34,6 +34,10 @@ interface Props {
   saving: boolean;
   error: string | null;
   onSubmit: (items: RequestSparePartItem[]) => void;
+  /** Read-only repair chip, e.g. "Repair #a1b2c3d4". */
+  repairLabel: string;
+  /** Read-only customer name from the linked repair. */
+  customerName: string;
   /** The repair's device brand/model, stamped onto every item automatically — never typed by hand. */
   deviceBrand?: string;
   deviceModel?: string;
@@ -48,6 +52,8 @@ export default function RequestSparePartForm({
   saving,
   error,
   onSubmit,
+  repairLabel,
+  customerName,
   deviceBrand,
   deviceModel,
 }: Props) {
@@ -82,12 +88,23 @@ export default function RequestSparePartForm({
 
   return (
     <form id={formId} onSubmit={handleSubmit} className="space-y-3">
-      {deviceLabel && (
-        <p className="rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-500">
-          Requesting for <span className="font-medium text-gray-700">{deviceLabel}</span> — brand
-          and model are attached automatically.
+      <div className="rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-600">
+        <p>
+          <span className="font-medium text-gray-800">{repairLabel}</span>
+          {customerName.trim() ? (
+            <>
+              {" "}
+              · <span className="font-medium text-gray-800">{customerName.trim()}</span>
+            </>
+          ) : null}
         </p>
-      )}
+        {deviceLabel ? (
+          <p className="mt-1 text-gray-500">
+            Device <span className="font-medium text-gray-700">{deviceLabel}</span> — brand and model
+            are attached automatically.
+          </p>
+        ) : null}
+      </div>
 
       {rows.map((row, index) => (
         <div key={row.key} className="rounded-xl border border-gray-200 p-3">

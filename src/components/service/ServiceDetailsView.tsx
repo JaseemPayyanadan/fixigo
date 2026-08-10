@@ -187,11 +187,6 @@ export default function ServiceDetailsView({
     onUpdatePayment();
   };
 
-  const handleRequestSparePartClick = () => {
-    onToggleDropdown();
-    onRequestSparePart();
-  };
-
   const handleHistoryClick = () => {
     onToggleDropdown();
     onToggleHistory();
@@ -261,6 +256,17 @@ export default function ServiceDetailsView({
               )}
             </div>
 
+            {canRequestSparePart && (
+              <button
+                type="button"
+                onClick={onRequestSparePart}
+                className="hidden min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-800 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 lg:inline-flex"
+              >
+                <MdInventory className="h-4 w-4 text-gray-600" />
+                Request Spare Part
+              </button>
+            )}
+
             {/* Desktop-only: mirrors the Actions bar's Reopen button
                 below, which is hidden at `lg` so nothing renders twice. */}
             {userCanReopen && (
@@ -301,16 +307,6 @@ export default function ServiceDetailsView({
                     <MdPayments className="h-4 w-4 text-gray-600" />
                     <span className="text-sm font-medium">Update Payment</span>
                   </button>
-                  {canRequestSparePart && (
-                    <button
-                      type="button"
-                      onClick={handleRequestSparePartClick}
-                      className="flex min-h-11 w-full cursor-pointer items-center gap-3 px-4 py-3 text-left text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
-                    >
-                      <MdInventory className="h-4 w-4 text-gray-600" />
-                      <span className="text-sm font-medium">Request Spare Part</span>
-                    </button>
-                  )}
                   <button
                     type="button"
                     onClick={handleHistoryClick}
@@ -455,6 +451,19 @@ export default function ServiceDetailsView({
                 </span>
               )}
             </div>
+
+            {canRequestSparePart && (
+              <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                <button
+                  type="button"
+                  onClick={onRequestSparePart}
+                  className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-800 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <MdInventory className="h-4 w-4 text-gray-600" />
+                  Request Spare Part
+                </button>
+              </div>
+            )}
 
             {userCanReopen && (
               <div className="flex flex-wrap items-center gap-2 sm:justify-end">
