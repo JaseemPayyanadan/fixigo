@@ -27,9 +27,10 @@ export interface Supplier {
 export type PurchasePaymentMethod = "cash" | "upi" | "bank";
 
 /**
- * A payment made straight against a supplier's running balance, not tied to
- * any one bill. Bills keep their own unpaid balance untouched — this is a
- * running-account adjustment, same idea as a supplier's opening balance.
+ * A lump-sum payment against a supplier's running balance rather than a
+ * specific bill the user picks. The repo layer still applies it across that
+ * supplier's own outstanding bills (oldest-due-first) behind the scenes, so
+ * a bill's balance and the supplier's outstanding never disagree.
  */
 export interface SupplierPayment {
   id: string;

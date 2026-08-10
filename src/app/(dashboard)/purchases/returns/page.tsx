@@ -151,7 +151,19 @@ export default function PurchaseReturnsPage() {
         <ReturnList
           returns={returns}
           onOpenPurchase={(id) => router.push(`/purchases/details?id=${id}`)}
-          onEditReturn={(entry) => setEditingReturn(entry)}
+          onEditReturn={(entry) => {
+            // `purchases` excludes cancelled bills, so a return on one has no
+            // match here — editing is unavailable, same as the server enforces.
+            const stillEditable = purchases.some(
+              (purchase) => purchase.id === entry.purchaseId
+            );
+            if (!stillEditable) {
+              setError("This return can no longer be edited — its bill has been cancelled.");
+              return;
+            }
+            setError(null);
+            setEditingReturn(entry);
+          }}
           onDeleteReturn={(entry) => {
             setDeleteReturnError(null);
             setDeletingReturn(entry);

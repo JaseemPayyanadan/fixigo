@@ -195,7 +195,7 @@ export function mapPurchaseListRow(id: string, data: Record<string, unknown>): P
     returnedAmount: (data.returnedAmount as number) || 0,
     refunds: [],
     refundReceived: 0,
-    refundDue: 0,
+    refundDue: (data.refundDue as number) || 0,
     status: (data.status as Purchase["status"]) || "active",
     createdAt: toDate(data.createdAt),
     updatedAt: toDate(data.updatedAt),
@@ -911,6 +911,7 @@ export async function listPurchases(scope: {
       "status",
       "dueDate",
       "returnedAmount",
+      "refundDue",
       "createdAt",
       "updatedAt"
     );

@@ -7,12 +7,16 @@ vi.mock("@/lib/firebaseAdmin", async () => {
 });
 
 import * as firebaseAdmin from "@/lib/firebaseAdmin";
+import { createPurchase, getPurchase } from "@/lib/purchaseRepo";
 import {
   createSupplier,
+  deleteSupplierPayment,
   getSupplier,
   listSuppliers,
   mapSupplier,
+  recordSupplierPayment,
   updateSupplier,
+  updateSupplierPayment,
 } from "@/lib/supplierRepo";
 
 type TestHooks = {
@@ -31,6 +35,21 @@ const baseInput = {
   branchId: "branch-1",
   createdBy: "user-1",
 };
+
+function purchaseInput(supplierId: string, overrides: Record<string, unknown> = {}) {
+  return {
+    supplierId,
+    purchaseDate: new Date(2026, 7, 5),
+    items: [{ name: "Display", quantity: 1, purchasePrice: 1000 }],
+    discount: { mode: "amount" as const, value: 0 },
+    gstRate: 0,
+    transportCharge: 0,
+    shopId: "shop-1",
+    branchId: "branch-1",
+    purchasedBy: { userId: "user-1", name: "Naseem" },
+    ...overrides,
+  };
+}
 
 beforeEach(() => hooks.__reset());
 
@@ -162,5 +181,138 @@ describe("mapSupplier", () => {
 
   it("leaves lastPurchaseAt undefined when absent", () => {
     expect(mapSupplier("s1", { shopId: "shop-1" }).lastPurchaseAt).toBeUndefined();
+  });
+});
+
+describe("supplier-level payments allocate across the supplier's own bills", () => {
+  it("recordSupplierPayment pays down the one outstanding bill, not just the aggregate", async () => {
+    const supplier = await createSupplier(baseInput);
+    const purchase = await createPurchase(purchaseInput(supplier.id));
+    // createPurchase raises supplier.outstanding via its own transaction.
+    expect((await getSupplier("shop-1", supplier.id)).outstanding).toBe(1000);
+
+    const { supplier: after } = await recordSupplierPayment(
+      "shop-1",
+      supplier.id,
+      { amount: 600, method: "cash", paidAt: new Date(2026, 7, 6) },
+      "user-1"
+    );
+
+    expect(after.outstanding).toBe(400);
+    const bill = await getPurchase("shop-1", purchase.id);
+    expect(bill.balance).toBe(400);
+    expect(bill.paidAmount).toBe(600);
+    expect(bill.paymentStatus).toBe("partial");
+  });
+
+  it("applies oldest-due-first across multiple bills", async () => {
+    const supplier = await createSupplier(baseInput);
+    const older = await createPurchase(
+      purchaseInput(supplier.id, { dueDate: new Date(2026, 7, 10) })
+    );
+    const newer = await createPurchase(
+      purchaseInput(supplier.id, { dueDate: new Date(2026, 7, 20) })
+    );
+
+    await recordSupplierPayment(
+      "shop-1",
+      supplier.id,
+      { amount: 1500, method: "cash", paidAt: new Date(2026, 7, 6) },
+      "user-1"
+    );
+
+    expect((await getPurchase("shop-1", older.id)).balance).toBe(0);
+    expect((await getPurchase("shop-1", newer.id)).balance).toBe(500);
+  });
+
+  it("rejects a payment larger than the supplier's outstanding balance", async () => {
+    const supplier = await createSupplier(baseInput);
+    await createPurchase(purchaseInput(supplier.id));
+
+    await expect(
+      recordSupplierPayment(
+        "shop-1",
+        supplier.id,
+        { amount: 5000, method: "cash", paidAt: new Date(2026, 7, 6) },
+        "user-1"
+      )
+    ).rejects.toMatchObject({ status: 400 });
+  });
+
+  it("a bill can no longer be double-paid after its supplier is paid in full", async () => {
+    const supplier = await createSupplier(baseInput);
+    const purchase = await createPurchase(purchaseInput(supplier.id));
+
+    await recordSupplierPayment(
+      "shop-1",
+      supplier.id,
+      { amount: 1000, method: "cash", paidAt: new Date(2026, 7, 6) },
+      "user-1"
+    );
+
+    // Before allocation existed, this bill's balance was untouched by the
+    // supplier-level payment, so paying it directly afterward drove the
+    // supplier's outstanding negative. It should now correctly read 0 owed.
+    expect((await getPurchase("shop-1", purchase.id)).balance).toBe(0);
+    expect((await getSupplier("shop-1", supplier.id)).outstanding).toBe(0);
+  });
+
+  it("updateSupplierPayment re-allocates when the amount changes", async () => {
+    const supplier = await createSupplier(baseInput);
+    const purchase = await createPurchase(purchaseInput(supplier.id));
+    const { payment } = await recordSupplierPayment(
+      "shop-1",
+      supplier.id,
+      { amount: 400, method: "cash", paidAt: new Date(2026, 7, 6) },
+      "user-1"
+    );
+    expect((await getPurchase("shop-1", purchase.id)).balance).toBe(600);
+
+    await updateSupplierPayment("shop-1", supplier.id, payment.id, {
+      amount: 900,
+      method: "upi",
+      paidAt: new Date(2026, 7, 7),
+    });
+
+    expect((await getPurchase("shop-1", purchase.id)).balance).toBe(100);
+    expect((await getSupplier("shop-1", supplier.id)).outstanding).toBe(100);
+  });
+
+  it("updateSupplierPayment rejects raising the amount past the outstanding balance", async () => {
+    const supplier = await createSupplier(baseInput);
+    await createPurchase(purchaseInput(supplier.id));
+    const { payment } = await recordSupplierPayment(
+      "shop-1",
+      supplier.id,
+      { amount: 400, method: "cash", paidAt: new Date(2026, 7, 6) },
+      "user-1"
+    );
+
+    await expect(
+      updateSupplierPayment("shop-1", supplier.id, payment.id, {
+        amount: 5000,
+        method: "cash",
+        paidAt: new Date(2026, 7, 7),
+      })
+    ).rejects.toMatchObject({ status: 400 });
+
+    // Rejected before the reversal step runs, so the outstanding is untouched.
+    expect((await getSupplier("shop-1", supplier.id)).outstanding).toBe(600);
+  });
+
+  it("deleteSupplierPayment restores the bill's balance and the supplier's outstanding", async () => {
+    const supplier = await createSupplier(baseInput);
+    const purchase = await createPurchase(purchaseInput(supplier.id));
+    const { payment } = await recordSupplierPayment(
+      "shop-1",
+      supplier.id,
+      { amount: 700, method: "cash", paidAt: new Date(2026, 7, 6) },
+      "user-1"
+    );
+
+    const after = await deleteSupplierPayment("shop-1", supplier.id, payment.id);
+
+    expect(after.outstanding).toBe(1000);
+    expect((await getPurchase("shop-1", purchase.id)).balance).toBe(1000);
   });
 });
