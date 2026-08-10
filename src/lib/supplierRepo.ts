@@ -330,6 +330,11 @@ function commitAllocationPlan(
         paidAt: meta.paidAt,
         reference: null,
         notes: "Applied from a supplier-level payment",
+        // Marks this line as owned by a supplier-level payment doc, not a
+        // direct bill payment — cancelPurchase reads this to avoid reversing
+        // the same rupees twice (once here, once when that payment is
+        // itself edited/deleted). Keep in sync with purchaseRepo.ts's check.
+        source: "supplierPayment",
         recordedBy: meta.recordedBy,
         createdAt: now,
       },
@@ -373,7 +378,13 @@ async function planReversal(
     const ref = adminDb.collection(PURCHASES).doc(purchaseId);
     const snap = await tx.get(ref);
     if (!snap.exists) continue;
-    plan.push({ ref, data: snap.data() as Record<string, unknown>, paymentIds });
+    const data = snap.data() as Record<string, unknown>;
+    // A cancelled purchase already had its contribution to supplier totals
+    // reversed once, at cancel time (see cancelPurchase's `source` check) —
+    // its own payments/balance are frozen from that point on and must not be
+    // rewritten here, or a resurrected balance reappears on a dead bill.
+    if (data.status === "cancelled") continue;
+    plan.push({ ref, data, paymentIds });
   }
   return plan;
 }
@@ -511,6 +522,21 @@ async function loadSupplierPaymentForWrite(
  * reversal step in the first place; a true concurrent race between that
  * check and the reversal committing is not guarded against, which is an
  * accepted gap for this low-concurrency, single-admin workflow.
+ *
+ * KNOWN GAP — partial failure between the two transactions: if the process
+ * crashes, or the second transaction throws for any reason other than the
+ * pre-checked amount validation (network error, contention past the retry
+ * budget, a purchase deleted mid-flight), the first transaction's reversal
+ * is NOT rolled back. The purchase documents it touched are left correctly
+ * un-allocated, but the payment doc still shows its old amount/allocations
+ * (now pointing at payment lines that no longer exist on those purchases)
+ * and supplier.outstanding/totalPaid still reflect the old, unreversed
+ * payment. There is no automatic recovery for this state today. If it's
+ * ever suspected (e.g. an edit request errored after being sent), the
+ * manual fix is: re-read the payment doc's `allocations`, confirm none of
+ * those purchase IDs still carry a payment line with that `paymentId`, and
+ * if so, re-run this same amount through updateSupplierPayment (or delete
+ * and re-record the payment) to re-establish a consistent allocation.
  */
 export async function updateSupplierPayment(
   shopId: string,

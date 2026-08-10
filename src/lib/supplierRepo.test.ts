@@ -7,7 +7,7 @@ vi.mock("@/lib/firebaseAdmin", async () => {
 });
 
 import * as firebaseAdmin from "@/lib/firebaseAdmin";
-import { createPurchase, getPurchase } from "@/lib/purchaseRepo";
+import { cancelPurchase, createPurchase, getPurchase } from "@/lib/purchaseRepo";
 import {
   createSupplier,
   deleteSupplierPayment,
@@ -314,5 +314,60 @@ describe("supplier-level payments allocate across the supplier's own bills", () 
 
     expect(after.outstanding).toBe(1000);
     expect((await getPurchase("shop-1", purchase.id)).balance).toBe(1000);
+  });
+
+  it("cancelling a purchase that absorbed an allocated payment, then deleting that payment, never corrupts supplier totals or resurrects the cancelled bill's balance", async () => {
+    const supplier = await createSupplier(baseInput);
+    const purchase = await createPurchase(purchaseInput(supplier.id));
+    const { payment } = await recordSupplierPayment(
+      "shop-1",
+      supplier.id,
+      { amount: 1000, method: "cash", paidAt: new Date(2026, 7, 6) },
+      "user-1"
+    );
+    expect((await getPurchase("shop-1", purchase.id)).balance).toBe(0);
+
+    await cancelPurchase("shop-1", purchase.id, "wrong supplier");
+    // Cancelling must not double-reverse money that a supplier-level payment
+    // already owns — this purchase's own paidAmount was entirely such money.
+    expect((await getSupplier("shop-1", supplier.id)).totalPaid).toBe(1000);
+
+    const after = await deleteSupplierPayment("shop-1", supplier.id, payment.id);
+
+    // The old bug: totalPaid went negative (double-reversed) and the
+    // cancelled purchase's balance was resurrected from 0 back to 1000.
+    expect(after.totalPaid).toBeGreaterThanOrEqual(0);
+    expect(after.totalPaid).toBe(0);
+    const cancelled = await getPurchase("shop-1", purchase.id);
+    expect(cancelled.status).toBe("cancelled");
+    expect(cancelled.balance).toBe(0);
+  });
+
+  it("editing a payment allocated to a since-cancelled purchase reallocates cleanly instead of touching the dead bill", async () => {
+    const supplier = await createSupplier(baseInput);
+    const cancelled = await createPurchase(purchaseInput(supplier.id));
+    const other = await createPurchase(purchaseInput(supplier.id));
+    const { payment } = await recordSupplierPayment(
+      "shop-1",
+      supplier.id,
+      { amount: 1000, method: "cash", paidAt: new Date(2026, 7, 6) },
+      "user-1"
+    );
+    // The oldest-due-first allocation picked `cancelled` first (same
+    // purchaseDate/dueDate as `other`, so insertion order via a stable sort
+    // keeps it first); cancel it out from under the payment.
+    await cancelPurchase("shop-1", cancelled.id, "wrong supplier");
+
+    await updateSupplierPayment("shop-1", supplier.id, payment.id, {
+      amount: 1000,
+      method: "cash",
+      paidAt: new Date(2026, 7, 7),
+    });
+
+    const cancelledAfter = await getPurchase("shop-1", cancelled.id);
+    expect(cancelledAfter.status).toBe("cancelled");
+    expect(cancelledAfter.balance).toBe(0);
+    // The reallocated amount lands on the still-active bill instead.
+    expect((await getPurchase("shop-1", other.id)).balance).toBe(0);
   });
 });
