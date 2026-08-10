@@ -26,9 +26,10 @@ type TestHooks = {
 };
 const hooks = firebaseAdmin as unknown as TestHooks;
 
-function seedSupplier(id = "sup-1", shopId = "shop-1") {
+function seedSupplier(id = "sup-1", shopId = "shop-1", branchId = "branch-1") {
   hooks.__seed("suppliers", id, {
     shopId,
+    branchId,
     name: "ABC Mobiles",
     contactPerson: "Rahul",
     phone: "9876543210",
@@ -390,8 +391,9 @@ describe("listPurchases", () => {
   });
 
   it("filters by branch", async () => {
+    seedSupplier("sup-2", "shop-1", "branch-2");
     await createPurchase(purchaseInput());
-    await createPurchase(purchaseInput({ branchId: "branch-2" }));
+    await createPurchase(purchaseInput({ supplierId: "sup-2", branchId: "branch-2" }));
     const purchases = await listPurchases({ shopId: "shop-1", branchId: "branch-2" });
     expect(purchases).toHaveLength(1);
     expect(purchases[0].branchId).toBe("branch-2");

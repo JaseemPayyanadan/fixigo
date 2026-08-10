@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
     // serviceId needs item rows; the main list page uses the light projection.
     const [purchases, activeSuppliers] = await Promise.all([
       listPurchases({ ...scope, light: !serviceId }),
-      countActiveSuppliers(scope.shopId),
+      countActiveSuppliers(scope.shopId, scope.branchId),
     ]);
 
     const scoped = serviceId

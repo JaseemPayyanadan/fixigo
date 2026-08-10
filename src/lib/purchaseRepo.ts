@@ -275,6 +275,9 @@ export async function createPurchase(input: CreatePurchaseArgs): Promise<Purchas
     }
     const supplier = supplierSnap.data() as Record<string, unknown>;
     assertSupplierInShop(supplier, input.shopId, input.supplierId);
+    if (supplier.branchId !== input.branchId) {
+      throw new ApiError(400, "Supplier belongs to a different branch");
+    }
 
     const counterSnap = await tx.get(counterRef);
     const current = counterSnap.exists

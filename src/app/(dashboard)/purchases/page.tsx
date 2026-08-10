@@ -10,10 +10,12 @@ import { Button } from "@/components/ui/Button";
 import { ListPageSkeleton, TableSkeleton } from "@/components/ui/PageSkeleton";
 import SlideOver from "@/components/ui/SlideOver";
 import Toast from "@/components/ui/Toast";
+import { useBranches, useUser } from "@/hooks";
 import { useCrossNavToast } from "@/hooks/useCrossNavToast";
 import PurchaseFormHost from "@/modules/purchase/PurchaseFormHost";
 import PurchaseList from "@/modules/purchase/PurchaseList";
 import PurchaseSummaryCards from "@/modules/purchase/PurchaseSummaryCards";
+import PurchaseTabs from "@/modules/purchase/PurchaseTabs";
 import type { PurchaseSummary } from "@/lib/purchaseSummary";
 import type { Purchase } from "@/types/purchase";
 
@@ -145,6 +147,10 @@ function PurchasesPageContent() {
   const editId = searchParams.get("edit");
   const slideMode = newParam === "1" || Boolean(editId);
 
+  const { user } = useUser();
+  const isShopAdmin = user?.role === "shop_admin";
+  const { branches } = useBranches(user?.shopId);
+
   const [purchases, setPurchases] = React.useState<Purchase[]>([]);
   const [summary, setSummary] = React.useState<PurchaseSummary | null>(null);
   const [loading, setLoading] = React.useState(true);
@@ -275,6 +281,8 @@ function PurchasesPageContent() {
 
   return (
     <div className="space-y-5 p-4 md:p-6">
+      <PurchaseTabs />
+
       <PurchaseSummaryCards summary={summary} loading={loading} />
 
       {error && (
@@ -297,9 +305,6 @@ function PurchasesPageContent() {
             totalCount={purchases.length}
             onSelect={setStatusFilter}
           />
-          <Button variant="secondary" onClick={() => router.push("/purchases/suppliers")}>
-            Suppliers
-          </Button>
           <Button onClick={openNewPurchase}>+ New Purchase</Button>
         </div>
       </div>
@@ -307,7 +312,12 @@ function PurchasesPageContent() {
       {loading ? (
         <TableSkeleton rows={8} />
       ) : (
-        <PurchaseList purchases={visible} onOpen={handleOpen} />
+        <PurchaseList
+          purchases={visible}
+          onOpen={handleOpen}
+          branches={branches}
+          showBranchColumn={isShopAdmin}
+        />
       )}
 
       <SlideOver

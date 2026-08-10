@@ -16,6 +16,7 @@ import {
 import { SortableTableHeader, TablePaginationFooter } from "@/components/ui/DataTable";
 import { formatRupees } from "@/lib/purchaseFormat";
 import { formatDate } from "@/lib/utils";
+import type { Branch } from "@/types";
 import type { Supplier } from "@/types/purchase";
 
 const PAGE_SIZE = 10;
@@ -25,18 +26,29 @@ interface Props {
   suppliers: Supplier[];
   onOpen: (id: string) => void;
   onDelete?: (supplier: Supplier) => void;
+  /** Only a shop_admin sees suppliers from more than one branch, so only they need this column. */
+  branches?: Branch[];
+  showBranchColumn?: boolean;
 }
 
 const columnHelper = createColumnHelper<Supplier>();
+
+function branchNameFor(branches: Branch[], branchId: string): string {
+  return branches.find((branch) => branch.id === branchId)?.name ?? "—";
+}
 
 function SupplierCard({
   supplier,
   onOpen,
   onDelete,
+  branches,
+  showBranchColumn,
 }: {
   supplier: Supplier;
   onOpen: (id: string) => void;
   onDelete?: (supplier: Supplier) => void;
+  branches: Branch[];
+  showBranchColumn: boolean;
 }) {
   return (
     <div className="w-full rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
@@ -47,6 +59,9 @@ function SupplierCard({
             <p className="text-xs text-gray-500">{supplier.phone}</p>
             {supplier.contactPerson ? (
               <p className="text-xs text-gray-500">{supplier.contactPerson}</p>
+            ) : null}
+            {showBranchColumn ? (
+              <p className="text-xs text-gray-500">{branchNameFor(branches, supplier.branchId)}</p>
             ) : null}
           </div>
           {supplier.status === "inactive" ? (
@@ -90,7 +105,13 @@ function SupplierCard({
 }
 
 /** Suppliers list as a TanStack data table: sortable headers, pagination, cards below `md`. */
-const SupplierList = React.memo(function SupplierList({ suppliers, onOpen, onDelete }: Props) {
+const SupplierList = React.memo(function SupplierList({
+  suppliers,
+  onOpen,
+  onDelete,
+  branches = [],
+  showBranchColumn = false,
+}: Props) {
   const [sorting, setSorting] = useState<SortingState>([{ id: "outstanding", desc: true }]);
 
   const columns = useMemo(
@@ -112,6 +133,17 @@ const SupplierList = React.memo(function SupplierList({ suppliers, onOpen, onDel
         header: "Phone",
         cell: ({ getValue }) => <span className="text-gray-700">{getValue()}</span>,
       }),
+      ...(showBranchColumn
+        ? [
+            columnHelper.accessor("branchId", {
+              id: "branch",
+              header: "Branch",
+              cell: ({ getValue }) => (
+                <span className="text-gray-700">{branchNameFor(branches, getValue())}</span>
+              ),
+            }),
+          ]
+        : []),
       columnHelper.accessor("totalPurchased", {
         id: "purchased",
         header: "Purchased",
@@ -185,7 +217,7 @@ const SupplierList = React.memo(function SupplierList({ suppliers, onOpen, onDel
         },
       }),
     ],
-    [onDelete]
+    [onDelete, showBranchColumn, branches]
   );
 
   const table = useReactTable({
@@ -214,7 +246,14 @@ const SupplierList = React.memo(function SupplierList({ suppliers, onOpen, onDel
     <div className="rounded-2xl md:overflow-hidden md:border md:border-gray-100 md:bg-white md:shadow-sm">
       <div className="space-y-3 md:hidden">
         {rows.map((row) => (
-          <SupplierCard key={row.id} supplier={row.original} onOpen={onOpen} onDelete={onDelete} />
+          <SupplierCard
+            key={row.id}
+            supplier={row.original}
+            onOpen={onOpen}
+            onDelete={onDelete}
+            branches={branches}
+            showBranchColumn={showBranchColumn}
+          />
         ))}
       </div>
 

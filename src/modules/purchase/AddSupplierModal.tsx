@@ -4,6 +4,7 @@ import React from "react";
 import { createPortal } from "react-dom";
 
 import { Button } from "@/components/ui/Button";
+import type { Branch } from "@/types";
 import type { Supplier } from "@/types/purchase";
 
 import SupplierForm, { type SupplierPayload } from "./SupplierForm";
@@ -14,6 +15,13 @@ interface Props {
   open: boolean;
   onClose: () => void;
   onCreated: (supplier: Supplier) => void;
+  /** Suppliers are branch-owned, so shop_admin picks one here regardless of what's elsewhere on the page. */
+  branches?: Branch[];
+  showBranchSelector?: boolean;
+  /** branch_admin's fixed branch; empty for shop_admin, who must choose. */
+  defaultBranchId?: string;
+  /** Existing suppliers, for name-autocomplete when adding the same vendor for another branch. */
+  suggestions?: Supplier[];
 }
 
 /**
@@ -25,13 +33,21 @@ const AddSupplierModal = React.memo(function AddSupplierModal({
   open,
   onClose,
   onCreated,
+  branches,
+  showBranchSelector,
+  defaultBranchId = "",
+  suggestions,
 }: Props) {
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [branchId, setBranchId] = React.useState(defaultBranchId);
 
   React.useEffect(() => {
-    if (open) setError(null);
-  }, [open]);
+    if (open) {
+      setError(null);
+      setBranchId(defaultBranchId);
+    }
+  }, [open, defaultBranchId]);
 
   const handleSubmit = React.useCallback(
     async (payload: SupplierPayload) => {
@@ -74,6 +90,11 @@ const AddSupplierModal = React.memo(function AddSupplierModal({
             onCancel={onClose}
             formId={SUPPLIER_MODAL_FORM_ID}
             hideSubmit
+            branches={branches}
+            showBranchSelector={showBranchSelector}
+            branchId={branchId}
+            setBranchId={setBranchId}
+            suggestions={suggestions}
           />
         </div>
 

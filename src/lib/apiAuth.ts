@@ -106,28 +106,44 @@ export function toErrorResponse(error: unknown): NextResponse {
   return NextResponse.json({ error: "Internal server error" }, { status: 500 });
 }
 
-interface PurchaseScope {
+interface BranchScope {
   shopId: string;
   branchId: string;
 }
 
 /**
- * Purchasing is money-handling, so technicians are excluded at every level —
- * the nav entry is hidden and these guards are the enforcement behind it.
+ * Shared shop_admin/branch_admin/technician rule for anything scoped to a
+ * branch: shop_admin reaches every branch in their shop, branch_admin only
+ * their own, technicians never (they use neither purchases nor suppliers).
  */
-function assertPurchaseAccess(user: AuthUser, target: PurchaseScope, verb: string): void {
+function assertBranchScopedAccess(
+  user: AuthUser,
+  target: BranchScope,
+  resource: string,
+  verb: string
+): void {
   if (!user.shopId || user.shopId !== target.shopId) {
-    throw new ApiError(403, `Not permitted to ${verb} purchases in this shop`);
+    throw new ApiError(403, `Not permitted to ${verb} ${resource} in this shop`);
   }
 
   if (user.role === "shop_admin") return;
 
   if (user.role === "branch_admin") {
     if (user.branchId && user.branchId === target.branchId) return;
-    throw new ApiError(403, `Not permitted to ${verb} purchases in this branch`);
+    throw new ApiError(403, `Not permitted to ${verb} ${resource} in this branch`);
   }
 
-  throw new ApiError(403, `Not permitted to ${verb} purchases`);
+  throw new ApiError(403, `Not permitted to ${verb} ${resource}`);
+}
+
+type PurchaseScope = BranchScope;
+
+/**
+ * Purchasing is money-handling, so technicians are excluded at every level —
+ * the nav entry is hidden and these guards are the enforcement behind it.
+ */
+function assertPurchaseAccess(user: AuthUser, target: PurchaseScope, verb: string): void {
+  assertBranchScopedAccess(user, target, "purchases", verb);
 }
 
 export function assertCanReadPurchase(user: AuthUser, target: PurchaseScope): void {
@@ -138,17 +154,13 @@ export function assertCanWritePurchase(user: AuthUser, target: PurchaseScope): v
   assertPurchaseAccess(user, target, "modify");
 }
 
-/**
- * Suppliers are shop-wide, so there is no branch dimension here — a
- * branch_admin buying from a vendor needs that vendor's profile.
- * Returns the caller's shopId so routes never read it from the body.
- */
-export function assertCanManageSuppliers(user: AuthUser): string {
-  if (!user.shopId) {
-    throw new ApiError(403, "Not permitted to manage suppliers");
-  }
-  if (user.role !== "shop_admin" && user.role !== "branch_admin") {
-    throw new ApiError(403, "Not permitted to manage suppliers");
-  }
-  return user.shopId;
+/** Suppliers belong to one branch, same access rule as purchases. */
+type SupplierScope = BranchScope;
+
+export function assertCanReadSupplier(user: AuthUser, target: SupplierScope): void {
+  assertBranchScopedAccess(user, target, "suppliers", "view");
+}
+
+export function assertCanWriteSupplier(user: AuthUser, target: SupplierScope): void {
+  assertBranchScopedAccess(user, target, "suppliers", "modify");
 }

@@ -6,17 +6,21 @@ import React from "react";
 import { Button } from "@/components/ui/Button";
 import { formatRupees, paymentStatusLabel } from "@/lib/purchaseFormat";
 import { formatDate, formatDateTime } from "@/lib/utils";
+import type { Branch } from "@/types";
 import type { Purchase } from "@/types/purchase";
 
 interface Props {
   purchase: Purchase;
   onRecordPayment: () => void;
+  branches?: Branch[];
 }
 
 const PurchaseDetails = React.memo(function PurchaseDetails({
   purchase,
   onRecordPayment,
+  branches = [],
 }: Props) {
+  const branchName = branches.find((branch) => branch.id === purchase.branchId)?.name ?? "—";
   const status = React.useMemo(() => paymentStatusLabel(purchase, new Date()), [purchase]);
 
   const isActive = purchase.status === "active";
@@ -55,6 +59,10 @@ const PurchaseDetails = React.memo(function PurchaseDetails({
           <div className="flex justify-between">
             <dt className="text-gray-500">Supplier</dt>
             <dd className="font-medium text-gray-900">{purchase.supplierName}</dd>
+          </div>
+          <div className="flex justify-between">
+            <dt className="text-gray-500">Branch</dt>
+            <dd className="text-gray-900">{branchName}</dd>
           </div>
           <div className="flex justify-between">
             <dt className="text-gray-500">Purchased by</dt>

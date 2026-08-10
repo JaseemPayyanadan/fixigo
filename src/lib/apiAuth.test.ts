@@ -19,10 +19,11 @@ import { cookies } from "next/headers";
 
 import {
   ApiError,
-  assertCanManageSuppliers,
   assertCanReadPurchase,
+  assertCanReadSupplier,
   assertCanReadTechnician,
   assertCanWritePurchase,
+  assertCanWriteSupplier,
   assertCanWriteTechnician,
   listScopeFor,
   readJsonBody,
@@ -332,19 +333,52 @@ describe("assertCanReadPurchase", () => {
   });
 });
 
-describe("assertCanManageSuppliers", () => {
-  it("returns the shopId for a shop_admin", () => {
-    expect(assertCanManageSuppliers(purchaseUser({ role: "shop_admin" }))).toBe("shop-1");
+describe("assertCanWriteSupplier", () => {
+  it("allows a shop_admin anywhere in their own shop", () => {
+    expect(() =>
+      assertCanWriteSupplier(purchaseUser({ role: "shop_admin" }), {
+        shopId: "shop-1",
+        branchId: "branch-9",
+      })
+    ).not.toThrow();
   });
 
-  it("allows a branch_admin — suppliers are shop-wide", () => {
-    expect(assertCanManageSuppliers(purchaseUser({ role: "branch_admin" }))).toBe("shop-1");
+  it("allows a branch_admin in their own branch", () => {
+    expect(() =>
+      assertCanWriteSupplier(purchaseUser({ role: "branch_admin" }), {
+        shopId: "shop-1",
+        branchId: "branch-1",
+      })
+    ).not.toThrow();
+  });
+
+  it("rejects a branch_admin in another branch", () => {
+    expect(() =>
+      assertCanWriteSupplier(purchaseUser({ role: "branch_admin" }), {
+        shopId: "shop-1",
+        branchId: "branch-2",
+      })
+    ).toThrow(/not permitted/i);
   });
 
   it("rejects a technician", () => {
-    expect(() => assertCanManageSuppliers(purchaseUser({ role: "technician" }))).toThrow(
-      /not permitted/i
-    );
+    expect(() =>
+      assertCanWriteSupplier(purchaseUser({ role: "technician" }), {
+        shopId: "shop-1",
+        branchId: "branch-1",
+      })
+    ).toThrow(/not permitted/i);
+  });
+});
+
+describe("assertCanReadSupplier", () => {
+  it("rejects a supplier from another shop", () => {
+    expect(() =>
+      assertCanReadSupplier(purchaseUser({ role: "shop_admin" }), {
+        shopId: "shop-2",
+        branchId: "branch-1",
+      })
+    ).toThrow(/not permitted/i);
   });
 });
 

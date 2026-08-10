@@ -243,6 +243,11 @@ export function ServiceTable({
   const [sorting, setSorting] = useState<SortingState>([{ id: "createdAt", desc: true }]);
   const containerRef = useRef<HTMLDivElement>(null);
   const autoPageSize = useViewportPageSize(containerRef, pageSize === undefined);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  // Cards loaded so far on phones, where scrolling replaces Previous/Next.
+  // Grows by `autoPageSize` — the same viewport-based batch used to size a
+  // desktop page — each time the sentinel below the last card comes into view.
+  const [visibleCount, setVisibleCount] = useState(autoPageSize);
 
   // Branch and technician names are projected onto the rows rather than looked
   // up inside the column accessors: the table caches accessor results per row
@@ -457,9 +462,36 @@ export function ServiceTable({
   }, [pageIndex, services.length, table]);
 
   const rows = table.getRowModel().rows;
+  const sortedRows = table.getSortedRowModel().rows;
   const totalRows = table.getFilteredRowModel().rows.length;
   const firstRow = totalRows === 0 ? 0 : pageIndex * table.getState().pagination.pageSize + 1;
   const lastRow = Math.min(firstRow + table.getState().pagination.pageSize - 1, totalRows);
+
+  // A sorted/filtered set change can leave `visibleCount` from a previous,
+  // larger or differently-ordered list — reset it to the first batch.
+  useEffect(() => {
+    setVisibleCount(autoPageSize);
+  }, [sortedRows, autoPageSize]);
+
+  const mobileRows = sortedRows.slice(0, visibleCount);
+  const hasMoreMobileRows = visibleCount < totalRows;
+
+  useEffect(() => {
+    if (!hasMoreMobileRows) return;
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          setVisibleCount((count) => Math.min(count + autoPageSize, totalRows));
+        }
+      },
+      { rootMargin: "200px" }
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasMoreMobileRows, autoPageSize, totalRows]);
 
   return (
     <div
@@ -470,7 +502,7 @@ export function ServiceTable({
           is its own surface with space between, so the wrapper drops its frame
           below `md` rather than boxing them in a second border. */}
       <div className="space-y-3 md:hidden">
-        {rows.map((row) => (
+        {mobileRows.map((row) => (
           <ServiceCard
             key={row.id}
             service={row.original}
@@ -479,6 +511,9 @@ export function ServiceTable({
             onDelete={onDelete}
           />
         ))}
+        {/* Loading the next batch is triggered by this sentinel scrolling into
+            view, not by a button — see the IntersectionObserver above. */}
+        {hasMoreMobileRows && <div ref={sentinelRef} aria-hidden="true" />}
       </div>
 
       <div className="hidden overflow-x-auto md:block">
@@ -557,12 +592,19 @@ export function ServiceTable({
 
       {totalRows > 0 && (
         <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-100 bg-white px-4 py-3 shadow-sm md:mt-0 md:rounded-none md:border-x-0 md:border-b-0 md:shadow-none">
-          <p className="text-xs text-gray-500">
+          {/* Phones load more by scrolling, so the count alone is enough here;
+              the page/Previous/Next controls only make sense once there's a
+              fixed page to be on, which is a desktop-table concept. */}
+          <p className="text-xs text-gray-500 md:hidden">
+            Showing <span className="font-medium text-gray-700">{mobileRows.length}</span> of{" "}
+            <span className="font-medium text-gray-700">{totalRows}</span>
+          </p>
+          <p className="hidden text-xs text-gray-500 md:block">
             Showing <span className="font-medium text-gray-700">{firstRow}</span>–
             <span className="font-medium text-gray-700">{lastRow}</span> of{" "}
             <span className="font-medium text-gray-700">{totalRows}</span>
           </p>
-          <div className="flex items-center gap-2">
+          <div className="hidden items-center gap-2 md:flex">
             <button
               type="button"
               onClick={() => table.previousPage()}

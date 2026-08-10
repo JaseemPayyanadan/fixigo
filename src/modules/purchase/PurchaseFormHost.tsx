@@ -6,10 +6,7 @@ import React from "react";
 import { FormSkeleton } from "@/components/ui/PageSkeleton";
 import { useUser } from "@/hooks";
 import { useBranches } from "@/hooks/useBranches";
-import PurchaseForm, {
-  type PurchasePayload,
-  type Suggestions,
-} from "@/modules/purchase/PurchaseForm";
+import PurchaseForm, { type PurchasePayload } from "@/modules/purchase/PurchaseForm";
 import type { Purchase, Supplier } from "@/types/purchase";
 
 export interface PurchaseFormActionState {
@@ -40,16 +37,10 @@ export default function PurchaseFormHost({
   const { user } = useUser();
   const isShopAdmin = user?.role === "shop_admin";
   const { branches } = useBranches(user?.shopId);
-  const [branchId, setBranchId] = React.useState("");
   const [initial, setInitial] = React.useState<Purchase | null>(null);
   const [loadingEdit, setLoadingEdit] = React.useState(Boolean(editId));
   const [editLoadError, setEditLoadError] = React.useState<string | null>(null);
   const [suppliers, setSuppliers] = React.useState<Supplier[]>([]);
-  const [suggestions, setSuggestions] = React.useState<Suggestions>({
-    names: [],
-    brands: [],
-    models: [],
-  });
   const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [canSubmit, setCanSubmit] = React.useState(false);
@@ -87,7 +78,6 @@ export default function PurchaseFormHost({
         }
         const body = (await response.json()) as { purchase: Purchase };
         setInitial({ ...body.purchase, purchaseDate: new Date(body.purchase.purchaseDate) });
-        setBranchId(body.purchase.branchId);
       } catch (caught) {
         if ((caught as Error).name !== "AbortError") {
           setEditLoadError((caught as Error).message);
@@ -101,34 +91,29 @@ export default function PurchaseFormHost({
     return () => controller.abort();
   }, [editId]);
 
+  // Suppliers are branch-owned: a branch_admin only ever sees their own
+  // branch's suppliers, but a shop_admin picks a supplier from any branch —
+  // the purchase's branch then follows whichever supplier they choose.
   React.useEffect(() => {
-    if (!isShopAdmin && user?.branchId) {
-      setBranchId(user.branchId);
-    }
-  }, [isShopAdmin, user?.branchId]);
+    if (!user) return;
+    if (!isShopAdmin && !user.branchId) return;
 
-  React.useEffect(() => {
     const controller = new AbortController();
 
     async function load() {
-      const [suppliersResponse, suggestionsResponse] = await Promise.allSettled([
-        fetch("/api/suppliers", { signal: controller.signal }),
-        fetch("/api/purchases/item-suggestions", { signal: controller.signal }),
-      ]);
-
-      if (suppliersResponse.status === "fulfilled" && suppliersResponse.value.ok) {
-        const body = (await suppliersResponse.value.json()) as { suppliers: Supplier[] };
+      const query = !isShopAdmin && user?.branchId ? `?branchId=${encodeURIComponent(user.branchId)}` : "";
+      const suppliersResponse = await fetch(`/api/suppliers${query}`, {
+        signal: controller.signal,
+      });
+      if (suppliersResponse.ok) {
+        const body = (await suppliersResponse.json()) as { suppliers: Supplier[] };
         setSuppliers(body.suppliers);
-      }
-
-      if (suggestionsResponse.status === "fulfilled" && suggestionsResponse.value.ok) {
-        setSuggestions((await suggestionsResponse.value.json()) as Suggestions);
       }
     }
 
     load();
     return () => controller.abort();
-  }, []);
+  }, [user, isShopAdmin]);
 
   const handleSubmit = React.useCallback(
     async (payload: PurchasePayload) => {
@@ -190,15 +175,13 @@ export default function PurchaseFormHost({
       initial={initial}
       submitLabel={submitLabel}
       suppliers={suppliers}
-      suggestions={suggestions}
       submitting={submitting}
       error={error}
       onSubmit={handleSubmit}
       onSupplierCreated={handleSupplierCreated}
       branches={branches}
       showBranchSelector={isShopAdmin}
-      branchId={branchId}
-      setBranchId={setBranchId}
+      defaultBranchId={isShopAdmin ? "" : user?.branchId ?? ""}
       formId={formId}
       hideSubmit={hideSubmit}
       onCanSubmitChange={setCanSubmit}
