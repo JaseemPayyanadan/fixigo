@@ -20,6 +20,7 @@ import {
 
 import { formatRupees, paymentStatusLabel } from "@/lib/purchaseFormat";
 import { formatDate } from "@/lib/utils";
+import type { Branch } from "@/types";
 import type { Purchase } from "@/types/purchase";
 
 const PAGE_SIZE = 10;
@@ -28,18 +29,29 @@ const HEADER_CLASS = "px-4 py-3 text-xs font-semibold uppercase tracking-wide te
 interface Props {
   purchases: Purchase[];
   onOpen: (id: string) => void;
+  /** Only a shop_admin sees purchases from more than one branch, so only they need this column. */
+  branches?: Branch[];
+  showBranchColumn?: boolean;
 }
 
 const columnHelper = createColumnHelper<Purchase>();
+
+function branchNameFor(branches: Branch[], branchId: string): string {
+  return branches.find((branch) => branch.id === branchId)?.name ?? "—";
+}
 
 function PurchaseCard({
   purchase,
   now,
   onOpen,
+  branches,
+  showBranchColumn,
 }: {
   purchase: Purchase;
   now: Date;
   onOpen: (id: string) => void;
+  branches: Branch[];
+  showBranchColumn: boolean;
 }) {
   const status = paymentStatusLabel(purchase, now);
   const showMoney = purchase.status !== "cancelled";
@@ -56,6 +68,9 @@ function PurchaseCard({
           <p className="text-xs text-gray-500">{purchase.ref}</p>
           {purchase.supplierInvoiceNo ? (
             <p className="text-xs text-gray-500">Bill {purchase.supplierInvoiceNo}</p>
+          ) : null}
+          {showBranchColumn ? (
+            <p className="text-xs text-gray-500">{branchNameFor(branches, purchase.branchId)}</p>
           ) : null}
         </div>
         <span className={`shrink-0 rounded-full px-2 py-1 text-xs font-medium ${status.className}`}>
@@ -83,7 +98,12 @@ function PurchaseCard({
 }
 
 /** Purchases list as a TanStack data table: sortable headers, pagination, cards below `md`. */
-const PurchaseList = React.memo(function PurchaseList({ purchases, onOpen }: Props) {
+const PurchaseList = React.memo(function PurchaseList({
+  purchases,
+  onOpen,
+  branches = [],
+  showBranchColumn = false,
+}: Props) {
   const [sorting, setSorting] = useState<SortingState>([{ id: "purchaseDate", desc: true }]);
   const now = useMemo(() => new Date(), []);
 
@@ -102,6 +122,17 @@ const PurchaseList = React.memo(function PurchaseList({ purchases, onOpen }: Pro
           </div>
         ),
       }),
+      ...(showBranchColumn
+        ? [
+            columnHelper.accessor("branchId", {
+              id: "branch",
+              header: "Branch",
+              cell: ({ getValue }) => (
+                <span className="text-gray-700">{branchNameFor(branches, getValue())}</span>
+              ),
+            }),
+          ]
+        : []),
       columnHelper.accessor("grandTotal", {
         id: "total",
         header: "Total",
@@ -155,7 +186,7 @@ const PurchaseList = React.memo(function PurchaseList({ purchases, onOpen }: Pro
         ),
       }),
     ],
-    [now]
+    [now, showBranchColumn, branches]
   );
 
   const table = useReactTable({
@@ -195,6 +226,8 @@ const PurchaseList = React.memo(function PurchaseList({ purchases, onOpen }: Pro
             purchase={row.original}
             now={now}
             onOpen={onOpen}
+            branches={branches}
+            showBranchColumn={showBranchColumn}
           />
         ))}
       </div>

@@ -4,6 +4,7 @@ import React from "react";
 
 import { Button } from "@/components/ui/Button";
 import TextInput from "@/components/ui/TextInput";
+import type { Branch } from "@/types";
 import type { Supplier } from "@/types/purchase";
 
 export interface SupplierPayload {
@@ -12,6 +13,7 @@ export interface SupplierPayload {
   phone: string;
   gstNumber?: string;
   openingBalance?: number;
+  branchId?: string;
 }
 
 interface Props {
@@ -24,7 +26,19 @@ interface Props {
   formId?: string;
   /** Hide the inline Cancel/Submit row (use a slide-over footer instead). */
   hideSubmit?: boolean;
+  /** Only shop_admin picks a branch; other roles are pinned to their own and this stays empty. */
+  branches?: Branch[];
+  showBranchSelector?: boolean;
+  branchId?: string;
+  setBranchId?: (id: string) => void;
+  /** Existing suppliers (other branches included) — powers name autocomplete when re-adding the same vendor for a new branch. */
+  suggestions?: Supplier[];
 }
+
+// Matches TextInput's own classes so a native <select> looks identical to the text fields around it.
+const selectClass =
+  "w-full px-4 py-2 border text-sm md:text-base font-normal border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200";
+const labelClass = "block text-xs md:text-sm font-normal text-gray-700 mb-2";
 
 const SupplierForm = React.memo(function SupplierForm({
   initial,
@@ -34,12 +48,47 @@ const SupplierForm = React.memo(function SupplierForm({
   onCancel,
   formId,
   hideSubmit = false,
+  branches = [],
+  showBranchSelector = false,
+  branchId = "",
+  setBranchId,
+  suggestions = [],
 }: Props) {
   const [name, setName] = React.useState(initial?.name ?? "");
   const [contactPerson, setContactPerson] = React.useState(initial?.contactPerson ?? "");
   const [phone, setPhone] = React.useState(initial?.phone ?? "");
   const [gstNumber, setGstNumber] = React.useState(initial?.gstNumber ?? "");
   const [openingBalance, setOpeningBalance] = React.useState("");
+
+  // De-duplicated by name so the datalist doesn't repeat a supplier that
+  // already exists in several branches.
+  const nameSuggestions = React.useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const supplier of suggestions) {
+      if (!seen.has(supplier.name.toLowerCase())) seen.set(supplier.name.toLowerCase(), supplier.name);
+    }
+    return [...seen.values()];
+  }, [suggestions]);
+
+  const handleNameChange = React.useCallback(
+    (value: string) => {
+      setName(value);
+
+      // Picking a name that matches an existing supplier (e.g. the same
+      // vendor being added for a second branch) carries their contact
+      // details over, so they don't need retyping.
+      if (initial) return;
+      const match = suggestions.find(
+        (supplier) => supplier.name.toLowerCase() === value.trim().toLowerCase()
+      );
+      if (match) {
+        setContactPerson(match.contactPerson);
+        setPhone(match.phone);
+        setGstNumber(match.gstNumber ?? "");
+      }
+    },
+    [initial, suggestions]
+  );
 
   const handleSubmit = React.useCallback(
     async (event: React.FormEvent) => {
@@ -51,9 +100,10 @@ const SupplierForm = React.memo(function SupplierForm({
         gstNumber: gstNumber.trim() || undefined,
         openingBalance:
           !initial && openingBalance ? Number(openingBalance) : undefined,
+        branchId: branchId || undefined,
       });
     },
-    [onSubmit, name, contactPerson, phone, gstNumber, initial, openingBalance]
+    [onSubmit, name, contactPerson, phone, gstNumber, initial, openingBalance, branchId]
   );
 
   return (
@@ -74,14 +124,42 @@ const SupplierForm = React.memo(function SupplierForm({
         </div>
       )}
 
+      <datalist id="supplier-name-suggestions">
+        {nameSuggestions.map((name) => (
+          <option key={name} value={name} />
+        ))}
+      </datalist>
+
       <div className="grid gap-3 sm:grid-cols-2">
+        {!initial && showBranchSelector && (
+          <div className="w-full">
+            <label htmlFor="supplier-branch" className={labelClass}>
+              Branch
+            </label>
+            <select
+              id="supplier-branch"
+              required
+              value={branchId}
+              onChange={(event) => setBranchId?.(event.target.value)}
+              className={selectClass}
+            >
+              <option value="">Select a branch</option>
+              {branches.map((branch) => (
+                <option key={branch.id} value={branch.id}>
+                  {branch.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         <TextInput
           id="supplier-name"
           label="Shop name"
           required
           value={name}
-          onChange={(e) => setName(e.target.value)}
+          onChange={(e) => handleNameChange(e.target.value)}
           placeholder="Shop name"
+          list="supplier-name-suggestions"
         />
         <TextInput
           id="supplier-contact-person"

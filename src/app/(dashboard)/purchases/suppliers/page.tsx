@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import React, { Suspense } from "react";
 
@@ -9,7 +8,9 @@ import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { PageFallback, TableSkeleton } from "@/components/ui/PageSkeleton";
 import SlideOver from "@/components/ui/SlideOver";
 import Toast from "@/components/ui/Toast";
+import { useBranches, useUser } from "@/hooks";
 import { useCrossNavToast } from "@/hooks/useCrossNavToast";
+import PurchaseTabs from "@/modules/purchase/PurchaseTabs";
 import SupplierForm, { type SupplierPayload } from "@/modules/purchase/SupplierForm";
 import SupplierList from "@/modules/purchase/SupplierList";
 import type { Supplier } from "@/types/purchase";
@@ -22,6 +23,11 @@ function SuppliersContent() {
   // The Add Purchase form's "+ Add" button links here with ?new=1.
   const searchParams = useSearchParams();
   const openNew = searchParams.get("new") === "1";
+
+  const { user } = useUser();
+  const isShopAdmin = user?.role === "shop_admin";
+  const { branches } = useBranches(user?.shopId);
+  const [branchId, setBranchId] = React.useState("");
 
   const [suppliers, setSuppliers] = React.useState<Supplier[]>([]);
   const [creating, setCreating] = React.useState(openNew);
@@ -60,6 +66,12 @@ function SuppliersContent() {
   React.useEffect(() => {
     load();
   }, [load]);
+
+  React.useEffect(() => {
+    if (!isShopAdmin && user?.branchId) {
+      setBranchId(user.branchId);
+    }
+  }, [isShopAdmin, user?.branchId]);
 
   React.useEffect(() => {
     const media = window.matchMedia(DESKTOP_MQ);
@@ -117,7 +129,7 @@ function SuppliersContent() {
         const body = (await response.json()) as { error?: string };
         throw new Error(body.error ?? "Could not delete the supplier");
       }
-      setToastMessage(`"${deleteTarget.name}" was deactivated`);
+      setToastMessage(`"${deleteTarget.name}" was deleted`);
       setDeleteTarget(null);
       await load();
     } catch (caught) {
@@ -132,20 +144,10 @@ function SuppliersContent() {
 
   return (
     <div className="space-y-4 p-4 sm:p-6">
+      <PurchaseTabs />
+
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold text-gray-900">Suppliers</h1>
-          <nav className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-gray-500" aria-label="Breadcrumb">
-            <Link
-              href="/purchases"
-              className="hover:text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              Purchases
-            </Link>
-            <span aria-hidden="true">•</span>
-            <span className="text-gray-700">Suppliers</span>
-          </nav>
-        </div>
+        <h1 className="text-xl font-semibold text-gray-900">Suppliers</h1>
         <Button onClick={openCreate}>+ Add Supplier</Button>
       </div>
 
@@ -156,6 +158,11 @@ function SuppliersContent() {
           error={error}
           onSubmit={handleSubmit}
           onCancel={handleCancelCreate}
+          branches={branches}
+          showBranchSelector={isShopAdmin}
+          branchId={branchId}
+          setBranchId={setBranchId}
+          suggestions={suppliers}
         />
       )}
 
@@ -170,6 +177,8 @@ function SuppliersContent() {
       ) : !loadError ? (
         <SupplierList
           suppliers={suppliers}
+          branches={branches}
+          showBranchColumn={isShopAdmin}
           onOpen={(id) => router.push(`/purchases/suppliers/details?id=${id}`)}
           onDelete={(supplier) => {
             setDeleteError(null);
@@ -207,6 +216,11 @@ function SuppliersContent() {
           onCancel={handleCancelCreate}
           formId={SUPPLIER_FORM_ID}
           hideSubmit
+          branches={branches}
+          showBranchSelector={isShopAdmin}
+          branchId={branchId}
+          setBranchId={setBranchId}
+          suggestions={suppliers}
         />
       </SlideOver>
 
@@ -222,7 +236,7 @@ function SuppliersContent() {
         title="Delete supplier?"
         description={
           deleteTarget
-            ? `Deactivate "${deleteTarget.name}"? They will no longer appear when adding purchases, and all of their purchases will be cancelled.${
+            ? `Permanently delete "${deleteTarget.name}"? This cannot be undone. All of their purchases will be cancelled.${
                 deleteTarget.outstanding > 0
                   ? ` The outstanding balance of ₹${deleteTarget.outstanding.toLocaleString("en-IN")} will be cleared.`
                   : ""

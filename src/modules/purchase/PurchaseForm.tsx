@@ -5,18 +5,11 @@ import React from "react";
 
 import { Button } from "@/components/ui/Button";
 import { formatRupees } from "@/lib/purchaseFormat";
-import { computeTotals, lineTotalOf } from "@/lib/purchaseTotals";
+import { computeTotals } from "@/lib/purchaseTotals";
 import type { Branch } from "@/types";
 import type { Purchase, Supplier } from "@/types/purchase";
 
 import AddSupplierModal from "./AddSupplierModal";
-import PurchaseItemModal, { type ItemFormValues } from "./PurchaseItemModal";
-
-export interface Suggestions {
-  names: string[];
-  brands: string[];
-  models: string[];
-}
 
 export interface PurchasePayload {
   branchId?: string;
@@ -34,23 +27,23 @@ export interface PurchasePayload {
 
 interface Props {
   suppliers: Supplier[];
-  suggestions: Suggestions;
   submitting: boolean;
   error: string | null;
   onSubmit: (payload: PurchasePayload) => Promise<void>;
   onSupplierCreated: (supplier: Supplier) => void;
   initial?: Purchase | null;
   submitLabel?: string;
-  /** Only shop_admin picks a branch; other roles are pinned to their own and this stays empty. */
+  /** For labelling supplier options with their branch, and for the "+ Add supplier" flow. */
   branches?: Branch[];
+  /** Only shop_admin picks a branch when adding a brand-new supplier; other roles are pinned to their own. */
   showBranchSelector?: boolean;
-  branchId?: string;
-  setBranchId?: (id: string) => void;
+  /** branch_admin's fixed branch, used to pin a newly-added supplier; empty for shop_admin. */
+  defaultBranchId?: string;
   /** When set, an external footer can submit via `form={formId}`. */
   formId?: string;
   /** Hide the inline submit button (use a slide-over footer instead). */
   hideSubmit?: boolean;
-  /** Lets a host footer enable/disable Save based on whether items exist. */
+  /** Lets a host footer enable/disable Save based on whether an amount was entered. */
   onCanSubmitChange?: (canSubmit: boolean) => void;
 }
 
@@ -62,9 +55,13 @@ function todayIso(): string {
 const inputClass =
   "h-11 w-full rounded-xl border border-gray-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500";
 
+/** Suppliers are branch-owned; labelling each option disambiguates same-named suppliers across branches. */
+function branchNameFor(branches: Branch[], branchId: string): string {
+  return branches.find((branch) => branch.id === branchId)?.name ?? "";
+}
+
 const PurchaseForm = React.memo(function PurchaseForm({
   suppliers,
-  suggestions,
   submitting,
   error,
   onSubmit,
@@ -73,8 +70,7 @@ const PurchaseForm = React.memo(function PurchaseForm({
   submitLabel,
   branches = [],
   showBranchSelector = false,
-  branchId = "",
-  setBranchId,
+  defaultBranchId = "",
   formId,
   hideSubmit = false,
   onCanSubmitChange,
@@ -86,25 +82,11 @@ const PurchaseForm = React.memo(function PurchaseForm({
   const [purchaseDate, setPurchaseDate] = React.useState(
     initial ? new Date(initial.purchaseDate).toISOString().slice(0, 10) : todayIso()
   );
-  const [rows, setRows] = React.useState<ItemFormValues[]>(
-    initial
-      ? initial.items.map((item) => ({
-          key: item.id,
-          name: item.name,
-          brand: item.brand ?? "",
-          model: item.model ?? "",
-          quantity: String(item.quantity),
-          purchasePrice: String(item.purchasePrice),
-          sellingPrice: item.sellingPrice === undefined ? "" : String(item.sellingPrice),
-          warrantyMonths:
-            item.warrantyMonths === undefined ? "" : String(item.warrantyMonths),
-          remarks: item.remarks ?? "",
-          serviceId: item.serviceId ?? "",
-        }))
-      : []
+  // A purchase is just a total the shop paid a supplier — no per-item breakdown.
+  // Editing an older, itemized purchase prefills this with that purchase's subtotal.
+  const [amount, setAmount] = React.useState(
+    initial ? String(initial.subtotal) : ""
   );
-  const [itemModalOpen, setItemModalOpen] = React.useState(false);
-  const [editingItem, setEditingItem] = React.useState<ItemFormValues | null>(null);
   const [supplierModalOpen, setSupplierModalOpen] = React.useState(false);
   const [paymentType, setPaymentType] = React.useState<"cash" | "upi" | "bank" | "credit">("cash");
   const [amountPaid, setAmountPaid] = React.useState("");
@@ -118,40 +100,28 @@ const PurchaseForm = React.memo(function PurchaseForm({
   const gstRate = initial?.gstRate ?? 0;
   const transportCharge = initial?.transportCharge ?? 0;
 
+  const parsedAmount = Number(amount) || 0;
+
   React.useEffect(() => {
-    onCanSubmitChange?.(rows.length > 0);
-  }, [rows.length, onCanSubmitChange]);
+    onCanSubmitChange?.(parsedAmount > 0);
+  }, [parsedAmount, onCanSubmitChange]);
 
   // The SAME function the server uses, so the figure on screen is the figure
-  // that gets persisted.
+  // that gets persisted. The amount stands in for a single line item.
   const totals = React.useMemo(
     () =>
       computeTotals({
-        items: rows.map((row) => ({
-          quantity: Number(row.quantity) || 0,
-          purchasePrice: Number(row.purchasePrice) || 0,
-        })),
+        items: [{ quantity: 1, purchasePrice: parsedAmount }],
         discount,
         gstRate,
         transportCharge,
       }),
-    [rows, discount, gstRate, transportCharge]
+    [parsedAmount, discount, gstRate, transportCharge]
   );
 
   const isCredit = paymentType === "credit";
   const paid = isCredit ? 0 : Number(amountPaid) || 0;
   const balance = Math.max(totals.grandTotal - paid, 0);
-  const openAddItem = React.useCallback(() => {
-    setEditingItem(null);
-    setItemModalOpen(true);
-  }, []);
-
-  const openEditItem = React.useCallback((row: ItemFormValues) => {
-    setEditingItem(row);
-    setItemModalOpen(true);
-  }, []);
-
-  const closeItemModal = React.useCallback(() => setItemModalOpen(false), []);
 
   const handleSupplierCreated = React.useCallback(
     (supplier: Supplier) => {
@@ -162,40 +132,26 @@ const PurchaseForm = React.memo(function PurchaseForm({
     [onSupplierCreated]
   );
 
-  const saveItem = React.useCallback((values: ItemFormValues) => {
-    setRows((current) => {
-      const exists = current.some((row) => row.key === values.key);
-      return exists
-        ? current.map((row) => (row.key === values.key ? values : row))
-        : [...current, values];
-    });
-    setItemModalOpen(false);
-  }, []);
-
-  const removeRow = React.useCallback((key: string) => {
-    setRows((current) => current.filter((r) => r.key !== key));
-  }, []);
-
   const handleSubmit = React.useCallback(
     async (event: React.FormEvent) => {
       event.preventDefault();
+
+      // A purchase's branch follows its supplier's branch — there is no
+      // separate branch choice for the purchase itself.
+      const branchId = suppliers.find((supplier) => supplier.id === supplierId)?.branchId;
 
       await onSubmit({
         branchId: branchId || undefined,
         supplierId,
         supplierInvoiceNo: supplierInvoiceNo.trim() || undefined,
         purchaseDate: new Date(purchaseDate).toISOString(),
-        items: rows.map((row) => ({
-          name: row.name.trim(),
-          brand: row.brand.trim() || undefined,
-          model: row.model.trim() || undefined,
-          quantity: Number(row.quantity),
-          purchasePrice: Number(row.purchasePrice),
-          sellingPrice: row.sellingPrice ? Number(row.sellingPrice) : undefined,
-          warrantyMonths: row.warrantyMonths ? Number(row.warrantyMonths) : undefined,
-          remarks: row.remarks.trim() || undefined,
-          serviceId: row.serviceId.trim() || undefined,
-        })),
+        items: [
+          {
+            name: "Purchase amount",
+            quantity: 1,
+            purchasePrice: parsedAmount,
+          },
+        ],
         discount,
         gstRate,
         transportCharge,
@@ -211,11 +167,11 @@ const PurchaseForm = React.memo(function PurchaseForm({
     },
     [
       onSubmit,
-      branchId,
+      suppliers,
       supplierId,
       supplierInvoiceNo,
       purchaseDate,
-      rows,
+      parsedAmount,
       discount,
       gstRate,
       transportCharge,
@@ -227,22 +183,6 @@ const PurchaseForm = React.memo(function PurchaseForm({
 
   return (
     <form id={formId} onSubmit={handleSubmit} className="space-y-5">
-      <datalist id="purchase-item-names">
-        {suggestions.names.map((name) => (
-          <option key={name} value={name} />
-        ))}
-      </datalist>
-      <datalist id="purchase-item-brands">
-        {suggestions.brands.map((brand) => (
-          <option key={brand} value={brand} />
-        ))}
-      </datalist>
-      <datalist id="purchase-item-models">
-        {suggestions.models.map((model) => (
-          <option key={model} value={model} />
-        ))}
-      </datalist>
-
       {error && (
         <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
           {error}
@@ -251,53 +191,34 @@ const PurchaseForm = React.memo(function PurchaseForm({
 
       <section className="rounded-xl border border-gray-200 bg-white p-4">
         <h2 className="mb-3 text-sm font-semibold text-gray-900">Supplier details</h2>
-        <div
-          className={`grid gap-3 ${showBranchSelector ? "sm:grid-cols-2" : "sm:grid-cols-1"}`}
-        >
-          {showBranchSelector && (
-            <div>
-              <label className="mb-1 block text-xs text-gray-600">Branch</label>
-              <select
-                required
-                value={branchId}
-                onChange={(event) => setBranchId?.(event.target.value)}
-                className={inputClass}
-              >
-                <option value="">Select a branch</option>
-                {branches.map((branch) => (
-                  <option key={branch.id} value={branch.id}>
-                    {branch.name}
+        <div>
+          <label className="mb-1 block text-xs text-gray-600">Supplier</label>
+          <div className="flex gap-2">
+            <select
+              required
+              value={supplierId}
+              onChange={(event) => setSupplierId(event.target.value)}
+              className={inputClass}
+            >
+              <option value="">Select supplier</option>
+              {suppliers
+                .filter((supplier) => supplier.status === "active" || supplier.id === supplierId)
+                .map((supplier) => (
+                  <option key={supplier.id} value={supplier.id}>
+                    {supplier.name}
+                    {branchNameFor(branches, supplier.branchId)
+                      ? ` (${branchNameFor(branches, supplier.branchId)})`
+                      : ""}
                   </option>
                 ))}
-              </select>
-            </div>
-          )}
-          <div>
-            <label className="mb-1 block text-xs text-gray-600">Supplier</label>
-            <div className="flex gap-2">
-              <select
-                required
-                value={supplierId}
-                onChange={(event) => setSupplierId(event.target.value)}
-                className={inputClass}
-              >
-                <option value="">Select supplier</option>
-                {suppliers
-                  .filter((supplier) => supplier.status === "active" || supplier.id === supplierId)
-                  .map((supplier) => (
-                    <option key={supplier.id} value={supplier.id}>
-                      {supplier.name}
-                    </option>
-                  ))}
-              </select>
-              <button
-                type="button"
-                onClick={() => setSupplierModalOpen(true)}
-                className="h-11 shrink-0 rounded-xl border border-blue-200 px-3 text-sm font-medium text-blue-600"
-              >
-                + Add supplier
-              </button>
-            </div>
+            </select>
+            <button
+              type="button"
+              onClick={() => setSupplierModalOpen(true)}
+              className="h-11 shrink-0 rounded-xl border border-blue-200 px-3 text-sm font-medium text-blue-600"
+            >
+              + Add supplier
+            </button>
           </div>
         </div>
         <div className="mt-3 grid gap-3 sm:grid-cols-3">
@@ -324,70 +245,20 @@ const PurchaseForm = React.memo(function PurchaseForm({
       </section>
 
       <section className="rounded-xl border border-gray-200 bg-white p-4">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-gray-900">Spare items</h2>
-          <button
-            type="button"
-            onClick={openAddItem}
-            className="rounded-lg border border-blue-200 px-3 py-1.5 text-sm font-medium text-blue-600"
-          >
-            + Add item
-          </button>
+        <h2 className="mb-3 text-sm font-semibold text-gray-900">Purchase amount</h2>
+        <div>
+          <label className="mb-1 block text-xs text-gray-600">Amount (₹)</label>
+          <input
+            type="number"
+            required
+            min="0.01"
+            step="0.01"
+            value={amount}
+            onChange={(event) => setAmount(event.target.value)}
+            className={inputClass}
+            placeholder="0.00"
+          />
         </div>
-
-        {rows.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-6 text-center text-sm text-gray-500">
-            No items added yet.
-          </p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="border-b border-gray-100 text-xs text-gray-500">
-                  <th className="py-2 pr-2 font-medium">Item</th>
-                  <th className="py-2 pr-2 font-medium">Brand / model</th>
-                  <th className="py-2 pr-2 font-medium">Qty</th>
-                  <th className="py-2 pr-2 font-medium">Purchase price</th>
-                  <th className="py-2 pr-2 font-medium">Total</th>
-                  <th className="py-2 font-medium">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row) => (
-                  <tr key={row.key} className="border-b border-gray-50 last:border-0">
-                    <td className="py-2 pr-2">{row.name}</td>
-                    <td className="py-2 pr-2 text-gray-500">
-                      {[row.brand, row.model].filter(Boolean).join(" / ") || "—"}
-                    </td>
-                    <td className="py-2 pr-2">{row.quantity}</td>
-                    <td className="py-2 pr-2">{formatRupees(Number(row.purchasePrice) || 0)}</td>
-                    <td className="py-2 pr-2">
-                      {formatRupees(
-                        lineTotalOf(Number(row.quantity) || 0, Number(row.purchasePrice) || 0)
-                      )}
-                    </td>
-                    <td className="py-2">
-                      <button
-                        type="button"
-                        onClick={() => openEditItem(row)}
-                        className="mr-3 text-xs font-medium text-blue-600"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => removeRow(row.key)}
-                        className="text-xs font-medium text-red-600"
-                      >
-                        Remove
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
 
         <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-3 text-base font-semibold text-gray-900">
           <span>Grand total</span>
@@ -439,22 +310,19 @@ const PurchaseForm = React.memo(function PurchaseForm({
       </section>
 
       {!hideSubmit && (
-        <Button type="submit" size="lg" fullWidth disabled={submitting || rows.length === 0}>
+        <Button type="submit" size="lg" fullWidth disabled={submitting || parsedAmount <= 0}>
           {submitting ? "Saving…" : submitLabel ?? "Save purchase"}
         </Button>
       )}
-
-      <PurchaseItemModal
-        open={itemModalOpen}
-        initial={editingItem}
-        onClose={closeItemModal}
-        onSave={saveItem}
-      />
 
       <AddSupplierModal
         open={supplierModalOpen}
         onClose={() => setSupplierModalOpen(false)}
         onCreated={handleSupplierCreated}
+        branches={branches}
+        showBranchSelector={showBranchSelector}
+        defaultBranchId={defaultBranchId}
+        suggestions={suppliers}
       />
     </form>
   );

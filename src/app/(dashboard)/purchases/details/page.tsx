@@ -7,6 +7,7 @@ import React, { Suspense } from "react";
 import { Button } from "@/components/ui/Button";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { PurchaseDetailsSkeleton } from "@/components/ui/PageSkeleton";
+import { useBranches, useUser } from "@/hooks";
 import { toastHref } from "@/hooks/useCrossNavToast";
 import PurchaseDetails from "@/modules/purchase/PurchaseDetails";
 import RecordPaymentModal from "@/modules/purchase/RecordPaymentModal";
@@ -28,6 +29,8 @@ function revive(purchase: Purchase): Purchase {
 function PurchaseDetailsContent() {
   const router = useRouter();
   const id = useSearchParams().get("id");
+  const { user } = useUser();
+  const { branches } = useBranches(user?.shopId);
 
   const [purchase, setPurchase] = React.useState<Purchase | null>(null);
   const [loading, setLoading] = React.useState(true);
@@ -193,6 +196,7 @@ function PurchaseDetailsContent() {
       <PurchaseDetails
         purchase={purchase}
         onRecordPayment={() => setPaymentOpen(true)}
+        branches={branches}
       />
 
       <ConfirmDialog

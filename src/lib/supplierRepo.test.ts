@@ -28,6 +28,7 @@ const baseInput = {
   phone: "9876543210",
   status: "active" as const,
   shopId: "shop-1",
+  branchId: "branch-1",
   createdBy: "user-1",
 };
 
@@ -79,6 +80,14 @@ describe("listSuppliers", () => {
 
   it("returns an empty array when the shop has no suppliers", async () => {
     expect(await listSuppliers("shop-1")).toEqual([]);
+  });
+
+  it("filters to one branch when given a branchId", async () => {
+    await createSupplier(baseInput);
+    await createSupplier({ ...baseInput, name: "Branch 2 Vendor", branchId: "branch-2" });
+
+    const suppliers = await listSuppliers("shop-1", "branch-2");
+    expect(suppliers.map((s) => s.name)).toEqual(["Branch 2 Vendor"]);
   });
 });
 

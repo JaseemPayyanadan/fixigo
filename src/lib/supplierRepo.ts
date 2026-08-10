@@ -1,4 +1,6 @@
 // src/lib/supplierRepo.ts
+import type { Query } from "firebase-admin/firestore";
+
 import { ApiError } from "@/lib/apiAuth";
 import { adminDb } from "@/lib/firebaseAdmin";
 import type { CreateSupplierInput, UpdateSupplierInput } from "@/lib/purchaseValidation";
@@ -39,6 +41,7 @@ export function mapSupplier(id: string, data: Record<string, unknown>): Supplier
   return {
     id,
     shopId: (data.shopId as string) || "",
+    branchId: (data.branchId as string) || "",
     name: (data.name as string) || "",
     contactPerson: (data.contactPerson as string) || "",
     phone: (data.phone as string) || "",
@@ -56,21 +59,26 @@ export function mapSupplier(id: string, data: Record<string, unknown>): Supplier
   };
 }
 
-export async function listSuppliers(shopId: string): Promise<Supplier[]> {
-  const snap = await adminDb.collection(SUPPLIERS).where("shopId", "==", shopId).get();
+/** Omitting `branchId` returns every branch's suppliers — shop_admin's combined view. */
+export async function listSuppliers(shopId: string, branchId?: string): Promise<Supplier[]> {
+  let query: Query = adminDb.collection(SUPPLIERS).where("shopId", "==", shopId);
+  if (branchId) query = query.where("branchId", "==", branchId);
+
+  const snap = await query.get();
   return snap.docs
     .map((doc) => mapSupplier(doc.id, doc.data() as Record<string, unknown>))
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
 /** Active supplier count for summary cards — avoids loading full supplier docs. */
-export async function countActiveSuppliers(shopId: string): Promise<number> {
-  const snap = await adminDb
+export async function countActiveSuppliers(shopId: string, branchId?: string): Promise<number> {
+  let query: Query = adminDb
     .collection(SUPPLIERS)
     .where("shopId", "==", shopId)
-    .where("status", "==", "active")
-    .count()
-    .get();
+    .where("status", "==", "active");
+  if (branchId) query = query.where("branchId", "==", branchId);
+
+  const snap = await query.count().get();
   return snap.data().count;
 }
 
@@ -85,13 +93,14 @@ export async function getSupplier(shopId: string, id: string): Promise<Supplier>
 }
 
 export async function createSupplier(
-  input: CreateSupplierInput & { shopId: string; createdBy: string }
+  input: CreateSupplierInput & { shopId: string; branchId: string; createdBy: string }
 ): Promise<Supplier> {
   const now = new Date();
   const ref = adminDb.collection(SUPPLIERS).doc();
 
   const data: Record<string, unknown> = {
     shopId: input.shopId,
+    branchId: input.branchId,
     name: input.name,
     contactPerson: input.contactPerson,
     phone: input.phone,
@@ -167,12 +176,7 @@ export async function deleteSupplier(shopId: string, id: string): Promise<Suppli
   const current = snap.data() as Record<string, unknown>;
   assertSupplierInShop(current, shopId, id);
 
-  if (current.status === "inactive") {
-    throw new ApiError(409, "Supplier is already inactive");
-  }
-
-  const updates = { status: "inactive", updatedAt: new Date() };
-  await ref.update(updates);
-  return mapSupplier(id, { ...current, ...updates });
+  await ref.delete();
+  return mapSupplier(id, { ...current, status: "inactive" });
 }
 
