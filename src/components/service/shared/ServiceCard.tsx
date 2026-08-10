@@ -4,8 +4,7 @@ import Link from "next/link";
 
 import { 
   EyeIcon, 
-  PencilIcon, 
-  TrashIcon, 
+  TrashIcon,
   UserIcon,
   DevicePhoneMobileIcon,
   BuildingOfficeIcon,
@@ -20,6 +19,7 @@ import { Button } from "@/components/ui";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { normalizeStatus } from "@/lib/statusUtils";
 import type { ServiceCardProps } from "./types";
+import ServiceOverflowMenu from "./ServiceOverflowMenu";
 import {
   getTechnicianDisplayInfo,
   getBranchDisplayInfo
@@ -109,17 +109,11 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
   const statusBadge = getStatusBadgeConfig(service.status);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = React.useState(false);
 
-  const handleEdit = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    e.preventDefault();
-    onEdit?.(service);
-  };
-
-  const handleDelete = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    e.preventDefault();
-    setConfirmDeleteOpen(true);
-  };
+  const canEdit =
+    user.role === "shop_admin" ||
+    user.role === "branch_admin" ||
+    (user.role === "technician" && service.technician_id === user.id);
+  const canDelete = user.role === "shop_admin" || user.role === "branch_admin";
 
   const handleDeleteConfirm = () => {
     onDelete?.(service.id);
@@ -233,44 +227,21 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
 
         {/* Action Buttons - Hidden by default, shown on hover */}
         <div className="px-6 py-3 border-t border-gray-100 bg-gray-50 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              {/* View Details Button */}
-              <Link href={`/services/details?id=${service.id}`}>
-                <Button
-                  variant="secondary"
-                  className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 text-xs px-3 py-1.5"
-                >
-                  <EyeIcon className="w-3.5 h-3.5 mr-1" />
-                  View
-                </Button>
-              </Link>
-
-              {/* Edit Button - Only show if user can edit */}
-              {(user.role === 'shop_admin' || user.role === 'branch_admin' || 
-                (user.role === 'technician' && service.technician_id === user.id)) && (
-                <Button
-                  variant="secondary"
-                  onClick={handleEdit}
-                  className="text-gray-600 hover:text-gray-700 hover:bg-gray-100 text-xs px-3 py-1.5"
-                >
-                  <PencilIcon className="w-3.5 h-3.5 mr-1" />
-                  Edit
-                </Button>
-              )}
-            </div>
-
-            {/* Delete Button - Only show if user can delete */}
-            {(user.role === 'shop_admin' || user.role === 'branch_admin') && (
+          <div className="flex items-center justify-between gap-2">
+            <Link href={`/services/details?id=${service.id}`}>
               <Button
-                variant="danger"
-                onClick={handleDelete}
-                className="text-red-600 hover:text-red-700 hover:bg-red-50 text-xs px-3 py-1.5"
+                variant="secondary"
+                className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 text-xs px-3 py-1.5"
               >
-                <TrashIcon className="w-3.5 h-3.5 mr-1" />
-                Delete
+                <EyeIcon className="w-3.5 h-3.5 mr-1" />
+                View
               </Button>
-            )}
+            </Link>
+
+            <ServiceOverflowMenu
+              onEdit={canEdit ? () => onEdit?.(service) : undefined}
+              onDelete={canDelete ? () => setConfirmDeleteOpen(true) : undefined}
+            />
           </div>
         </div>
       </div>

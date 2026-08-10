@@ -41,6 +41,7 @@ interface ServiceListItem {
   branchId: string;
   technician_id?: string;
   paymentStatus?: ServicePaymentStatus;
+  paidAmount?: number;
   isReopened?: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -239,7 +240,13 @@ function ServicesContent() {
       // Left absent on documents written before payment tracking, so
       // `isPaid` falls back to the work status rather than reading them as
       // unpaid.
-      paymentStatus: data.paymentStatus === "paid" || data.paymentStatus === "pending" ? data.paymentStatus : undefined,
+      paymentStatus:
+        data.paymentStatus === "paid" ||
+        data.paymentStatus === "pending" ||
+        data.paymentStatus === "partial"
+          ? data.paymentStatus
+          : undefined,
+      paidAmount: typeof data.paidAmount === "number" ? data.paidAmount : undefined,
       isReopened: data.isReopened === true,
       reopenReason: typeof data.reopenReason === "string" ? data.reopenReason : undefined,
       reopenedAt: data.reopenedAt?.toDate?.() || (data.reopenedAt ? new Date(data.reopenedAt) : undefined),
@@ -258,6 +265,7 @@ function ServicesContent() {
       price: service.price,
       status: service.status,
       paymentStatus: service.paymentStatus,
+      paidAmount: service.paidAmount,
       isReopened: service.isReopened === true,
       branchId: service.branchId,
       technician_id: service.technician_id,

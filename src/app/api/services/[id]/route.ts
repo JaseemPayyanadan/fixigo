@@ -62,14 +62,29 @@ export async function PATCH(
       fields?: Record<string, unknown>;
       statusHistoryAppend?: StatusHistoryEntry;
       deleteFields?: string[];
+      /** @deprecated Prefer paymentStatus. Kept for older clients. */
       paid?: boolean;
+      paymentStatus?: "pending" | "partial" | "paid";
+      paidAmount?: number;
     };
 
     if (body.action === "payment") {
-      if (typeof body.paid !== "boolean") {
-        throw new ApiError(400, "paid must be a boolean");
+      let paymentStatus = body.paymentStatus;
+      if (!paymentStatus && typeof body.paid === "boolean") {
+        paymentStatus = body.paid ? "paid" : "pending";
       }
-      const write = await setServicePaymentAdmin(id, shopId, body.paid);
+      if (paymentStatus !== "pending" && paymentStatus !== "partial" && paymentStatus !== "paid") {
+        throw new ApiError(400, "paymentStatus must be pending, partial, or paid");
+      }
+      if (paymentStatus === "partial") {
+        if (typeof body.paidAmount !== "number" || !(body.paidAmount > 0)) {
+          throw new ApiError(400, "paidAmount must be a positive number for partial payment");
+        }
+      }
+      const write = await setServicePaymentAdmin(id, shopId, {
+        paymentStatus,
+        paidAmount: body.paidAmount,
+      });
       const service = await getService(id);
       return NextResponse.json({ service, payment: write });
     }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { formatPurchaseRef, nextRefCounter, RefCounters } from "@/lib/purchaseRef";
+import { formatPurchaseRef, formatPurchaseRequestRef, nextRefCounter, RefCounters } from "@/lib/purchaseRef";
 
 describe("formatPurchaseRef", () => {
   it("pads the sequence to four digits", () => {
@@ -13,6 +13,16 @@ describe("formatPurchaseRef", () => {
 
   it("does not truncate a sequence beyond four digits", () => {
     expect(formatPurchaseRef(2026, 12345)).toBe("PUR-2026-12345");
+  });
+});
+
+describe("formatPurchaseRequestRef", () => {
+  it("pads the sequence to four digits", () => {
+    expect(formatPurchaseRequestRef(2026, 7)).toBe("PR-2026-0007");
+  });
+
+  it("does not truncate a sequence beyond four digits", () => {
+    expect(formatPurchaseRequestRef(2026, 12345)).toBe("PR-2026-12345");
   });
 });
 

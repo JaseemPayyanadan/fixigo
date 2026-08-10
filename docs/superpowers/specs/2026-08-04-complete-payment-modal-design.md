@@ -4,6 +4,8 @@
 **Status:** Approved  
 **Scope:** Service details page only — move Update Status to the top-right of the actions bar, and when status becomes Completed with unpaid outstanding, show a payment collection modal.
 
+**Amendment (2026-08-10):** Remove standalone Mark as Paid from the header/actions bar. Payment is recorded via the Complete popup (Fully paid / Partially paid / Unpaid + Save) or **Update Payment** under the ⋯ menu. `paymentStatus` may be `pending` | `partial` | `paid`; partial stores `paidAmount`.
+
 ## Problem
 
 On service details, Update Status sits on the left of the actions bar while payment actions sit on the right. Completing a job currently shows only an inline amber banner asking whether the customer paid, which is easy to miss at handover.

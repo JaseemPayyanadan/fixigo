@@ -11,13 +11,13 @@ import {
   BuildingOfficeIcon,
   ClockIcon,
   EyeIcon,
-  PencilIcon
 } from "@heroicons/react/24/outline";
 import Link from "next/link";
 
 import { Button } from "@/components/ui";
 import { TableSkeleton } from "@/components/ui/PageSkeleton";
 import ServiceCard from "./ServiceCard";
+import ServiceOverflowMenu from "./ServiceOverflowMenu";
 import type { ServiceListProps } from "./types";
 import type { Branch, Service, Technician, User } from "@/types";
 
@@ -131,29 +131,20 @@ const MobileServiceItem: React.FC<{
 
           {/* Action Buttons */}
           <div className="flex items-center gap-2 pt-3 border-t border-gray-100">
-                      <Link href={`/services/details?id=${service.id}`} className="flex-1">
-            <Button
-              variant="secondary"
-              className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 text-xs px-3 py-1.5 w-full"
-            >
-              <EyeIcon className="w-3.5 h-3.5 mr-1" />
-              View Details
-            </Button>
-          </Link>
-
-            {(user.role === 'shop_admin' || user.role === 'branch_admin' || 
-              (user.role === 'technician' && service.technician_id === user.id)) && (
+            <Link href={`/services/details?id=${service.id}`} className="flex-1">
               <Button
                 variant="secondary"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onEdit?.(service);
-                }}
-                className="text-gray-600 hover:text-gray-700 hover:bg-gray-100 text-xs px-3 py-1.5 flex-1"
+                className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 text-xs px-3 py-1.5 w-full"
               >
-                <PencilIcon className="w-3.5 h-3.5 mr-1" />
-                Edit
+                <EyeIcon className="w-3.5 h-3.5 mr-1" />
+                View Details
               </Button>
+            </Link>
+
+            {(user.role === "shop_admin" ||
+              user.role === "branch_admin" ||
+              (user.role === "technician" && service.technician_id === user.id)) && (
+              <ServiceOverflowMenu onEdit={() => onEdit?.(service)} />
             )}
           </div>
         </div>

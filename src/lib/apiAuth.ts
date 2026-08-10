@@ -164,3 +164,36 @@ export function assertCanReadSupplier(user: AuthUser, target: SupplierScope): vo
 export function assertCanWriteSupplier(user: AuthUser, target: SupplierScope): void {
   assertBranchScopedAccess(user, target, "suppliers", "modify");
 }
+
+/**
+ * Unlike purchases/suppliers, technicians ARE allowed here — they're the
+ * primary requester. The rule is identical to branch_admin: shop_admin
+ * reaches every branch, everyone else only their own. Which specific roles
+ * may approve/reject/cancel is a decision-level rule, not tenancy, and is
+ * enforced by the PATCH route + repo instead of here.
+ */
+type PurchaseRequestScope = BranchScope;
+
+function assertPurchaseRequestAccess(
+  user: AuthUser,
+  target: PurchaseRequestScope,
+  verb: string
+): void {
+  if (!user.shopId || user.shopId !== target.shopId) {
+    throw new ApiError(403, `Not permitted to ${verb} purchase requests in this shop`);
+  }
+
+  if (user.role === "shop_admin") return;
+
+  if (user.branchId && user.branchId === target.branchId) return;
+
+  throw new ApiError(403, `Not permitted to ${verb} purchase requests in this branch`);
+}
+
+export function assertCanReadPurchaseRequest(user: AuthUser, target: PurchaseRequestScope): void {
+  assertPurchaseRequestAccess(user, target, "view");
+}
+
+export function assertCanWritePurchaseRequest(user: AuthUser, target: PurchaseRequestScope): void {
+  assertPurchaseRequestAccess(user, target, "modify");
+}

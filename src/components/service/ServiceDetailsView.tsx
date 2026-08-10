@@ -43,7 +43,8 @@ export interface ServiceDetailsViewModel {
   qualityScore?: number;
   scheduledDate?: Date;
   completedDate?: Date;
-  paymentStatus?: "pending" | "paid";
+  paymentStatus?: "pending" | "partial" | "paid";
+  paidAmount?: number;
   paidAt?: Date;
   isReopened?: boolean;
   reopenReason?: string;
@@ -73,24 +74,25 @@ export interface ServiceDetailsViewProps {
   technician: Technician | null;
   technicianId: string | null;
   technicianDisplayName: string;
-  servicePaid: boolean;
+  paymentLabel: "Paid" | "Partially Paid" | "Unpaid";
   userCanReopen: boolean;
   updatingStatus: boolean;
   statusUpdateSuccess: boolean;
-  updatingPayment: boolean;
   paymentError: string | null;
   showDropdown: boolean;
   showHistory: boolean;
   statusHistory: StatusHistoryEntry[];
   statusOptions: string[];
+  canRequestSparePart: boolean;
   onGoBack: () => void;
   onEdit: () => void;
   onDelete: () => void;
   onToggleDropdown: () => void;
   onToggleHistory: () => void;
   onStatusChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
-  onPaymentToggle: () => void;
+  onUpdatePayment: () => void;
   onReopenClick: () => void;
+  onRequestSparePart: () => void;
 }
 
 function displayOptional(value: string | undefined | null): string {
@@ -147,24 +149,25 @@ export default function ServiceDetailsView({
   technician,
   technicianId,
   technicianDisplayName,
-  servicePaid,
+  paymentLabel,
   userCanReopen,
   updatingStatus,
   statusUpdateSuccess,
-  updatingPayment,
   paymentError,
   showDropdown,
   showHistory,
   statusHistory,
   statusOptions,
+  canRequestSparePart,
   onGoBack,
   onEdit,
   onDelete,
   onToggleDropdown,
   onToggleHistory,
   onStatusChange,
-  onPaymentToggle,
+  onUpdatePayment,
   onReopenClick,
+  onRequestSparePart,
 }: ServiceDetailsViewProps) {
   const statusConfig = getStatusConfig(status);
   const createdAt = service.createdAt ? new Date(service.createdAt) : null;
@@ -174,6 +177,21 @@ export default function ServiceDetailsView({
 
   // The kebab menu closes on selection; leaving it open over the page after
   // "View History" (or behind the delete confirm) reads as a stuck menu.
+  const handleEditClick = () => {
+    onToggleDropdown();
+    onEdit();
+  };
+
+  const handleUpdatePaymentClick = () => {
+    onToggleDropdown();
+    onUpdatePayment();
+  };
+
+  const handleRequestSparePartClick = () => {
+    onToggleDropdown();
+    onRequestSparePart();
+  };
+
   const handleHistoryClick = () => {
     onToggleDropdown();
     onToggleHistory();
@@ -199,7 +217,7 @@ export default function ServiceDetailsView({
               <MdArrowBack className="h-5 w-5" />
             </button>
             <div>
-              <h1 className="text-xl font-semibold text-gray-900 md:text-2xl">Service Details</h1>
+              <h1 className="text-base font-semibold text-gray-900 md:text-lg">Service Details</h1>
               <nav className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-gray-500" aria-label="Breadcrumb">
                 <Link href="/" className="hover:text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500">
                   Home
@@ -243,8 +261,8 @@ export default function ServiceDetailsView({
               )}
             </div>
 
-            {/* Desktop-only: mirrors the Actions bar's Reopen/payment buttons
-                below, which are hidden at `lg` so nothing renders twice. */}
+            {/* Desktop-only: mirrors the Actions bar's Reopen button
+                below, which is hidden at `lg` so nothing renders twice. */}
             {userCanReopen && (
               <button
                 type="button"
@@ -255,23 +273,6 @@ export default function ServiceDetailsView({
                 Reopen Service
               </button>
             )}
-            <button
-              type="button"
-              onClick={onPaymentToggle}
-              disabled={updatingPayment}
-              className={`hidden min-h-11 cursor-pointer items-center rounded-xl px-4 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 lg:inline-flex ${
-                servicePaid
-                  ? "border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-                  : "bg-emerald-600 text-white hover:bg-emerald-700"
-              }`}
-            >
-              {updatingPayment ? "Saving…" : servicePaid ? "Mark as Unpaid" : "Mark as Paid"}
-            </button>
-
-            <Button type="button" onClick={onEdit}>
-              <MdEdit className="h-4 w-4" />
-              Edit Service
-            </Button>
             <div className="relative dropdown-container">
               <Button
                 type="button"
@@ -284,6 +285,32 @@ export default function ServiceDetailsView({
               </Button>
               {showDropdown && (
                 <div className="absolute right-0 z-50 mt-2 w-48 rounded-xl border border-gray-100 bg-white py-1 shadow-lg">
+                  <button
+                    type="button"
+                    onClick={handleEditClick}
+                    className="flex min-h-11 w-full cursor-pointer items-center gap-3 px-4 py-3 text-left text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
+                  >
+                    <MdEdit className="h-4 w-4 text-gray-600" />
+                    <span className="text-sm font-medium">Edit Service</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleUpdatePaymentClick}
+                    className="flex min-h-11 w-full cursor-pointer items-center gap-3 px-4 py-3 text-left text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
+                  >
+                    <MdPayments className="h-4 w-4 text-gray-600" />
+                    <span className="text-sm font-medium">Update Payment</span>
+                  </button>
+                  {canRequestSparePart && (
+                    <button
+                      type="button"
+                      onClick={handleRequestSparePartClick}
+                      className="flex min-h-11 w-full cursor-pointer items-center gap-3 px-4 py-3 text-left text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
+                    >
+                      <MdInventory className="h-4 w-4 text-gray-600" />
+                      <span className="text-sm font-medium">Request Spare Part</span>
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={handleHistoryClick}
@@ -366,18 +393,27 @@ export default function ServiceDetailsView({
               </div>
               <div>
                 <div className="mb-1 text-xs font-medium text-gray-500">Payment</div>
-                <span
-                  className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${
-                    servicePaid ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"
+                <button
+                  type="button"
+                  onClick={onUpdatePayment}
+                  className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    paymentLabel === "Paid"
+                      ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200"
+                      : paymentLabel === "Partially Paid"
+                        ? "bg-sky-100 text-sky-800 hover:bg-sky-200"
+                        : "bg-amber-100 text-amber-800 hover:bg-amber-200"
                   }`}
+                  aria-label={`Payment ${paymentLabel}. Update payment`}
                 >
                   <MdPayments className="h-3.5 w-3.5" aria-hidden="true" />
-                  {servicePaid ? "Paid" : "Unpaid"}
-                </span>
+                  {paymentLabel}
+                </button>
                 <div className="mt-1 text-xs text-gray-500">
-                  {servicePaid
+                  {paymentLabel === "Paid"
                     ? `₹${service.price?.toLocaleString()} received`
-                    : `₹${service.price?.toLocaleString()} outstanding`}
+                    : paymentLabel === "Partially Paid"
+                      ? `₹${(service.paidAmount ?? 0).toLocaleString()} of ₹${service.price?.toLocaleString()} received`
+                      : `₹${service.price?.toLocaleString()} outstanding`}
                 </div>
               </div>
               <div>
@@ -420,8 +456,8 @@ export default function ServiceDetailsView({
               )}
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-              {userCanReopen && (
+            {userCanReopen && (
+              <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                 <button
                   type="button"
                   onClick={onReopenClick}
@@ -430,20 +466,8 @@ export default function ServiceDetailsView({
                   <MdRefresh className="h-4 w-4" />
                   Reopen Service
                 </button>
-              )}
-              <button
-                type="button"
-                onClick={onPaymentToggle}
-                disabled={updatingPayment}
-                className={`inline-flex min-h-11 cursor-pointer items-center rounded-xl px-4 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 ${
-                  servicePaid
-                    ? "border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-                    : "bg-emerald-600 text-white hover:bg-emerald-700"
-                }`}
-              >
-                {updatingPayment ? "Saving…" : servicePaid ? "Mark as Unpaid" : "Mark as Paid"}
-              </button>
-            </div>
+              </div>
+            )}
           </div>
         </section>
 

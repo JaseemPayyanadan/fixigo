@@ -7,22 +7,32 @@ import type { ServicePaymentStatus } from "@/lib/paymentUtils";
 
 export interface PaymentWrite {
   paymentStatus: ServicePaymentStatus;
+  /** Amount collected when status is partial or paid. */
+  paidAmount?: number;
   /** The moment payment was taken; cleared when a service is marked unpaid. */
   paidAt?: Date;
 }
 
+export interface SetServicePaymentInput {
+  paymentStatus: ServicePaymentStatus;
+  paidAmount?: number;
+}
+
 /**
- * Marks a service paid or unpaid via the authenticated API.
+ * Updates a service payment status via the authenticated API.
  */
 export async function setServicePayment(
   serviceId: string,
-  paid: boolean,
-  _now: Date = new Date()
+  input: SetServicePaymentInput
 ): Promise<PaymentWrite> {
   const response = await fetch(`/api/services/${encodeURIComponent(serviceId)}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ action: "payment", paid }),
+    body: JSON.stringify({
+      action: "payment",
+      paymentStatus: input.paymentStatus,
+      paidAmount: input.paidAmount,
+    }),
   });
 
   if (!response.ok) {
@@ -33,7 +43,11 @@ export async function setServicePayment(
   }
 
   const body = (await response.json()) as {
-    payment?: { paymentStatus: ServicePaymentStatus; paidAt?: string | Date };
+    payment?: {
+      paymentStatus: ServicePaymentStatus;
+      paidAt?: string | Date;
+      paidAmount?: number;
+    };
   };
 
   const payment = body.payment;
@@ -43,6 +57,7 @@ export async function setServicePayment(
 
   return {
     paymentStatus: payment.paymentStatus,
+    paidAmount: payment.paidAmount,
     paidAt: payment.paidAt ? new Date(payment.paidAt) : undefined,
   };
 }

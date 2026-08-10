@@ -111,7 +111,7 @@ New `apiAuth.ts` helpers `assertCanReadPurchaseRequest` / `assertCanWritePurchas
 
 ## UI
 
-- **Service details page** (`ServiceDetailsView.tsx`): new "Request Spare Part" button next to the existing action buttons, visible to `technician` (own service), `branch_admin`, `shop_admin`. Opens a form (modal or slide-over, matching how `PurchaseForm` is hosted) with repair id + customer name shown read-only, and an editable item table (name, brand, model, qty, remarks) with add/remove rows.
+- **Service details page** (`ServiceDetailsView.tsx`): new "Request Spare Part" button in the header action row, visible to `technician` (own service), `branch_admin`, `shop_admin`. **Edit Service stays under the ⋯ (three-dots) menu everywhere** (details header, list/table/card overflow menus) — do not surface it as a standalone primary button. Opens a form (modal or slide-over, matching how `PurchaseForm` is hosted) with repair id + customer name shown read-only, and an editable item table (name, brand, model, qty, remarks) with add/remove rows.
 - **Purchase Requests list** (`purchases/requests/page.tsx`, replacing the placeholder): table of ref, repair id (links to the service), customer name, item count, requested by, requested date, status badge — mirrors `PurchaseList.tsx`'s structure.
 - **Request details**: full item table, status, and for `branch_admin`/`shop_admin` on a `pending` request, Approve / Reject actions (Reject opens a small dialog asking for the reason, mirroring purchase cancellation's flow). For the original requester on a `pending` request, a Cancel action.
 

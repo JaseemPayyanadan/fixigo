@@ -3,7 +3,10 @@ import { describe, expect, it } from "vitest";
 import {
   countsAsRevenue,
   isPaid,
+  isPartiallyPaid,
+  outstandingAmountOf,
   paidDateOf,
+  paymentLabelOf,
   paymentStatusOf,
   shouldOpenCollectPaymentModal,
 } from "@/lib/paymentUtils";
@@ -82,6 +85,21 @@ describe("paidDateOf", () => {
   });
 });
 
+
+describe("partial payment helpers", () => {
+  it("labels partial and computes outstanding", () => {
+    const service = { status: "completed", paymentStatus: "partial" as const, paidAmount: 400, price: 1000 };
+    expect(paymentLabelOf(service)).toBe("Partially Paid");
+    expect(isPartiallyPaid(service)).toBe(true);
+    expect(isPaid(service)).toBe(false);
+    expect(outstandingAmountOf(service)).toBe(600);
+  });
+
+  it("treats paid as zero outstanding", () => {
+    expect(outstandingAmountOf({ paymentStatus: "paid", price: 1000 })).toBe(0);
+  });
+});
+
 describe("shouldOpenCollectPaymentModal", () => {
   it("opens when moving to Completed with no prior paymentStatus", () => {
     expect(shouldOpenCollectPaymentModal("Completed", undefined)).toBe(true);
@@ -93,6 +111,10 @@ describe("shouldOpenCollectPaymentModal", () => {
 
   it("does not open when already paid", () => {
     expect(shouldOpenCollectPaymentModal("Completed", "paid")).toBe(false);
+  });
+
+  it("opens when only partially paid so staff can settle the balance", () => {
+    expect(shouldOpenCollectPaymentModal("Completed", "partial")).toBe(true);
   });
 
   it("does not open for Ready for Pickup", () => {
