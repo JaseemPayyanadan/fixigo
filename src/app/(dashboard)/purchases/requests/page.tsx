@@ -24,6 +24,7 @@ function PurchaseRequestsPageContent() {
   const router = useRouter();
   const { user } = useUser();
   const isShopAdmin = user?.role === "shop_admin";
+  const isTechnician = user?.role === "technician";
   const { branches } = useBranches(user?.shopId);
 
   const [requests, setRequests] = React.useState<PurchaseRequest[]>([]);
@@ -79,6 +80,7 @@ function PurchaseRequestsPageContent() {
           onOpen={handleOpen}
           branches={branches}
           showBranchColumn={isShopAdmin}
+          showRequestedByColumn={!isTechnician}
         />
       )}
 

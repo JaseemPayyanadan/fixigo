@@ -41,6 +41,23 @@ const RequestSparePartModal = React.memo(function RequestSparePartModal({
     if (open) setError(null);
   }, [open]);
 
+  React.useEffect(() => {
+    if (!open) return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !saving) onClose();
+    };
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", onKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open, saving, onClose]);
+
   const handleSubmit = React.useCallback(
     async (items: RequestSparePartItem[]) => {
       if (items.length === 0) {
@@ -74,8 +91,17 @@ const RequestSparePartModal = React.memo(function RequestSparePartModal({
   if (!open) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[10050] flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4">
-      <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-white p-5 shadow-xl sm:rounded-2xl">
+    <div className="fixed inset-0 z-[10050] flex items-end justify-center p-0 sm:items-center sm:p-4">
+      <button
+        type="button"
+        className="absolute inset-0 bg-black/40"
+        aria-label="Close dialog"
+        onClick={() => {
+          if (!saving) onClose();
+        }}
+        disabled={saving}
+      />
+      <div className="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-white p-5 shadow-xl sm:rounded-2xl">
         <h2 className="text-base font-semibold text-gray-900">Request spare part</h2>
         <p className="mt-1 text-sm text-gray-500">
           Parts are requested against this repair for admin approval.

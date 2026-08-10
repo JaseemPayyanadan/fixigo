@@ -22,6 +22,7 @@ import { setServicePayment } from "@/lib/servicePayments";
 import type { CollectPaymentSaveInput } from "@/components/service/CollectPaymentDialog";
 import { buildReopenFields, canReopenService } from "@/lib/serviceReopen";
 import { appendStatusHistory, buildStatusHistoryEntry, mapStatusHistoryEntries } from "@/lib/serviceStatusHistory";
+import { formatRepairLabel } from "@/lib/repairLabel";
 import { normalizeStatus } from "@/lib/statusUtils";
 import RequestSparePartModal from "@/modules/purchase/RequestSparePartModal";
 import type { Branch, StatusHistoryEntry, Technician } from "@/types";
@@ -647,7 +648,7 @@ function ServiceDetailsPage() {
       <RequestSparePartModal
         open={showRequestSparePart}
         serviceId={service.id}
-        repairLabel={`Repair #${service.id.slice(-8)}`}
+        repairLabel={formatRepairLabel(service.id)}
         customerName={service.customer?.name || ""}
         deviceBrand={service.device?.brand}
         deviceModel={service.device?.model}

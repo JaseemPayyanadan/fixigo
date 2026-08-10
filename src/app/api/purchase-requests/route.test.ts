@@ -158,6 +158,7 @@ describe("POST /api/purchase-requests", () => {
         shopId: "shop-1",
         branchId: "branch-1",
         serviceId: "service-1",
+        serviceRef: "ervice-1",
         customerName: "Naseem",
         requestedBy: { userId: "tech-1", name: "Anshid" },
       })

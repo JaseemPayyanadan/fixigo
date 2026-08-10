@@ -20,6 +20,7 @@ import {
   type SortingState,
 } from "@tanstack/react-table";
 
+import { formatRepairLabel } from "@/lib/repairLabel";
 import { formatDate } from "@/lib/utils";
 import type { Branch } from "@/types";
 import type { PurchaseRequest, PurchaseRequestStatus } from "@/types/purchaseRequest";
@@ -39,9 +40,18 @@ interface Props {
   onOpen: (id: string) => void;
   branches?: Branch[];
   showBranchColumn?: boolean;
+  /** Off for technicians — every row in their view is either their own or a
+   *  colleague's, and who raised it isn't theirs to see. */
+  showRequestedByColumn?: boolean;
 }
 
 const columnHelper = createColumnHelper<PurchaseRequest>();
+
+const requestedByColumn = columnHelper.accessor((row) => row.requestedBy.name, {
+  id: "requestedBy",
+  header: "Requested By",
+  cell: ({ getValue }) => getValue(),
+});
 
 function branchNameFor(branches: Branch[], branchId: string): string {
   return branches.find((branch) => branch.id === branchId)?.name ?? "—";
@@ -52,23 +62,39 @@ function RequestCard({
   onOpen,
   branches,
   showBranchColumn,
+  showRequestedByColumn,
 }: {
   request: PurchaseRequest;
   onOpen: (id: string) => void;
   branches: Branch[];
   showBranchColumn: boolean;
+  showRequestedByColumn: boolean;
 }) {
   const status = STATUS_LABEL[request.status];
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       onClick={() => onOpen(request.id)}
-      className="w-full rounded-2xl border border-gray-100 bg-white p-4 text-left shadow-sm"
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onOpen(request.id);
+        }
+      }}
+      className="w-full cursor-pointer rounded-2xl border border-gray-100 bg-white p-4 text-left shadow-sm"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate font-medium text-gray-900">{request.customerName}</p>
           <p className="text-xs text-gray-500">{request.ref}</p>
+          <Link
+            href={`/services/details?id=${request.serviceId}`}
+            onClick={(event) => event.stopPropagation()}
+            className="text-xs text-blue-600 hover:underline"
+          >
+            {formatRepairLabel(request.serviceId, request.serviceRef)}
+          </Link>
           {showBranchColumn ? (
             <p className="text-xs text-gray-500">{branchNameFor(branches, request.branchId)}</p>
           ) : null}
@@ -79,11 +105,12 @@ function RequestCard({
       </div>
       <div className="mt-2 flex items-end justify-between gap-3">
         <div className="text-sm text-gray-700">
-          {request.items.length} item{request.items.length === 1 ? "" : "s"} · {request.requestedBy.name}
+          {request.items.length} item{request.items.length === 1 ? "" : "s"}
+          {showRequestedByColumn ? ` · ${request.requestedBy.name}` : ""}
         </div>
         <span className="text-xs text-gray-500">{formatDate(request.requestedAt)}</span>
       </div>
-    </button>
+    </div>
   );
 }
 
@@ -92,6 +119,7 @@ const PurchaseRequestList = React.memo(function PurchaseRequestList({
   onOpen,
   branches = [],
   showBranchColumn = false,
+  showRequestedByColumn = true,
 }: Props) {
   const [sorting, setSorting] = useState<SortingState>([{ id: "requestedAt", desc: true }]);
 
@@ -108,7 +136,7 @@ const PurchaseRequestList = React.memo(function PurchaseRequestList({
               onClick={(event) => event.stopPropagation()}
               className="text-xs text-blue-600 hover:underline"
             >
-              Repair #{row.original.serviceId.slice(-8)}
+              {formatRepairLabel(row.original.serviceId, row.original.serviceRef)}
             </Link>
           </div>
         ),
@@ -123,7 +151,7 @@ const PurchaseRequestList = React.memo(function PurchaseRequestList({
             columnHelper.accessor("branchId", {
               id: "branch",
               header: "Branch",
-              cell: ({ getValue }: { getValue: () => string }) => (
+              cell: ({ getValue }) => (
                 <span className="text-gray-700">{branchNameFor(branches, getValue())}</span>
               ),
             }),
@@ -135,11 +163,7 @@ const PurchaseRequestList = React.memo(function PurchaseRequestList({
         meta: { headerClass: "text-right", cellClass: "text-right" },
         cell: ({ getValue }) => getValue(),
       }),
-      columnHelper.accessor((row) => row.requestedBy.name, {
-        id: "requestedBy",
-        header: "Requested By",
-        cell: ({ getValue }) => getValue(),
-      }),
+      ...(showRequestedByColumn ? [requestedByColumn] : []),
       columnHelper.accessor("requestedAt", {
         id: "requestedAt",
         header: "Date",
@@ -159,7 +183,7 @@ const PurchaseRequestList = React.memo(function PurchaseRequestList({
         },
       }),
     ],
-    [showBranchColumn, branches]
+    [showBranchColumn, branches, showRequestedByColumn]
   );
 
   const table = useReactTable({
@@ -200,6 +224,7 @@ const PurchaseRequestList = React.memo(function PurchaseRequestList({
             onOpen={onOpen}
             branches={branches}
             showBranchColumn={showBranchColumn}
+            showRequestedByColumn={showRequestedByColumn}
           />
         ))}
       </div>

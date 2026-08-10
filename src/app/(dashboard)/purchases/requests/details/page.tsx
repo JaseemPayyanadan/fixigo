@@ -29,6 +29,8 @@ function PurchaseRequestDetailsContent() {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [approving, setApproving] = React.useState(false);
+  const [showApprove, setShowApprove] = React.useState(false);
+  const [approveError, setApproveError] = React.useState<string | null>(null);
   const [rejecting, setRejecting] = React.useState(false);
   const [rejectReason, setRejectReason] = React.useState("");
   const [rejectError, setRejectError] = React.useState<string | null>(null);
@@ -87,11 +89,12 @@ function PurchaseRequestDetailsContent() {
 
   const handleApprove = React.useCallback(async () => {
     setApproving(true);
+    setApproveError(null);
     try {
       const updated = await patchAction({ action: "approve" });
       router.push(toastHref("/purchases/requests", `Request ${updated.ref} was approved`));
     } catch (caught) {
-      setError((caught as Error).message);
+      setApproveError((caught as Error).message);
     } finally {
       setApproving(false);
     }
@@ -159,7 +162,10 @@ function PurchaseRequestDetailsContent() {
         request={request}
         canDecide={canDecide}
         canCancel={canCancel}
-        onApprove={handleApprove}
+        onOpenApprove={() => {
+          setApproveError(null);
+          setShowApprove(true);
+        }}
         onOpenReject={() => {
           setRejectReason("");
           setRejectError(null);
@@ -172,11 +178,29 @@ function PurchaseRequestDetailsContent() {
       />
 
       <ConfirmDialog
+        open={showApprove}
+        title="Approve request?"
+        description={`Approve "${request.ref}"? This clears it for purchasing — no purchase is created automatically.`}
+        confirmLabel={approving ? "Approving…" : "Approve request"}
+        cancelLabel="Keep pending"
+        confirming={approving}
+        error={approveError}
+        variant="primary"
+        onConfirm={handleApprove}
+        onClose={() => {
+          if (!approving) {
+            setShowApprove(false);
+            setApproveError(null);
+          }
+        }}
+      />
+
+      <ConfirmDialog
         open={rejecting}
         title="Reject request?"
         description={`Reject "${request.ref}"? The technician will see this reason.`}
         confirmLabel={rejectSubmitting ? "Rejecting…" : "Reject request"}
-        confirming={rejectSubmitting || approving}
+        confirming={rejectSubmitting}
         confirmDisabled={rejectReason.trim() === ""}
         error={rejectError}
         onConfirm={handleReject}

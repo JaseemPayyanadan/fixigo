@@ -8,14 +8,18 @@ import { MdAdd, MdDeleteOutline } from "react-icons/md";
 interface Row {
   key: string;
   name: string;
+  brand: string;
+  model: string;
   quantity: string;
   remarks: string;
 }
 
-function emptyRow(): Row {
+function emptyRow(brand = "", model = ""): Row {
   return {
     key: crypto.randomUUID(),
     name: "",
+    brand,
+    model,
     quantity: "1",
     remarks: "",
   };
@@ -38,8 +42,9 @@ interface Props {
   repairLabel: string;
   /** Read-only customer name from the linked repair. */
   customerName: string;
-  /** The repair's device brand/model, stamped onto every item automatically — never typed by hand. */
+  /** Prefills each new row's brand; the technician can still edit per line. */
   deviceBrand?: string;
+  /** Prefills each new row's model; the technician can still edit per line. */
   deviceModel?: string;
 }
 
@@ -57,13 +62,15 @@ export default function RequestSparePartForm({
   deviceBrand,
   deviceModel,
 }: Props) {
-  const [rows, setRows] = React.useState<Row[]>([emptyRow()]);
+  const defaultBrand = deviceBrand?.trim() || "";
+  const defaultModel = deviceModel?.trim() || "";
+  const [rows, setRows] = React.useState<Row[]>(() => [emptyRow(defaultBrand, defaultModel)]);
 
   const updateRow = (key: string, field: keyof Row, value: string) => {
     setRows((current) => current.map((row) => (row.key === key ? { ...row, [field]: value } : row)));
   };
 
-  const addRow = () => setRows((current) => [...current, emptyRow()]);
+  const addRow = () => setRows((current) => [...current, emptyRow(defaultBrand, defaultModel)]);
 
   const removeRow = (key: string) =>
     setRows((current) => (current.length === 1 ? current : current.filter((row) => row.key !== key)));
@@ -75,16 +82,14 @@ export default function RequestSparePartForm({
       .filter((row) => row.name.trim() !== "")
       .map((row) => ({
         name: row.name.trim(),
-        brand: deviceBrand?.trim() || undefined,
-        model: deviceModel?.trim() || undefined,
+        brand: row.brand.trim() || undefined,
+        model: row.model.trim() || undefined,
         quantity: Math.max(1, Number(row.quantity) || 1),
         remarks: row.remarks.trim() || undefined,
       }));
 
     onSubmit(items);
   };
-
-  const deviceLabel = [deviceBrand, deviceModel].filter(Boolean).join(" ");
 
   return (
     <form id={formId} onSubmit={handleSubmit} className="space-y-3">
@@ -98,12 +103,6 @@ export default function RequestSparePartForm({
             </>
           ) : null}
         </p>
-        {deviceLabel ? (
-          <p className="mt-1 text-gray-500">
-            Device <span className="font-medium text-gray-700">{deviceLabel}</span> — brand and model
-            are attached automatically.
-          </p>
-        ) : null}
       </div>
 
       {rows.map((row, index) => (
@@ -134,6 +133,26 @@ export default function RequestSparePartForm({
                 onChange={(event) => updateRow(row.key, "name", event.target.value)}
                 className={INPUT_CLASS}
                 placeholder="e.g. Display"
+                disabled={saving}
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs text-gray-500">Brand</label>
+              <input
+                value={row.brand}
+                onChange={(event) => updateRow(row.key, "brand", event.target.value)}
+                className={INPUT_CLASS}
+                placeholder="Optional"
+                disabled={saving}
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs text-gray-500">Model</label>
+              <input
+                value={row.model}
+                onChange={(event) => updateRow(row.key, "model", event.target.value)}
+                className={INPUT_CLASS}
+                placeholder="Optional"
                 disabled={saving}
               />
             </div>

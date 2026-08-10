@@ -6,6 +6,7 @@ import React from "react";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/Button";
+import { formatRepairLabel } from "@/lib/repairLabel";
 import { formatDate } from "@/lib/utils";
 import type { PurchaseRequest, PurchaseRequestStatus } from "@/types/purchaseRequest";
 
@@ -20,7 +21,7 @@ interface Props {
   request: PurchaseRequest;
   canDecide: boolean;
   canCancel: boolean;
-  onApprove: () => void;
+  onOpenApprove: () => void;
   onOpenReject: () => void;
   onOpenCancel: () => void;
 }
@@ -29,7 +30,7 @@ export default function PurchaseRequestDetails({
   request,
   canDecide,
   canCancel,
-  onApprove,
+  onOpenApprove,
   onOpenReject,
   onOpenCancel,
 }: Props) {
@@ -45,7 +46,7 @@ export default function PurchaseRequestDetails({
             <p className="mt-1 text-sm text-gray-600">
               For{" "}
               <Link href={`/services/details?id=${request.serviceId}`} className="text-blue-600 hover:underline">
-                Repair #{request.serviceId.slice(-8)}
+                {formatRepairLabel(request.serviceId, request.serviceRef)}
               </Link>{" "}
               · {request.customerName}
             </p>
@@ -82,7 +83,7 @@ export default function PurchaseRequestDetails({
           <div className="mt-4 flex flex-wrap gap-2">
             {canDecide && (
               <>
-                <Button type="button" onClick={onApprove}>
+                <Button type="button" onClick={onOpenApprove}>
                   Approve
                 </Button>
                 <Button type="button" variant="secondary" onClick={onOpenReject}>

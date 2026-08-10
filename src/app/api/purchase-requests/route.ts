@@ -11,6 +11,7 @@ import {
 } from "@/lib/apiAuth";
 import { createPurchaseRequest, listPurchaseRequests } from "@/lib/purchaseRequestRepo";
 import { parseCreatePurchaseRequestInput } from "@/lib/purchaseRequestValidation";
+import { shortServiceRef } from "@/lib/repairLabel";
 import { getService } from "@/lib/serviceRepo";
 
 export const dynamic = "force-dynamic";
@@ -48,6 +49,7 @@ export async function POST(request: NextRequest) {
       ...input,
       shopId: service.shopId,
       branchId: service.branchId,
+      serviceRef: shortServiceRef(service.id),
       customerName: service.customer?.name || "",
       requestedBy: { userId: user.id, name: user.name || "" },
     });

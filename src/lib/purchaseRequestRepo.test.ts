@@ -42,9 +42,10 @@ beforeEach(() => {
 
 describe("createPurchaseRequest", () => {
   it("creates a pending request carrying the denormalized service fields", async () => {
-    const request = await createPurchaseRequest(requestInput());
+    const request = await createPurchaseRequest(requestInput({ serviceRef: "ervice-1" }));
     expect(request.status).toBe("pending");
     expect(request.serviceId).toBe("service-1");
+    expect(request.serviceRef).toBe("ervice-1");
     expect(request.customerName).toBe("Naseem");
     expect(request.items).toHaveLength(1);
     expect(request.items[0].name).toBe("Display");
