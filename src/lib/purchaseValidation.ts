@@ -356,6 +356,23 @@ export function parseReturnPurchaseInput(body: unknown): ReturnPurchaseInput {
   return { items, reason };
 }
 
+/** A flat return against a bill: one amount and an optional note, no line-item picking. */
+export interface RecordReturnInput {
+  amount: number;
+  reason?: string;
+}
+
+export function parseRecordReturnInput(body: unknown): RecordReturnInput {
+  const raw = asObject(body);
+
+  const amount = requireNumber(raw, "amount", "Return amount");
+  if (amount <= 0) {
+    throw new ApiError(400, "Return amount must be greater than zero");
+  }
+
+  return { amount, reason: optionalString(raw, "reason") };
+}
+
 export interface RecordRefundInput {
   amount: number;
   method: PurchasePaymentMethod;

@@ -27,6 +27,23 @@ export interface Supplier {
 export type PurchasePaymentMethod = "cash" | "upi" | "bank";
 
 /**
+ * A lump-sum payment against a supplier's running balance rather than a
+ * specific bill the user picks. The repo layer still applies it across that
+ * supplier's own outstanding bills (oldest-due-first) behind the scenes, so
+ * a bill's balance and the supplier's outstanding never disagree.
+ */
+export interface SupplierPayment {
+  id: string;
+  amount: number;
+  method: PurchasePaymentMethod;
+  paidAt: Date;
+  reference?: string;
+  notes?: string;
+  recordedBy: string;
+  createdAt: Date;
+}
+
+/**
  * "Credit" is deliberately absent: on the Add Purchase form it means no money
  * moved, so it produces zero payments rather than a payment with this method.
  */
@@ -77,6 +94,14 @@ export interface PurchaseReturn {
   returnedBy: { userId: string; name: string };
   returnedAt: Date;
   createdAt: Date;
+}
+
+/** A return flattened out of its parent purchase, for the shop-wide returns list. */
+export interface PurchaseReturnRow extends PurchaseReturn {
+  purchaseId: string;
+  purchaseRef: string;
+  supplierId: string;
+  supplierName: string;
 }
 
 export interface PurchaseRefund {

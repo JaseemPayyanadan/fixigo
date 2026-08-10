@@ -1,30 +1,37 @@
 // src/modules/purchase/PurchaseDetails.tsx
 "use client";
 
+import { PencilIcon, TrashIcon } from "@heroicons/react/24/outline";
 import React from "react";
 
 import { Button } from "@/components/ui/Button";
 import { formatRupees, paymentStatusLabel } from "@/lib/purchaseFormat";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import type { Branch } from "@/types";
-import type { Purchase } from "@/types/purchase";
+import type { Purchase, PurchaseReturn } from "@/types/purchase";
 
 interface Props {
   purchase: Purchase;
   onRecordPayment: () => void;
+  onEditReturn?: (purchaseReturn: PurchaseReturn) => void;
+  onDeleteReturn?: (purchaseReturn: PurchaseReturn) => void;
   branches?: Branch[];
 }
 
 const PurchaseDetails = React.memo(function PurchaseDetails({
   purchase,
   onRecordPayment,
+  onEditReturn,
+  onDeleteReturn,
   branches = [],
 }: Props) {
   const branchName = branches.find((branch) => branch.id === purchase.branchId)?.name ?? "—";
   const status = React.useMemo(() => paymentStatusLabel(purchase, new Date()), [purchase]);
 
   const isActive = purchase.status === "active";
-  const isLocked = isActive && purchase.payments.length > 0;
+  const hasPayments = purchase.payments.length > 0;
+  const hasReturns = purchase.returns.length > 0;
+  const isLocked = isActive && (hasPayments || hasReturns);
   const payable = isActive && purchase.balance > 0;
 
   return (
@@ -45,7 +52,11 @@ const PurchaseDetails = React.memo(function PurchaseDetails({
 
         {isLocked && (
           <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-800">
-            Edit is locked because a payment has been recorded on this purchase.
+            {hasPayments && hasReturns
+              ? "Edit is locked because a payment and a return have been recorded on this purchase."
+              : hasPayments
+                ? "Edit is locked because a payment has been recorded on this purchase."
+                : "Edit is locked because a return has been recorded on this purchase."}
           </p>
         )}
 
@@ -70,10 +81,16 @@ const PurchaseDetails = React.memo(function PurchaseDetails({
           </div>
           <div className="flex justify-between">
             <dt className="text-gray-500">Total amount</dt>
-            <dd className="font-medium text-gray-900">{formatRupees(purchase.grandTotal)}</dd>
+            <dd className="font-medium text-gray-900">
+              {formatRupees(purchase.grandTotal - purchase.returnedAmount)}
+            </dd>
           </div>
           <div className="flex justify-between sm:col-span-2">
-            <div className="grid w-full grid-cols-2 gap-3 rounded-xl bg-gray-50 p-3">
+            <div
+              className={`grid w-full gap-3 rounded-xl bg-gray-50 p-3 ${
+                hasReturns ? "grid-cols-3" : "grid-cols-2"
+              }`}
+            >
               <div>
                 <p className="text-xs text-gray-500">Paid amount</p>
                 <p className="text-base font-semibold text-gray-900">
@@ -90,8 +107,22 @@ const PurchaseDetails = React.memo(function PurchaseDetails({
                   {formatRupees(purchase.balance)}
                 </p>
               </div>
+              {hasReturns && (
+                <div>
+                  <p className="text-xs text-gray-500">Returned</p>
+                  <p className="text-base font-semibold text-amber-700">
+                    {formatRupees(purchase.returnedAmount)}
+                  </p>
+                </div>
+              )}
             </div>
           </div>
+          {purchase.refundDue > 0 && (
+            <div className="flex justify-between">
+              <dt className="text-gray-500">Refund due from supplier</dt>
+              <dd className="font-medium text-amber-700">{formatRupees(purchase.refundDue)}</dd>
+            </div>
+          )}
           {purchase.dueDate && (
             <div className="flex justify-between">
               <dt className="text-gray-500">Due date</dt>
@@ -197,6 +228,58 @@ const PurchaseDetails = React.memo(function PurchaseDetails({
           </span>
         </div>
       </section>
+
+      {hasReturns && (
+        <section className="rounded-xl border border-gray-200 bg-white p-4">
+          <h3 className="mb-3 text-sm font-semibold text-gray-900">Returns</h3>
+          <ul className="space-y-2">
+            {purchase.returns.map((purchaseReturn) => (
+              <li
+                key={purchaseReturn.id}
+                className="flex items-center justify-between gap-2 border-b border-gray-100 pb-2 text-sm last:border-0"
+              >
+                <div className="min-w-0">
+                  <p className="font-medium text-gray-900">
+                    {formatRupees(purchaseReturn.totalAmount)}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {purchaseReturn.reason || "No reason given"}
+                  </p>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  <span className="text-xs text-gray-500">
+                    {formatDate(purchaseReturn.returnedAt)}
+                  </span>
+                  {isActive && onEditReturn && (
+                    <button
+                      type="button"
+                      onClick={() => onEditReturn(purchaseReturn)}
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900"
+                      aria-label="Edit return"
+                    >
+                      <PencilIcon className="h-4 w-4" />
+                    </button>
+                  )}
+                  {isActive && onDeleteReturn && (
+                    <button
+                      type="button"
+                      onClick={() => onDeleteReturn(purchaseReturn)}
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-red-50 hover:text-red-600"
+                      aria-label="Delete return"
+                    >
+                      <TrashIcon className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+          <div className="mt-3 flex justify-between border-t border-gray-100 pt-3 text-sm font-semibold">
+            <span className="text-gray-600">Total returned</span>
+            <span className="text-amber-700">{formatRupees(purchase.returnedAmount)}</span>
+          </div>
+        </section>
+      )}
     </div>
   );
 });

@@ -11,6 +11,7 @@ import { computeTotals, lineTotalOf, roundMoney } from "@/lib/purchaseTotals";
 import type {
   CreatePurchaseInput,
   RecordPaymentInput,
+  RecordReturnInput,
 } from "@/lib/purchaseValidation";
 import {
   SUPPLIERS,
@@ -25,6 +26,7 @@ import type {
   PurchaseRefund,
   PurchaseReturn,
   PurchaseReturnLine,
+  PurchaseReturnRow,
 } from "@/types/purchase";
 
 export const PURCHASES = "purchases";
@@ -190,10 +192,10 @@ export function mapPurchaseListRow(id: string, data: Record<string, unknown>): P
     paymentStatus: (data.paymentStatus as Purchase["paymentStatus"]) || "unpaid",
     dueDate: toOptionalDate(data.dueDate),
     returns: [],
-    returnedAmount: 0,
+    returnedAmount: (data.returnedAmount as number) || 0,
     refunds: [],
     refundReceived: 0,
-    refundDue: 0,
+    refundDue: (data.refundDue as number) || 0,
     status: (data.status as Purchase["status"]) || "active",
     createdAt: toDate(data.createdAt),
     updatedAt: toDate(data.updatedAt),
@@ -229,6 +231,23 @@ function buildPayment(input: RecordPaymentInput, recordedBy: string): Record<str
     notes: input.notes ?? null,
     recordedBy,
     createdAt: new Date(),
+  };
+}
+
+/** A flat return, not itemized — `items` stays empty. */
+function buildReturn(
+  input: RecordReturnInput,
+  returnedBy: { userId: string; name: string }
+): Record<string, unknown> {
+  const now = new Date();
+  return {
+    id: randomUUID(),
+    items: [],
+    totalAmount: input.amount,
+    reason: input.reason ?? "",
+    returnedBy,
+    returnedAt: now,
+    createdAt: now,
   };
 }
 
@@ -437,6 +456,283 @@ export async function recordPurchasePayment(
   return mapPurchase(id, data);
 }
 
+/**
+ * Records a flat return (amount + reason, no line items) against a bill.
+ * Subtracting from `grandTotal` via `summarizePurchaseMoney` naturally turns
+ * an already-settled overpayment into `refundDue` rather than a negative
+ * balance — the same math `recordPurchasePayment` relies on.
+ */
+export async function recordPurchaseReturn(
+  shopId: string,
+  id: string,
+  input: RecordReturnInput,
+  returnedBy: { userId: string; name: string }
+): Promise<Purchase> {
+  const purchaseRef = adminDb.collection(PURCHASES).doc(id);
+  const now = new Date();
+
+  const data = await adminDb.runTransaction(async (tx) => {
+    const purchase = await loadForWrite(tx, purchaseRef, shopId);
+
+    if (purchase.status === "cancelled") {
+      throw new ApiError(409, "Cannot record a return against a cancelled purchase");
+    }
+
+    const existingPayments = Array.isArray(purchase.payments)
+      ? (purchase.payments as Record<string, unknown>[])
+      : [];
+    const existingReturns = Array.isArray(purchase.returns)
+      ? (purchase.returns as Record<string, unknown>[])
+      : [];
+    const existingRefunds = Array.isArray(purchase.refunds)
+      ? (purchase.refunds as Record<string, unknown>[])
+      : [];
+    const grandTotal = (purchase.grandTotal as number) || 0;
+    const before = summarizePurchaseMoney(
+      grandTotal,
+      existingPayments as Array<{ amount: number }>,
+      existingReturns as Array<{ totalAmount: number }>,
+      existingRefunds as Array<{ amount: number }>
+    );
+
+    const remainingReturnable = roundMoney(grandTotal - before.returnedAmount);
+    if (input.amount > remainingReturnable) {
+      throw new ApiError(400, "Return amount cannot exceed the bill's remaining total");
+    }
+
+    const returns = [...existingReturns, buildReturn(input, returnedBy)];
+    const after = summarizePurchaseMoney(
+      grandTotal,
+      existingPayments as Array<{ amount: number }>,
+      returns as Array<{ totalAmount: number }>,
+      existingRefunds as Array<{ amount: number }>
+    );
+
+    const supplierRef = adminDb.collection(SUPPLIERS).doc(purchase.supplierId as string);
+    const supplierSnap = await tx.get(supplierRef);
+    if (!supplierSnap.exists) {
+      throw new ApiError(404, "Supplier not found");
+    }
+    const supplier = supplierSnap.data() as Record<string, unknown>;
+
+    const updates: Record<string, unknown> = {
+      returns,
+      returnedAmount: after.returnedAmount,
+      balance: after.balance,
+      refundDue: after.refundDue,
+      paymentStatus: after.paymentStatus,
+      updatedAt: now,
+    };
+
+    tx.update(purchaseRef, updates);
+    tx.update(supplierRef, {
+      outstanding: roundMoney(
+        ((supplier.outstanding as number) || 0) +
+          (after.balance - after.refundDue) -
+          (before.balance - before.refundDue)
+      ),
+      updatedAt: now,
+    });
+
+    return { ...purchase, ...updates };
+  });
+
+  return mapPurchase(id, data);
+}
+
+/** Finds a return within a loaded purchase, or throws 404. */
+function findReturn(
+  purchase: Record<string, unknown>,
+  returnId: string
+): { returns: Record<string, unknown>[]; index: number } {
+  const returns = Array.isArray(purchase.returns)
+    ? (purchase.returns as Record<string, unknown>[])
+    : [];
+  const index = returns.findIndex((entry) => entry.id === returnId);
+  if (index === -1) {
+    throw new ApiError(404, "Return not found");
+  }
+  return { returns, index };
+}
+
+/** Edits a return's amount/reason and rebalances the purchase and supplier totals. */
+export async function updatePurchaseReturn(
+  shopId: string,
+  id: string,
+  returnId: string,
+  input: RecordReturnInput
+): Promise<Purchase> {
+  const purchaseRef = adminDb.collection(PURCHASES).doc(id);
+  const now = new Date();
+
+  const data = await adminDb.runTransaction(async (tx) => {
+    const purchase = await loadForWrite(tx, purchaseRef, shopId);
+
+    if (purchase.status === "cancelled") {
+      throw new ApiError(409, "Cannot edit a return on a cancelled purchase");
+    }
+
+    const { returns: existingReturns, index } = findReturn(purchase, returnId);
+    const existingPayments = Array.isArray(purchase.payments)
+      ? (purchase.payments as Record<string, unknown>[])
+      : [];
+    const existingRefunds = Array.isArray(purchase.refunds)
+      ? (purchase.refunds as Record<string, unknown>[])
+      : [];
+    const grandTotal = (purchase.grandTotal as number) || 0;
+
+    const before = summarizePurchaseMoney(
+      grandTotal,
+      existingPayments as Array<{ amount: number }>,
+      existingReturns as Array<{ totalAmount: number }>,
+      existingRefunds as Array<{ amount: number }>
+    );
+
+    // The bill's remaining returnable total once this return's own amount is excluded.
+    const otherReturns = existingReturns.filter((_, i) => i !== index);
+    const otherReturnedAmount = otherReturns.reduce(
+      (sum, entry) => sum + ((entry.totalAmount as number) || 0),
+      0
+    );
+    const remainingReturnable = roundMoney(grandTotal - otherReturnedAmount);
+    if (input.amount > remainingReturnable) {
+      throw new ApiError(400, "Return amount cannot exceed the bill's remaining total");
+    }
+
+    const returns = existingReturns.map((entry, i) =>
+      i === index ? { ...entry, totalAmount: input.amount, reason: input.reason ?? "" } : entry
+    );
+    const after = summarizePurchaseMoney(
+      grandTotal,
+      existingPayments as Array<{ amount: number }>,
+      returns as Array<{ totalAmount: number }>,
+      existingRefunds as Array<{ amount: number }>
+    );
+
+    const supplierRef = adminDb.collection(SUPPLIERS).doc(purchase.supplierId as string);
+    const supplierSnap = await tx.get(supplierRef);
+    if (!supplierSnap.exists) {
+      throw new ApiError(404, "Supplier not found");
+    }
+    const supplier = supplierSnap.data() as Record<string, unknown>;
+
+    const updates: Record<string, unknown> = {
+      returns,
+      returnedAmount: after.returnedAmount,
+      balance: after.balance,
+      refundDue: after.refundDue,
+      paymentStatus: after.paymentStatus,
+      updatedAt: now,
+    };
+
+    tx.update(purchaseRef, updates);
+    tx.update(supplierRef, {
+      outstanding: roundMoney(
+        ((supplier.outstanding as number) || 0) +
+          (after.balance - after.refundDue) -
+          (before.balance - before.refundDue)
+      ),
+      updatedAt: now,
+    });
+
+    return { ...purchase, ...updates };
+  });
+
+  return mapPurchase(id, data);
+}
+
+/** Deletes a return and reverses its effect on the purchase and supplier totals. */
+export async function deletePurchaseReturn(
+  shopId: string,
+  id: string,
+  returnId: string
+): Promise<Purchase> {
+  const purchaseRef = adminDb.collection(PURCHASES).doc(id);
+  const now = new Date();
+
+  const data = await adminDb.runTransaction(async (tx) => {
+    const purchase = await loadForWrite(tx, purchaseRef, shopId);
+
+    if (purchase.status === "cancelled") {
+      throw new ApiError(409, "Cannot delete a return on a cancelled purchase");
+    }
+
+    const { returns: existingReturns, index } = findReturn(purchase, returnId);
+    const existingPayments = Array.isArray(purchase.payments)
+      ? (purchase.payments as Record<string, unknown>[])
+      : [];
+    const existingRefunds = Array.isArray(purchase.refunds)
+      ? (purchase.refunds as Record<string, unknown>[])
+      : [];
+    const grandTotal = (purchase.grandTotal as number) || 0;
+
+    const before = summarizePurchaseMoney(
+      grandTotal,
+      existingPayments as Array<{ amount: number }>,
+      existingReturns as Array<{ totalAmount: number }>,
+      existingRefunds as Array<{ amount: number }>
+    );
+
+    const returns = existingReturns.filter((_, i) => i !== index);
+    const after = summarizePurchaseMoney(
+      grandTotal,
+      existingPayments as Array<{ amount: number }>,
+      returns as Array<{ totalAmount: number }>,
+      existingRefunds as Array<{ amount: number }>
+    );
+
+    const supplierRef = adminDb.collection(SUPPLIERS).doc(purchase.supplierId as string);
+    const supplierSnap = await tx.get(supplierRef);
+    if (!supplierSnap.exists) {
+      throw new ApiError(404, "Supplier not found");
+    }
+    const supplier = supplierSnap.data() as Record<string, unknown>;
+
+    const updates: Record<string, unknown> = {
+      returns,
+      returnedAmount: after.returnedAmount,
+      balance: after.balance,
+      refundDue: after.refundDue,
+      paymentStatus: after.paymentStatus,
+      updatedAt: now,
+    };
+
+    tx.update(purchaseRef, updates);
+    tx.update(supplierRef, {
+      outstanding: roundMoney(
+        ((supplier.outstanding as number) || 0) +
+          (after.balance - after.refundDue) -
+          (before.balance - before.refundDue)
+      ),
+      updatedAt: now,
+    });
+
+    return { ...purchase, ...updates };
+  });
+
+  return mapPurchase(id, data);
+}
+
+/** Flattens every purchase's `returns` into one shop-wide list, newest first. */
+export async function listPurchaseReturns(
+  shopId: string,
+  branchId?: string
+): Promise<PurchaseReturnRow[]> {
+  const purchases = await listPurchases({ shopId, branchId, includeCancelled: true });
+
+  return purchases
+    .flatMap((purchase) =>
+      purchase.returns.map((purchaseReturn) => ({
+        ...purchaseReturn,
+        purchaseId: purchase.id,
+        purchaseRef: purchase.ref,
+        supplierId: purchase.supplierId,
+        supplierName: purchase.supplierName,
+      }))
+    )
+    .sort((a, b) => b.returnedAt.getTime() - a.returnedAt.getTime());
+}
+
 export async function updatePurchase(
   shopId: string,
   id: string,
@@ -461,6 +757,12 @@ export async function updatePurchase(
     const payments = Array.isArray(purchase.payments) ? purchase.payments : [];
     if (payments.length > 0) {
       throw new ApiError(409, "A purchase with recorded payments cannot be edited");
+    }
+    const returns = Array.isArray(purchase.returns) ? purchase.returns : [];
+    if (returns.length > 0) {
+      // A return already reduced this bill's balance — resetting balance to
+      // the recomputed grandTotal below would silently wipe that out.
+      throw new ApiError(409, "A purchase with recorded returns cannot be edited");
     }
 
     const supplierRef = adminDb.collection(SUPPLIERS).doc(purchase.supplierId as string);
@@ -535,6 +837,12 @@ export async function cancelPurchase(
 
     const grandTotal = (purchase.grandTotal as number) || 0;
     const balance = (purchase.balance as number) || 0;
+    // A purchase's contribution to supplier.outstanding is always net of
+    // refundDue (see recordPurchasePayment/recordPurchaseReturn) — a purchase
+    // that's fully paid and then partly returned carries a refundDue, not a
+    // balance, and that credit must reverse too or it's stuck on the supplier
+    // forever once the purchase is cancelled.
+    const refundDue = (purchase.refundDue as number) || 0;
 
     const updates: Record<string, unknown> = {
       status: "cancelled",
@@ -551,7 +859,7 @@ export async function cancelPurchase(
     tx.update(supplierRef, {
       totalPurchased: roundMoney(((supplier.totalPurchased as number) || 0) - grandTotal),
       totalPaid: roundMoney(((supplier.totalPaid as number) || 0) - paidAmount),
-      outstanding: roundMoney(((supplier.outstanding as number) || 0) - balance),
+      outstanding: roundMoney(((supplier.outstanding as number) || 0) - (balance - refundDue)),
       updatedAt: now,
     });
 
@@ -602,6 +910,8 @@ export async function listPurchases(scope: {
       "paymentStatus",
       "status",
       "dueDate",
+      "returnedAmount",
+      "refundDue",
       "createdAt",
       "updatedAt"
     );
