@@ -824,8 +824,14 @@ export async function cancelPurchase(
     const payments = Array.isArray(purchase.payments)
       ? (purchase.payments as Record<string, unknown>[])
       : [];
+    // Payment lines applied here BY a supplier-level payment (see
+    // supplierRepo.ts's allocation helpers) already live on that payment's
+    // own doc and get reversed only when THAT payment is edited/deleted —
+    // reversing them again here as part of this purchase's own paidAmount
+    // would double-count the same rupees against supplier.totalPaid.
+    const directPayments = payments.filter((payment) => payment.source !== "supplierPayment");
     const paidAmount = roundMoney(
-      payments.reduce((sum, payment) => sum + ((payment.amount as number) || 0), 0)
+      directPayments.reduce((sum, payment) => sum + ((payment.amount as number) || 0), 0)
     );
 
     const supplierRef = adminDb.collection(SUPPLIERS).doc(purchase.supplierId as string);
