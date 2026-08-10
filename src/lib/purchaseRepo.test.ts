@@ -10,11 +10,14 @@ import * as firebaseAdmin from "@/lib/firebaseAdmin";
 import {
   cancelPurchase,
   createPurchase,
+  deletePurchaseReturn,
   getPurchase,
   listItemSuggestions,
   listPurchases,
   recordPurchasePayment,
+  recordPurchaseReturn,
   updatePurchase,
+  updatePurchaseReturn,
 } from "@/lib/purchaseRepo";
 
 type TestHooks = {
@@ -352,7 +355,8 @@ describe("cancelPurchase", () => {
     expect(after?.outstanding).toBe(before?.outstanding);
   });
 
-  it("409s once a payment exists", async () => {
+  it("cancels and reverses totals even once a payment exists", async () => {
+    const before = hooks.__doc("suppliers", "sup-1");
     const created = await createPurchase(purchaseInput());
     await recordPurchasePayment(
       "shop-1",
@@ -360,9 +364,12 @@ describe("cancelPurchase", () => {
       { amount: 100, method: "cash", paidAt: new Date(2026, 7, 6) },
       "user-1"
     );
-    await expect(cancelPurchase("shop-1", created.id, "changed my mind")).rejects.toMatchObject({
-      status: 409,
-    });
+    const cancelled = await cancelPurchase("shop-1", created.id, "changed my mind");
+    expect(cancelled.status).toBe("cancelled");
+    const after = hooks.__doc("suppliers", "sup-1");
+    expect(after?.totalPurchased).toBe(before?.totalPurchased);
+    expect(after?.totalPaid).toBe(before?.totalPaid);
+    expect(after?.outstanding).toBe(before?.outstanding);
   });
 
   it("never deletes the document", async () => {
@@ -370,6 +377,143 @@ describe("cancelPurchase", () => {
     await cancelPurchase("shop-1", created.id, "wrong supplier");
     expect(hooks.__doc("purchases", created.id)).toBeDefined();
     expect(hooks.__writes().some((w) => w.op === "delete")).toBe(false);
+  });
+});
+
+describe("purchase returns", () => {
+  const returnedBy = { userId: "user-1", name: "Naseem" };
+
+  it("recordPurchaseReturn reduces the balance and raises outstanding by the same amount less", async () => {
+    const created = await createPurchase(purchaseInput());
+    const returned = await recordPurchaseReturn(
+      "shop-1",
+      created.id,
+      { amount: 2000, reason: "damaged" },
+      returnedBy
+    );
+    expect(returned.returnedAmount).toBe(2000);
+    expect(returned.balance).toBe(6150); // 8150 - 2000
+    const supplier = hooks.__doc("suppliers", "sup-1");
+    expect(supplier?.outstanding).toBe(6150);
+  });
+
+  it("rejects a return larger than the remaining total", async () => {
+    const created = await createPurchase(purchaseInput());
+    await expect(
+      recordPurchaseReturn("shop-1", created.id, { amount: 9000, reason: "x" }, returnedBy)
+    ).rejects.toMatchObject({ status: 400 });
+  });
+
+  it("records refundDue once returns exceed what's been paid", async () => {
+    const created = await createPurchase(
+      purchaseInput({ initialPayment: { amount: 8150, method: "cash", paidAt: new Date(2026, 7, 5) } })
+    );
+    const returned = await recordPurchaseReturn(
+      "shop-1",
+      created.id,
+      { amount: 3000, reason: "damaged" },
+      returnedBy
+    );
+    expect(returned.balance).toBe(0);
+    expect(returned.refundDue).toBe(3000);
+    const supplier = hooks.__doc("suppliers", "sup-1");
+    // Fully paid then partly returned: outstanding must reflect the supplier
+    // now owing the shop, i.e. it goes negative, not floor at 0.
+    expect(supplier?.outstanding).toBe(0 - 3000);
+  });
+
+  it("updatePurchaseReturn rebalances the purchase and supplier when the amount changes", async () => {
+    const created = await createPurchase(purchaseInput());
+    const recorded = await recordPurchaseReturn(
+      "shop-1",
+      created.id,
+      { amount: 2000, reason: "damaged" },
+      returnedBy
+    );
+    const updated = await updatePurchaseReturn("shop-1", created.id, recorded.returns[0].id, {
+      amount: 3500,
+      reason: "damaged, updated",
+    });
+    expect(updated.returnedAmount).toBe(3500);
+    expect(updated.balance).toBe(4650); // 8150 - 3500
+    const supplier = hooks.__doc("suppliers", "sup-1");
+    expect(supplier?.outstanding).toBe(4650);
+  });
+
+  it("updatePurchaseReturn rejects raising the amount past the bill total", async () => {
+    const created = await createPurchase(purchaseInput());
+    const recorded = await recordPurchaseReturn(
+      "shop-1",
+      created.id,
+      { amount: 2000, reason: "damaged" },
+      returnedBy
+    );
+    await expect(
+      updatePurchaseReturn("shop-1", created.id, recorded.returns[0].id, {
+        amount: 9000,
+        reason: "x",
+      })
+    ).rejects.toMatchObject({ status: 400 });
+  });
+
+  it("deletePurchaseReturn restores the balance and outstanding", async () => {
+    const created = await createPurchase(purchaseInput());
+    const recorded = await recordPurchaseReturn(
+      "shop-1",
+      created.id,
+      { amount: 2000, reason: "damaged" },
+      returnedBy
+    );
+    const deleted = await deletePurchaseReturn("shop-1", created.id, recorded.returns[0].id);
+    expect(deleted.returnedAmount).toBe(0);
+    expect(deleted.balance).toBe(8150);
+    expect(deleted.returns).toEqual([]);
+    const supplier = hooks.__doc("suppliers", "sup-1");
+    expect(supplier?.outstanding).toBe(8150);
+  });
+
+  it("rejects recording, editing and deleting a return on a cancelled purchase", async () => {
+    const created = await createPurchase(purchaseInput());
+    const recorded = await recordPurchaseReturn(
+      "shop-1",
+      created.id,
+      { amount: 2000, reason: "damaged" },
+      returnedBy
+    );
+    await cancelPurchase("shop-1", created.id, "wrong supplier");
+
+    await expect(
+      recordPurchaseReturn("shop-1", created.id, { amount: 100, reason: "x" }, returnedBy)
+    ).rejects.toMatchObject({ status: 409 });
+    await expect(
+      updatePurchaseReturn("shop-1", created.id, recorded.returns[0].id, {
+        amount: 100,
+        reason: "x",
+      })
+    ).rejects.toMatchObject({ status: 409 });
+    await expect(
+      deletePurchaseReturn("shop-1", created.id, recorded.returns[0].id)
+    ).rejects.toMatchObject({ status: 409 });
+  });
+
+  it("cancelPurchase reverses outstanding correctly when the purchase carries a refundDue", async () => {
+    const before = hooks.__doc("suppliers", "sup-1");
+    const created = await createPurchase(
+      purchaseInput({ initialPayment: { amount: 8150, method: "cash", paidAt: new Date(2026, 7, 5) } })
+    );
+    await recordPurchaseReturn(
+      "shop-1",
+      created.id,
+      { amount: 3000, reason: "damaged" },
+      returnedBy
+    );
+    // Supplier now owes the shop 3000 (refundDue), not the other way round.
+    expect(hooks.__doc("suppliers", "sup-1")?.outstanding).toBe(-3000);
+
+    await cancelPurchase("shop-1", created.id, "changed my mind");
+    const after = hooks.__doc("suppliers", "sup-1");
+    // Cancelling must reverse that credit fully, back to the pre-purchase state.
+    expect(after?.outstanding).toBe(before?.outstanding);
   });
 });
 

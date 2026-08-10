@@ -40,6 +40,11 @@ function branchNameFor(branches: Branch[], branchId: string): string {
   return branches.find((branch) => branch.id === branchId)?.name ?? "—";
 }
 
+/** The bill's total net of returns — what's actually owed, before payments. */
+function netTotal(purchase: Purchase): number {
+  return purchase.grandTotal - purchase.returnedAmount;
+}
+
 function PurchaseCard({
   purchase,
   now,
@@ -55,6 +60,7 @@ function PurchaseCard({
 }) {
   const status = paymentStatusLabel(purchase, now);
   const showMoney = purchase.status !== "cancelled";
+  const hasReturn = purchase.returnedAmount > 0;
 
   return (
     <button
@@ -73,14 +79,21 @@ function PurchaseCard({
             <p className="text-xs text-gray-500">{branchNameFor(branches, purchase.branchId)}</p>
           ) : null}
         </div>
-        <span className={`shrink-0 rounded-full px-2 py-1 text-xs font-medium ${status.className}`}>
-          {status.label}
-        </span>
+        <div className="flex shrink-0 flex-col items-end gap-1">
+          <span className={`rounded-full px-2 py-1 text-xs font-medium ${status.className}`}>
+            {status.label}
+          </span>
+          {hasReturn && (
+            <span className="rounded-full bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700">
+              Returned
+            </span>
+          )}
+        </div>
       </div>
       <div className="mt-2 flex items-end justify-between gap-3">
         <div className="space-y-0.5 text-sm">
           <p className="font-semibold text-gray-900">
-            Total {formatRupees(purchase.grandTotal)}
+            Total {formatRupees(netTotal(purchase))}
           </p>
           {showMoney && (
             <>
@@ -88,6 +101,11 @@ function PurchaseCard({
               <p className={`text-xs ${purchase.balance > 0 ? "text-red-600" : "text-gray-600"}`}>
                 Balance {formatRupees(purchase.balance)}
               </p>
+              {hasReturn && (
+                <p className="text-xs text-amber-700">
+                  Returned {formatRupees(purchase.returnedAmount)}
+                </p>
+              )}
             </>
           )}
         </div>
@@ -114,7 +132,14 @@ const PurchaseList = React.memo(function PurchaseList({
         header: "Supplier",
         cell: ({ row }) => (
           <div className="min-w-0">
-            <p className="font-medium text-gray-900">{row.original.supplierName}</p>
+            <div className="flex items-center gap-2">
+              <p className="font-medium text-gray-900">{row.original.supplierName}</p>
+              {row.original.returnedAmount > 0 && (
+                <span className="shrink-0 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
+                  Returned
+                </span>
+              )}
+            </div>
             <p className="text-xs text-gray-500">{row.original.ref}</p>
             {row.original.supplierInvoiceNo ? (
               <p className="text-xs text-gray-500">Bill {row.original.supplierInvoiceNo}</p>
@@ -137,7 +162,7 @@ const PurchaseList = React.memo(function PurchaseList({
         id: "total",
         header: "Total",
         meta: { headerClass: "text-right", cellClass: "text-right font-medium text-gray-900" },
-        cell: ({ getValue }) => formatRupees(getValue()),
+        cell: ({ row }) => formatRupees(netTotal(row.original)),
       }),
       columnHelper.accessor("paidAmount", {
         id: "paid",
@@ -158,9 +183,16 @@ const PurchaseList = React.memo(function PurchaseList({
           if (row.original.status === "cancelled") return "—";
           const balance = getValue();
           return (
-            <span className={balance > 0 ? "font-medium text-red-600" : "text-gray-700"}>
-              {formatRupees(balance)}
-            </span>
+            <div>
+              <span className={balance > 0 ? "font-medium text-red-600" : "text-gray-700"}>
+                {formatRupees(balance)}
+              </span>
+              {row.original.returnedAmount > 0 && (
+                <p className="text-xs text-amber-700">
+                  Returned {formatRupees(row.original.returnedAmount)}
+                </p>
+              )}
+            </div>
           );
         },
       }),

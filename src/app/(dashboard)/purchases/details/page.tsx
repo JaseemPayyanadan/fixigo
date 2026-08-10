@@ -9,9 +9,11 @@ import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { PurchaseDetailsSkeleton } from "@/components/ui/PageSkeleton";
 import { useBranches, useUser } from "@/hooks";
 import { toastHref } from "@/hooks/useCrossNavToast";
+import { formatRupees } from "@/lib/purchaseFormat";
+import EditReturnModal from "@/modules/purchase/EditReturnModal";
 import PurchaseDetails from "@/modules/purchase/PurchaseDetails";
 import RecordPaymentModal from "@/modules/purchase/RecordPaymentModal";
-import type { Purchase } from "@/types/purchase";
+import type { Purchase, PurchaseReturn } from "@/types/purchase";
 
 function revive(purchase: Purchase): Purchase {
   return {
@@ -22,6 +24,11 @@ function revive(purchase: Purchase): Purchase {
       ...payment,
       paidAt: new Date(payment.paidAt),
       createdAt: new Date(payment.createdAt),
+    })),
+    returns: purchase.returns.map((purchaseReturn) => ({
+      ...purchaseReturn,
+      returnedAt: new Date(purchaseReturn.returnedAt),
+      createdAt: new Date(purchaseReturn.createdAt),
     })),
   };
 }
@@ -40,6 +47,10 @@ function PurchaseDetailsContent() {
   const [cancelReason, setCancelReason] = React.useState("");
   const [cancelError, setCancelError] = React.useState<string | null>(null);
   const [cancellingSubmit, setCancellingSubmit] = React.useState(false);
+  const [editingReturn, setEditingReturn] = React.useState<PurchaseReturn | null>(null);
+  const [deletingReturn, setDeletingReturn] = React.useState<PurchaseReturn | null>(null);
+  const [deletingReturnBusy, setDeletingReturnBusy] = React.useState(false);
+  const [deleteReturnError, setDeleteReturnError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     if (!id) {
@@ -127,6 +138,30 @@ function PurchaseDetailsContent() {
     setCancelError(null);
   }, []);
 
+  const handleDeleteReturnConfirm = React.useCallback(async () => {
+    if (!purchase || !deletingReturn) return;
+
+    setDeletingReturnBusy(true);
+    setDeleteReturnError(null);
+    try {
+      const response = await fetch(
+        `/api/purchases/${purchase.id}/returns/${deletingReturn.id}`,
+        { method: "DELETE" }
+      );
+      if (!response.ok) {
+        const body = (await response.json()) as { error?: string };
+        throw new Error(body.error ?? "Could not delete the return");
+      }
+      const body = (await response.json()) as { purchase: Purchase };
+      setPurchase(revive(body.purchase));
+      setDeletingReturn(null);
+    } catch (caught) {
+      setDeleteReturnError((caught as Error).message);
+    } finally {
+      setDeletingReturnBusy(false);
+    }
+  }, [purchase, deletingReturn]);
+
   if (loading) {
     return <PurchaseDetailsSkeleton />;
   }
@@ -196,6 +231,11 @@ function PurchaseDetailsContent() {
       <PurchaseDetails
         purchase={purchase}
         onRecordPayment={() => setPaymentOpen(true)}
+        onEditReturn={(purchaseReturn) => setEditingReturn(purchaseReturn)}
+        onDeleteReturn={(purchaseReturn) => {
+          setDeleteReturnError(null);
+          setDeletingReturn(purchaseReturn);
+        }}
         branches={branches}
       />
 
@@ -233,6 +273,39 @@ function PurchaseDetailsContent() {
         open={paymentOpen}
         onClose={() => setPaymentOpen(false)}
         onRecorded={(updated) => setPurchase(revive(updated))}
+      />
+
+      <EditReturnModal
+        open={editingReturn !== null}
+        purchase={purchase}
+        purchaseReturn={editingReturn}
+        onClose={() => setEditingReturn(null)}
+        onSaved={(updated) => {
+          setPurchase(revive(updated));
+          setEditingReturn(null);
+        }}
+      />
+
+      <ConfirmDialog
+        open={deletingReturn !== null}
+        title="Delete return?"
+        description={
+          deletingReturn
+            ? `Delete the ${formatRupees(deletingReturn.totalAmount)} return recorded on ${deletingReturn.returnedAt.toLocaleDateString(
+                "en-IN"
+              )}? This adds the amount back to the bill's balance.`
+            : ""
+        }
+        confirmLabel="Delete return"
+        confirming={deletingReturnBusy}
+        error={deleteReturnError}
+        onConfirm={handleDeleteReturnConfirm}
+        onClose={() => {
+          if (!deletingReturnBusy) {
+            setDeletingReturn(null);
+            setDeleteReturnError(null);
+          }
+        }}
       />
     </div>
   );

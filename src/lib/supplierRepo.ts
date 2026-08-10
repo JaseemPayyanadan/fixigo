@@ -1,12 +1,18 @@
 // src/lib/supplierRepo.ts
-import type { Query } from "firebase-admin/firestore";
+import type { DocumentReference, Query, Transaction } from "firebase-admin/firestore";
 
 import { ApiError } from "@/lib/apiAuth";
 import { adminDb } from "@/lib/firebaseAdmin";
-import type { CreateSupplierInput, UpdateSupplierInput } from "@/lib/purchaseValidation";
-import type { Supplier } from "@/types/purchase";
+import type {
+  CreateSupplierInput,
+  RecordPaymentInput,
+  UpdateSupplierInput,
+} from "@/lib/purchaseValidation";
+import { roundMoney } from "@/lib/purchaseTotals";
+import type { Supplier, SupplierPayment } from "@/types/purchase";
 
 export const SUPPLIERS = "suppliers";
+export const SUPPLIER_PAYMENTS = "supplierPayments";
 
 export function toDate(value: unknown): Date {
   if (value instanceof Date) return value;
@@ -178,5 +184,206 @@ export async function deleteSupplier(shopId: string, id: string): Promise<Suppli
 
   await ref.delete();
   return mapSupplier(id, { ...current, status: "inactive" });
+}
+
+function mapSupplierPayment(id: string, data: Record<string, unknown>): SupplierPayment {
+  return {
+    id,
+    amount: (data.amount as number) || 0,
+    method: (data.method as SupplierPayment["method"]) || "cash",
+    paidAt: toDate(data.paidAt),
+    reference: (data.reference as string) || undefined,
+    notes: (data.notes as string) || undefined,
+    recordedBy: (data.recordedBy as string) || "",
+    createdAt: toDate(data.createdAt),
+  };
+}
+
+/** Newest first, for the supplier profile's payment history. */
+export async function listSupplierPayments(
+  shopId: string,
+  supplierId: string
+): Promise<SupplierPayment[]> {
+  const snap = await adminDb
+    .collection(SUPPLIER_PAYMENTS)
+    .where("shopId", "==", shopId)
+    .where("supplierId", "==", supplierId)
+    .get();
+
+  return snap.docs
+    .map((doc) => mapSupplierPayment(doc.id, doc.data() as Record<string, unknown>))
+    .sort((a, b) => b.paidAt.getTime() - a.paidAt.getTime());
+}
+
+/**
+ * Records a payment against the supplier's running balance directly, not
+ * against any one bill — a running-account adjustment. Moves the payment
+ * record and the supplier's totals together in one transaction, the same
+ * pairing purchaseRepo.recordPurchasePayment uses for bill-level payments.
+ */
+export async function recordSupplierPayment(
+  shopId: string,
+  supplierId: string,
+  input: RecordPaymentInput,
+  recordedBy: string
+): Promise<{ supplier: Supplier; payment: SupplierPayment }> {
+  const supplierRef = adminDb.collection(SUPPLIERS).doc(supplierId);
+  const paymentRef = adminDb.collection(SUPPLIER_PAYMENTS).doc();
+  const now = new Date();
+
+  const result = await adminDb.runTransaction(async (tx) => {
+    const supplierSnap = await tx.get(supplierRef);
+    if (!supplierSnap.exists) {
+      throw new ApiError(404, "Supplier not found");
+    }
+    const supplier = supplierSnap.data() as Record<string, unknown>;
+    assertSupplierInShop(supplier, shopId, supplierId);
+
+    const outstanding = (supplier.outstanding as number) || 0;
+    if (input.amount > outstanding) {
+      throw new ApiError(400, "Payment cannot exceed the outstanding balance");
+    }
+
+    const paymentData: Record<string, unknown> = {
+      shopId,
+      branchId: supplier.branchId ?? null,
+      supplierId,
+      amount: input.amount,
+      method: input.method,
+      paidAt: input.paidAt,
+      reference: input.reference ?? null,
+      notes: input.notes ?? null,
+      recordedBy,
+      createdAt: now,
+    };
+
+    const supplierUpdates = {
+      totalPaid: roundMoney(((supplier.totalPaid as number) || 0) + input.amount),
+      outstanding: roundMoney(outstanding - input.amount),
+      updatedAt: now,
+    };
+
+    tx.set(paymentRef, paymentData);
+    tx.update(supplierRef, supplierUpdates);
+
+    return {
+      supplier: mapSupplier(supplierId, { ...supplier, ...supplierUpdates }),
+      payment: mapSupplierPayment(paymentRef.id, paymentData),
+    };
+  });
+
+  return result;
+}
+
+/** Loads a supplier payment inside a transaction and enforces shop + supplier ownership. */
+async function loadSupplierPaymentForWrite(
+  tx: Transaction,
+  paymentRef: DocumentReference,
+  shopId: string,
+  supplierId: string
+): Promise<Record<string, unknown>> {
+  const snap = await tx.get(paymentRef);
+  if (!snap.exists) {
+    throw new ApiError(404, "Payment not found");
+  }
+  const data = snap.data() as Record<string, unknown>;
+  if (data.shopId !== shopId || data.supplierId !== supplierId) {
+    throw new ApiError(403, "Payment does not belong to this supplier");
+  }
+  return data;
+}
+
+/**
+ * Edits amount/method/date/reference/notes on a previously recorded
+ * supplier-level payment, re-deriving totalPaid/outstanding from the
+ * difference between the old and new amount.
+ */
+export async function updateSupplierPayment(
+  shopId: string,
+  supplierId: string,
+  paymentId: string,
+  input: RecordPaymentInput
+): Promise<{ supplier: Supplier; payment: SupplierPayment }> {
+  const supplierRef = adminDb.collection(SUPPLIERS).doc(supplierId);
+  const paymentRef = adminDb.collection(SUPPLIER_PAYMENTS).doc(paymentId);
+  const now = new Date();
+
+  const result = await adminDb.runTransaction(async (tx) => {
+    const supplierSnap = await tx.get(supplierRef);
+    if (!supplierSnap.exists) {
+      throw new ApiError(404, "Supplier not found");
+    }
+    const supplier = supplierSnap.data() as Record<string, unknown>;
+    assertSupplierInShop(supplier, shopId, supplierId);
+
+    const payment = await loadSupplierPaymentForWrite(tx, paymentRef, shopId, supplierId);
+
+    const oldAmount = (payment.amount as number) || 0;
+    const outstanding = (supplier.outstanding as number) || 0;
+    const delta = input.amount - oldAmount;
+    if (delta > outstanding) {
+      throw new ApiError(400, "Payment cannot exceed the outstanding balance");
+    }
+
+    const paymentUpdates: Record<string, unknown> = {
+      amount: input.amount,
+      method: input.method,
+      paidAt: input.paidAt,
+      reference: input.reference ?? null,
+      notes: input.notes ?? null,
+    };
+
+    const supplierUpdates = {
+      totalPaid: roundMoney(((supplier.totalPaid as number) || 0) - oldAmount + input.amount),
+      outstanding: roundMoney(outstanding - delta),
+      updatedAt: now,
+    };
+
+    tx.update(paymentRef, paymentUpdates);
+    tx.update(supplierRef, supplierUpdates);
+
+    return {
+      supplier: mapSupplier(supplierId, { ...supplier, ...supplierUpdates }),
+      payment: mapSupplierPayment(paymentId, { ...payment, ...paymentUpdates }),
+    };
+  });
+
+  return result;
+}
+
+/** Deletes a supplier-level payment and reverses its effect on totalPaid/outstanding. */
+export async function deleteSupplierPayment(
+  shopId: string,
+  supplierId: string,
+  paymentId: string
+): Promise<Supplier> {
+  const supplierRef = adminDb.collection(SUPPLIERS).doc(supplierId);
+  const paymentRef = adminDb.collection(SUPPLIER_PAYMENTS).doc(paymentId);
+  const now = new Date();
+
+  const supplier = await adminDb.runTransaction(async (tx) => {
+    const supplierSnap = await tx.get(supplierRef);
+    if (!supplierSnap.exists) {
+      throw new ApiError(404, "Supplier not found");
+    }
+    const supplierData = supplierSnap.data() as Record<string, unknown>;
+    assertSupplierInShop(supplierData, shopId, supplierId);
+
+    const payment = await loadSupplierPaymentForWrite(tx, paymentRef, shopId, supplierId);
+    const amount = (payment.amount as number) || 0;
+
+    const supplierUpdates = {
+      totalPaid: roundMoney(((supplierData.totalPaid as number) || 0) - amount),
+      outstanding: roundMoney(((supplierData.outstanding as number) || 0) + amount),
+      updatedAt: now,
+    };
+
+    tx.delete(paymentRef);
+    tx.update(supplierRef, supplierUpdates);
+
+    return mapSupplier(supplierId, { ...supplierData, ...supplierUpdates });
+  });
+
+  return supplier;
 }
 

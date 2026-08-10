@@ -11,7 +11,12 @@ import {
 } from "@/lib/apiAuth";
 import { cancelPurchase, listPurchases } from "@/lib/purchaseRepo";
 import { parseUpdateSupplierInput } from "@/lib/purchaseValidation";
-import { deleteSupplier, getSupplier, updateSupplier } from "@/lib/supplierRepo";
+import {
+  deleteSupplier,
+  getSupplier,
+  listSupplierPayments,
+  updateSupplier,
+} from "@/lib/supplierRepo";
 
 export const dynamic = "force-dynamic";
 
@@ -34,8 +39,9 @@ export async function GET(_request: NextRequest, { params }: RouteContext) {
     const supplier = await getSupplier(shopId, id);
     assertCanReadSupplier(user, { shopId: supplier.shopId, branchId: supplier.branchId });
     const purchases = await listPurchases({ shopId, supplierId: id });
+    const payments = await listSupplierPayments(shopId, id);
 
-    return NextResponse.json({ supplier, purchases });
+    return NextResponse.json({ supplier, purchases, payments });
   } catch (error) {
     return toErrorResponse(error);
   }

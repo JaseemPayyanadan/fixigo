@@ -64,15 +64,9 @@ function SupplierCard({
               <p className="text-xs text-gray-500">{branchNameFor(branches, supplier.branchId)}</p>
             ) : null}
           </div>
-          {supplier.status === "inactive" ? (
-            <span className="shrink-0 rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600">
-              Inactive
-            </span>
-          ) : (
-            <span className="shrink-0 rounded-full bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700">
-              Active
-            </span>
-          )}
+          <span className="shrink-0 text-sm font-medium text-gray-900">
+            {formatRupees(supplier.totalPaid)}
+          </span>
         </div>
         <div className="mt-2 flex items-end justify-between gap-3">
           <div className="space-y-0.5 text-sm">
@@ -163,21 +157,11 @@ const SupplierList = React.memo(function SupplierList({
           );
         },
       }),
-      columnHelper.accessor("status", {
-        id: "status",
-        header: "Status",
-        cell: ({ getValue }) => {
-          const status = getValue();
-          return status === "inactive" ? (
-            <span className="inline-flex rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600">
-              Inactive
-            </span>
-          ) : (
-            <span className="inline-flex rounded-full bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700">
-              Active
-            </span>
-          );
-        },
+      columnHelper.accessor("totalPaid", {
+        id: "totalPaid",
+        header: "Paid amount",
+        meta: { headerClass: "text-right", cellClass: "text-right font-medium text-gray-900" },
+        cell: ({ getValue }) => formatRupees(getValue()),
       }),
       columnHelper.accessor("lastPurchaseAt", {
         id: "lastPurchase",

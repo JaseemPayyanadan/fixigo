@@ -8,9 +8,11 @@ import { Button } from "@/components/ui/Button";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { SupplierDetailsSkeleton } from "@/components/ui/PageSkeleton";
 import { toastHref } from "@/hooks/useCrossNavToast";
+import { formatRupees } from "@/lib/purchaseFormat";
+import PaySupplierModal from "@/modules/purchase/PaySupplierModal";
 import SupplierForm, { type SupplierPayload } from "@/modules/purchase/SupplierForm";
 import SupplierProfile from "@/modules/purchase/SupplierProfile";
-import type { Purchase, Supplier } from "@/types/purchase";
+import type { Purchase, Supplier, SupplierPayment } from "@/types/purchase";
 
 function SupplierDetailsContent() {
   const router = useRouter();
@@ -18,6 +20,7 @@ function SupplierDetailsContent() {
 
   const [supplier, setSupplier] = React.useState<Supplier | null>(null);
   const [purchases, setPurchases] = React.useState<Purchase[]>([]);
+  const [payments, setPayments] = React.useState<SupplierPayment[]>([]);
   const [error, setError] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [editing, setEditing] = React.useState(false);
@@ -26,6 +29,11 @@ function SupplierDetailsContent() {
   const [confirmDeleteOpen, setConfirmDeleteOpen] = React.useState(false);
   const [deleting, setDeleting] = React.useState(false);
   const [deleteError, setDeleteError] = React.useState<string | null>(null);
+  const [payOpen, setPayOpen] = React.useState(false);
+  const [editingPayment, setEditingPayment] = React.useState<SupplierPayment | null>(null);
+  const [deletingPayment, setDeletingPayment] = React.useState<SupplierPayment | null>(null);
+  const [deletingPaymentBusy, setDeletingPaymentBusy] = React.useState(false);
+  const [deletePaymentError, setDeletePaymentError] = React.useState<string | null>(null);
 
   const handleUpdate = React.useCallback(
     async (payload: SupplierPayload) => {
@@ -78,6 +86,55 @@ function SupplierDetailsContent() {
     }
   }, [id, supplier, router]);
 
+  const handlePaymentRecorded = React.useCallback(
+    (updatedSupplier: Supplier, payment: SupplierPayment) => {
+      setSupplier({
+        ...updatedSupplier,
+        lastPurchaseAt: updatedSupplier.lastPurchaseAt
+          ? new Date(updatedSupplier.lastPurchaseAt)
+          : undefined,
+      });
+      const normalized = { ...payment, paidAt: new Date(payment.paidAt) };
+      setPayments((prev) => {
+        const exists = prev.some((existing) => existing.id === normalized.id);
+        return exists
+          ? prev.map((existing) => (existing.id === normalized.id ? normalized : existing))
+          : [normalized, ...prev];
+      });
+      setEditingPayment(null);
+    },
+    []
+  );
+
+  const handleDeletePaymentConfirm = React.useCallback(async () => {
+    if (!id || !deletingPayment) return;
+
+    setDeletingPaymentBusy(true);
+    setDeletePaymentError(null);
+    try {
+      const response = await fetch(`/api/suppliers/${id}/payments/${deletingPayment.id}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) {
+        const body = (await response.json()) as { error?: string };
+        throw new Error(body.error ?? "Could not delete the payment");
+      }
+      const body = (await response.json()) as { supplier: Supplier };
+      setSupplier({
+        ...body.supplier,
+        lastPurchaseAt: body.supplier.lastPurchaseAt
+          ? new Date(body.supplier.lastPurchaseAt)
+          : undefined,
+      });
+      setPayments((prev) => prev.filter((payment) => payment.id !== deletingPayment.id));
+      setDeletingPayment(null);
+    } catch (caught) {
+      setDeletePaymentError((caught as Error).message);
+    } finally {
+      setDeletingPaymentBusy(false);
+    }
+  }, [id, deletingPayment]);
+
   React.useEffect(() => {
     if (!id) {
       setSupplier(null);
@@ -91,6 +148,7 @@ function SupplierDetailsContent() {
     setError(null);
     setSupplier(null);
     setPurchases([]);
+    setPayments([]);
 
     const controller = new AbortController();
 
@@ -101,7 +159,11 @@ function SupplierDetailsContent() {
           const body = (await response.json()) as { error?: string };
           throw new Error(body.error ?? "Could not load the supplier");
         }
-        const body = (await response.json()) as { supplier: Supplier; purchases: Purchase[] };
+        const body = (await response.json()) as {
+          supplier: Supplier;
+          purchases: Purchase[];
+          payments: SupplierPayment[];
+        };
         if (controller.signal.aborted) return;
         setSupplier({
           ...body.supplier,
@@ -116,12 +178,19 @@ function SupplierDetailsContent() {
             dueDate: purchase.dueDate ? new Date(purchase.dueDate) : undefined,
           }))
         );
+        setPayments(
+          body.payments.map((payment) => ({
+            ...payment,
+            paidAt: new Date(payment.paidAt),
+          }))
+        );
         setError(null);
       } catch (caught) {
         if ((caught as Error).name === "AbortError" || controller.signal.aborted) return;
         setError((caught as Error).message);
         setSupplier(null);
         setPurchases([]);
+        setPayments([]);
       } finally {
         if (!controller.signal.aborted) {
           setLoading(false);
@@ -222,9 +291,53 @@ function SupplierDetailsContent() {
         <SupplierProfile
           supplier={supplier}
           purchases={purchases}
+          payments={payments}
           onOpenPurchase={(purchaseId) => router.push(`/purchases/details?id=${purchaseId}`)}
+          onPaySupplier={() => setPayOpen(true)}
+          onEditPayment={(payment) => setEditingPayment(payment)}
+          onDeletePayment={(payment) => {
+            setDeletePaymentError(null);
+            setDeletingPayment(payment);
+          }}
         />
       )}
+
+      <PaySupplierModal
+        supplier={supplier}
+        open={payOpen}
+        onClose={() => setPayOpen(false)}
+        onRecorded={handlePaymentRecorded}
+      />
+
+      <PaySupplierModal
+        supplier={supplier}
+        payment={editingPayment}
+        open={editingPayment !== null}
+        onClose={() => setEditingPayment(null)}
+        onRecorded={handlePaymentRecorded}
+      />
+
+      <ConfirmDialog
+        open={deletingPayment !== null}
+        title="Delete payment?"
+        description={
+          deletingPayment
+            ? `Delete the ${formatRupees(deletingPayment.amount)} payment recorded on ${deletingPayment.paidAt.toLocaleDateString(
+                "en-IN"
+              )}? This adds the amount back to the supplier's outstanding balance.`
+            : ""
+        }
+        confirmLabel="Delete payment"
+        confirming={deletingPaymentBusy}
+        error={deletePaymentError}
+        onConfirm={handleDeletePaymentConfirm}
+        onClose={() => {
+          if (!deletingPaymentBusy) {
+            setDeletingPayment(null);
+            setDeletePaymentError(null);
+          }
+        }}
+      />
 
       <ConfirmDialog
         open={confirmDeleteOpen}

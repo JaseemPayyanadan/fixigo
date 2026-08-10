@@ -6,17 +6,25 @@ import { usePathname } from "next/navigation";
 const TABS = [
   { href: "/purchases", label: "Purchases" },
   { href: "/purchases/suppliers", label: "Suppliers" },
+  { href: "/purchases/returns", label: "Returns" },
 ];
 
-/** Switches between the purchases list and the suppliers list. */
+/** Switches between the purchases list, suppliers list, and returns list. */
 export default function PurchaseTabs() {
   const pathname = usePathname();
   const onSuppliers = pathname.startsWith("/purchases/suppliers");
+  const onReturns = pathname.startsWith("/purchases/returns");
+  const onPurchases = !onSuppliers && !onReturns;
 
   return (
     <div className="flex gap-4 border-b border-gray-200" role="tablist" aria-label="Purchases sections">
       {TABS.map((tab) => {
-        const isActive = tab.href === "/purchases/suppliers" ? onSuppliers : !onSuppliers;
+        const isActive =
+          tab.href === "/purchases/suppliers"
+            ? onSuppliers
+            : tab.href === "/purchases/returns"
+              ? onReturns
+              : onPurchases;
         return (
           <Link
             key={tab.href}
