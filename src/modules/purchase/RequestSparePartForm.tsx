@@ -8,8 +8,6 @@ import { MdAdd, MdDeleteOutline } from "react-icons/md";
 interface Row {
   key: string;
   name: string;
-  brand: string;
-  model: string;
   quantity: string;
   remarks: string;
 }
@@ -18,8 +16,6 @@ function emptyRow(): Row {
   return {
     key: crypto.randomUUID(),
     name: "",
-    brand: "",
-    model: "",
     quantity: "1",
     remarks: "",
   };
@@ -38,13 +34,23 @@ interface Props {
   saving: boolean;
   error: string | null;
   onSubmit: (items: RequestSparePartItem[]) => void;
+  /** The repair's device brand/model, stamped onto every item automatically — never typed by hand. */
+  deviceBrand?: string;
+  deviceModel?: string;
 }
 
 const INPUT_CLASS =
   "h-10 w-full rounded-lg border border-gray-200 px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500";
 
 /** Free-text add/remove-row item table — no spares catalog exists to pick from. */
-export default function RequestSparePartForm({ formId, saving, error, onSubmit }: Props) {
+export default function RequestSparePartForm({
+  formId,
+  saving,
+  error,
+  onSubmit,
+  deviceBrand,
+  deviceModel,
+}: Props) {
   const [rows, setRows] = React.useState<Row[]>([emptyRow()]);
 
   const updateRow = (key: string, field: keyof Row, value: string) => {
@@ -63,8 +69,8 @@ export default function RequestSparePartForm({ formId, saving, error, onSubmit }
       .filter((row) => row.name.trim() !== "")
       .map((row) => ({
         name: row.name.trim(),
-        brand: row.brand.trim() || undefined,
-        model: row.model.trim() || undefined,
+        brand: deviceBrand?.trim() || undefined,
+        model: deviceModel?.trim() || undefined,
         quantity: Math.max(1, Number(row.quantity) || 1),
         remarks: row.remarks.trim() || undefined,
       }));
@@ -72,8 +78,17 @@ export default function RequestSparePartForm({ formId, saving, error, onSubmit }
     onSubmit(items);
   };
 
+  const deviceLabel = [deviceBrand, deviceModel].filter(Boolean).join(" ");
+
   return (
     <form id={formId} onSubmit={handleSubmit} className="space-y-3">
+      {deviceLabel && (
+        <p className="rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-500">
+          Requesting for <span className="font-medium text-gray-700">{deviceLabel}</span> — brand
+          and model are attached automatically.
+        </p>
+      )}
+
       {rows.map((row, index) => (
         <div key={row.key} className="rounded-xl border border-gray-200 p-3">
           <div className="mb-2 flex items-center justify-between">
@@ -106,24 +121,6 @@ export default function RequestSparePartForm({ formId, saving, error, onSubmit }
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs text-gray-500">Brand</label>
-              <input
-                value={row.brand}
-                onChange={(event) => updateRow(row.key, "brand", event.target.value)}
-                className={INPUT_CLASS}
-                disabled={saving}
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs text-gray-500">Model</label>
-              <input
-                value={row.model}
-                onChange={(event) => updateRow(row.key, "model", event.target.value)}
-                className={INPUT_CLASS}
-                disabled={saving}
-              />
-            </div>
-            <div>
               <label className="mb-1 block text-xs text-gray-500">Quantity</label>
               <input
                 type="number"
@@ -135,7 +132,7 @@ export default function RequestSparePartForm({ formId, saving, error, onSubmit }
                 disabled={saving}
               />
             </div>
-            <div className="col-span-2">
+            <div>
               <label className="mb-1 block text-xs text-gray-500">Remarks</label>
               <input
                 value={row.remarks}

@@ -596,8 +596,14 @@ function ServiceDetailsPage() {
     technicians
   );
   const techInfo = getAssignedTechnicianInfo();
+  // service.technician_id may store either the technician doc's own id or its
+  // linked userId (see getAssignedTechnicianInfo above) — resolve through the
+  // matched technician record rather than comparing the raw id directly, or a
+  // technician assigned via the doc-id form never sees their own button.
   const canRequestSparePart =
-    user?.role === "technician" ? service.technician_id === user.id : true;
+    user?.role === "technician"
+      ? service.technician_id === user.id || techInfo.technician?.userId === user.id
+      : true;
 
   return (
     <>
@@ -643,6 +649,8 @@ function ServiceDetailsPage() {
       <RequestSparePartModal
         open={showRequestSparePart}
         serviceId={service.id}
+        deviceBrand={service.device?.brand}
+        deviceModel={service.device?.model}
         onClose={() => setShowRequestSparePart(false)}
         onCreated={handleSparePartRequested}
       />

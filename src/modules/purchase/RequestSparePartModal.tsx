@@ -14,6 +14,8 @@ const REQUEST_MODAL_FORM_ID = "request-spare-part-modal-form";
 interface Props {
   open: boolean;
   serviceId: string;
+  deviceBrand?: string;
+  deviceModel?: string;
   onClose: () => void;
   onCreated: (request: PurchaseRequest) => void;
 }
@@ -22,6 +24,8 @@ interface Props {
 const RequestSparePartModal = React.memo(function RequestSparePartModal({
   open,
   serviceId,
+  deviceBrand,
+  deviceModel,
   onClose,
   onCreated,
 }: Props) {
@@ -78,6 +82,8 @@ const RequestSparePartModal = React.memo(function RequestSparePartModal({
             saving={saving}
             error={error}
             onSubmit={handleSubmit}
+            deviceBrand={deviceBrand}
+            deviceModel={deviceModel}
           />
         </div>
 
