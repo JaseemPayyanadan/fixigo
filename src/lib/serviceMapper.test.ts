@@ -53,6 +53,12 @@ describe("mapServiceDoc payment fields", () => {
   it("ignores a payment status it does not recognise", () => {
     expect(mapServiceDoc("s1", { paymentStatus: "refunded" }, NOW).paymentStatus).toBeUndefined();
   });
+
+  it("maps partial payment with paidAmount", () => {
+    const service = mapServiceDoc("s1", { paymentStatus: "partial", paidAmount: 250 }, NOW);
+    expect(service.paymentStatus).toBe("partial");
+    expect(service.paidAmount).toBe(250);
+  });
 });
 
 describe("mapServiceDoc reopen fields", () => {

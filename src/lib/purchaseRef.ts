@@ -8,6 +8,11 @@ export function formatPurchaseRef(year: number, seq: number): string {
   return `PUR-${year}-${String(seq).padStart(4, "0")}`;
 }
 
+/** "PR-2026-0007". Same padding rule as formatPurchaseRef, different prefix. */
+export function formatPurchaseRequestRef(year: number, seq: number): string {
+  return `PR-${year}-${String(seq).padStart(4, "0")}`;
+}
+
 /**
  * Advances the sequence for `year` alone, leaving every other year's
  * high-water mark intact. Keeping one counter per year is what makes the

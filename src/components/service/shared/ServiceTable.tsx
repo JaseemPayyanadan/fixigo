@@ -9,9 +9,9 @@ import {
   ChevronDownIcon,
   ChevronUpDownIcon,
   ChevronUpIcon,
-  PencilIcon,
-  TrashIcon,
 } from "@heroicons/react/24/outline";
+
+import ServiceOverflowMenu from "./ServiceOverflowMenu";
 import {
   createColumnHelper,
   flexRender,
@@ -22,7 +22,7 @@ import {
   type SortingState,
 } from "@tanstack/react-table";
 
-import { isPaid, type ServicePaymentStatus } from "@/lib/paymentUtils";
+import { paymentLabelOf, type ServicePaymentStatus } from "@/lib/paymentUtils";
 import { resolveServiceRows, type ResolvedServiceRow } from "@/lib/serviceTableRows";
 import { getStatusConfig } from "@/lib/statusUtils";
 import type { Technician } from "@/types";
@@ -34,6 +34,7 @@ export interface ServiceTableItem {
   price: number;
   status: string;
   paymentStatus?: ServicePaymentStatus;
+  paidAmount?: number;
   isReopened?: boolean;
   customer: {
     name: string;
@@ -133,7 +134,7 @@ function ServiceCard({
   onDelete?: (id: string) => void;
 }) {
   const status = getStatusConfig(service.status);
-  const paid = isPaid(service);
+  const paymentLabel = paymentLabelOf(service);
   const date = service.createdAt ? new Date(service.createdAt) : null;
   const device = [service.device?.brand, service.device?.model].filter(Boolean).join(" ");
 
@@ -182,41 +183,40 @@ function ServiceCard({
           </div>
           <div className="shrink-0 text-right">
             <p className="text-sm font-semibold tabular-nums text-gray-900">{formatPrice(service.price)}</p>
-            <p className={`text-xs ${paid ? "text-emerald-600" : "text-amber-600"}`}>
-              {paid ? "Paid" : "Unpaid"}
+            <p
+              className={`text-xs ${
+                paymentLabel === "Paid"
+                  ? "text-emerald-600"
+                  : paymentLabel === "Partially Paid"
+                    ? "text-sky-600"
+                    : "text-amber-600"
+              }`}
+            >
+              {paymentLabel}
+              {paymentLabel === "Partially Paid" && typeof service.paidAmount === "number" ? (
+                <span className="block tabular-nums text-gray-500">
+                  ₹{service.paidAmount.toLocaleString()} of {formatPrice(service.price)}
+                </span>
+              ) : null}
             </p>
           </div>
         </div>
       </Link>
 
       {(onEdit || onDelete) && (
-        <div className="mt-3 flex items-center justify-end gap-1 border-t border-gray-100 pt-2">
-          {onEdit && (
-            <button
-              type="button"
-              onClick={() => onEdit(service)}
-              className="inline-flex h-9 items-center gap-1 rounded-lg px-3 text-xs font-medium text-blue-600 transition-colors hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              aria-label="Edit repair"
-            >
-              <PencilIcon className="h-4 w-4" />
-              Edit
-            </button>
-          )}
-          {onDelete && (
-            <button
-              type="button"
-              onClick={() => {
-                if (window.confirm("Are you sure you want to delete this repair?")) {
-                  onDelete(service.id);
-                }
-              }}
-              className="inline-flex h-9 items-center gap-1 rounded-lg px-3 text-xs font-medium text-red-600 transition-colors hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              aria-label="Delete repair"
-            >
-              <TrashIcon className="h-4 w-4" />
-              Delete
-            </button>
-          )}
+        <div className="mt-3 flex items-center justify-end border-t border-gray-100 pt-2">
+          <ServiceOverflowMenu
+            onEdit={onEdit ? () => onEdit(service) : undefined}
+            onDelete={
+              onDelete
+                ? () => {
+                    if (window.confirm("Are you sure you want to delete this repair?")) {
+                      onDelete(service.id);
+                    }
+                  }
+                : undefined
+            }
+          />
         </div>
       )}
     </div>
@@ -373,12 +373,26 @@ export function ServiceTable({
         header: "Amount",
         meta: { headerClass: "text-right", cellClass: "text-right" },
         cell: ({ row, getValue }) => {
-          const paid = isPaid(row.original);
+          const label = paymentLabelOf(row.original);
+          const paidAmount = row.original.paidAmount;
           return (
             <>
               <p className="text-sm font-semibold tabular-nums text-gray-900">{formatPrice(getValue())}</p>
-              <p className={`text-xs ${paid ? "text-emerald-600" : "text-amber-600"}`}>
-                {paid ? "Paid" : "Unpaid"}
+              <p
+                className={`text-xs ${
+                  label === "Paid"
+                    ? "text-emerald-600"
+                    : label === "Partially Paid"
+                      ? "text-sky-600"
+                      : "text-amber-600"
+                }`}
+              >
+                {label}
+                {label === "Partially Paid" && typeof paidAmount === "number" ? (
+                  <span className="block tabular-nums text-gray-500">
+                    ₹{paidAmount.toLocaleString()} paid
+                  </span>
+                ) : null}
               </p>
             </>
           );
@@ -403,34 +417,18 @@ export function ServiceTable({
         cell: ({ row }) => {
           const service = row.original;
           return (
-            <div className="inline-flex items-center gap-1" onClick={(event) => event.stopPropagation()}>
-              {onEdit && (
-                <button
-                  type="button"
-                  onClick={() => onEdit(service)}
-                  className="inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-blue-600 transition-colors hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  title="Edit"
-                  aria-label="Edit repair"
-                >
-                  <PencilIcon className="h-4 w-4" />
-                </button>
-              )}
-              {onDelete && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (window.confirm("Are you sure you want to delete this repair?")) {
-                      onDelete(service.id);
+            <ServiceOverflowMenu
+              onEdit={onEdit ? () => onEdit(service) : undefined}
+              onDelete={
+                onDelete
+                  ? () => {
+                      if (window.confirm("Are you sure you want to delete this repair?")) {
+                        onDelete(service.id);
+                      }
                     }
-                  }}
-                  className="inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-red-600 transition-colors hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  title="Delete"
-                  aria-label="Delete repair"
-                >
-                  <TrashIcon className="h-4 w-4" />
-                </button>
-              )}
-            </div>
+                  : undefined
+              }
+            />
           );
         },
       }),

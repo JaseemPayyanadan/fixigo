@@ -153,19 +153,49 @@ export async function deleteService(id: string, shopId: string): Promise<void> {
 export async function setServicePaymentAdmin(
   id: string,
   shopId: string,
-  paid: boolean,
+  input: {
+    paymentStatus: "pending" | "partial" | "paid";
+    paidAmount?: number;
+  },
   now: Date = new Date()
-): Promise<{ paymentStatus: "paid" | "pending"; paidAt?: Date }> {
-  const fields: Record<string, unknown> = {
-    paymentStatus: paid ? "paid" : "pending",
-  };
-  const deleteFields = paid ? [] : ["paidAt"];
-  if (paid) {
+): Promise<{
+  paymentStatus: "pending" | "partial" | "paid";
+  paidAt?: Date;
+  paidAmount?: number;
+}> {
+  const { paymentStatus } = input;
+  const fields: Record<string, unknown> = { paymentStatus };
+  const deleteFields: string[] = [];
+
+  if (paymentStatus === "paid") {
     fields.paidAt = now;
+    if (typeof input.paidAmount === "number") {
+      fields.paidAmount = input.paidAmount;
+    }
+  } else if (paymentStatus === "partial") {
+    fields.paidAt = now;
+    fields.paidAmount = input.paidAmount ?? 0;
+  } else {
+    deleteFields.push("paidAt", "paidAmount");
   }
 
   await updateService(id, shopId, { fields, deleteFields });
-  return paid ? { paymentStatus: "paid", paidAt: now } : { paymentStatus: "pending" };
+
+  if (paymentStatus === "paid") {
+    return {
+      paymentStatus: "paid",
+      paidAt: now,
+      paidAmount: typeof input.paidAmount === "number" ? input.paidAmount : undefined,
+    };
+  }
+  if (paymentStatus === "partial") {
+    return {
+      paymentStatus: "partial",
+      paidAt: now,
+      paidAmount: input.paidAmount ?? 0,
+    };
+  }
+  return { paymentStatus: "pending" };
 }
 
 

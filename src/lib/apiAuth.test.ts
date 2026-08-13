@@ -20,9 +20,11 @@ import { cookies } from "next/headers";
 import {
   ApiError,
   assertCanReadPurchase,
+  assertCanReadPurchaseRequest,
   assertCanReadSupplier,
   assertCanReadTechnician,
   assertCanWritePurchase,
+  assertCanWritePurchaseRequest,
   assertCanWriteSupplier,
   assertCanWriteTechnician,
   listScopeFor,
@@ -377,6 +379,73 @@ describe("assertCanReadSupplier", () => {
       assertCanReadSupplier(purchaseUser({ role: "shop_admin" }), {
         shopId: "shop-2",
         branchId: "branch-1",
+      })
+    ).toThrow(/not permitted/i);
+  });
+});
+
+describe("assertCanWritePurchaseRequest", () => {
+  it("allows a shop_admin anywhere in their own shop", () => {
+    expect(() =>
+      assertCanWritePurchaseRequest(purchaseUser({ role: "shop_admin" }), {
+        shopId: "shop-1",
+        branchId: "branch-9",
+      })
+    ).not.toThrow();
+  });
+
+  it("allows a branch_admin in their own branch", () => {
+    expect(() =>
+      assertCanWritePurchaseRequest(purchaseUser({ role: "branch_admin" }), {
+        shopId: "shop-1",
+        branchId: "branch-1",
+      })
+    ).not.toThrow();
+  });
+
+  it("allows a technician in their own branch", () => {
+    expect(() =>
+      assertCanWritePurchaseRequest(purchaseUser({ role: "technician" }), {
+        shopId: "shop-1",
+        branchId: "branch-1",
+      })
+    ).not.toThrow();
+  });
+
+  it("rejects a technician in another branch", () => {
+    expect(() =>
+      assertCanWritePurchaseRequest(purchaseUser({ role: "technician" }), {
+        shopId: "shop-1",
+        branchId: "branch-2",
+      })
+    ).toThrow(/not permitted/i);
+  });
+
+  it("rejects any user from another shop", () => {
+    expect(() =>
+      assertCanWritePurchaseRequest(purchaseUser({ role: "shop_admin", shopId: "shop-2" }), {
+        shopId: "shop-1",
+        branchId: "branch-1",
+      })
+    ).toThrow(/not permitted/i);
+  });
+});
+
+describe("assertCanReadPurchaseRequest", () => {
+  it("allows a technician to read within their own branch", () => {
+    expect(() =>
+      assertCanReadPurchaseRequest(purchaseUser({ role: "technician" }), {
+        shopId: "shop-1",
+        branchId: "branch-1",
+      })
+    ).not.toThrow();
+  });
+
+  it("rejects a technician reading another branch", () => {
+    expect(() =>
+      assertCanReadPurchaseRequest(purchaseUser({ role: "technician" }), {
+        shopId: "shop-1",
+        branchId: "branch-2",
       })
     ).toThrow(/not permitted/i);
   });

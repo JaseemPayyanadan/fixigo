@@ -167,6 +167,8 @@ export interface Service {
    * never directly, so those fall back to their work status.
    */
   paymentStatus?: ServicePaymentStatus;
+  /** Amount collected so far when payment is partial or paid. */
+  paidAmount?: number;
   /** When payment was taken. Absent for the same reason as `paymentStatus`. */
   paidAt?: Date;
   /** True after staff reopened a completed job (customer returned, not fixed). */

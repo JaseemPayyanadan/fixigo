@@ -34,6 +34,15 @@ const navItems = [
     roles: ["technician"],
   },
   {
+    // Technicians can only ever reach the Purchase Requests tab (they're
+    // blocked from Purchases/Suppliers/Returns), so they get this direct
+    // link rather than "Spare Purchases", which lands admins on /purchases.
+    label: "Requests",
+    href: "/purchases/requests",
+    icon: ShoppingCartIcon,
+    roles: ["technician"],
+  },
+  {
     label: "Branches",
     href: "/branch",
     icon: BuildingOfficeIcon,

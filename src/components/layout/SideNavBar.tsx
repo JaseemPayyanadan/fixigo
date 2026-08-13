@@ -71,6 +71,17 @@ const navItems: Array<{
     prefetch: true,
   },
   {
+    // Technicians can only ever reach the Purchase Requests tab (they're
+    // blocked from Purchases/Suppliers/Returns), so they get this direct
+    // link rather than "Spare Purchases", which lands admins on /purchases.
+    label: "Purchase Requests",
+    href: "/purchases/requests",
+    icon: ShoppingCart,
+    description: "Track your spare part requests",
+    roles: ["technician"],
+    prefetch: true,
+  },
+  {
     label: "Branches",
     href: "/branch",
     icon: MapPin,

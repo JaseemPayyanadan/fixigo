@@ -11,13 +11,22 @@ import ReopenServiceDialog from "@/components/service/ReopenServiceDialog";
 import ServiceDetailsView from "@/components/service/ServiceDetailsView";
 import ServiceForm from "@/components/service/ServiceForm";
 import { useUser } from "@/hooks";
+import Toast from "@/components/ui/Toast";
 import { authUserToUser } from "@/lib/auth";
-import { isPaid, shouldOpenCollectPaymentModal, type ServicePaymentStatus } from "@/lib/paymentUtils";
+import {
+  paymentLabelOf,
+  shouldOpenCollectPaymentModal,
+  type ServicePaymentStatus,
+} from "@/lib/paymentUtils";
 import { setServicePayment } from "@/lib/servicePayments";
+import type { CollectPaymentSaveInput } from "@/components/service/CollectPaymentDialog";
 import { buildReopenFields, canReopenService } from "@/lib/serviceReopen";
 import { appendStatusHistory, buildStatusHistoryEntry, mapStatusHistoryEntries } from "@/lib/serviceStatusHistory";
+import { formatRepairLabel } from "@/lib/repairLabel";
 import { normalizeStatus } from "@/lib/statusUtils";
+import RequestSparePartModal from "@/modules/purchase/RequestSparePartModal";
 import type { Branch, StatusHistoryEntry, Technician } from "@/types";
+import type { PurchaseRequest } from "@/types/purchaseRequest";
 
 interface Service {
   id: string;
@@ -51,6 +60,7 @@ interface Service {
   estimatedCompletion?: Date;
   actualCompletion?: Date;
   paymentStatus?: ServicePaymentStatus;
+  paidAmount?: number;
   paidAt?: Date;
   isReopened?: boolean;
   reopenReason?: string;
@@ -177,12 +187,15 @@ function ServiceDetailsPage() {
   const [statusUpdateSuccess, setStatusUpdateSuccess] = useState(false);
   const [updatingPayment, setUpdatingPayment] = useState(false);
   const [showCollectPaymentDialog, setShowCollectPaymentDialog] = useState(false);
+  const [collectPaymentContext, setCollectPaymentContext] = useState<"complete" | "update">("complete");
   const [collectPaymentError, setCollectPaymentError] = useState<string | null>(null);
   const [showReopenDialog, setShowReopenDialog] = useState(false);
   const [reopening, setReopening] = useState(false);
   const [reopenError, setReopenError] = useState<string | null>(null);
   const [editLoading, setEditLoading] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
+  const [showRequestSparePart, setShowRequestSparePart] = useState(false);
+  const [sparePartToast, setSparePartToast] = useState<string | null>(null);
 
   useEffect(() => {
     if (!serviceId) return;
@@ -345,6 +358,7 @@ function ServiceDetailsPage() {
         // for Pickup — that is intentionally not a collect trigger here.
         if (shouldOpenCollectPaymentModal(newStatus, service?.paymentStatus)) {
           setCollectPaymentError(null);
+          setCollectPaymentContext("complete");
           setShowCollectPaymentDialog(true);
         } else {
           setShowCollectPaymentDialog(false);
@@ -391,14 +405,24 @@ function ServiceDetailsPage() {
     }
   };
 
-  const handlePaymentChange = async (paid: boolean) => {
+  const handlePaymentSave = async (input: CollectPaymentSaveInput) => {
     if (!serviceId) return;
     setUpdatingPayment(true);
     setCollectPaymentError(null);
 
     try {
-      const write = await setServicePayment(serviceId, paid);
-      setService((prev) => (prev ? { ...prev, ...write, paidAt: write.paidAt, updatedAt: new Date() } : null));
+      const write = await setServicePayment(serviceId, input);
+      setService((prev) =>
+        prev
+          ? {
+              ...prev,
+              paymentStatus: write.paymentStatus,
+              paidAmount: write.paidAmount,
+              paidAt: write.paidAt,
+              updatedAt: new Date(),
+            }
+          : null
+      );
       setShowCollectPaymentDialog(false);
       setCollectPaymentError(null);
     } catch (err) {
@@ -412,11 +436,7 @@ function ServiceDetailsPage() {
     }
   };
 
-  const handleCollectMarkPaid = () => {
-    void handlePaymentChange(true);
-  };
-
-  const handleCollectKeepUnpaid = () => {
+  const handleCollectClose = () => {
     if (updatingPayment) return;
     setShowCollectPaymentDialog(false);
     setCollectPaymentError(null);
@@ -442,6 +462,11 @@ function ServiceDetailsPage() {
       technician: technician
     };
   };
+
+  const handleSparePartRequested = useCallback((request: PurchaseRequest) => {
+    setShowRequestSparePart(false);
+    setSparePartToast(`Request ${request.ref} was submitted`);
+  }, []);
 
   // Memoized handlers to avoid arrow functions in JSX
   const handleGoBack = useCallback(() => router.back(), [router]);
@@ -564,13 +589,20 @@ function ServiceDetailsPage() {
   }
 
   const branchName = branches.find((b) => b.id === service.branchId)?.name || "—";
-  const servicePaid = isPaid({ ...service, status });
   const userCanReopen = canReopenService(
     user ? { role: user.role, id: user.id } : null,
     service ? { ...service, status } : null,
     technicians
   );
   const techInfo = getAssignedTechnicianInfo();
+  // service.technician_id may store either the technician doc's own id or its
+  // linked userId (see getAssignedTechnicianInfo above) — resolve through the
+  // matched technician record rather than comparing the raw id directly, or a
+  // technician assigned via the doc-id form never sees their own button.
+  const canRequestSparePart =
+    user?.role === "technician"
+      ? service.technician_id === user.id || techInfo.technician?.userId === user.id
+      : true;
 
   return (
     <>
@@ -581,27 +613,53 @@ function ServiceDetailsPage() {
         technician={techInfo.technician ?? null}
         technicianId={techInfo.id}
         technicianDisplayName={techInfo.name}
-        servicePaid={servicePaid}
         userCanReopen={userCanReopen}
         updatingStatus={updatingStatus}
         statusUpdateSuccess={statusUpdateSuccess}
-        updatingPayment={updatingPayment}
+        paymentLabel={paymentLabelOf({
+          status: service.status,
+          paymentStatus: service.paymentStatus,
+          paidAmount: service.paidAmount,
+          price: service.price,
+        })}
         paymentError={showCollectPaymentDialog ? null : collectPaymentError}
         showDropdown={showDropdown}
         showHistory={showHistory}
         statusHistory={statusHistory}
         statusOptions={STATUS_OPTIONS}
+        canRequestSparePart={canRequestSparePart}
         onGoBack={handleGoBack}
         onEdit={handleEditClick}
         onDelete={handleDelete}
         onToggleDropdown={toggleDropdown}
         onToggleHistory={handleToggleShowHistory}
         onStatusChange={handleStatusChange}
-        onPaymentToggle={() => handlePaymentChange(!servicePaid)}
+        onUpdatePayment={() => {
+          setCollectPaymentError(null);
+          setCollectPaymentContext("update");
+          setShowCollectPaymentDialog(true);
+        }}
         onReopenClick={() => {
           setReopenError(null);
           setShowReopenDialog(true);
         }}
+        onRequestSparePart={() => setShowRequestSparePart(true)}
+      />
+      <RequestSparePartModal
+        open={showRequestSparePart}
+        serviceId={service.id}
+        repairLabel={formatRepairLabel(service.id)}
+        customerName={service.customer?.name || ""}
+        deviceBrand={service.device?.brand}
+        deviceModel={service.device?.model}
+        onClose={() => setShowRequestSparePart(false)}
+        onCreated={handleSparePartRequested}
+      />
+      <Toast
+        open={Boolean(sparePartToast)}
+        message={sparePartToast ?? ""}
+        variant="success"
+        onClose={() => setSparePartToast(null)}
       />
       <ReopenServiceDialog
         isOpen={showReopenDialog}
@@ -615,11 +673,21 @@ function ServiceDetailsPage() {
       <CollectPaymentDialog
         isOpen={showCollectPaymentDialog}
         amount={service.price ?? 0}
+        initialStatus={
+          service.paymentStatus === "pending" ||
+          service.paymentStatus === "partial" ||
+          service.paymentStatus === "paid"
+            ? service.paymentStatus
+            : "paid"
+        }
+        initialPaidAmount={service.paidAmount}
+        context={collectPaymentContext}
         submitting={updatingPayment}
         error={collectPaymentError}
-        onClose={handleCollectKeepUnpaid}
-        onMarkPaid={handleCollectMarkPaid}
-        onKeepUnpaid={handleCollectKeepUnpaid}
+        onClose={handleCollectClose}
+        onSave={(input) => {
+          void handlePaymentSave(input);
+        }}
       />
     </>
   );

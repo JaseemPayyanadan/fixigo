@@ -1,19 +1,20 @@
 // Whether a repair has been paid for, and when.
 //
-// Payment is tracked with a single flag rather than an invoice model: a counter
-// repair is settled in full when the customer collects the device, so "paid or
-// not" is the whole of it. Part-payments and deposits are deliberately out of
-// scope — recording them needs an amount, a balance and a history, which is a
-// subsystem rather than a field.
+// Payment is tracked as unpaid / partial / paid. Partial stores how much has
+// been collected (`paidAmount` on the service); full settlement is still a
+// single flag rather than a full invoice ledger.
 
 import { normalizeStatus } from "./statusUtils";
 
-export type ServicePaymentStatus = "pending" | "paid";
+export type ServicePaymentStatus = "pending" | "partial" | "paid";
 
 /** The subset of a service this module needs. Keeps it usable from the mapper. */
 export interface PayableService {
   status?: string;
   paymentStatus?: ServicePaymentStatus;
+  /** Amount collected so far when status is partial or paid. */
+  paidAmount?: number;
+  price?: number;
   paidAt?: Date;
   completedDate?: Date;
   actualCompletion?: Date;
@@ -41,6 +42,30 @@ export function paymentStatusOf(service: PayableService): ServicePaymentStatus {
 
 export function isPaid(service: PayableService): boolean {
   return paymentStatusOf(service) === "paid";
+}
+
+export function isPartiallyPaid(service: PayableService): boolean {
+  return paymentStatusOf(service) === "partial";
+}
+
+/** Short label for list/details badges. */
+export function paymentLabelOf(service: PayableService): "Paid" | "Partially Paid" | "Unpaid" {
+  const status = paymentStatusOf(service);
+  if (status === "paid") return "Paid";
+  if (status === "partial") return "Partially Paid";
+  return "Unpaid";
+}
+
+/** Amount still owed; 0 when fully paid. */
+export function outstandingAmountOf(service: PayableService): number {
+  const price = typeof service.price === "number" ? service.price : 0;
+  const status = paymentStatusOf(service);
+  if (status === "paid") return 0;
+  if (status === "partial") {
+    const paid = typeof service.paidAmount === "number" ? service.paidAmount : 0;
+    return Math.max(0, price - paid);
+  }
+  return price;
 }
 
 /**
