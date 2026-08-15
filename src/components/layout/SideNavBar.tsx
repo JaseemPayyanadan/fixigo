@@ -6,7 +6,6 @@ import { usePathname } from "next/navigation";
 
 import {
   BarChart3,
-  Briefcase,
   Building2,
   Check,
   ChevronDown,
@@ -19,6 +18,7 @@ import {
 } from "lucide-react";
 
 import { PerformanceMonitor } from "@/components/PerformanceMonitor";
+import { FixigoLogo } from "@/components/brand/FixigoLogo";
 import { useSidebar } from "@/contexts/SidebarContext";
 import { useBranches } from "@/hooks/useBranches";
 import { useNavigation } from "@/hooks/useNavigation";
@@ -329,18 +329,14 @@ const SideNavBar = React.memo(() => {
         }`}
       >
         <div
-          className={`flex h-[72px] shrink-0 items-center gap-2.5 border-b border-gray-100 px-4 ${
+          className={`flex h-14 shrink-0 items-center gap-2.5 border-b border-gray-100 px-4 ${
             rail ? "justify-center px-0" : ""
           }`}
         >
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 shadow-sm" aria-hidden="true">
-            <Briefcase className="h-5 w-5 text-white" />
-          </div>
-          {!rail && (
-            <div className="min-w-0">
-              <p className="truncate text-lg font-bold leading-tight tracking-tight text-gray-900">Fixigo</p>
-              <p className="truncate text-[11px] leading-tight text-gray-400">Repair Management</p>
-            </div>
+          {rail ? (
+            <FixigoLogo variant="mark" size={32} />
+          ) : (
+            <FixigoLogo variant="lockup" size={32} showTagline />
           )}
         </div>
 

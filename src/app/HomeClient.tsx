@@ -3,6 +3,7 @@ import { useEffect } from "react";
 
 import { useRouter } from "next/navigation";
 
+import { FixigoLogo } from "@/components/brand/FixigoLogo";
 import { useUser } from "@/hooks/useUser";
 
 export function HomeClient() {
@@ -29,7 +30,7 @@ export function HomeClient() {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50">
-        <h1 className="text-2xl font-bold mb-2 text-blue-700">Fixigo</h1>
+        <FixigoLogo variant="lockup" size={40} className="mb-4" />
         <div className="flex items-center gap-2 mb-2">
           <span className="sr-only" role="status">
             Checking your session…

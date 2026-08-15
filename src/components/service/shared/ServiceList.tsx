@@ -212,12 +212,10 @@ const ServiceList: React.FC<ServiceListSharedProps> = ({
           
           {/* Show create button for admins */}
           {user && (user.role === 'shop_admin' || user.role === 'branch_admin') && (
-            <Link href="/services/new">
-              <Button className="inline-flex items-center gap-2">
-                <PlusIcon className="w-4 h-4" />
-                Create First Service
-              </Button>
-            </Link>
+            <Button href="/services/new">
+              <PlusIcon className="h-4 w-4" />
+              Create First Service
+            </Button>
           )}
           
           {/* Show different message for technicians */}

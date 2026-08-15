@@ -154,6 +154,7 @@ export const ServiceStatusManagement: React.FC<{
             {statusConfig.label}
           </div>
           <select value={status} onChange={(e) => onStatusChange(e.target.value as ServiceStatus)} disabled={updating} className="border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50" aria-label="Change service status">
+            <option value="awaiting_drop_off">Awaiting Drop-off</option>
             <option value="pending">Pending</option>
             <option value="in_progress">In Progress</option>
             <option value="completed">Completed</option>

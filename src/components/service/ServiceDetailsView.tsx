@@ -1,31 +1,34 @@
 "use client";
 
-import Link from "next/link";
 import React from "react";
 
 import {
   MdArrowBack,
-  MdBuild,
+  MdCall,
+  MdCancel,
+  MdCheck,
   MdCheckCircle,
-  MdCurrencyRupee,
+  MdContentCopy,
   MdDelete,
   MdDevices,
   MdEdit,
-  MdFeedback,
+  MdEmail,
   MdHistory,
   MdInventory,
-  MdMoreVert,
+  MdKeyboardArrowDown,
+  MdLocationOn,
   MdNotes,
   MdPayments,
   MdPerson,
   MdPriorityHigh,
+  MdPrint,
   MdRefresh,
+  MdStore,
 } from "react-icons/md";
 
-import { Button } from "@/components/ui/Button";
-import { getStatusConfig } from "@/lib/statusUtils";
+import { getStatusConfig, normalizeStatus } from "@/lib/statusUtils";
 import ServicePartsOrdered from "@/modules/purchase/ServicePartsOrdered";
-import type { StatusHistoryEntry, Technician } from "@/types";
+import type { Branch, StatusHistoryEntry, Technician } from "@/types";
 
 export interface ServiceDetailsViewModel {
   id: string;
@@ -71,6 +74,7 @@ export interface ServiceDetailsViewProps {
   service: ServiceDetailsViewModel;
   status: string;
   branchName: string;
+  branch: Branch | null;
   technician: Technician | null;
   technicianId: string | null;
   technicianDisplayName: string;
@@ -90,6 +94,8 @@ export interface ServiceDetailsViewProps {
   onToggleDropdown: () => void;
   onToggleHistory: () => void;
   onStatusChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
+  onStepClick: (status: string) => void;
+  onPrint: () => void;
   onUpdatePayment: () => void;
   onReopenClick: () => void;
   onRequestSparePart: () => void;
@@ -100,14 +106,10 @@ function displayOptional(value: string | undefined | null): string {
   return trimmed ? trimmed : "—";
 }
 
-function formatShortDate(date: Date | null | undefined): string {
-  if (!date) return "—";
-  return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-}
-
 function formatDateTime(date: Date | null | undefined): string {
   if (!date) return "—";
   return date.toLocaleDateString("en-US", {
+    weekday: "short",
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -133,6 +135,49 @@ const priorityTone: Record<string, string> = {
   urgent: "bg-red-100 text-red-700",
 };
 
+// Which of the 4 visual stages each real status belongs to, and which status
+// clicking that stage should move the job to. Statuses beyond the primary
+// forward-flow (awaiting parts, on hold, ready for pickup, awaiting drop-off)
+// still show up as a sub-label under their stage instead of getting their own
+// step — the "Other status" select below the stepper is how they're actually
+// set.
+const PROGRESS_STEPS: Array<{
+  step: number;
+  label: string;
+  baseDescription: string;
+  statuses: string[];
+  targetStatus: string;
+}> = [
+  {
+    step: 1,
+    label: "To Do",
+    baseDescription: "Waiting to be started",
+    statuses: ["awaiting_drop_off", "pending", "to_do"],
+    targetStatus: "pending",
+  },
+  {
+    step: 2,
+    label: "In Progress",
+    baseDescription: "Repair in progress",
+    statuses: ["in_progress", "awaiting_parts", "on_hold"],
+    targetStatus: "in_progress",
+  },
+  {
+    step: 3,
+    label: "Testing",
+    baseDescription: "Quality check",
+    statuses: ["quality_check"],
+    targetStatus: "quality_check",
+  },
+  {
+    step: 4,
+    label: "Completed",
+    baseDescription: "Repair completed",
+    statuses: ["completed", "ready_for_pickup"],
+    targetStatus: "completed",
+  },
+];
+
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
@@ -142,10 +187,38 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
+function ContactField({
+  label,
+  value,
+  href,
+  icon,
+}: {
+  label: string;
+  value: string;
+  href?: string;
+  icon?: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <Field label={label}>{value}</Field>
+      {href && icon && (
+        <a
+          href={href}
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          aria-label={label}
+        >
+          {icon}
+        </a>
+      )}
+    </div>
+  );
+}
+
 export default function ServiceDetailsView({
   service,
   status,
   branchName,
+  branch,
   technician,
   technicianId,
   technicianDisplayName,
@@ -165,15 +238,25 @@ export default function ServiceDetailsView({
   onToggleDropdown,
   onToggleHistory,
   onStatusChange,
+  onStepClick,
+  onPrint,
   onUpdatePayment,
   onReopenClick,
   onRequestSparePart,
 }: ServiceDetailsViewProps) {
   const statusConfig = getStatusConfig(status);
+  const normalizedStatus = normalizeStatus(status);
+  const isCancelled = normalizedStatus === "cancelled";
+  const currentStepIndex = Math.max(
+    0,
+    PROGRESS_STEPS.findIndex((def) => def.statuses.includes(normalizedStatus))
+  );
   const createdAt = service.createdAt ? new Date(service.createdAt) : null;
   const updatedAt = service.updatedAt ? new Date(service.updatedAt) : null;
   const priority = service.priority || "medium";
   const cardClass = "rounded-2xl border border-gray-100 bg-white shadow-sm";
+  const paidAmount = service.paidAmount ?? 0;
+  const dueAmount = Math.max((service.price ?? 0) - paidAmount, 0);
 
   // The kebab menu closes on selection; leaving it open over the page after
   // "View History" (or behind the delete confirm) reads as a stuck menu.
@@ -197,100 +280,58 @@ export default function ServiceDetailsView({
     onDelete();
   };
 
+  const handleReopenMenuClick = () => {
+    onToggleDropdown();
+    onReopenClick();
+  };
+
+  const handleRequestSparePartMenuClick = () => {
+    onToggleDropdown();
+    onRequestSparePart();
+  };
+
+  const handleCopyId = () => {
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      void navigator.clipboard.writeText(service.id);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="mx-auto w-full space-y-4 p-4 md:p-6">
+      <div className="mx-auto w-full max-w-6xl space-y-4 p-4 md:p-6">
         {/* Page header */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="flex items-start gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <button
+            type="button"
+            onClick={onGoBack}
+            className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl px-2 text-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <MdArrowBack className="h-5 w-5" />
+            Back to Repairs
+          </button>
+
+          <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              onClick={onGoBack}
-              className="inline-flex min-h-11 min-w-11 cursor-pointer items-center justify-center rounded-xl text-gray-600 hover:bg-gray-100 hover:text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              aria-label="Go back"
+              onClick={onPrint}
+              className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-800 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <MdArrowBack className="h-5 w-5" />
+              <MdPrint className="h-4 w-4" />
+              Print / Download
             </button>
-            <div>
-              <h1 className="text-base font-semibold text-gray-900 md:text-lg">Service Details</h1>
-              <nav className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-gray-500" aria-label="Breadcrumb">
-                <Link href="/" className="hover:text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                  Home
-                </Link>
-                <span aria-hidden="true">•</span>
-                <Link
-                  href="/services"
-                  className="hover:text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  Services
-                </Link>
-                <span aria-hidden="true">•</span>
-                <span className="text-gray-700">Service Details</span>
-              </nav>
-            </div>
-          </div>
 
-          <div className="flex flex-wrap items-center gap-2 pl-14 sm:pl-0">
-            {/* Desktop-only: the same control lives in the Actions bar below
-                for mobile/tablet, hidden here so it doesn't render twice. */}
-            <div className="hidden items-center gap-2 lg:flex">
-              <span className="shrink-0 text-sm font-medium text-gray-600">Update Status</span>
-              <select
-                value={status}
-                onChange={onStatusChange}
-                disabled={updatingStatus}
-                className="min-h-11 cursor-pointer rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-              >
-                {statusOptions.map((opt) => (
-                  <option key={opt} value={opt}>
-                    {opt}
-                  </option>
-                ))}
-              </select>
-              {updatingStatus && <span className="text-xs text-gray-500">Updating…</span>}
-              {statusUpdateSuccess && (
-                <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600">
-                  <MdCheckCircle className="h-4 w-4" />
-                  Updated
-                </span>
-              )}
-            </div>
-
-            {canRequestSparePart && (
-              <button
-                type="button"
-                onClick={onRequestSparePart}
-                className="hidden min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-800 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 lg:inline-flex"
-              >
-                <MdInventory className="h-4 w-4 text-gray-600" />
-                Request Spare Part
-              </button>
-            )}
-
-            {/* Desktop-only: mirrors the Actions bar's Reopen button
-                below, which is hidden at `lg` so nothing renders twice. */}
-            {userCanReopen && (
-              <button
-                type="button"
-                onClick={onReopenClick}
-                className="hidden min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-900 hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-amber-500 lg:inline-flex"
-              >
-                <MdRefresh className="h-4 w-4" />
-                Reopen Service
-              </button>
-            )}
             <div className="relative dropdown-container">
-              <Button
+              <button
                 type="button"
-                variant="secondary"
-                size="icon"
                 onClick={onToggleDropdown}
-                aria-label="More options"
+                className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <MdMoreVert className="h-5 w-5" />
-              </Button>
+                <MdEdit className="h-4 w-4" />
+                Edit Repair
+                <MdKeyboardArrowDown className="h-4 w-4" />
+              </button>
               {showDropdown && (
-                <div className="absolute right-0 z-50 mt-2 w-48 rounded-xl border border-gray-100 bg-white py-1 shadow-lg">
+                <div className="absolute right-0 z-50 mt-2 w-56 rounded-xl border border-gray-100 bg-white py-1 shadow-lg">
                   <button
                     type="button"
                     onClick={handleEditClick}
@@ -307,13 +348,33 @@ export default function ServiceDetailsView({
                     <MdPayments className="h-4 w-4 text-gray-600" />
                     <span className="text-sm font-medium">Update Payment</span>
                   </button>
+                  {canRequestSparePart && (
+                    <button
+                      type="button"
+                      onClick={handleRequestSparePartMenuClick}
+                      className="flex min-h-11 w-full cursor-pointer items-center gap-3 px-4 py-3 text-left text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
+                    >
+                      <MdInventory className="h-4 w-4 text-gray-600" />
+                      <span className="text-sm font-medium">Request Spare Part</span>
+                    </button>
+                  )}
+                  {userCanReopen && (
+                    <button
+                      type="button"
+                      onClick={handleReopenMenuClick}
+                      className="flex min-h-11 w-full cursor-pointer items-center gap-3 px-4 py-3 text-left text-amber-800 hover:bg-amber-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
+                    >
+                      <MdRefresh className="h-4 w-4 text-amber-700" />
+                      <span className="text-sm font-medium">Reopen Service</span>
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={handleHistoryClick}
                     className="flex min-h-11 w-full cursor-pointer items-center gap-3 px-4 py-3 text-left text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
                   >
                     <MdHistory className="h-4 w-4 text-gray-600" />
-                    <span className="text-sm font-medium">View History</span>
+                    <span className="text-sm font-medium">{showHistory ? "Hide History" : "View History"}</span>
                   </button>
                   <hr className="my-1 border-gray-100" />
                   <button
@@ -336,44 +397,32 @@ export default function ServiceDetailsView({
           </p>
         )}
 
-        {/* Summary hero */}
+        {/* Hero: repair id, status badges, device + fee summary */}
         <section className={`${cardClass} p-5 md:p-6`}>
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex min-w-0 items-start gap-4">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-                <MdDevices className="h-6 w-6" />
+          <div className="flex flex-col gap-4 border-b border-gray-100 pb-4 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <div className="text-xs font-medium text-gray-500">Repair ID</div>
+              <div className="mt-1 flex items-center gap-2">
+                <span className="font-mono text-base font-bold text-gray-900 sm:text-lg md:text-base lg:text-lg">
+                  #{service.id.slice(-8).toUpperCase()}
+                </span>
+                <button
+                  type="button"
+                  onClick={handleCopyId}
+                  aria-label="Copy repair ID"
+                  className="cursor-pointer rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <MdContentCopy className="h-4 w-4" />
+                </button>
               </div>
-              <div className="min-w-0">
-                <h2 className="truncate text-2xl font-bold text-gray-900">{service.name || "Repair"}</h2>
-                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-gray-500">
-                  <span className="rounded-md bg-gray-100 px-2 py-1 font-mono text-gray-700">
-                    #{service.id.slice(-8)}
-                  </span>
-                  <span>Created: {formatShortDate(createdAt)}</span>
-                  <span className="hidden sm:inline" aria-hidden="true">
-                    •
-                  </span>
-                  <span>Updated: {formatShortDate(updatedAt)}</span>
-                </div>
-                {service.isReopened && (
-                  <div className="mt-3 flex flex-wrap items-center gap-2">
-                    <span className="inline-flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800">
-                      <MdRefresh className="h-3.5 w-3.5" aria-hidden="true" />
-                      Reopened
-                    </span>
-                    {service.reopenReason && (
-                      <span className="text-xs text-gray-500">Reason: {service.reopenReason}</span>
-                    )}
-                  </div>
-                )}
-              </div>
+              <div className="mt-1 text-xs text-gray-500">Created: {formatDateTime(createdAt)}</div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:gap-6">
+            <div className="grid grid-cols-3 gap-4 sm:gap-8">
               <div>
                 <div className="mb-1 text-xs font-medium text-gray-500">Status</div>
                 <span
-                  className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${statusConfig.color} ${statusConfig.bg}`}
+                  className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${statusConfig.color} ${statusConfig.bg}`}
                 >
                   {statusConfig.label}
                 </span>
@@ -381,14 +430,14 @@ export default function ServiceDetailsView({
               <div>
                 <div className="mb-1 text-xs font-medium text-gray-500">Priority</div>
                 <span
-                  className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${priorityTone[priority] || priorityTone.medium}`}
+                  className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${priorityTone[priority] || priorityTone.medium}`}
                 >
                   <MdPriorityHigh className="h-3.5 w-3.5" aria-hidden="true" />
                   {getPriorityLabel(priority)}
                 </span>
               </div>
               <div>
-                <div className="mb-1 text-xs font-medium text-gray-500">Payment</div>
+                <div className="mb-1 text-xs font-medium text-gray-500">Payment Status</div>
                 <button
                   type="button"
                   onClick={onUpdatePayment}
@@ -401,132 +450,55 @@ export default function ServiceDetailsView({
                   }`}
                   aria-label={`Payment ${paymentLabel}. Update payment`}
                 >
-                  <MdPayments className="h-3.5 w-3.5" aria-hidden="true" />
                   {paymentLabel}
                 </button>
-                <div className="mt-1 text-xs text-gray-500">
-                  {paymentLabel === "Paid"
-                    ? `₹${service.price?.toLocaleString()} received`
-                    : paymentLabel === "Partially Paid"
-                      ? `₹${(service.paidAmount ?? 0).toLocaleString()} of ₹${service.price?.toLocaleString()} received`
-                      : `₹${service.price?.toLocaleString()} outstanding`}
-                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-4 pt-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 items-center gap-4">
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                <MdDevices className="h-7 w-7" />
+              </div>
+              <div className="min-w-0">
+                <h2 className="truncate text-base font-bold text-gray-900 sm:text-lg md:text-base lg:text-lg">{service.name || "Repair"}</h2>
+                <div className="mt-1 text-sm text-gray-600">{displayOptional(service.device?.model)}</div>
+                <div className="text-xs text-gray-500">IMEI: {displayOptional(service.device?.imei)}</div>
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-4 sm:gap-8 sm:text-right">
+              <div>
+                <div className="mb-1 text-xs font-medium text-gray-500">Service Fee</div>
+                <div className="text-base font-bold text-gray-900 sm:text-lg md:text-base lg:text-lg">₹{(service.price ?? 0).toLocaleString()}</div>
               </div>
               <div>
-                <div className="mb-1 text-xs font-medium text-gray-500">Service Price</div>
-                <div className="flex items-center gap-1 text-2xl font-bold text-blue-600">
-                  <MdCurrencyRupee className="h-5 w-5" aria-hidden="true" />
-                  {service.price?.toLocaleString()}
+                <div className="mb-1 text-xs font-medium text-gray-500">Paid</div>
+                <div className="text-base font-bold text-gray-900 sm:text-lg md:text-base lg:text-lg">₹{paidAmount.toLocaleString()}</div>
+              </div>
+              <div>
+                <div className="mb-1 text-xs font-medium text-gray-500">Due Amount</div>
+                <div className={`text-base font-bold sm:text-lg md:text-base lg:text-lg ${dueAmount > 0 ? "text-red-600" : "text-emerald-600"}`}>
+                  ₹{dueAmount.toLocaleString()}
                 </div>
               </div>
             </div>
           </div>
-        </section>
 
-        {/* Actions bar — mobile/tablet only; the header's top-right row
-            carries the same controls at `lg`. */}
-        <section className={`${cardClass} p-4 lg:hidden`}>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
-            <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
-              <span className="shrink-0 text-sm font-medium text-gray-600">Update Status</span>
-              <select
-                value={status}
-                onChange={onStatusChange}
-                disabled={updatingStatus}
-                className="min-h-11 w-full cursor-pointer rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 sm:max-w-xs"
-              >
-                {statusOptions.map((opt) => (
-                  <option key={opt} value={opt}>
-                    {opt}
-                  </option>
-                ))}
-              </select>
-              {updatingStatus && (
-                <span className="text-xs text-gray-500">Updating…</span>
-              )}
-              {statusUpdateSuccess && (
-                <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600">
-                  <MdCheckCircle className="h-4 w-4" />
-                  Updated
-                </span>
+          {service.isReopened && (
+            <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-gray-100 pt-4">
+              <span className="inline-flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800">
+                <MdRefresh className="h-3.5 w-3.5" aria-hidden="true" />
+                Reopened
+              </span>
+              {service.reopenReason && (
+                <span className="text-xs text-gray-500">Reason: {service.reopenReason}</span>
               )}
             </div>
-
-            {canRequestSparePart && (
-              <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-                <button
-                  type="button"
-                  onClick={onRequestSparePart}
-                  className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-800 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <MdInventory className="h-4 w-4 text-gray-600" />
-                  Request Spare Part
-                </button>
-              </div>
-            )}
-
-            {userCanReopen && (
-              <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-                <button
-                  type="button"
-                  onClick={onReopenClick}
-                  className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-900 hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-amber-500"
-                >
-                  <MdRefresh className="h-4 w-4" />
-                  Reopen Service
-                </button>
-              </div>
-            )}
-          </div>
+          )}
         </section>
 
-        {/* Service information */}
-        <section className={`${cardClass} p-5`}>
-          <div className="mb-4 flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-100">
-              <MdBuild className="h-4 w-4 text-blue-600" />
-            </div>
-            <h3 className="font-semibold text-gray-900">Service Information</h3>
-          </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <Field label="Service Name">{service.name || "—"}</Field>
-            <Field label="Branch">{branchName}</Field>
-            <Field label="Assigned Technician">{technicianDisplayName}</Field>
-            {technician?.phone && <Field label="Technician Phone">{technician.phone}</Field>}
-            {technician?.email && <Field label="Technician Email">{technician.email}</Field>}
-            <div className="sm:col-span-2 lg:col-span-3">
-              <Field label="Description">{displayOptional(service.description)}</Field>
-            </div>
-          </div>
-        </section>
-
-        {/* Device */}
-        <section className={`${cardClass} p-5`}>
-          <div className="mb-4 flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-100">
-              <MdDevices className="h-4 w-4 text-emerald-600" />
-            </div>
-            <h3 className="font-semibold text-gray-900">Device Information</h3>
-          </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Field label="Brand">{displayOptional(service.device?.brand)}</Field>
-            <Field label="Model">{displayOptional(service.device?.model)}</Field>
-            <Field label="Type">{displayOptional(service.device?.type)}</Field>
-            <Field label="Color">{displayOptional(service.device?.color)}</Field>
-            <div className="sm:col-span-2">
-              <Field label="IMEI">
-                <span className="font-mono text-sm">{displayOptional(service.device?.imei)}</span>
-              </Field>
-            </div>
-            {service.device?.issue && (
-              <div className="sm:col-span-2 lg:col-span-4">
-                <Field label="Issue">{service.device.issue}</Field>
-              </div>
-            )}
-          </div>
-        </section>
-
-        {/* Customer + Technician */}
+        {/* Customer + Device */}
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <section className={`${cardClass} p-5`}>
             <div className="mb-4 flex items-center gap-3">
@@ -535,17 +507,59 @@ export default function ServiceDetailsView({
               </div>
               <h3 className="font-semibold text-gray-900">Customer Information</h3>
             </div>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <Field label="Name">{displayOptional(service.customer?.name)}</Field>
-              <Field label="Phone">{displayOptional(service.customer?.phone)}</Field>
-              {service.customer?.email && <Field label="Email">{service.customer.email}</Field>}
-              {service.customer?.address && (
-                <Field label="Address">{service.customer.address}</Field>
+            <div className="space-y-3">
+              <ContactField label="Name" value={displayOptional(service.customer?.name)} />
+              <ContactField
+                label="Phone"
+                value={displayOptional(service.customer?.phone)}
+                href={service.customer?.phone ? `tel:${service.customer.phone}` : undefined}
+                icon={<MdCall className="h-4 w-4" />}
+              />
+              {service.customer?.email && (
+                <ContactField
+                  label="Email"
+                  value={service.customer.email}
+                  href={`mailto:${service.customer.email}`}
+                  icon={<MdEmail className="h-4 w-4" />}
+                />
               )}
-              {service.customer?.place && <Field label="Place">{service.customer.place}</Field>}
+              {(service.customer?.place || service.customer?.address) && (
+                <ContactField
+                  label="Place"
+                  value={service.customer.place || service.customer.address || "—"}
+                />
+              )}
             </div>
           </section>
 
+          <section className={`${cardClass} p-5`}>
+            <div className="mb-4 flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-100">
+                <MdDevices className="h-4 w-4 text-emerald-600" />
+              </div>
+              <h3 className="font-semibold text-gray-900">Device Information</h3>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="Brand">{displayOptional(service.device?.brand)}</Field>
+              <Field label="Model">{displayOptional(service.device?.model)}</Field>
+              <Field label="Type">{displayOptional(service.device?.type)}</Field>
+              <Field label="Color">{displayOptional(service.device?.color)}</Field>
+              <div className="col-span-2">
+                <Field label="IMEI">
+                  <span className="font-mono text-sm">{displayOptional(service.device?.imei)}</span>
+                </Field>
+              </div>
+              {service.device?.issue && (
+                <div className="col-span-2">
+                  <Field label="Issue">{service.device.issue}</Field>
+                </div>
+              )}
+            </div>
+          </section>
+        </div>
+
+        {/* Technician + Branch */}
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <section className={`${cardClass} p-5`}>
             <div className="mb-4 flex items-center gap-3">
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-orange-100">
@@ -554,26 +568,144 @@ export default function ServiceDetailsView({
               <h3 className="font-semibold text-gray-900">Assigned Technician</h3>
             </div>
             {technicianId ? (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <Field label="Name">{technicianDisplayName}</Field>
-                {technician?.phone && <Field label="Phone">{technician.phone}</Field>}
-                {technician?.email && <Field label="Email">{technician.email}</Field>}
-                {technician?.experience != null && (
-                  <Field label="Experience">{technician.experience} years</Field>
-                )}
-                {technician?.specializations && technician.specializations.length > 0 && (
-                  <div className="sm:col-span-2">
-                    <Field label="Specializations">
-                      {technician.specializations.join(", ")}
-                    </Field>
+              <div className="flex items-start gap-3">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-violet-100 text-lg font-semibold text-violet-700">
+                  {technicianDisplayName.charAt(0).toUpperCase()}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-semibold text-gray-900">{technicianDisplayName}</div>
+                  <div className="text-xs text-gray-500">
+                    {technician?.role === "branch_admin" ? "Branch Admin" : "Technician"}
                   </div>
-                )}
+                  <div className="mt-2 space-y-1 text-xs text-gray-600">
+                    {technician?.phone && (
+                      <div className="flex items-center gap-1.5">
+                        <MdCall className="h-3.5 w-3.5" aria-hidden="true" />
+                        {technician.phone}
+                      </div>
+                    )}
+                    {technician?.email && (
+                      <div className="flex items-center gap-1.5">
+                        <MdEmail className="h-3.5 w-3.5" aria-hidden="true" />
+                        {technician.email}
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             ) : (
               <p className="text-sm text-gray-500">No technician assigned.</p>
             )}
           </section>
+
+          <section className={`${cardClass} p-5`}>
+            <div className="mb-4 flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-teal-100">
+                <MdStore className="h-4 w-4 text-teal-600" />
+              </div>
+              <h3 className="font-semibold text-gray-900">Branch Information</h3>
+            </div>
+            <div className="text-sm font-semibold text-gray-900">{branch?.name || branchName}</div>
+            {branch?.location && (
+              <div className="mt-2 flex items-center gap-1.5 text-xs text-gray-600">
+                <MdLocationOn className="h-3.5 w-3.5" aria-hidden="true" />
+                {branch.location}
+              </div>
+            )}
+            {branch?.phone && (
+              <div className="mt-1 flex items-center gap-1.5 text-xs text-gray-600">
+                <MdCall className="h-3.5 w-3.5" aria-hidden="true" />
+                {branch.phone}
+              </div>
+            )}
+          </section>
         </div>
+
+        {/* Service Progress */}
+        <section className={`${cardClass} p-5`}>
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="font-semibold text-gray-900">Service Progress</h3>
+            <div className="flex items-center gap-2">
+              {updatingStatus && <span className="text-xs text-gray-500">Updating…</span>}
+              {statusUpdateSuccess && (
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600">
+                  <MdCheckCircle className="h-4 w-4" />
+                  Updated
+                </span>
+              )}
+            </div>
+          </div>
+
+          {isCancelled ? (
+            <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+              <MdCancel className="h-5 w-5" aria-hidden="true" />
+              This repair has been cancelled.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <div className="flex min-w-[560px] items-start">
+                {PROGRESS_STEPS.map((def, index) => {
+                  const isCurrent = index === currentStepIndex;
+                  const isDone = index < currentStepIndex;
+                  const description =
+                    isCurrent && def.targetStatus !== normalizedStatus
+                      ? getStatusConfig(status).label
+                      : def.baseDescription;
+                  return (
+                    <React.Fragment key={def.step}>
+                      <button
+                        type="button"
+                        onClick={() => onStepClick(def.targetStatus)}
+                        disabled={updatingStatus}
+                        className="flex flex-1 cursor-pointer flex-col items-center gap-2 text-center focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <span
+                          className={`flex h-10 w-10 items-center justify-center rounded-full border-2 text-sm font-semibold ${
+                            isCurrent
+                              ? "border-blue-600 bg-blue-600 text-white"
+                              : isDone
+                                ? "border-blue-300 bg-blue-50 text-blue-600"
+                                : "border-gray-300 bg-white text-gray-400"
+                          }`}
+                        >
+                          {isDone ? <MdCheck className="h-5 w-5" /> : def.step}
+                        </span>
+                        <span className={`text-sm font-semibold ${isCurrent ? "text-blue-700" : "text-gray-700"}`}>
+                          {def.label}
+                        </span>
+                        <span className="max-w-[130px] text-xs text-gray-500">{description}</span>
+                      </button>
+                      {index < PROGRESS_STEPS.length - 1 && (
+                        <div
+                          className={`mt-5 h-0.5 flex-1 ${index < currentStepIndex ? "bg-blue-400" : "bg-gray-200"}`}
+                        />
+                      )}
+                    </React.Fragment>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          <div className="mt-4 flex flex-col gap-2 border-t border-gray-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs text-gray-500">
+              Click a stage above to update the status, or pick a specific status here.
+            </p>
+            <select
+              value={status}
+              onChange={onStatusChange}
+              disabled={updatingStatus}
+              aria-label="Set a specific status"
+              className="min-h-11 cursor-pointer rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+            >
+              {statusOptions.map((opt) => (
+                <option key={opt} value={opt}>
+                  {getStatusConfig(opt).label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </section>
 
         {/* Optional blocks */}
         {(service.notes || (service.workNotes && service.workNotes.length > 0)) && (
@@ -627,20 +759,68 @@ export default function ServiceDetailsView({
 
         <ServicePartsOrdered serviceId={service.id} />
 
-        {service.customerFeedback && (
+        {/* Payment + Service History summary */}
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <section className={`${cardClass} p-5`}>
             <div className="mb-4 flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-yellow-100">
-                <MdFeedback className="h-4 w-4 text-yellow-600" />
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-100">
+                <MdPayments className="h-4 w-4 text-blue-600" />
               </div>
-              <h3 className="font-semibold text-gray-900">Customer Feedback</h3>
+              <h3 className="font-semibold text-gray-900">Payment Details</h3>
             </div>
-            <p className="text-sm text-gray-900">Rating: {service.customerFeedback.rating}/5</p>
-            {service.customerFeedback.comment && (
-              <p className="mt-2 text-sm text-gray-600">{service.customerFeedback.comment}</p>
-            )}
+            <div className="space-y-2 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-gray-600">Service Fee</span>
+                <span className="font-semibold text-gray-900">₹{(service.price ?? 0).toLocaleString()}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-gray-600">Paid Amount</span>
+                <span className="font-semibold text-gray-900">₹{paidAmount.toLocaleString()}</span>
+              </div>
+              <div className="flex items-center justify-between border-t border-gray-100 pt-2">
+                <span className="font-medium text-gray-700">Due Amount</span>
+                <span className={`font-bold ${dueAmount > 0 ? "text-red-600" : "text-emerald-600"}`}>
+                  ₹{dueAmount.toLocaleString()}
+                </span>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={onUpdatePayment}
+              className="mt-4 inline-flex min-h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <MdPayments className="h-4 w-4" />
+              Record Payment
+            </button>
           </section>
-        )}
+
+          <section className={`${cardClass} p-5`}>
+            <div className="mb-4 flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gray-100">
+                <MdHistory className="h-4 w-4 text-gray-600" />
+              </div>
+              <h3 className="font-semibold text-gray-900">Service History</h3>
+            </div>
+            <div className="space-y-3 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-gray-600">Created</span>
+                <span className="text-gray-900">{formatDateTime(createdAt)}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-gray-600">Last Updated</span>
+                <span className="text-gray-900">{formatDateTime(updatedAt)}</span>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={onToggleHistory}
+              className="mt-4 inline-flex min-h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-800 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <MdHistory className="h-4 w-4" />
+              {showHistory ? "Hide Full History" : "View Full History"}
+            </button>
+          </section>
+        </div>
 
         {showHistory && (
           <section className={`${cardClass} p-5`}>
@@ -648,7 +828,7 @@ export default function ServiceDetailsView({
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gray-100">
                 <MdHistory className="h-4 w-4 text-gray-600" />
               </div>
-              <h3 className="font-semibold text-gray-900">Status History</h3>
+              <h3 className="font-semibold text-gray-900">Full Status History</h3>
             </div>
             {statusHistory.length > 0 ? (
               <div className="space-y-2">
@@ -657,17 +837,20 @@ export default function ServiceDetailsView({
                   return (
                     <div
                       key={`history-${entry.status}-${entry.timestamp.getTime()}-${index}`}
-                      className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 p-3"
+                      className="rounded-lg border border-gray-100 bg-gray-50 p-3"
                     >
-                      <div className="flex items-center gap-3">
-                        <span
-                          className={`inline-flex items-center rounded px-2 py-1 text-xs font-semibold ${entryStatus.color} ${entryStatus.bg}`}
-                        >
-                          {entryStatus.label}
-                        </span>
-                        <span className="text-xs text-gray-600">{entry.updatedBy}</span>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <span
+                            className={`inline-flex items-center rounded px-2 py-1 text-xs font-semibold ${entryStatus.color} ${entryStatus.bg}`}
+                          >
+                            {entryStatus.label}
+                          </span>
+                          <span className="text-xs text-gray-600">{entry.updatedBy}</span>
+                        </div>
+                        <span className="text-xs text-gray-500">{formatDateTime(entry.timestamp)}</span>
                       </div>
-                      <span className="text-xs text-gray-500">{formatDateTime(entry.timestamp)}</span>
+                      {entry.note && <p className="mt-2 text-xs text-gray-700">{entry.note}</p>}
                     </div>
                   );
                 })}
@@ -677,7 +860,6 @@ export default function ServiceDetailsView({
             )}
           </section>
         )}
-
       </div>
     </div>
   );

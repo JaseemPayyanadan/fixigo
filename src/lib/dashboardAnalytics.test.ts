@@ -344,7 +344,7 @@ describe("summarize", () => {
 describe("pipelineBreakdown", () => {
   it("returns every open stage even when a status has no services", () => {
     const { stages, total } = pipelineBreakdown([service({ status: "pending" })]);
-    expect(stages).toHaveLength(5);
+    expect(stages).toHaveLength(6);
     expect(total).toBe(1);
     expect(stages.find((s) => s.status === "awaiting_parts")).toMatchObject({ count: 0, fraction: 0 });
   });

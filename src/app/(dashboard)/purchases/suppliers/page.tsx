@@ -3,6 +3,8 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import React, { Suspense } from "react";
 
+import { PlusIcon } from "@heroicons/react/24/outline";
+
 import { Button } from "@/components/ui/Button";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { PageFallback, TableSkeleton } from "@/components/ui/PageSkeleton";
@@ -143,12 +145,15 @@ function SuppliersContent() {
   const showInline = creating && viewport === "mobile";
 
   return (
-    <div className="space-y-4 p-4 sm:p-6">
+    <div className="flex min-h-screen flex-col gap-3 p-3 sm:p-4">
       <PurchaseTabs />
 
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-gray-900">Suppliers</h1>
-        <Button onClick={openCreate}>+ Add Supplier</Button>
+        <h1 className="text-lg font-semibold text-gray-900">Suppliers</h1>
+        <Button onClick={openCreate} size="sm">
+          <PlusIcon className="h-4 w-4" />
+          Add Supplier
+        </Button>
       </div>
 
       {showInline && (
@@ -175,16 +180,18 @@ function SuppliersContent() {
       {loading ? (
         <TableSkeleton rows={6} />
       ) : !loadError ? (
-        <SupplierList
-          suppliers={suppliers}
-          branches={branches}
-          showBranchColumn={isShopAdmin}
-          onOpen={(id) => router.push(`/purchases/suppliers/details?id=${id}`)}
-          onDelete={(supplier) => {
-            setDeleteError(null);
-            setDeleteTarget(supplier);
-          }}
-        />
+        <div className="flex min-h-0 flex-1 flex-col">
+          <SupplierList
+            suppliers={suppliers}
+            branches={branches}
+            showBranchColumn={isShopAdmin}
+            onOpen={(id) => router.push(`/purchases/suppliers/details?id=${id}`)}
+            onDelete={(supplier) => {
+              setDeleteError(null);
+              setDeleteTarget(supplier);
+            }}
+          />
+        </div>
       ) : null}
 
       <SlideOver

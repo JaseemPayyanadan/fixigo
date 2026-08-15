@@ -80,11 +80,11 @@ function TechnicianFilterDropdown({
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label="Filter technicians"
-        className={`relative flex h-11 w-11 items-center justify-center rounded-xl border transition-colors md:h-9 md:w-9 lg:h-11 lg:w-11 ${
+        className={`relative flex h-9 w-9 items-center justify-center rounded-lg border transition-colors ${
           isFiltered ? "border-blue-200 bg-blue-50 text-blue-700" : "border-gray-200 bg-white text-gray-600"
         }`}
       >
-        <FunnelIcon className="h-5 w-5 md:h-4 md:w-4 lg:h-5 lg:w-5" />
+        <FunnelIcon className="h-4 w-4" />
         {isFiltered && <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-blue-600" aria-hidden="true" />}
       </button>
 
@@ -285,9 +285,9 @@ function TechniciansContent() {
   const showSlide = slideMode && viewport === "desktop";
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="w-full mx-auto space-y-5 p-4 md:p-6">
-        <div className="flex flex-wrap items-center gap-3">
+    <div className="flex min-h-screen flex-col bg-gray-50">
+      <div className="flex min-h-0 flex-1 flex-col gap-3 p-3 md:p-4">
+        <div className="flex flex-wrap items-center gap-2">
           <TechnicianFilterDropdown
             branches={branches || []}
             statusFilter={statusFilter}
@@ -297,8 +297,8 @@ function TechniciansContent() {
           />
 
           <PermissionGuard permissions={["technician:write"]} fallback={null}>
-            <Button onClick={openNew} className="lg:ml-auto">
-              <PlusIcon className="w-5 h-5" />
+            <Button onClick={openNew} size="sm" className="lg:ml-auto">
+              <PlusIcon className="h-4 w-4" />
               Add Technician
             </Button>
           </PermissionGuard>
@@ -307,13 +307,15 @@ function TechniciansContent() {
         {loading ? (
           <TableSkeleton rows={8} />
         ) : (
-          <TechnicianTable
-            technicians={filteredTechnicians}
-            branches={branches || []}
-            onView={setViewing}
-            onEdit={openEdit}
-            onDelete={handleDelete}
-          />
+          <div className="flex min-h-0 flex-1 flex-col">
+            <TechnicianTable
+              technicians={filteredTechnicians}
+              branches={branches || []}
+              onView={setViewing}
+              onEdit={openEdit}
+              onDelete={handleDelete}
+            />
+          </div>
         )}
       </div>
 

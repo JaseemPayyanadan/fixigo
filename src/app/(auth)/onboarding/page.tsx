@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 
 import { MdArrowForward, MdBusiness, MdCheckCircle, MdEmail, MdLocationOn, MdPerson, MdPhone, MdStore } from "react-icons/md";
 
+import { FixigoLogo } from "@/components/brand/FixigoLogo";
 import TextInput from "@/components/ui/TextInput";
 
 export default function OnboardingPage() {
@@ -254,9 +255,7 @@ export default function OnboardingPage() {
         {/* Header */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center mb-6">
-            <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg">
-              <span className="text-white font-bold text-3xl">F</span>
-            </div>
+            <FixigoLogo variant="mark" size={64} />
           </div>
           <h1 className="text-4xl font-bold text-gray-900 mb-2">Welcome to Fixigo!</h1>
           <p className="text-lg text-gray-600">Let&apos;s set up your business in just a few steps</p>

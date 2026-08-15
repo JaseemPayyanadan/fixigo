@@ -55,8 +55,8 @@ export const RankedListCard = React.memo(function RankedListCard({
 
                 <div className="min-w-0 flex-1">
                   <div className="flex items-baseline justify-between gap-2">
-                    <p className="truncate text-sm font-medium text-gray-800">{item.label}</p>
-                    <span className="shrink-0 text-sm font-semibold tabular-nums text-gray-900">{item.count}</span>
+                    <p className="truncate text-xs font-medium text-gray-800">{item.label}</p>
+                    <span className="shrink-0 text-xs font-semibold tabular-nums text-gray-900">{item.count}</span>
                   </div>
                   <div className="mt-1.5 flex items-center gap-2">
                     <BarMeter fraction={max === 0 ? 0 : item.count / max} color={color} />

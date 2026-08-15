@@ -1,5 +1,6 @@
 // Service Status Constants
 export const SERVICE_STATUSES = {
+  AWAITING_DROP_OFF: "awaiting_drop_off",
   PENDING: "pending",
   IN_PROGRESS: "in_progress",
   COMPLETED: "completed",
@@ -20,6 +21,7 @@ export const SERVICE_PRIORITIES = {
 
 // Service Status Labels
 export const SERVICE_STATUS_LABELS = {
+  [SERVICE_STATUSES.AWAITING_DROP_OFF]: "Awaiting Drop-off",
   [SERVICE_STATUSES.PENDING]: "Pending",
   [SERVICE_STATUSES.IN_PROGRESS]: "In Progress",
   [SERVICE_STATUSES.COMPLETED]: "Completed",
@@ -40,6 +42,7 @@ export const SERVICE_PRIORITY_LABELS = {
 
 // Service Status Colors
 export const SERVICE_STATUS_COLORS = {
+  [SERVICE_STATUSES.AWAITING_DROP_OFF]: "bg-amber-100 text-amber-800 border-amber-200",
   [SERVICE_STATUSES.PENDING]: "bg-blue-100 text-blue-800 border-blue-200",
   [SERVICE_STATUSES.IN_PROGRESS]: "bg-amber-100 text-amber-800 border-amber-200",
   [SERVICE_STATUSES.COMPLETED]: "bg-emerald-100 text-emerald-800 border-emerald-200",
@@ -68,6 +71,7 @@ export const SERVICE_PRIORITY_ICONS = {
 
 // Service Status Descriptions
 export const SERVICE_STATUS_DESCRIPTIONS = {
+  [SERVICE_STATUSES.AWAITING_DROP_OFF]: "Complaint registered, waiting for customer to bring in the device",
   [SERVICE_STATUSES.PENDING]: "Service request created, waiting to be assigned",
   [SERVICE_STATUSES.IN_PROGRESS]: "Work on the service has begun",
   [SERVICE_STATUSES.COMPLETED]: "Service has been completed successfully",
@@ -135,7 +139,7 @@ export const SERVICE_VALIDATION_RULES = {
 // Service Default Values
 export const SERVICE_DEFAULTS = {
   PRIORITY: SERVICE_PRIORITIES.MEDIUM,
-  STATUS: SERVICE_STATUSES.PENDING,
+  STATUS: SERVICE_STATUSES.AWAITING_DROP_OFF,
   CURRENCY: "INR",
   LOCALE: "en-IN"
 } as const;

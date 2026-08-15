@@ -80,6 +80,7 @@ const getStatusBadgeConfig = (status: string) => {
   // Normalize status and map to display format
   const normalizedStatus = normalizeStatus(status);
   const statusDisplayMap: Record<string, string> = {
+    'awaiting_drop_off': 'Pending',
     'pending': 'Pending',
     'to_do': 'To Do',
     'in_progress': 'In Progress',

@@ -1,24 +1,16 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Fixigo">
-  <defs>
-    <linearGradient id="bg" x1="64" y1="64" x2="448" y2="448" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#2563eb"/>
-      <stop offset="100%" stop-color="#4f46e5"/>
-    </linearGradient>
-  </defs>
-  <!-- Rounded square matching AppBar mark -->
-  <rect width="512" height="512" rx="112" ry="112" fill="url(#bg)"/>
-  <!-- Bold geometric F, optically centered with slight left bias for balance -->
-  <path fill="#ffffff" d="
-    M156 128
-    H356
-    V188
-    H228
-    V242
-    H332
-    V302
-    H228
-    V384
-    H156
+  <rect width="512" height="512" fill="#2563EB"/>
+  <path fill="#fff" d="M180 120h200v64H260v208h-80z"/>
+  <path fill="#fff" fill-rule="evenodd" d="
+    M285.6 204
+    L330.63 230
+    V282
+    L285.6 308
+    L240.57 282
+    V230
     Z
-  "/>
+    M303.2 256
+    a17.6 17.6 0 1 1 -35.2 0
+    a17.6 17.6 0 1 1 35.2 0
+    Z"/>
 </svg>

@@ -77,7 +77,7 @@ const STATUS_BUCKETS: Record<StatusBucketKey, { label: string; statuses: string[
     label: "In Progress",
     statuses: ["in_progress", "awaiting_parts", "quality_check", "on_hold", "ready_for_pickup", "urgent"],
   },
-  to_do: { label: "To Do", statuses: ["pending", "to_do"] },
+  to_do: { label: "To Do", statuses: ["pending", "to_do", "awaiting_drop_off"] },
 };
 
 function startOfDay(date: Date): Date {
@@ -410,6 +410,7 @@ export function summarize(services: Service[]): MetricSummary {
 
 /** Open lifecycle stages — completed work lives in the KPI row, not here. */
 const PIPELINE_STAGES: Array<{ status: string; label: string }> = [
+  { status: "awaiting_drop_off", label: "Awaiting Drop-off" },
   { status: "pending", label: "Received" },
   { status: "in_progress", label: "Repairing" },
   { status: "awaiting_parts", label: "Waiting Parts" },

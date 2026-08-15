@@ -188,6 +188,7 @@ const ServiceDashboard: React.FC<ServiceDashboardProps> = ({
                 <div className="flex items-center gap-2">
                   <div className={`w-3 h-3 rounded-full ${
                     status === 'completed' ? 'bg-green-500' :
+                    status === 'awaiting_drop_off' ? 'bg-amber-500' :
                     status === 'in_progress' ? 'bg-blue-500' :
                     status === 'pending' ? 'bg-yellow-500' :
                     status === 'on_hold' ? 'bg-orange-500' :

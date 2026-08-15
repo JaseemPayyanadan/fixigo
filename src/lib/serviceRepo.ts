@@ -226,7 +226,7 @@ export async function createService(
     customer: input.customer || {},
     device: input.device || {},
     created_by: input.created_by || {},
-    status: input.status || "pending",
+    status: input.status || "awaiting_drop_off",
     createdAt: now,
     updatedAt: now,
   });

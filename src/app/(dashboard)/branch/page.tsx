@@ -148,7 +148,7 @@ export default function BranchPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="flex min-h-screen flex-col bg-white">
       {/* Header */}
       <div className="border-b border-gray-100 bg-white sticky top-0 z-10">
         <div className="px-6 py-4">
@@ -183,7 +183,7 @@ export default function BranchPage() {
       </div>
 
       {/* Content */}
-      <div className="flex-1">
+      <div className="flex min-h-0 flex-1 flex-col">
         {user?.role === "shop_admin" && (
           <ShopAdminBranchList
             branches={filteredBranches}

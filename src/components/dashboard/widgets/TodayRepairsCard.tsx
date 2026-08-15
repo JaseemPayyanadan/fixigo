@@ -69,7 +69,7 @@ export const TodayRepairsCard = React.memo(function TodayRepairsCard({ summary, 
           <p className="py-8 text-center text-sm text-gray-500">No activity yet today</p>
         ) : (
           <div className="max-h-80 min-h-0 flex-1 overflow-auto">
-            <table className="w-full border-collapse text-sm">
+            <table className="w-full border-collapse text-xs">
               <thead>
                 <tr className="text-left text-[11px] font-medium uppercase tracking-wide text-gray-400">
                   <th className="sticky top-0 bg-white pb-2">Service</th>

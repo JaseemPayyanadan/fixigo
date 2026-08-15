@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 
 import { ChartBarIcon, ClockIcon, EnvelopeIcon, LockClosedIcon, ShieldCheckIcon, UsersIcon } from "@heroicons/react/24/outline";
 
-import { AuthGuard } from "@/components";
+import { AuthGuard, FixigoLogo } from "@/components";
 import PasswordInput from "@/components/ui/PasswordInput";
 import TextInput from "@/components/ui/TextInput";
 import { useAuth } from "@/contexts/AuthContext";
@@ -52,14 +52,8 @@ function LoginContent() {
       <div className="hidden lg:flex lg:flex-1 bg-gradient-to-br from-green-600 via-emerald-600 to-teal-600">
         <div className="max-w-lg mx-auto text-white flex flex-col justify-center px-8">
           {/* Logo */}
-          <div className="flex items-center mb-8">
-            <div className="w-12 h-12 lg:w-14 lg:h-14 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center shadow-lg mr-4">
-              <span className="text-white font-bold text-2xl">F</span>
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold">Fixigo</h1>
-              <p className="text-blue-100 text-sm">Service Management Platform</p>
-            </div>
+          <div className="mb-8">
+            <FixigoLogo variant="lockup" tone="inverse" size={56} showTagline />
           </div>
 
           {/* Hero Content */}
@@ -108,9 +102,7 @@ function LoginContent() {
           {/* Mobile Brand Header */}
           <div className="text-center mb-8 lg:hidden">
             <div className="flex items-center justify-center mb-4">
-              <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
-                <span className="text-white font-bold text-2xl">F</span>
-              </div>
+              <FixigoLogo variant="mark" size={48} />
             </div>
             <h1 className="text-2xl font-bold text-gray-900 mb-2">Welcome Back</h1>
             <p className="text-gray-600">Sign in to your Fixigo account</p>

@@ -3,6 +3,9 @@ export { default as AuthGuard } from "./auth/AuthGuard";
 export { default as RoleGuard } from "./auth/RoleGuard";
 export { default as PermissionGuard } from "./auth/PermissionGuard";
 
+// Brand
+export { FixigoLogo } from "./brand/FixigoLogo";
+
 // Layout Components
 export { AppBar } from "./layout/AppBar";
 export { BottomNavBar } from "./layout/BottomNavBar";

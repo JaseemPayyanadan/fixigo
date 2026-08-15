@@ -150,20 +150,20 @@ export const ServiceCard: React.FC<{ service: Service }> = React.memo(({ service
         </div>
         
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold text-gray-900 transition-colors group-hover:text-blue-600">
+          <p className="truncate text-xs font-semibold text-gray-900 transition-colors group-hover:text-blue-600">
             {service.name}
           </p>
-          <p className="truncate text-xs text-gray-500">
+          <p className="truncate text-[11px] text-gray-500">
             {service.customer?.name || "Unknown Customer"} • {service.device?.brand || "Unknown"} {service.device?.model || "Device"}
           </p>
         </div>
       </div>
 
       <div className="flex shrink-0 items-center gap-3">
-        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium leading-4 whitespace-nowrap ${statusColors.text} ${statusColors.bg}`}>
+        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium leading-4 whitespace-nowrap ${statusColors.text} ${statusColors.bg}`}>
           {service.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
         </span>
-        <span className="text-sm font-semibold tabular-nums text-gray-900">{formatCurrency(service.price)}</span>
+        <span className="text-xs font-semibold tabular-nums text-gray-900">{formatCurrency(service.price)}</span>
       </div>
     </div>
   );

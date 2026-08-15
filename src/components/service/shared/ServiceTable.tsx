@@ -22,6 +22,7 @@ import {
   type SortingState,
 } from "@tanstack/react-table";
 
+import { TABLE_MIN_PAGE_SIZE, useViewportPageSize } from "@/components/ui/DataTable";
 import { paymentLabelOf, type ServicePaymentStatus } from "@/lib/paymentUtils";
 import { resolveServiceRows, type ResolvedServiceRow } from "@/lib/serviceTableRows";
 import { getStatusConfig } from "@/lib/statusUtils";
@@ -68,40 +69,10 @@ interface ServiceTableProps {
 }
 
 /** Measured from the rendered table: row, header and footer heights in px. */
-const ROW_HEIGHT = 61;
+const ROW_HEIGHT = 48;
 /** A stacked card carries the same fields as a row but in several lines, plus
  *  the gap between cards. */
 const CARD_HEIGHT = 152 + 12;
-const CHROME_HEIGHT = 41 + 49 + 24; // header row + pagination footer + card border/margin
-const MIN_PAGE_SIZE = 5;
-/** Below this width the table is replaced by cards (Tailwind's `md`). */
-const CARD_BREAKPOINT = 768;
-
-/**
- * Rows that fit between the table's top edge and the bottom of the window.
- * Re-measured on resize so rotating a tablet or opening devtools re-pages, and
- * so crossing the card breakpoint re-pages against the taller card height.
- */
-function useViewportPageSize(ref: React.RefObject<HTMLDivElement | null>, enabled: boolean) {
-  const [size, setSize] = useState(MIN_PAGE_SIZE);
-
-  useEffect(() => {
-    if (!enabled) return;
-
-    const measure = () => {
-      const top = ref.current?.getBoundingClientRect().top ?? 0;
-      const available = window.innerHeight - top - CHROME_HEIGHT;
-      const rowHeight = window.innerWidth < CARD_BREAKPOINT ? CARD_HEIGHT : ROW_HEIGHT;
-      setSize(Math.max(MIN_PAGE_SIZE, Math.floor(available / rowHeight)));
-    };
-
-    measure();
-    window.addEventListener("resize", measure);
-    return () => window.removeEventListener("resize", measure);
-  }, [ref, enabled]);
-
-  return size;
-}
 
 function formatPrice(price: number): string {
   return `₹${Number(price || 0).toLocaleString("en-IN")}`;
@@ -223,7 +194,7 @@ function ServiceCard({
   );
 }
 
-const HEADER_CLASS = "px-2 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500";
+const HEADER_CLASS = "px-2 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500";
 
 /**
  * Repairs list as a TanStack data table: sortable headers and client-side
@@ -242,7 +213,11 @@ export function ServiceTable({
   const router = useRouter();
   const [sorting, setSorting] = useState<SortingState>([{ id: "createdAt", desc: true }]);
   const containerRef = useRef<HTMLDivElement>(null);
-  const autoPageSize = useViewportPageSize(containerRef, pageSize === undefined);
+  const autoPageSize = useViewportPageSize(containerRef, {
+    enabled: pageSize === undefined,
+    rowHeight: ROW_HEIGHT,
+    cardHeight: CARD_HEIGHT,
+  });
   const sentinelRef = useRef<HTMLDivElement>(null);
   // Cards loaded so far on phones, where scrolling replaces Previous/Next.
   // Grows by `autoPageSize` — the same viewport-based batch used to size a
@@ -283,7 +258,7 @@ export function ServiceTable({
               <Link
                 href={`/services/details?id=${service.id}`}
                 onClick={(event) => event.stopPropagation()}
-                className="block truncate rounded text-sm font-semibold text-gray-900 hover:text-blue-700 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="block truncate rounded text-xs font-semibold text-gray-900 hover:text-blue-700 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 {service.name || "Repair"}
               </Link>
@@ -303,7 +278,7 @@ export function ServiceTable({
           const customer = row.original.customer;
           return (
             <>
-              <p className="truncate text-sm font-medium text-gray-900">{customer?.name || "—"}</p>
+              <p className="truncate text-xs font-medium text-gray-900">{customer?.name || "—"}</p>
               {customer?.phone && <p className="truncate text-xs text-gray-500">{customer.phone}</p>}
             </>
           );
@@ -317,7 +292,7 @@ export function ServiceTable({
           meta: { headerClass: "hidden lg:table-cell", cellClass: "hidden lg:table-cell" },
           cell: ({ row, getValue }) => (
             <>
-              <p className="truncate text-sm text-gray-900">{getValue() || "—"}</p>
+              <p className="truncate text-xs text-gray-900">{getValue() || "—"}</p>
               {row.original.device?.imei && (
                 <p className="truncate font-mono text-xs text-gray-400">{row.original.device.imei}</p>
               )}
@@ -351,7 +326,7 @@ export function ServiceTable({
             columnHelper.accessor("branchName", {
               id: "branch",
               header: "Branch",
-              meta: { cellClass: "text-sm text-gray-700" },
+              meta: { cellClass: "text-xs text-gray-700" },
               cell: ({ getValue }) => <span className="truncate">{getValue()}</span>,
             }),
           ]
@@ -361,7 +336,7 @@ export function ServiceTable({
         header: "Technician",
         meta: {
           headerClass: "hidden md:table-cell",
-          cellClass: "hidden text-sm text-gray-700 md:table-cell",
+          cellClass: "hidden text-xs text-gray-700 md:table-cell",
         },
         cell: ({ getValue }) => <span className="truncate">{getValue()}</span>,
       }),
@@ -377,7 +352,7 @@ export function ServiceTable({
           const paidAmount = row.original.paidAmount;
           return (
             <>
-              <p className="text-sm font-semibold tabular-nums text-gray-900">{formatPrice(getValue())}</p>
+              <p className="text-xs font-semibold tabular-nums text-gray-900">{formatPrice(getValue())}</p>
               <p
                 className={`text-xs ${
                   label === "Paid"
@@ -444,7 +419,7 @@ export function ServiceTable({
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
-    initialState: { pagination: { pageSize: pageSize ?? MIN_PAGE_SIZE } },
+    initialState: { pagination: { pageSize: pageSize ?? TABLE_MIN_PAGE_SIZE } },
   });
 
   useEffect(() => {
@@ -494,7 +469,7 @@ export function ServiceTable({
   return (
     <div
       ref={containerRef}
-      className="rounded-2xl md:overflow-hidden md:border md:border-gray-100 md:bg-white md:shadow-sm"
+      className="flex min-h-0 flex-col rounded-2xl md:h-full md:flex-1 md:overflow-hidden md:border md:border-gray-100 md:bg-white md:shadow-sm"
     >
       {/* Cards on phones, table from `md` up — same rows, same page. Each card
           is its own surface with space between, so the wrapper drops its frame
@@ -514,9 +489,9 @@ export function ServiceTable({
         {hasMoreMobileRows && <div ref={sentinelRef} aria-hidden="true" />}
       </div>
 
-      <div className="hidden overflow-x-auto md:block">
-        <table className="min-w-full divide-y divide-gray-100 text-left">
-          <thead className="bg-gray-50">
+      <div className="hidden min-h-0 flex-1 overflow-auto md:block">
+        <table className="min-w-full divide-y divide-gray-100 text-left text-xs">
+          <thead className="sticky top-0 z-10 bg-gray-50">
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id}>
                 {headerGroup.headers.map((header) => {
@@ -577,7 +552,7 @@ export function ServiceTable({
                     | { headerClass?: string; cellClass?: string }
                     | undefined;
                   return (
-                    <td key={cell.id} className={`px-2 py-3 ${meta?.cellClass ?? ""}`}>
+                    <td key={cell.id} className={`px-2 py-2 ${meta?.cellClass ?? ""}`}>
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </td>
                   );
@@ -589,7 +564,7 @@ export function ServiceTable({
       </div>
 
       {totalRows > 0 && (
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-100 bg-white px-4 py-3 shadow-sm md:mt-0 md:rounded-none md:border-x-0 md:border-b-0 md:shadow-none">
+        <div className="mt-3 flex shrink-0 flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-100 bg-white px-3 py-2 shadow-sm md:mt-0 md:rounded-none md:border-x-0 md:border-b-0 md:shadow-none">
           {/* Phones load more by scrolling, so the count alone is enough here;
               the page/Previous/Next controls only make sense once there's a
               fixed page to be on, which is a desktop-table concept. */}

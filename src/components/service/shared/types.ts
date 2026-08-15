@@ -75,8 +75,9 @@ export interface ServiceSortOptions {
 }
 
 // Service Status Types
-export type ServiceStatus = 
-  | "pending" 
+export type ServiceStatus =
+  | "awaiting_drop_off"
+  | "pending"
   | "in_progress" 
   | "completed" 
   | "cancelled" 

@@ -31,7 +31,7 @@ const ReturnList = React.memo(function ReturnList({
   }
 
   return (
-    <div className="rounded-2xl md:overflow-hidden md:border md:border-gray-100 md:bg-white md:shadow-sm">
+    <div className="flex min-h-0 flex-col rounded-2xl md:h-full md:flex-1 md:overflow-hidden md:border md:border-gray-100 md:bg-white md:shadow-sm">
       <div className="space-y-3 md:hidden">
         {returns.map((entry) => (
           <div key={entry.id} className="w-full rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
@@ -80,26 +80,26 @@ const ReturnList = React.memo(function ReturnList({
         ))}
       </div>
 
-      <div className="hidden overflow-x-auto md:block">
-        <table className="min-w-full divide-y divide-gray-100 text-left text-sm">
+      <div className="hidden min-h-0 flex-1 overflow-auto md:block">
+        <table className="min-w-full divide-y divide-gray-100 text-left text-xs">
           <thead>
             <tr>
-              <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
+              <th className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
                 Bill
               </th>
-              <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
+              <th className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
                 Supplier
               </th>
-              <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">
+              <th className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">
                 Amount
               </th>
-              <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
+              <th className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
                 Reason
               </th>
-              <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
+              <th className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
                 Date
               </th>
-              <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">
+              <th className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">
                 <span className="sr-only">Actions</span>
               </th>
             </tr>
@@ -111,14 +111,14 @@ const ReturnList = React.memo(function ReturnList({
                 onClick={() => onOpenPurchase(entry.purchaseId)}
                 className="cursor-pointer transition-colors hover:bg-gray-50"
               >
-                <td className="px-4 py-3 text-gray-900">{entry.purchaseRef}</td>
-                <td className="px-4 py-3 text-gray-700">{entry.supplierName}</td>
-                <td className="px-4 py-3 text-right font-medium text-gray-900">
+                <td className="px-3 py-2 text-gray-900">{entry.purchaseRef}</td>
+                <td className="px-3 py-2 text-gray-700">{entry.supplierName}</td>
+                <td className="px-3 py-2 text-right font-medium text-gray-900">
                   {formatRupees(entry.totalAmount)}
                 </td>
-                <td className="px-4 py-3 text-gray-500">{entry.reason || "—"}</td>
-                <td className="px-4 py-3 text-gray-500">{formatDate(entry.returnedAt)}</td>
-                <td className="px-4 py-3 text-right">
+                <td className="px-3 py-2 text-gray-500">{entry.reason || "—"}</td>
+                <td className="px-3 py-2 text-gray-500">{formatDate(entry.returnedAt)}</td>
+                <td className="px-3 py-2 text-right">
                   <div className="flex items-center justify-end gap-1">
                     {onEditReturn && (
                       <button
