@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Fixigo">
+  <rect width="512" height="512" fill="#2563EB"/>
+  <path fill="#fff" d="M180 120h200v64H260v208h-80z"/>
+  <path fill="#fff" fill-rule="evenodd" d="
+    M285.6 204
+    L330.63 230
+    V282
+    L285.6 308
+    L240.57 282
+    V230
+    Z
+    M303.2 256
+    a17.6 17.6 0 1 1 -35.2 0
+    a17.6 17.6 0 1 1 35.2 0
+    Z"/>
+</svg>

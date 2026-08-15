@@ -1,5 +1,7 @@
 import type { SVGProps } from "react";
 
+import { cn } from "@/lib/cn";
+
 type LogoTone = "brand" | "inverse";
 type LogoVariant = "mark" | "lockup";
 
@@ -63,7 +65,7 @@ export function FixigoLogo({ variant = "mark", tone = "brand", size = 32, showTa
   const taglineClass = size >= 48 ? "text-sm" : "text-[10px]";
 
   return (
-    <div className={`flex items-center gap-2.5 ${className ?? ""}`}>
+    <div className={cn("flex items-center gap-2.5", className)}>
       <Mark tone={tone} size={size} className="shrink-0" />
       <div className="min-w-0 leading-tight">
         <p className={`truncate font-bold tracking-tight ${titleClass} ${titleColor}`}>Fixigo</p>
