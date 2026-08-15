@@ -88,3 +88,62 @@ export function buildScale(values: number[], height: number, padTop = 0) {
     return padTop + usable - (clamped / span) * usable;
   };
 }
+
+const Y_LABEL_CHAR_WIDTH = 6.5;
+const Y_AXIS_MIN_GUTTER = 32;
+const Y_AXIS_HIDDEN_GUTTER = 8;
+
+/**
+ * Left padding for an area chart. When tick amounts are hidden the plot still
+ * auto-scales; it just does not spend gutter on labels the reader never sees.
+ */
+export function yAxisGutter(showLabels: boolean, longestTickChars: number): number {
+  if (!showLabels) return Y_AXIS_HIDDEN_GUTTER;
+  return Math.max(Y_AXIS_MIN_GUTTER, Math.ceil(longestTickChars * Y_LABEL_CHAR_WIDTH) + 12);
+}
+
+export type AxisScale = "nice" | "data";
+
+/** Rounds an axis maximum up to a readable step so ticks land on whole numbers. */
+function niceMax(value: number): number {
+  if (value <= 0) return 4;
+  const magnitude = 10 ** Math.floor(Math.log10(value));
+  const normalized = value / magnitude;
+  const step = normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 5 ? 5 : 10;
+  return step * magnitude;
+}
+
+/**
+ * Top of the Y-axis. `"data"` uses the actual max earning so tick amounts
+ * follow takings; `"nice"` rounds up so counts land on whole numbers.
+ */
+export function axisCeiling(maxValue: number, scale: AxisScale): number {
+  if (!Number.isFinite(maxValue) || maxValue <= 0) return scale === "nice" ? 4 : 1;
+  return scale === "data" ? maxValue : niceMax(maxValue);
+}
+
+/**
+ * Which readings get an on-plot amount. Every earning is labelled while that
+ * stays sparse; past `limit` only the tallest peaks remain so labels do not
+ * collide.
+ */
+export function earningsLabelIndices(values: number[], limit = 10): number[] {
+  const nonzero = values
+    .map((value, index) => ({ value, index }))
+    .filter((point) => point.value > 0);
+
+  if (nonzero.length <= limit) return nonzero.map((point) => point.index);
+
+  const peaks = nonzero.filter(({ value, index }) => {
+    const left = values[index - 1] ?? 0;
+    const right = values[index + 1] ?? 0;
+    return value >= left && value >= right;
+  });
+
+  return peaks
+    .slice()
+    .sort((a, b) => b.value - a.value || a.index - b.index)
+    .slice(0, limit)
+    .map((point) => point.index)
+    .sort((a, b) => a - b);
+}

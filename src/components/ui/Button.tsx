@@ -15,10 +15,10 @@ const VARIANT_CLASSES: Record<ButtonVariant, string> = {
 };
 
 const SIZE_CLASSES: Record<ButtonSize, string> = {
-  sm: "h-9 px-3 text-sm",
-  md: "h-11 px-4 text-sm",
-  lg: "h-12 px-4 text-sm",
-  icon: "h-11 w-11",
+  sm: "h-9 px-3 text-sm md:h-8 lg:h-9",
+  md: "h-11 px-4 text-sm md:h-9 lg:h-11",
+  lg: "h-12 px-4 text-sm md:h-10 lg:h-12",
+  icon: "h-11 w-11 md:h-9 md:w-9 lg:h-11 lg:w-11",
 };
 
 const BASE_CLASSES =

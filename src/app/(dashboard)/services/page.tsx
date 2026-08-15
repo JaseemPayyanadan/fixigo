@@ -122,13 +122,13 @@ function StatusFilterDropdown({
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label={`Filter by status: ${activeChip?.label ?? "All statuses"}`}
-        className={`relative flex h-11 w-11 items-center justify-center rounded-xl border transition-colors ${
+        className={`relative flex h-11 w-11 items-center justify-center rounded-xl border transition-colors md:h-9 md:w-9 lg:h-11 lg:w-11 ${
           isFiltered
             ? "border-blue-200 bg-blue-50 text-blue-700"
             : "border-gray-200 bg-white text-gray-600"
         }`}
       >
-        <FunnelIcon className="h-5 w-5" />
+        <FunnelIcon className="h-5 w-5 md:h-4 md:w-4 lg:h-5 lg:w-5" />
         {/* A filter narrows what the list shows, so it has to be visible from
             the closed button — the label that said which one is gone. */}
         {isFiltered && (

@@ -28,7 +28,7 @@ export function AppBar() {
   const { user, loading } = useUser();
   const { logout } = useAuth();
   const router = useRouter();
-  const { collapsed, setCollapsed } = useSidebar();
+  const { collapsed, rail, setCollapsed } = useSidebar();
 
   // Rendered on the client only: formatting a date during SSR and again on the
   // client produces a hydration mismatch whenever the two disagree on timezone.
@@ -96,12 +96,12 @@ export function AppBar() {
   };
 
   return (
-    <header className={`fixed left-0 right-0 top-0 z-[9999] flex h-[72px] items-center gap-3 border-b border-gray-100 bg-white px-3 transition-all duration-200 md:gap-4 md:px-6 ${collapsed ? "md:ml-14" : "md:ml-56"}`}>
+    <header className={`fixed left-0 right-0 top-0 z-[9999] flex h-[72px] items-center gap-3 border-b border-gray-100 bg-white px-3 transition-all duration-200 md:gap-4 md:px-6 ${rail ? "md:ml-14" : "md:ml-56"}`}>
       {/* Sidebar toggle */}
       <button
         onClick={() => setCollapsed(!collapsed)}
         aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-        className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-gray-200 text-gray-600 transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 md:flex"
+        className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-gray-200 text-gray-600 transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 lg:flex"
       >
         <Menu className="h-5 w-5" />
       </button>

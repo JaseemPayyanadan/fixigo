@@ -14,6 +14,7 @@ import {
   technicianPerformance,
   todayRepairsList,
   todayRepairsSummary,
+  activeServicesKpi,
   type DashboardPeriod,
   type DayMetrics,
   type TrendWindow,
@@ -68,7 +69,7 @@ export function AdminDashboardView({
   now: nowOverride,
 }: AdminDashboardViewProps) {
   const [techniciansPeriod, setTechniciansPeriod] = React.useState<DashboardPeriod>("this_month");
-  const [trendWindow, setTrendWindow] = React.useState<TrendWindow>(30);
+  const [trendWindow, setTrendWindow] = React.useState<TrendWindow>(7);
 
   // Pinned per render pass so every widget measures against the same instant
   // rather than drifting as each one calls `new Date()`.
@@ -162,11 +163,10 @@ export function AdminDashboardView({
  * The delta is then how much the total grew between yesterday's close and now,
  * which is what the "vs yesterday" caption on the card means.
  *
- * Active Services carries no trend or delta. Unlike the cumulative measures, it
- * counts services *currently* in an in-flight status, and only a service's
- * present status is stored — there is no way to know what it held a week ago.
- * Passing an empty trend reserves the sparkline's height without drawing a
- * line, so all four cards stay identical in shape.
+ * Active Services is a snapshot of devices still in the shop. createdAt and
+ * completedDate reconstruct how many were open at each day's close, so the
+ * sparkline is a level (not a running total) that ends on today's count, and
+ * the delta is today's close versus yesterday's.
  *
  * Sparkline strokes match their card's accent rather than the shared
  * CHART_COLORS series slots — they are decorative (aria-hidden, with the value
@@ -176,6 +176,7 @@ function buildMetrics(services: Service[], now: Date): StatCardProps[] {
   const summary = summarize(services);
   const days = recentDays(services, 14, now);
   const today = days[days.length - 1];
+  const active = activeServicesKpi(services, now);
 
   /**
    * Walks the 14-day window forward from the total that predates it, so the
@@ -217,12 +218,12 @@ function buildMetrics(services: Service[], now: Date): StatCardProps[] {
     },
     {
       label: "Active Services",
-      value: String(summary.activeServices),
+      value: String(active.value),
       icon: Activity,
       iconClassName: "bg-orange-500",
       color: "#f97316",
-      trend: [],
-      delta: null,
+      trend: active.trend,
+      delta: active.delta,
     },
   ];
 }

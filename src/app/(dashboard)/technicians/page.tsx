@@ -80,11 +80,11 @@ function TechnicianFilterDropdown({
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label="Filter technicians"
-        className={`relative flex h-11 w-11 items-center justify-center rounded-xl border transition-colors ${
+        className={`relative flex h-11 w-11 items-center justify-center rounded-xl border transition-colors md:h-9 md:w-9 lg:h-11 lg:w-11 ${
           isFiltered ? "border-blue-200 bg-blue-50 text-blue-700" : "border-gray-200 bg-white text-gray-600"
         }`}
       >
-        <FunnelIcon className="h-5 w-5" />
+        <FunnelIcon className="h-5 w-5 md:h-4 md:w-4 lg:h-5 lg:w-5" />
         {isFiltered && <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-blue-600" aria-hidden="true" />}
       </button>
 
