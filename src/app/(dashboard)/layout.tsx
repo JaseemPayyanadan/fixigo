@@ -11,7 +11,7 @@ import { PageFallback } from "@/components/ui/PageSkeleton";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSidebar } from "@/contexts/SidebarContext";
 
-const hideNavRoutes = ["/login", "/register", "/onboarding"];
+const hideNavRoutes = ["/login", "/register", "/onboarding", "/services/invoice"];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();

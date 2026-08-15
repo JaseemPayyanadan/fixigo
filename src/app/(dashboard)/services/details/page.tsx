@@ -505,7 +505,10 @@ function ServiceDetailsPage() {
 
   // Memoized handlers to avoid arrow functions in JSX
   const handleGoBack = useCallback(() => router.back(), [router]);
-  const handlePrint = useCallback(() => window.print(), []);
+  const handlePrint = useCallback(() => {
+    if (!serviceId) return;
+    window.open(`/services/invoice?id=${encodeURIComponent(serviceId)}`, "_blank", "noopener,noreferrer");
+  }, [serviceId]);
   const handleReload = useCallback(() => window.location.reload(), []);
   const handleToggleShowHistory = useCallback(() => setShowHistory((prev) => !prev), []);
   const handleCancelEdit = useCallback(() => setEditing(false), []);
