@@ -4,6 +4,8 @@
 import { useRouter } from "next/navigation";
 import React from "react";
 
+import { PlusIcon } from "@heroicons/react/24/outline";
+
 import { Button } from "@/components/ui/Button";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { TableSkeleton } from "@/components/ui/PageSkeleton";
@@ -129,7 +131,7 @@ export default function PurchaseReturnsPage() {
     : null;
 
   return (
-    <div className="space-y-5 p-4 md:p-6">
+    <div className="flex min-h-screen flex-col gap-3 p-3 md:p-4">
       <PurchaseTabs />
 
       {error && (
@@ -140,35 +142,38 @@ export default function PurchaseReturnsPage() {
 
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-lg font-semibold text-gray-900">Returns</h1>
-        <Button type="button" onClick={() => setModalOpen(true)}>
-          + Record return
+        <Button type="button" size="sm" onClick={() => setModalOpen(true)}>
+          <PlusIcon className="h-4 w-4" />
+          Record Return
         </Button>
       </div>
 
       {loading ? (
         <TableSkeleton rows={6} />
       ) : (
-        <ReturnList
-          returns={returns}
-          onOpenPurchase={(id) => router.push(`/purchases/details?id=${id}`)}
-          onEditReturn={(entry) => {
-            // `purchases` excludes cancelled bills, so a return on one has no
-            // match here — editing is unavailable, same as the server enforces.
-            const stillEditable = purchases.some(
-              (purchase) => purchase.id === entry.purchaseId
-            );
-            if (!stillEditable) {
-              setError("This return can no longer be edited — its bill has been cancelled.");
-              return;
-            }
-            setError(null);
-            setEditingReturn(entry);
-          }}
-          onDeleteReturn={(entry) => {
-            setDeleteReturnError(null);
-            setDeletingReturn(entry);
-          }}
-        />
+        <div className="flex min-h-0 flex-1 flex-col">
+          <ReturnList
+            returns={returns}
+            onOpenPurchase={(id) => router.push(`/purchases/details?id=${id}`)}
+            onEditReturn={(entry) => {
+              // `purchases` excludes cancelled bills, so a return on one has no
+              // match here — editing is unavailable, same as the server enforces.
+              const stillEditable = purchases.some(
+                (purchase) => purchase.id === entry.purchaseId
+              );
+              if (!stillEditable) {
+                setError("This return can no longer be edited — its bill has been cancelled.");
+                return;
+              }
+              setError(null);
+              setEditingReturn(entry);
+            }}
+            onDeleteReturn={(entry) => {
+              setDeleteReturnError(null);
+              setDeletingReturn(entry);
+            }}
+          />
+        </div>
       )}
 
       <RecordReturnModal

@@ -56,7 +56,7 @@ const TechnicianServiceList: React.FC<TechnicianServiceListProps> = ({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="flex min-h-0 flex-1 flex-col gap-4">
       <ServiceTable
         services={services}
         branches={branches}
@@ -64,7 +64,7 @@ const TechnicianServiceList: React.FC<TechnicianServiceListProps> = ({
         onEdit={onEdit}
         onDelete={onDelete}
       />
-      <p className="text-center text-sm text-gray-500">
+      <p className="shrink-0 text-center text-sm text-gray-500">
         Showing {services.length} repair{services.length !== 1 ? "s" : ""}
       </p>
     </div>

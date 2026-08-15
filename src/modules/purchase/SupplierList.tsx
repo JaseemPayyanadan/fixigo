@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
 import { TrashIcon } from "@heroicons/react/24/outline";
 import {
@@ -13,14 +13,13 @@ import {
   type SortingState,
 } from "@tanstack/react-table";
 
-import { SortableTableHeader, TablePaginationFooter } from "@/components/ui/DataTable";
+import { SortableTableHeader, TablePaginationFooter, TABLE_MIN_PAGE_SIZE, useViewportPageSize } from "@/components/ui/DataTable";
 import { formatRupees } from "@/lib/purchaseFormat";
 import { formatDate } from "@/lib/utils";
 import type { Branch } from "@/types";
 import type { Supplier } from "@/types/purchase";
 
-const PAGE_SIZE = 10;
-const HEADER_CLASS = "px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500";
+const HEADER_CLASS = "px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500";
 
 interface Props {
   suppliers: Supplier[];
@@ -107,6 +106,8 @@ const SupplierList = React.memo(function SupplierList({
   showBranchColumn = false,
 }: Props) {
   const [sorting, setSorting] = useState<SortingState>([{ id: "outstanding", desc: true }]);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const autoPageSize = useViewportPageSize(containerRef);
 
   const columns = useMemo(
     () => [
@@ -212,10 +213,19 @@ const SupplierList = React.memo(function SupplierList({
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
-    initialState: { pagination: { pageSize: PAGE_SIZE } },
+    initialState: { pagination: { pageSize: TABLE_MIN_PAGE_SIZE } },
   });
 
+  useEffect(() => {
+    table.setPageSize(autoPageSize);
+  }, [table, autoPageSize]);
+
   const rows = table.getRowModel().rows;
+  const pageIndex = table.getState().pagination.pageIndex;
+  useEffect(() => {
+    const lastPage = Math.max(table.getPageCount() - 1, 0);
+    if (pageIndex > lastPage) table.setPageIndex(lastPage);
+  }, [pageIndex, suppliers.length, table]);
 
   if (suppliers.length === 0) {
     return (
@@ -227,7 +237,10 @@ const SupplierList = React.memo(function SupplierList({
   }
 
   return (
-    <div className="rounded-2xl md:overflow-hidden md:border md:border-gray-100 md:bg-white md:shadow-sm">
+    <div
+      ref={containerRef}
+      className="flex min-h-0 flex-col rounded-2xl md:h-full md:flex-1 md:overflow-hidden md:border md:border-gray-100 md:bg-white md:shadow-sm"
+    >
       <div className="space-y-3 md:hidden">
         {rows.map((row) => (
           <SupplierCard
@@ -241,8 +254,8 @@ const SupplierList = React.memo(function SupplierList({
         ))}
       </div>
 
-      <div className="hidden overflow-x-auto md:block">
-        <table className="min-w-full divide-y divide-gray-100 text-left text-sm">
+      <div className="hidden min-h-0 flex-1 overflow-auto md:block">
+        <table className="min-w-full divide-y divide-gray-100 text-left text-xs">
           <SortableTableHeader table={table} headerClass={HEADER_CLASS} />
           <tbody className="divide-y divide-gray-100">
             {rows.map((row) => (
@@ -256,7 +269,7 @@ const SupplierList = React.memo(function SupplierList({
                     | { headerClass?: string; cellClass?: string }
                     | undefined;
                   return (
-                    <td key={cell.id} className={`px-4 py-3 ${meta?.cellClass ?? ""}`}>
+                    <td key={cell.id} className={`px-3 py-2 ${meta?.cellClass ?? ""}`}>
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </td>
                   );

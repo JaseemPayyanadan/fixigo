@@ -2,7 +2,7 @@
 
 import React from "react";
 
-import { ChevronDown, TrendingDown, TrendingUp } from "lucide-react";
+import { TrendingDown, TrendingUp } from "lucide-react";
 
 import { TREND_WINDOW_OPTIONS, type RevenueTrend, type TrendWindow } from "@/lib/dashboardAnalytics";
 
@@ -23,6 +23,12 @@ const WINDOW_LABELS: Record<TrendWindow, string> = {
   90: "Last 90 Days",
 };
 
+const TAB_LABELS: Record<TrendWindow, string> = {
+  7: "7 Days",
+  30: "30 Days",
+  90: "90 Days",
+};
+
 const rupees = new Intl.NumberFormat("en-IN", {
   style: "currency",
   currency: "INR",
@@ -35,7 +41,8 @@ function formatRupees(value: number): string {
 }
 
 /**
- * Axis ticks, abbreviated so five of them fit the gutter. Kept to one decimal
+ * Axis ticks from actual earnings, abbreviated so five of them fit the gutter.
+ * The scale itself is auto: it follows the day's takings. Kept to one decimal
  * rather than rounded to whole thousands, so a ₹7,500 tick reads "₹7.5k"
  * instead of claiming ₹8k.
  */
@@ -71,25 +78,25 @@ export const RevenueTrendCard = React.memo(function RevenueTrendCard({
     <Card className="flex h-full flex-col">
       <CardHeader
         title="Revenue Trend"
-        titleSuffix={`(${windowLabel})`}
         action={
-          <div className="relative">
-            <select
-              aria-label="Revenue trend window"
-              value={trendWindow}
-              onChange={(event) => onWindowChange(Number(event.target.value) as TrendWindow)}
-              className="min-h-11 cursor-pointer appearance-none rounded-lg border border-gray-200 bg-white py-2 pl-3 pr-8 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 sm:min-h-0 sm:py-1.5"
-            >
-              {TREND_WINDOW_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-            <ChevronDown
-              className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400"
-              aria-hidden="true"
-            />
+          <div className="flex rounded-lg bg-gray-100 p-0.5" role="tablist" aria-label="Revenue trend window">
+            {TREND_WINDOW_OPTIONS.map((option) => {
+              const selected = option.value === trendWindow;
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  role="tab"
+                  aria-selected={selected}
+                  onClick={() => onWindowChange(option.value)}
+                  className={`min-h-11 rounded-md px-2.5 text-xs font-medium transition-colors sm:min-h-0 sm:py-1.5 ${
+                    selected ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  {TAB_LABELS[option.value]}
+                </button>
+              );
+            })}
           </div>
         }
       />
@@ -136,6 +143,7 @@ export const RevenueTrendCard = React.memo(function RevenueTrendCard({
               height={220}
               formatValue={formatAxisRupees}
               formatTooltipValue={formatRupees}
+              yScale="data"
               showMarkers
               ariaLabel={`Revenue per day, ${windowLabel.toLowerCase()}`}
             />

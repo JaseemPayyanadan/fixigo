@@ -3,7 +3,7 @@
 import React from "react";
 
 import { CHART_COLORS } from "./palette";
-import { areaPath, buildScale, pickXTicks, smoothPath, type Point } from "./geometry";
+import { areaPath, axisCeiling, buildScale, earningsLabelIndices, pickXTicks, smoothPath, yAxisGutter, type AxisScale, type Point } from "./geometry";
 import { useElementWidth } from "./useElementWidth";
 
 export interface AreaSeries {
@@ -23,16 +23,19 @@ interface AreaChartProps {
   formatValue?: (value: number) => string;
   /** Renders tooltip figures. Defaults to `formatValue`; override where the axis is abbreviated but a reading should be exact. */
   formatTooltipValue?: (value: number) => string;
+  /** When false, the plot still auto-scales but tick amounts are omitted. */
+  showYAxisLabels?: boolean;
+  /** Prints the reading on the plot — used for dynamic earnings amounts. */
+  showValueLabels?: boolean;
+  /** `"data"` sizes the axis to the actual max; `"nice"` rounds to a readable step. */
+  yScale?: AxisScale;
   /** Marks each reading with a dot. Ignored on long series, where dots would merge into the line. */
   showMarkers?: boolean;
   /** What the chart is of, for assistive tech. */
   ariaLabel?: string;
 }
 
-const PAD = { top: 12, right: 8, bottom: 24, left: 32 };
-
-/** Widest a y-axis label can get before it would collide with the plot. */
-const Y_LABEL_CHAR_WIDTH = 6.5;
+const PAD = { top: 12, right: 8, bottom: 24, valueLabel: 20 };
 
 const MARKER_LIMIT = 45;
 
@@ -45,15 +48,6 @@ const X_LABEL_GUTTER = 8;
 /** Space a 45°-turned label needs along the axis: its line height, plus a hair. */
 const ROTATED_LABEL_PITCH = 13;
 
-/** Rounds an axis maximum up to a readable step so ticks land on whole numbers. */
-function niceMax(value: number): number {
-  if (value <= 0) return 4;
-  const magnitude = 10 ** Math.floor(Math.log10(value));
-  const normalized = value / magnitude;
-  const step = normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 5 ? 5 : 10;
-  return step * magnitude;
-}
-
 export const AreaChart = React.memo(function AreaChart({
   labels,
   series,
@@ -62,6 +56,9 @@ export const AreaChart = React.memo(function AreaChart({
   formatValue = String,
   formatTooltipValue,
   showMarkers = false,
+  showYAxisLabels = true,
+  showValueLabels = false,
+  yScale = "nice",
   ariaLabel,
 }: AreaChartProps) {
   const { ref, width } = useElementWidth<HTMLDivElement>();
@@ -69,13 +66,14 @@ export const AreaChart = React.memo(function AreaChart({
   const gradientPrefix = React.useId();
 
   const allValues = series.flatMap((s) => s.values).filter((v) => Number.isFinite(v));
-  const axisMax = niceMax(Math.max(...allValues, 0));
-  const yTicks = [0, 0.25, 0.5, 0.75, 1].map((fraction) => Math.round(axisMax * fraction));
+  const dataMax = Math.max(...allValues, 0);
+  const axisMax = axisCeiling(dataMax, yScale);
+  const yTicks = [0, 0.25, 0.5, 0.75, 1].map((fraction) => (fraction === 1 ? axisMax : axisMax * fraction));
 
   // Formatted ticks vary in width — "₹30k" needs more room than "12" — so the
   // gutter is measured from the labels rather than fixed.
   const longestTick = yTicks.reduce((longest, tick) => Math.max(longest, formatValue(tick).length), 0);
-  const padLeft = Math.max(PAD.left, Math.ceil(longestTick * Y_LABEL_CHAR_WIDTH) + 12);
+  const padLeft = yAxisGutter(showYAxisLabels, longestTick);
 
   const plotWidth = Math.max(0, width - padLeft - PAD.right);
 
@@ -96,7 +94,8 @@ export const AreaChart = React.memo(function AreaChart({
   // diagonal height underneath.
   const padBottom = rotateLabels ? Math.min(64, Math.ceil(xLabelWidth * 0.71) + 14) : PAD.bottom;
 
-  const plotHeight = Math.max(0, height - PAD.top - padBottom);
+  const padTop = showValueLabels ? PAD.valueLabel : PAD.top;
+  const plotHeight = Math.max(0, height - padTop - padBottom);
   const scaleY = React.useMemo(() => buildScale([axisMax], plotHeight), [axisMax, plotHeight]);
 
   const xAt = (index: number) => padLeft + index * stepX;
@@ -145,7 +144,7 @@ export const AreaChart = React.memo(function AreaChart({
 
         {/* Gridlines and y axis */}
         {yTicks.map((tick) => {
-          const y = PAD.top + scaleY(tick);
+          const y = padTop + scaleY(tick);
           return (
             <g key={tick}>
               {/* The zero line is drawn solid as the floor the area sits on; the rest are dotted so they read as guides behind the series. */}
@@ -158,9 +157,11 @@ export const AreaChart = React.memo(function AreaChart({
                 strokeWidth={1}
                 strokeDasharray={tick === 0 ? undefined : "2 4"}
               />
-              <text x={padLeft - 8} y={y + 4} textAnchor="end" fontSize={11} fill={CHART_COLORS.axis}>
-                {formatValue(tick)}
-              </text>
+              {showYAxisLabels && (
+                <text x={padLeft - 8} y={y + 4} textAnchor="end" fontSize={11} fill={CHART_COLORS.axis}>
+                  {formatValue(tick)}
+                </text>
+              )}
             </g>
           );
         })}
@@ -200,10 +201,11 @@ export const AreaChart = React.memo(function AreaChart({
 
         {/* Series: fill beneath, line on top */}
         {series.map((s) => {
-          const coords: Point[] = s.values.map((value, index) => ({ x: xAt(index), y: PAD.top + scaleY(value) }));
+          const coords: Point[] = s.values.map((value, index) => ({ x: xAt(index), y: padTop + scaleY(value) }));
+          const labeled = showValueLabels ? new Set(earningsLabelIndices(s.values)) : new Set<number>();
           return (
             <g key={s.key}>
-              <path d={areaPath(coords, PAD.top + plotHeight)} fill={`url(#${gradientPrefix}-${s.key})`} />
+              <path d={areaPath(coords, padTop + plotHeight)} fill={`url(#${gradientPrefix}-${s.key})`} />
               <path d={smoothPath(coords)} fill="none" stroke={s.color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
               {markers &&
                 coords.map((point, index) => (
@@ -217,6 +219,22 @@ export const AreaChart = React.memo(function AreaChart({
                     strokeWidth={1.5}
                   />
                 ))}
+              {showValueLabels &&
+                coords.map((point, index) =>
+                  labeled.has(index) ? (
+                    <text
+                      key={`label-${index}`}
+                      x={point.x}
+                      y={point.y - 8}
+                      textAnchor="middle"
+                      fontSize={10}
+                      fontWeight={600}
+                      fill={s.color}
+                    >
+                      {formatValue(s.values[index] ?? 0)}
+                    </text>
+                  ) : null
+                )}
             </g>
           );
         })}
@@ -224,12 +242,12 @@ export const AreaChart = React.memo(function AreaChart({
         {/* Hover crosshair: 2px surface ring keeps markers legible where series overlap */}
         {hoverIndex !== null && (
           <g pointerEvents="none">
-            <line x1={xAt(hoverIndex)} y1={PAD.top} x2={xAt(hoverIndex)} y2={PAD.top + plotHeight} stroke={CHART_COLORS.axis} strokeWidth={1} strokeDasharray="3 3" />
+            <line x1={xAt(hoverIndex)} y1={padTop} x2={xAt(hoverIndex)} y2={padTop + plotHeight} stroke={CHART_COLORS.axis} strokeWidth={1} strokeDasharray="3 3" />
             {series.map((s) => (
               <circle
                 key={s.key}
                 cx={xAt(hoverIndex)}
-                cy={PAD.top + scaleY(s.values[hoverIndex] ?? 0)}
+                cy={padTop + scaleY(s.values[hoverIndex] ?? 0)}
                 r={4}
                 fill={s.color}
                 stroke={CHART_COLORS.surface}

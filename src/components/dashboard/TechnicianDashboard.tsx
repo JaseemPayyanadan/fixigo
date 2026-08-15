@@ -161,6 +161,7 @@ export default function TechnicianDashboard() {
       switch (normalizedStatus) {
         case 'pending':
         case 'to_do':
+        case 'awaiting_drop_off':
           acc.pendingServices++;
           acc.activeServices++;
           break;

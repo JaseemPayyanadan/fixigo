@@ -109,11 +109,11 @@ export const TechnicianBranchList: React.FC<TechnicianBranchListProps> = ({ bran
   }
 
   return (
-    <div className="p-6">
+    <div className="flex h-full min-h-0 flex-1 flex-col p-4 md:p-6">
       {/* Desktop Table View */}
-      <div className="hidden lg:block">
-        <div className="overflow-hidden rounded-lg border border-gray-200">
-          <table className="min-w-full divide-y divide-gray-200">
+      <div className="hidden min-h-0 flex-1 overflow-auto lg:block">
+        <div className="h-full overflow-auto rounded-lg border border-gray-200">
+          <table className="min-w-full divide-y divide-gray-200 text-xs">
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Branch</th>
@@ -132,18 +132,18 @@ export const TechnicianBranchList: React.FC<TechnicianBranchListProps> = ({ bran
                         <BuildingOfficeIcon className="w-4 h-4 text-blue-600" />
                       </div>
                       <div>
-                        <div className="text-sm font-medium text-gray-900">{branch.name}</div>
+                        <div className="text-xs font-medium text-gray-900">{branch.name}</div>
                         <div className="text-xs text-gray-500">Your Work Location</div>
                       </div>
                     </div>
                   </td>
                   <td className="px-6 py-4">
                     <div className="space-y-1">
-                      <div className="flex items-center text-sm text-gray-900">
+                      <div className="flex items-center text-xs text-gray-900">
                         <PhoneIcon className="w-4 h-4 text-gray-400 mr-2" />
                         {getBranchField(branch, "phone")}
                       </div>
-                      <div className="flex items-center text-sm text-gray-900">
+                      <div className="flex items-center text-xs text-gray-900">
                         <EnvelopeIcon className="w-4 h-4 text-gray-400 mr-2" />
                         {getBranchField(branch, "email")}
                       </div>
@@ -152,7 +152,7 @@ export const TechnicianBranchList: React.FC<TechnicianBranchListProps> = ({ bran
                   <td className="px-6 py-4">
                     <div className="flex items-center">
                       <UserGroupIcon className="w-4 h-4 text-gray-400 mr-2" />
-                      <span className="text-sm text-gray-900">
+                      <span className="text-xs text-gray-900">
                         {techniciansByBranch[branch.id]?.length || 0} {techniciansByBranch[branch.id]?.length === 1 ? "technician" : "technicians"}
                       </span>
                     </div>

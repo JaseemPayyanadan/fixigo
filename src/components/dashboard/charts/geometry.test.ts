@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { areaPath, buildScale, pickXTicks, smoothPath, type Point } from "./geometry";
+import { areaPath, axisCeiling, buildScale, earningsLabelIndices, pickXTicks, smoothPath, yAxisGutter, type Point } from "./geometry";
 
 /** Every coordinate in a path, in order. */
 function coordsOf(path: string): Array<[number, number]> {
@@ -111,5 +111,44 @@ describe("buildScale", () => {
     const scale = buildScale([100], 200);
     expect(scale(-50)).toBe(200);
     expect(scale(Number.NaN)).toBe(200);
+  });
+});
+
+describe("yAxisGutter", () => {
+  it("collapses to a hairline when tick amounts are hidden so the plot auto-scales", () => {
+    expect(yAxisGutter(false, 8)).toBe(8);
+  });
+
+  it("widens to fit the longest tick label when amounts are shown", () => {
+    expect(yAxisGutter(true, 4)).toBe(38);
+    expect(yAxisGutter(true, 1)).toBe(32);
+  });
+});
+
+describe("axisCeiling", () => {
+  it("uses the actual max earning so the axis amount is dynamic", () => {
+    expect(axisCeiling(4200, "data")).toBe(4200);
+    expect(axisCeiling(1850, "data")).toBe(1850);
+  });
+
+  it("rounds up to a readable step when the caller wants a nice axis", () => {
+    expect(axisCeiling(1850, "nice")).toBe(2000);
+    expect(axisCeiling(4200, "nice")).toBe(5000);
+  });
+
+  it("does not collapse a zero series", () => {
+    expect(axisCeiling(0, "data")).toBe(1);
+    expect(axisCeiling(0, "nice")).toBe(4);
+  });
+});
+
+describe("earningsLabelIndices", () => {
+  it("labels every day that has earnings when there are few of them", () => {
+    expect(earningsLabelIndices([0, 500, 0, 1800, 0])).toEqual([1, 3]);
+  });
+
+  it("keeps the peaks when labelling every earning would crowd the line", () => {
+    const values = [100, 200, 150, 400, 100, 350, 120, 500, 80, 90, 300, 110];
+    expect(earningsLabelIndices(values, 3)).toEqual([3, 5, 7]);
   });
 });

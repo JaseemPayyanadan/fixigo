@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useRouter } from "next/navigation";
 
@@ -22,12 +22,11 @@ import {
   type SortingState,
 } from "@tanstack/react-table";
 
-import { SortableTableHeader, TablePaginationFooter } from "@/components/ui/DataTable";
+import { SortableTableHeader, TablePaginationFooter, TABLE_MIN_PAGE_SIZE, useViewportPageSize } from "@/components/ui/DataTable";
 import { TableSkeleton } from "@/components/ui/PageSkeleton";
 import type { Branch, Technician } from "@/types";
 
-const PAGE_SIZE = 10;
-const HEADER_CLASS = "px-2 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500";
+const HEADER_CLASS = "px-2 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500";
 
 const STATUS_STYLE: Record<string, string> = {
   active: "text-emerald-700 bg-emerald-50",
@@ -142,6 +141,8 @@ export const ShopAdminBranchList: React.FC<ShopAdminBranchListProps> = ({
   const router = useRouter();
   const [techniciansByBranch, setTechniciansByBranch] = useState<Record<string, string[]>>({});
   const [sorting, setSorting] = useState<SortingState>([{ id: "name", desc: false }]);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const autoPageSize = useViewportPageSize(containerRef);
 
   useEffect(() => {
     const fetchTechnicians = async () => {
@@ -203,7 +204,7 @@ export const ShopAdminBranchList: React.FC<ShopAdminBranchListProps> = ({
               <BuildingOfficeIcon className="h-4 w-4 text-blue-600" />
             </div>
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-gray-900">{row.original.name}</p>
+              <p className="truncate text-xs font-semibold text-gray-900">{row.original.name}</p>
               <p className="truncate text-xs text-gray-400">{row.original.locationLabel}</p>
             </div>
           </div>
@@ -215,7 +216,7 @@ export const ShopAdminBranchList: React.FC<ShopAdminBranchListProps> = ({
         meta: { headerClass: "hidden lg:table-cell", cellClass: "hidden lg:table-cell" },
         cell: ({ row }) => (
           <div className="space-y-1">
-            <p className="flex items-center gap-1.5 text-sm text-gray-700">
+            <p className="flex items-center gap-1.5 text-xs text-gray-700">
               <PhoneIcon className="h-3.5 w-3.5 shrink-0 text-gray-400" />
               {row.original.phoneLabel}
             </p>
@@ -231,7 +232,7 @@ export const ShopAdminBranchList: React.FC<ShopAdminBranchListProps> = ({
         header: "Technicians",
         cell: ({ row }) => (
           <div>
-            <p className="flex items-center gap-1.5 text-sm text-gray-700">
+            <p className="flex items-center gap-1.5 text-xs text-gray-700">
               <UserGroupIcon className="h-3.5 w-3.5 shrink-0 text-gray-400" />
               {row.original.technicianCount}{" "}
               {row.original.technicianCount === 1 ? "technician" : "technicians"}
@@ -305,10 +306,19 @@ export const ShopAdminBranchList: React.FC<ShopAdminBranchListProps> = ({
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
-    initialState: { pagination: { pageSize: PAGE_SIZE } },
+    initialState: { pagination: { pageSize: TABLE_MIN_PAGE_SIZE } },
   });
 
+  useEffect(() => {
+    table.setPageSize(autoPageSize);
+  }, [table, autoPageSize]);
+
   const rows = table.getRowModel().rows;
+  const pageIndex = table.getState().pagination.pageIndex;
+  useEffect(() => {
+    const lastPage = Math.max(table.getPageCount() - 1, 0);
+    if (pageIndex > lastPage) table.setPageIndex(lastPage);
+  }, [pageIndex, branches.length, table]);
 
   if (loading) {
     return <TableSkeleton rows={5} />;
@@ -369,8 +379,11 @@ export const ShopAdminBranchList: React.FC<ShopAdminBranchListProps> = ({
   }
 
   return (
-    <div className="p-6">
-      <div className="rounded-2xl md:overflow-hidden md:border md:border-gray-100 md:bg-white md:shadow-sm">
+    <div className="flex h-full min-h-0 flex-1 flex-col p-4 md:p-6">
+      <div
+        ref={containerRef}
+        className="flex min-h-0 flex-col rounded-2xl md:h-full md:flex-1 md:overflow-hidden md:border md:border-gray-100 md:bg-white md:shadow-sm"
+      >
         <div className="space-y-3 md:hidden">
           {rows.map((row) => (
             <BranchCard
@@ -382,8 +395,8 @@ export const ShopAdminBranchList: React.FC<ShopAdminBranchListProps> = ({
           ))}
         </div>
 
-        <div className="hidden overflow-x-auto md:block">
-          <table className="min-w-full divide-y divide-gray-100 text-left">
+        <div className="hidden min-h-0 flex-1 overflow-auto md:block">
+          <table className="min-w-full divide-y divide-gray-100 text-left text-xs">
             <SortableTableHeader table={table} headerClass={HEADER_CLASS} />
             <tbody className="divide-y divide-gray-100">
               {rows.map((row) => (
@@ -393,7 +406,7 @@ export const ShopAdminBranchList: React.FC<ShopAdminBranchListProps> = ({
                       | { headerClass?: string; cellClass?: string }
                       | undefined;
                     return (
-                      <td key={cell.id} className={`px-2 py-3 ${meta?.cellClass ?? ""}`}>
+                      <td key={cell.id} className={`px-2 py-2 ${meta?.cellClass ?? ""}`}>
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
                       </td>
                     );

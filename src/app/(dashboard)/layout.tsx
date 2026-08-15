@@ -11,12 +11,12 @@ import { PageFallback } from "@/components/ui/PageSkeleton";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSidebar } from "@/contexts/SidebarContext";
 
-const hideNavRoutes = ["/login", "/register", "/onboarding"];
+const hideNavRoutes = ["/login", "/register", "/onboarding", "/services/invoice"];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { user, loading } = useAuth();
-  const { collapsed } = useSidebar();
+  const { rail } = useSidebar();
 
   const hideNav = hideNavRoutes.some((route) => pathname === route || pathname.startsWith(route));
 
@@ -32,7 +32,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <>
       {!hideNav && <SideNavBar />}
       {!hideNav && <AppBar />}
-      <main className={`main-content transition-all duration-200 ${!hideNav ? `pt-[72px] md:pb-14 ${collapsed ? "md:pl-14" : "md:pl-56"}` : ""}`}>{children}</main>
+      <main className={`main-content transition-all duration-200 ${!hideNav ? `pt-14 ${rail ? "md:pl-14" : "md:pl-56"}` : ""}`}>{children}</main>
       {!hideNav && <BottomNavBar />}
     </>
   );

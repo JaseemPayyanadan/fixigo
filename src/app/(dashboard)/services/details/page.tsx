@@ -8,6 +8,7 @@ import { MdArrowBack, MdRefresh, MdWarning } from "react-icons/md";
 
 import CollectPaymentDialog from "@/components/service/CollectPaymentDialog";
 import ReopenServiceDialog from "@/components/service/ReopenServiceDialog";
+import StatusChangeDialog from "@/components/service/StatusChangeDialog";
 import ServiceDetailsView from "@/components/service/ServiceDetailsView";
 import ServiceForm from "@/components/service/ServiceForm";
 import { useUser } from "@/hooks";
@@ -84,7 +85,17 @@ interface Service {
   };
 }
 
-const STATUS_OPTIONS = ["To Do", "In Progress", "Completed", "Pending", "Cancelled", "Awaiting Parts", "Ready for Pickup"];
+const STATUS_OPTIONS = [
+  "awaiting_drop_off",
+  "pending",
+  "in_progress",
+  "awaiting_parts",
+  "on_hold",
+  "quality_check",
+  "ready_for_pickup",
+  "completed",
+  "cancelled",
+];
 
 function toDate(value: unknown): Date | undefined {
   if (!value) return undefined;
@@ -180,7 +191,7 @@ function ServiceDetailsPage() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [status, setStatus] = useState("To Do");
+  const [status, setStatus] = useState("pending");
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [statusHistory, setStatusHistory] = useState<StatusHistoryEntry[]>([]);
   const [showHistory, setShowHistory] = useState(false);
@@ -192,6 +203,9 @@ function ServiceDetailsPage() {
   const [showReopenDialog, setShowReopenDialog] = useState(false);
   const [reopening, setReopening] = useState(false);
   const [reopenError, setReopenError] = useState<string | null>(null);
+  const [pendingStatus, setPendingStatus] = useState<string | null>(null);
+  const [showStatusNoteDialog, setShowStatusNoteDialog] = useState(false);
+  const [statusNoteError, setStatusNoteError] = useState<string | null>(null);
   const [editLoading, setEditLoading] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const [showRequestSparePart, setShowRequestSparePart] = useState(false);
@@ -209,7 +223,7 @@ function ServiceDetailsPage() {
 
         setService(serviceData);
         setStatusHistory(serviceData.statusHistory ?? []);
-        setStatus(serviceData.status || "To Do");
+        setStatus(serviceData.status || "pending");
         if (user?.role === "technician" && user?.branchId) {
           setBranchId(user.branchId);
         } else {
@@ -300,76 +314,96 @@ function ServiceDetailsPage() {
     }
   };
 
-  const handleStatusChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const newStatus = e.target.value;
-    setStatus(newStatus);
+  // Selecting a new status only stages it; the write happens once the user
+  // confirms a note in StatusChangeDialog, so `status` (and the stepper/select
+  // it controls) is not touched here.
+  const handleStatusSelect = (newStatus: string) => {
+    setPendingStatus(newStatus);
+    setStatusNoteError(null);
+    setShowStatusNoteDialog(true);
+  };
+
+  const handleStatusChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    handleStatusSelect(e.target.value);
+  };
+
+  const handleCancelStatusChange = () => {
+    if (updatingStatus) return;
+    setShowStatusNoteDialog(false);
+    setPendingStatus(null);
+  };
+
+  const handleConfirmStatusChange = async (note: string) => {
+    if (!serviceId || !pendingStatus) return;
+    const newStatus = pendingStatus;
     setUpdatingStatus(true);
 
-    if (serviceId) {
-      try {
-        const now = new Date();
+    try {
+      const now = new Date();
 
-        // Stamp the moment the job actually finished. Nothing else records it,
-        // and the dashboard dates completed work — and therefore its revenue —
-        // from this field; without it, finished jobs never land on a day.
-        // Moving back out of `completed` clears it, so a mistaken completion
-        // does not leave a false timestamp behind.
-        const isCompleted = normalizeStatus(newStatus) === "completed";
+      // Stamp the moment the job actually finished. Nothing else records it,
+      // and the dashboard dates completed work — and therefore its revenue —
+      // from this field; without it, finished jobs never land on a day.
+      // Moving back out of `completed` clears it, so a mistaken completion
+      // does not leave a false timestamp behind.
+      const isCompleted = normalizeStatus(newStatus) === "completed";
 
-        // Completing a job now records payment as explicitly outstanding when
-        // nothing has been recorded yet. Services with no flag at all are read
-        // as paid-if-completed — the right call for work settled before this
-        // existed, but wrong for a job being completed right now, which would
-        // otherwise book revenue nobody has collected.
-        const recordsPaymentPending = isCompleted && !service?.paymentStatus;
+      // Completing a job now records payment as explicitly outstanding when
+      // nothing has been recorded yet. Services with no flag at all are read
+      // as paid-if-completed — the right call for work settled before this
+      // existed, but wrong for a job being completed right now, which would
+      // otherwise book revenue nobody has collected.
+      const recordsPaymentPending = isCompleted && !service?.paymentStatus;
 
-        // Appended with `arrayUnion` rather than written as a whole array: the
-        // local copy was loaded at mount, so replacing the array would drop any
-        // transition another user recorded in the meantime.
-        const historyEntry = buildStatusHistoryEntry({
-          status: newStatus,
-          timestamp: now,
-          updatedBy: user?.name || "Unknown",
-        });
-        const nextHistory = appendStatusHistory(statusHistory, historyEntry);
+      // Appended with `arrayUnion` rather than written as a whole array: the
+      // local copy was loaded at mount, so replacing the array would drop any
+      // transition another user recorded in the meantime.
+      const historyEntry = buildStatusHistoryEntry({
+        status: newStatus,
+        timestamp: now,
+        updatedBy: user?.name || "Unknown",
+        note,
+      });
+      const nextHistory = appendStatusHistory(statusHistory, historyEntry);
 
-        const fields: Record<string, unknown> = {
-          status: newStatus,
-          ...(isCompleted
-            ? { completedDate: now, actualCompletion: now }
-            : {}),
-          ...(recordsPaymentPending ? { paymentStatus: "pending" } : {}),
-        };
-        const deleteFields = isCompleted ? [] : ["completedDate", "actualCompletion"];
+      const fields: Record<string, unknown> = {
+        status: newStatus,
+        ...(isCompleted
+          ? { completedDate: now, actualCompletion: now }
+          : {}),
+        ...(recordsPaymentPending ? { paymentStatus: "pending" } : {}),
+      };
+      const deleteFields = isCompleted ? [] : ["completedDate", "actualCompletion"];
 
-        const updated = await patchService(serviceId, {
-          fields,
-          statusHistoryAppend: historyEntry,
-          deleteFields,
-        });
-        setService(updated);
-        setStatusHistory(updated.statusHistory ?? nextHistory);
+      const updated = await patchService(serviceId, {
+        fields,
+        statusHistoryAppend: historyEntry,
+        deleteFields,
+      });
+      setService(updated);
+      setStatus(newStatus);
+      setStatusHistory(updated.statusHistory ?? nextHistory);
+      setShowStatusNoteDialog(false);
+      setPendingStatus(null);
 
-        setStatusUpdateSuccess(true);
-        setTimeout(() => setStatusUpdateSuccess(false), 3000); // Hide success message after 3 seconds
+      setStatusUpdateSuccess(true);
+      setTimeout(() => setStatusUpdateSuccess(false), 3000); // Hide success message after 3 seconds
 
-        // Status is already saved. Open Collect Payment only for Completed with
-        // outstanding payment (paymentStatus before this write). Never for Ready
-        // for Pickup — that is intentionally not a collect trigger here.
-        if (shouldOpenCollectPaymentModal(newStatus, service?.paymentStatus)) {
-          setCollectPaymentError(null);
-          setCollectPaymentContext("complete");
-          setShowCollectPaymentDialog(true);
-        } else {
-          setShowCollectPaymentDialog(false);
-        }
-      } catch (err) {
-        console.error("Error updating status:", err);
-        setStatus(service?.status || "To Do"); // Revert on error
-        setError("Failed to update status. Please try again.");
-      } finally {
-        setUpdatingStatus(false);
+      // Status is already saved. Open Collect Payment only for Completed with
+      // outstanding payment (paymentStatus before this write). Never for Ready
+      // for Pickup — that is intentionally not a collect trigger here.
+      if (shouldOpenCollectPaymentModal(newStatus, service?.paymentStatus)) {
+        setCollectPaymentError(null);
+        setCollectPaymentContext("complete");
+        setShowCollectPaymentDialog(true);
+      } else {
+        setShowCollectPaymentDialog(false);
       }
+    } catch (err) {
+      console.error("Error updating status:", err);
+      setStatusNoteError("Failed to update status. Please try again.");
+    } finally {
+      setUpdatingStatus(false);
     }
   };
 
@@ -384,6 +418,7 @@ function ServiceDetailsPage() {
         status: fields.status,
         timestamp: now,
         updatedBy: user?.name || "Unknown",
+        note: reason,
       });
       const nextHistory = appendStatusHistory(statusHistory, historyEntry);
       const updated = await patchService(serviceId, {
@@ -470,6 +505,10 @@ function ServiceDetailsPage() {
 
   // Memoized handlers to avoid arrow functions in JSX
   const handleGoBack = useCallback(() => router.back(), [router]);
+  const handlePrint = useCallback(() => {
+    if (!serviceId) return;
+    window.open(`/services/invoice?id=${encodeURIComponent(serviceId)}`, "_blank", "noopener,noreferrer");
+  }, [serviceId]);
   const handleReload = useCallback(() => window.location.reload(), []);
   const handleToggleShowHistory = useCallback(() => setShowHistory((prev) => !prev), []);
   const handleCancelEdit = useCallback(() => setEditing(false), []);
@@ -588,7 +627,8 @@ function ServiceDetailsPage() {
     );
   }
 
-  const branchName = branches.find((b) => b.id === service.branchId)?.name || "—";
+  const branch = branches.find((b) => b.id === service.branchId) ?? null;
+  const branchName = branch?.name || "—";
   const userCanReopen = canReopenService(
     user ? { role: user.role, id: user.id } : null,
     service ? { ...service, status } : null,
@@ -610,6 +650,7 @@ function ServiceDetailsPage() {
         service={service}
         status={status}
         branchName={branchName}
+        branch={branch}
         technician={techInfo.technician ?? null}
         technicianId={techInfo.id}
         technicianDisplayName={techInfo.name}
@@ -634,6 +675,8 @@ function ServiceDetailsPage() {
         onToggleDropdown={toggleDropdown}
         onToggleHistory={handleToggleShowHistory}
         onStatusChange={handleStatusChange}
+        onStepClick={handleStatusSelect}
+        onPrint={handlePrint}
         onUpdatePayment={() => {
           setCollectPaymentError(null);
           setCollectPaymentContext("update");
@@ -669,6 +712,17 @@ function ServiceDetailsPage() {
           if (!reopening) setShowReopenDialog(false);
         }}
         onConfirm={handleConfirmReopen}
+      />
+      <StatusChangeDialog
+        isOpen={showStatusNoteDialog}
+        fromStatus={status}
+        toStatus={pendingStatus ?? status}
+        submitting={updatingStatus}
+        error={statusNoteError}
+        onClose={handleCancelStatusChange}
+        onConfirm={(note) => {
+          void handleConfirmStatusChange(note);
+        }}
       />
       <CollectPaymentDialog
         isOpen={showCollectPaymentDialog}

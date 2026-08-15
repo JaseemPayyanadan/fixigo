@@ -138,6 +138,8 @@ export interface StatusHistoryEntry {
   status: string;
   timestamp: Date;
   updatedBy: string;
+  /** Why the status changed. Required for entries created going forward; absent on older entries. */
+  note?: string;
 }
 
 export interface Service {
@@ -151,7 +153,7 @@ export interface Service {
     address?: string;
   };
   device: Device;
-  status: "pending" | "in_progress" | "completed" | "cancelled" | "on_hold" | "awaiting_parts" | "ready_for_pickup" | "quality_check";
+  status: "awaiting_drop_off" | "pending" | "in_progress" | "completed" | "cancelled" | "on_hold" | "awaiting_parts" | "ready_for_pickup" | "quality_check";
   priority: "low" | "medium" | "high" | "urgent";
   technician_id?: string;
   shopId: string; // Parent shop ID
@@ -281,7 +283,7 @@ export interface DashboardStats {
 }
 
 // Service status with better UX
-export type ServiceStatus = "pending" | "in_progress" | "completed" | "cancelled" | "on_hold" | "awaiting_parts" | "ready_for_pickup" | "quality_check";
+export type ServiceStatus = "awaiting_drop_off" | "pending" | "in_progress" | "completed" | "cancelled" | "on_hold" | "awaiting_parts" | "ready_for_pickup" | "quality_check";
 
 // Service priority levels
 export type ServicePriority = "low" | "medium" | "high" | "urgent";

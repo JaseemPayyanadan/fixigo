@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   BuildingOfficeIcon,
@@ -25,9 +25,10 @@ import {
 } from "@tanstack/react-table";
 
 import { PermissionGuard } from "@/components";
+import { TABLE_MIN_PAGE_SIZE, useViewportPageSize } from "@/components/ui/DataTable";
 import type { Branch, Technician } from "@/types";
 
-const PAGE_SIZE = 10;
+const HEADER_CLASS = "px-2 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500";
 
 const STATUS_STYLE: Record<string, string> = {
   active: "text-emerald-700 bg-emerald-50",
@@ -130,12 +131,12 @@ function TechnicianCard({
   );
 }
 
-const HEADER_CLASS = "px-2 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500";
-
 /** Technicians list as a TanStack data table, mirroring the repairs table:
  * sortable headers, client-side pagination, cards below `md`. */
 export function TechnicianTable({ technicians, branches, onView, onEdit, onDelete }: TechnicianTableProps) {
   const [sorting, setSorting] = useState<SortingState>([{ id: "name", desc: false }]);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const autoPageSize = useViewportPageSize(containerRef);
 
   const data = useMemo<TechnicianRow[]>(
     () => technicians.map((technician) => ({ ...technician, branchName: branchNameFor(technician.branchId, branches) })),
@@ -149,7 +150,7 @@ export function TechnicianTable({ technicians, branches, onView, onEdit, onDelet
         header: "Technician",
         cell: ({ row }) => (
           <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-gray-900">{row.original.name || "Unknown"}</p>
+            <p className="truncate text-xs font-semibold text-gray-900">{row.original.name || "Unknown"}</p>
             <p className="flex items-center gap-1 truncate text-xs text-gray-400">
               <EnvelopeIcon className="h-3 w-3 shrink-0" />
               {row.original.email}
@@ -161,18 +162,18 @@ export function TechnicianTable({ technicians, branches, onView, onEdit, onDelet
         id: "phone",
         header: "Contact",
         meta: { headerClass: "hidden lg:table-cell", cellClass: "hidden lg:table-cell" },
-        cell: ({ getValue }) => <span className="text-sm text-gray-700">{getValue() || "—"}</span>,
+        cell: ({ getValue }) => <span className="text-xs text-gray-700">{getValue() || "—"}</span>,
       }),
       columnHelper.accessor("branchName", {
         id: "branch",
         header: "Branch",
-        meta: { cellClass: "text-sm text-gray-700" },
+        meta: { cellClass: "text-xs text-gray-700" },
         cell: ({ getValue }) => <span className="truncate">{getValue()}</span>,
       }),
       columnHelper.accessor((row) => row.experience ?? 0, {
         id: "experience",
         header: "Experience",
-        meta: { headerClass: "text-right", cellClass: "text-right text-sm text-gray-700" },
+        meta: { headerClass: "text-right", cellClass: "text-right text-xs text-gray-700" },
         cell: ({ getValue }) => <span>{getValue()} yrs</span>,
       }),
       columnHelper.accessor("status", {
@@ -245,10 +246,18 @@ export function TechnicianTable({ technicians, branches, onView, onEdit, onDelet
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
-    initialState: { pagination: { pageSize: PAGE_SIZE } },
+    initialState: { pagination: { pageSize: TABLE_MIN_PAGE_SIZE } },
   });
 
+  useEffect(() => {
+    table.setPageSize(autoPageSize);
+  }, [table, autoPageSize]);
+
   const pageIndex = table.getState().pagination.pageIndex;
+  useEffect(() => {
+    const lastPage = Math.max(table.getPageCount() - 1, 0);
+    if (pageIndex > lastPage) table.setPageIndex(lastPage);
+  }, [pageIndex, technicians.length, table]);
   const rows = table.getRowModel().rows;
   const totalRows = table.getFilteredRowModel().rows.length;
   const firstRow = totalRows === 0 ? 0 : pageIndex * table.getState().pagination.pageSize + 1;
@@ -269,7 +278,10 @@ export function TechnicianTable({ technicians, branches, onView, onEdit, onDelet
   }
 
   return (
-    <div className="rounded-2xl md:overflow-hidden md:border md:border-gray-100 md:bg-white md:shadow-sm">
+    <div
+      ref={containerRef}
+      className="flex min-h-0 flex-col rounded-2xl md:h-full md:flex-1 md:overflow-hidden md:border md:border-gray-100 md:bg-white md:shadow-sm"
+    >
       {/* Cards on phones, table from `md` up. */}
       <div className="space-y-3 md:hidden">
         {rows.map((row) => (
@@ -277,9 +289,9 @@ export function TechnicianTable({ technicians, branches, onView, onEdit, onDelet
         ))}
       </div>
 
-      <div className="hidden overflow-x-auto md:block">
-        <table className="min-w-full divide-y divide-gray-100 text-left">
-          <thead className="bg-gray-50">
+      <div className="hidden min-h-0 flex-1 overflow-auto md:block">
+        <table className="min-w-full divide-y divide-gray-100 text-left text-xs">
+          <thead className="sticky top-0 z-10 bg-gray-50">
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id}>
                 {headerGroup.headers.map((header) => {
@@ -323,7 +335,7 @@ export function TechnicianTable({ technicians, branches, onView, onEdit, onDelet
                 {row.getVisibleCells().map((cell) => {
                   const meta = cell.column.columnDef.meta as { headerClass?: string; cellClass?: string } | undefined;
                   return (
-                    <td key={cell.id} className={`px-2 py-3 ${meta?.cellClass ?? ""}`}>
+                    <td key={cell.id} className={`px-2 py-2 ${meta?.cellClass ?? ""}`}>
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </td>
                   );
@@ -335,7 +347,7 @@ export function TechnicianTable({ technicians, branches, onView, onEdit, onDelet
       </div>
 
       {totalRows > 0 && (
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-100 bg-white px-4 py-3 shadow-sm md:mt-0 md:rounded-none md:border-x-0 md:border-b-0 md:shadow-none">
+        <div className="mt-3 flex shrink-0 flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-100 bg-white px-3 py-2 shadow-sm md:mt-0 md:rounded-none md:border-x-0 md:border-b-0 md:shadow-none">
           <p className="text-xs text-gray-500">
             Showing <span className="font-medium text-gray-700">{firstRow}</span>–
             <span className="font-medium text-gray-700">{lastRow}</span> of{" "}

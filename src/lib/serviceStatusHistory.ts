@@ -13,23 +13,29 @@ export function buildStatusHistoryEntry(entry: {
   status: string;
   timestamp: Date;
   updatedBy: string;
+  note: string;
 }): StatusHistoryEntry {
   const status = entry.status.trim();
   if (!status) {
     throw new Error("status is required");
   }
+  const note = entry.note.trim();
+  if (!note) {
+    throw new Error("note is required");
+  }
   return {
     status,
     timestamp: entry.timestamp,
     updatedBy: entry.updatedBy.trim() || "Unknown",
+    note,
   };
 }
 
 export function appendStatusHistory(
   existing: StatusHistoryEntry[] | undefined,
-  entry: { status: string; timestamp: Date; updatedBy: string }
+  entry: StatusHistoryEntry
 ): StatusHistoryEntry[] {
-  return [buildStatusHistoryEntry(entry), ...(existing ?? [])];
+  return [entry, ...(existing ?? [])];
 }
 
 export function mapStatusHistoryEntries(raw: unknown): StatusHistoryEntry[] {
@@ -47,7 +53,8 @@ export function mapStatusHistoryEntries(raw: unknown): StatusHistoryEntry[] {
       typeof row.updatedBy === "string" && row.updatedBy.trim()
         ? row.updatedBy.trim()
         : "Unknown";
-    mapped.push({ status, timestamp, updatedBy });
+    const note = typeof row.note === "string" && row.note.trim() ? row.note.trim() : undefined;
+    mapped.push({ status, timestamp, updatedBy, ...(note ? { note } : {}) });
   }
 
   return mapped.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());

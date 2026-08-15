@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  activeServicesKpi,
   buildDailySeries,
   buildInsights,
   countDelayed,
@@ -343,7 +344,7 @@ describe("summarize", () => {
 describe("pipelineBreakdown", () => {
   it("returns every open stage even when a status has no services", () => {
     const { stages, total } = pipelineBreakdown([service({ status: "pending" })]);
-    expect(stages).toHaveLength(5);
+    expect(stages).toHaveLength(6);
     expect(total).toBe(1);
     expect(stages.find((s) => s.status === "awaiting_parts")).toMatchObject({ count: 0, fraction: 0 });
   });
@@ -751,5 +752,35 @@ describe("recentDays", () => {
     );
     expect(days.find((d) => d.date.getDate() === 21)?.revenue).toBe(400);
     expect(days.find((d) => d.date.getDate() === 23)?.revenue).toBe(0);
+  });
+});
+
+describe("activeServicesKpi", () => {
+  it("plots the reconstructed open count so the sparkline has a real series", () => {
+    const services = [
+      service({ createdAt: new Date(2026, 6, 10), status: "in_progress" }),
+      service({ createdAt: new Date(2026, 6, 20), status: "completed", completedDate: new Date(2026, 6, 21) }),
+    ];
+
+    const kpi = activeServicesKpi(services, NOW, 5);
+
+    // 19th: one open; 20th: both; 21st onward: the completed job has left.
+    expect(kpi.trend).toEqual([1, 2, 1, 1, 1]);
+    expect(kpi.value).toBe(1);
+    expect(kpi.trend.at(-1)).toBe(kpi.value);
+    expect(kpi.delta).toBe(0);
+  });
+
+  it("reports a delta when today's open count differs from yesterday's", () => {
+    const services = [
+      service({ createdAt: new Date(2026, 6, 10), status: "in_progress" }),
+      service({ createdAt: new Date(2026, 6, 23), status: "pending" }),
+    ];
+
+    const kpi = activeServicesKpi(services, NOW, 3);
+
+    expect(kpi.trend).toEqual([1, 1, 2]);
+    expect(kpi.value).toBe(2);
+    expect(kpi.delta).toBe(100);
   });
 });

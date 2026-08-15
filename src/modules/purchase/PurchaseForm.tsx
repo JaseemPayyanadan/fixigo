@@ -3,6 +3,8 @@
 
 import React from "react";
 
+import { PlusIcon } from "@heroicons/react/24/outline";
+
 import { Button } from "@/components/ui/Button";
 import { formatRupees } from "@/lib/purchaseFormat";
 import { computeTotals } from "@/lib/purchaseTotals";
@@ -212,13 +214,10 @@ const PurchaseForm = React.memo(function PurchaseForm({
                   </option>
                 ))}
             </select>
-            <button
-              type="button"
-              onClick={() => setSupplierModalOpen(true)}
-              className="h-11 shrink-0 rounded-xl border border-blue-200 px-3 text-sm font-medium text-blue-600"
-            >
-              + Add supplier
-            </button>
+            <Button type="button" variant="secondary" onClick={() => setSupplierModalOpen(true)}>
+              <PlusIcon className="h-4 w-4" />
+              Add supplier
+            </Button>
           </div>
         </div>
         <div className="mt-3 grid gap-3 sm:grid-cols-3">

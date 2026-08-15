@@ -113,6 +113,7 @@ export const FIELD_NAMES = {
  */
 export const STATUS_VALUES = {
   SERVICE: {
+    AWAITING_DROP_OFF: "awaiting_drop_off",
     PENDING: "pending",
     IN_PROGRESS: "in_progress",
     COMPLETED: "completed",

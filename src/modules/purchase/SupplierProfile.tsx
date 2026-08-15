@@ -110,7 +110,7 @@ const SupplierProfile = React.memo(function SupplierProfile({
             </ul>
 
             <div className="hidden overflow-x-auto md:block">
-              <table className="min-w-full divide-y divide-gray-100 text-left text-sm">
+              <table className="min-w-full divide-y divide-gray-100 text-left text-xs">
                 <thead>
                   <tr>
                     <th className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
@@ -184,7 +184,7 @@ const SupplierProfile = React.memo(function SupplierProfile({
             </ul>
 
             <div className="hidden overflow-x-auto md:block">
-              <table className="min-w-full divide-y divide-gray-100 text-left text-sm">
+              <table className="min-w-full divide-y divide-gray-100 text-left text-xs">
                 <thead>
                   <tr>
                     <th className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
@@ -278,7 +278,7 @@ const SupplierProfile = React.memo(function SupplierProfile({
             </ul>
 
             <div className="hidden overflow-x-auto md:block">
-              <table className="min-w-full divide-y divide-gray-100 text-left text-sm">
+              <table className="min-w-full divide-y divide-gray-100 text-left text-xs">
                 <thead>
                   <tr>
                     <th className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500">

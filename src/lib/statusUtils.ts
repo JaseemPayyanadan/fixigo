@@ -1,8 +1,9 @@
 // Status utility functions for consistent handling across the application
 
-export type ServiceStatus = 
-  | "pending" 
-  | "to_do" 
+export type ServiceStatus =
+  | "awaiting_drop_off"
+  | "pending"
+  | "to_do"
   | "in_progress" 
   | "completed" 
   | "cancelled" 
@@ -21,6 +22,7 @@ export interface StatusConfig {
 
 // Status configuration mapping
 const STATUS_CONFIG_MAP: Record<ServiceStatus, StatusConfig> = {
+  'awaiting_drop_off': { color: 'text-amber-600', bg: 'bg-amber-100', icon: '📵', label: 'Awaiting Drop-off' },
   'pending': { color: 'text-orange-600', bg: 'bg-orange-100', icon: '⏳', label: 'Pending' },
   'to_do': { color: 'text-blue-600', bg: 'bg-blue-100', icon: '📋', label: 'To Do' },
   'in_progress': { color: 'text-blue-600', bg: 'bg-blue-100', icon: '🔧', label: 'In Progress' },
@@ -44,6 +46,8 @@ export function normalizeStatus(status: string): ServiceStatus {
   
   // Map common variations to standard statuses
   const statusMap: Record<string, ServiceStatus> = {
+    'awaiting_drop_off': 'awaiting_drop_off',
+    'awaitingdropoff': 'awaiting_drop_off',
     'pending': 'pending',
     'to_do': 'to_do',
     'todo': 'to_do',
@@ -105,5 +109,5 @@ export function isCompletedStatus(status: string): boolean {
  */
 export function isPendingStatus(status: string): boolean {
   const normalizedStatus = normalizeStatus(status);
-  return ['pending', 'to_do'].includes(normalizedStatus);
+  return ['pending', 'to_do', 'awaiting_drop_off'].includes(normalizedStatus);
 }

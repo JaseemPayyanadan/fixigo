@@ -77,7 +77,7 @@ const STATUS_BUCKETS: Record<StatusBucketKey, { label: string; statuses: string[
     label: "In Progress",
     statuses: ["in_progress", "awaiting_parts", "quality_check", "on_hold", "ready_for_pickup", "urgent"],
   },
-  to_do: { label: "To Do", statuses: ["pending", "to_do"] },
+  to_do: { label: "To Do", statuses: ["pending", "to_do", "awaiting_drop_off"] },
 };
 
 function startOfDay(date: Date): Date {
@@ -410,6 +410,7 @@ export function summarize(services: Service[]): MetricSummary {
 
 /** Open lifecycle stages — completed work lives in the KPI row, not here. */
 const PIPELINE_STAGES: Array<{ status: string; label: string }> = [
+  { status: "awaiting_drop_off", label: "Awaiting Drop-off" },
   { status: "pending", label: "Received" },
   { status: "in_progress", label: "Repairing" },
   { status: "awaiting_parts", label: "Waiting Parts" },
@@ -760,7 +761,7 @@ export interface RevenueTrend {
  * DST change, and zero-filled so a quiet day plots as a trough instead of
  * shortening the line.
  */
-export function revenueTrend(services: Service[], days: TrendWindow = 30, now: Date = new Date()): RevenueTrend {
+export function revenueTrend(services: Service[], days: TrendWindow = 7, now: Date = new Date()): RevenueTrend {
   const start = addDays(startOfDay(now), -(days - 1));
   const startDay = dayNumber(start);
 
@@ -940,4 +941,34 @@ export function recentDays(
     const date = addDays(today, -(days - 1 - index));
     return { date, ...metricsForDay(services, date) };
   });
+}
+
+export interface ActiveServicesKpi {
+  /** Devices still open today. Matches the last sparkline point. */
+  value: number;
+  /** End-of-day open counts, oldest first. A level, not a running total. */
+  trend: number[];
+  /** Change vs yesterday's close, or `null` when that rate is undefined. */
+  delta: number | null;
+}
+
+/**
+ * Active Services is a snapshot of devices still in the shop, not a cumulative
+ * total. Status-specific history is not stored, but createdAt and completedDate
+ * bracket each job's open interval, so the count can be reconstructed day by
+ * day — see `countOpenAsOf`.
+ */
+export function activeServicesKpi(
+  services: Service[],
+  now: Date = new Date(),
+  windowDays = 14
+): ActiveServicesKpi {
+  const trend = recentDays(services, windowDays, now).map((day) => day.open);
+  const current = trend[trend.length - 1] ?? 0;
+  const previous = trend[trend.length - 2] ?? 0;
+  return {
+    value: current,
+    trend,
+    delta: periodDelta(current, previous),
+  };
 }

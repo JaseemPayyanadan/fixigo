@@ -5,6 +5,54 @@ import React from "react";
 import { ChevronDownIcon, ChevronUpDownIcon, ChevronUpIcon } from "@heroicons/react/24/outline";
 import { flexRender, type Table as ReactTable } from "@tanstack/react-table";
 
+export const TABLE_MIN_PAGE_SIZE = 5;
+export const TABLE_ROW_HEIGHT = 48;
+export const TABLE_CHROME_HEIGHT = 96;
+export const TABLE_CARD_BREAKPOINT = 768;
+
+/**
+ * How many rows fit between a table's top edge and the bottom of the window.
+ * Re-measured on resize so the page fills remaining viewport height.
+ */
+export function useViewportPageSize(
+  ref: React.RefObject<HTMLElement | null>,
+  {
+    enabled = true,
+    rowHeight = TABLE_ROW_HEIGHT,
+    cardHeight,
+    cardBreakpoint = TABLE_CARD_BREAKPOINT,
+    chromeHeight = TABLE_CHROME_HEIGHT,
+    minPageSize = TABLE_MIN_PAGE_SIZE,
+  }: {
+    enabled?: boolean;
+    rowHeight?: number;
+    cardHeight?: number;
+    cardBreakpoint?: number;
+    chromeHeight?: number;
+    minPageSize?: number;
+  } = {}
+): number {
+  const [size, setSize] = React.useState(minPageSize);
+
+  React.useEffect(() => {
+    if (!enabled) return;
+
+    const measure = () => {
+      const top = ref.current?.getBoundingClientRect().top ?? 0;
+      const available = window.innerHeight - top - chromeHeight;
+      const height =
+        cardHeight !== undefined && window.innerWidth < cardBreakpoint ? cardHeight : rowHeight;
+      setSize(Math.max(minPageSize, Math.floor(available / height)));
+    };
+
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [ref, enabled, rowHeight, cardHeight, cardBreakpoint, chromeHeight, minPageSize]);
+
+  return size;
+}
+
 interface ColumnMeta {
   headerClass?: string;
   cellClass?: string;
@@ -13,13 +61,13 @@ interface ColumnMeta {
 /** Sortable `<thead>` for a TanStack `useReactTable` instance: chevron icons, aria-sort, click-to-sort. */
 export function SortableTableHeader<TData>({
   table,
-  headerClass = "px-2 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500",
+  headerClass = "px-2 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500",
 }: {
   table: ReactTable<TData>;
   headerClass?: string;
 }) {
   return (
-    <thead className="bg-gray-50">
+    <thead className="sticky top-0 z-10 bg-gray-50">
       {table.getHeaderGroups().map((headerGroup) => (
         <tr key={headerGroup.id}>
           {headerGroup.headers.map((header) => {
@@ -73,7 +121,7 @@ export function TablePaginationFooter<TData>({ table }: { table: ReactTable<TDat
   if (totalRows === 0) return null;
 
   return (
-    <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-100 bg-white px-4 py-3 shadow-sm md:mt-0 md:rounded-none md:border-x-0 md:border-b-0 md:shadow-none">
+    <div className="mt-3 flex shrink-0 flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-100 bg-white px-3 py-2 shadow-sm md:mt-0 md:rounded-none md:border-x-0 md:border-b-0 md:shadow-none">
       <p className="text-xs text-gray-500">
         Showing <span className="font-medium text-gray-700">{firstRow}</span>–
         <span className="font-medium text-gray-700">{lastRow}</span> of{" "}

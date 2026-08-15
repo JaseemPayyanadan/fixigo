@@ -13,6 +13,44 @@
   font-family: "Signature", cursive;
 }
 
+/*
+ * Dashboard chrome is position:fixed (56px app bar, 4rem mobile bottom nav).
+ * Main already pads for both, but almost every module still uses min-h-screen
+ * (100vh). That plus the padding is always taller than the viewport, which
+ * shows as empty scroll. Size those pages to the remaining viewport instead.
+ */
+:root {
+  --app-bar-height: 56px;
+  --bottom-nav-height: 0px;
+}
+
+@media (max-width: 767px) {
+  :root {
+    --bottom-nav-height: calc(4rem + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+.main-content .min-h-screen {
+  min-height: calc(100dvh - var(--app-bar-height) - var(--bottom-nav-height));
+}
+
+/*
+ * Tablet (md–lg): the 44px phone tap targets look oversized next to the
+ * icon-rail sidenav. Compact toolbar buttons — including the filter square —
+ * without changing phone or desktop sizes.
+ */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .main-content :is(.h-11, .min-h-11) {
+    height: 2.25rem;
+    min-height: 2.25rem;
+  }
+
+  .main-content :is(.w-11, .min-w-11) {
+    width: 2.25rem;
+    min-width: 2.25rem;
+  }
+}
+
 /* Smooth transitions */
 .transition-all {
   transition: all 0.2s ease-in-out;
@@ -54,7 +92,7 @@
 }
 
 /* Mobile-specific improvements */
-@media (max-width: 768px) {
+@media (max-width: 767px) {
   /* Improve touch targets */
   button,
   [role="button"] {

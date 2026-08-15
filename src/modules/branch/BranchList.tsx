@@ -102,7 +102,7 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, loading, error
       {/* Table for md+ screens */}
       <div className="hidden md:block">
         <div className="overflow-x-auto">
-          <table className="min-w-full">
+          <table className="min-w-full text-xs">
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Branch Name</th>
@@ -125,22 +125,22 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, loading, error
                         </svg>
                       </div>
                       <div>
-                        <div className="text-sm font-semibold text-gray-900">{branch.name}</div>
+                        <div className="text-xs font-semibold text-gray-900">{branch.name}</div>
                         <div className="text-xs text-gray-500">Branch ID: {branch.id ? `${branch.id.slice(0, 8)  }...` : "N/A"}</div>
                       </div>
                     </div>
                   </td>
                   <td className="px-6 py-4">
-                    <div className="text-sm text-gray-900">{getBranchField(branch, "location")}</div>
+                    <div className="text-xs text-gray-900">{getBranchField(branch, "location")}</div>
                   </td>
                   <td className="px-6 py-4">
-                    <div className="text-sm text-gray-900">{getBranchField(branch, "phone")}</div>
+                    <div className="text-xs text-gray-900">{getBranchField(branch, "phone")}</div>
                   </td>
                   <td className="px-6 py-4">
-                    <div className="text-sm text-gray-900">{getBranchField(branch, "email")}</div>
+                    <div className="text-xs text-gray-900">{getBranchField(branch, "email")}</div>
                   </td>
                   <td className="px-6 py-4">
-                    <div className="text-sm text-gray-900">
+                    <div className="text-xs text-gray-900">
                       {techniciansByBranch[branch.id]?.length ? (
                         <div className="space-y-1">
                           <div className="flex items-center gap-2">

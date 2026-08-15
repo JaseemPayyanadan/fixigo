@@ -3,6 +3,7 @@ import {
   ClockIcon,
   ExclamationTriangleIcon,
   PauseIcon,
+  PhoneIcon,
   TruckIcon,
   XCircleIcon,
   CubeIcon
@@ -13,7 +14,13 @@ import type { ServiceActions, ServiceFilters, ServiceFormData, ServiceDisplayInf
 
 // Service Status Configuration
 export const SERVICE_STATUS_CONFIG = {
-  pending: { 
+  awaiting_drop_off: {
+    label: "Awaiting Drop-off",
+    color: "bg-amber-100 text-amber-800 border-amber-200",
+    icon: PhoneIcon,
+    description: "Complaint registered, waiting for customer to bring in the device"
+  },
+  pending: {
     label: "To Do", 
     color: "bg-blue-100 text-blue-800 border-blue-200",
     icon: ClockIcon,
@@ -336,6 +343,7 @@ export const calculateServiceStats = (services: Service[]): ServiceStats => {
         acc.inProgress++;
         break;
       case 'pending':
+      case 'awaiting_drop_off':
         acc.pending++;
         break;
       case 'on_hold':

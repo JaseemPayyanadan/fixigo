@@ -5,6 +5,7 @@ import { Service } from '@/types';
 
 // Status color mapping for consistent styling across dashboard components
 export const STATUS_COLORS = {
+  awaiting_drop_off: { bg: 'bg-amber-100', text: 'text-amber-800' },
   completed: { bg: 'bg-emerald-100', text: 'text-emerald-800' },
   in_progress: { bg: 'bg-amber-100', text: 'text-amber-800' },
   pending: { bg: 'bg-blue-100', text: 'text-blue-800' },
@@ -90,6 +91,7 @@ export const calculateDashboardMetrics = (services: Service[] = []): {
     switch (normalizedStatus) {
       case 'pending':
       case 'to_do':
+      case 'awaiting_drop_off':
         acc.pendingServices++;
         acc.activeServices++; // Include pending in active services
         break;

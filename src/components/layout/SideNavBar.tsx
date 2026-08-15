@@ -6,7 +6,6 @@ import { usePathname } from "next/navigation";
 
 import {
   BarChart3,
-  Briefcase,
   Building2,
   Check,
   ChevronDown,
@@ -19,6 +18,7 @@ import {
 } from "lucide-react";
 
 import { PerformanceMonitor } from "@/components/PerformanceMonitor";
+import { FixigoLogo } from "@/components/brand/FixigoLogo";
 import { useSidebar } from "@/contexts/SidebarContext";
 import { useBranches } from "@/hooks/useBranches";
 import { useNavigation } from "@/hooks/useNavigation";
@@ -296,7 +296,7 @@ const SideNavBar = React.memo(() => {
   const { navigate, router } = useNavigation();
   const { user } = useUser();
   const { branches } = useBranches(user?.shopId);
-  const { collapsed } = useSidebar();
+  const { rail } = useSidebar();
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
 
   const filteredNavItems = useMemo(() => {
@@ -325,22 +325,18 @@ const SideNavBar = React.memo(() => {
       <PerformanceMonitor enabled={process.env.NODE_ENV === "development"} />
       <aside
         className={`fixed left-0 top-0 z-40 hidden h-full flex-col border-r border-gray-100 bg-white transition-all duration-200 motion-reduce:transition-none md:flex ${
-          collapsed ? "w-14" : "w-56"
+          rail ? "w-14" : "w-56"
         }`}
       >
         <div
-          className={`flex h-[72px] shrink-0 items-center gap-2.5 border-b border-gray-100 px-4 ${
-            collapsed ? "justify-center px-0" : ""
+          className={`flex h-14 shrink-0 items-center gap-2.5 border-b border-gray-100 px-4 ${
+            rail ? "justify-center px-0" : ""
           }`}
         >
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 shadow-sm" aria-hidden="true">
-            <Briefcase className="h-5 w-5 text-white" />
-          </div>
-          {!collapsed && (
-            <div className="min-w-0">
-              <p className="truncate text-lg font-bold leading-tight tracking-tight text-gray-900">Fixigo</p>
-              <p className="truncate text-[11px] leading-tight text-gray-400">Repair Management</p>
-            </div>
+          {rail ? (
+            <FixigoLogo variant="mark" size={32} />
+          ) : (
+            <FixigoLogo variant="lockup" size={32} showTagline />
           )}
         </div>
 
@@ -350,7 +346,7 @@ const SideNavBar = React.memo(() => {
               key={item.href}
               item={item}
               isActive={pathname === item.href || pathname.startsWith(`${item.href}/`)}
-              collapsed={collapsed}
+              collapsed={rail}
               hoveredItem={hoveredItem}
               onNavigate={handleNavigation}
               onMouseEnter={handleMouseEnter}
@@ -359,7 +355,7 @@ const SideNavBar = React.memo(() => {
           ))}
         </nav>
 
-        {!collapsed && (
+        {!rail && (
           <div className="space-y-2 border-t border-gray-100 px-3 py-3">
             <BranchSwitcher
               branches={branches}

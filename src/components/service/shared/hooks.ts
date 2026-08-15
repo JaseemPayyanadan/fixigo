@@ -258,6 +258,7 @@ export const useServiceStats = (services: Service[]) => {
 
   const getStatusDistribution = useMemo(() => {
     const distribution = {
+      awaiting_drop_off: 0,
       pending: 0,
       in_progress: 0,
       completed: 0,

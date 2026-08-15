@@ -63,7 +63,7 @@ function PurchaseRequestsPageContent() {
   );
 
   return (
-    <div className="space-y-5 p-4 md:p-6">
+    <div className="flex min-h-screen flex-col gap-3 p-3 md:p-4">
       <PurchaseTabs />
 
       {error && (
@@ -75,13 +75,15 @@ function PurchaseRequestsPageContent() {
       {loading ? (
         <TableSkeleton rows={6} />
       ) : (
-        <PurchaseRequestList
-          requests={requests}
-          onOpen={handleOpen}
-          branches={branches}
-          showBranchColumn={isShopAdmin}
-          showRequestedByColumn={!isTechnician}
-        />
+        <div className="flex min-h-0 flex-1 flex-col">
+          <PurchaseRequestList
+            requests={requests}
+            onOpen={handleOpen}
+            branches={branches}
+            showBranchColumn={isShopAdmin}
+            showRequestedByColumn={!isTechnician}
+          />
+        </div>
       )}
 
       <Toast

@@ -122,13 +122,13 @@ function StatusFilterDropdown({
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label={`Filter by status: ${activeChip?.label ?? "All statuses"}`}
-        className={`relative flex h-11 w-11 items-center justify-center rounded-xl border transition-colors ${
+        className={`relative flex h-9 w-9 items-center justify-center rounded-lg border transition-colors ${
           isFiltered
             ? "border-blue-200 bg-blue-50 text-blue-700"
             : "border-gray-200 bg-white text-gray-600"
         }`}
       >
-        <FunnelIcon className="h-5 w-5" />
+        <FunnelIcon className="h-4 w-4" />
         {/* A filter narrows what the list shows, so it has to be visible from
             the closed button — the label that said which one is gone. */}
         {isFiltered && (
@@ -407,14 +407,14 @@ function ServicesContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="w-full mx-auto space-y-5 p-4 md:p-6">
+    <div className="flex min-h-screen flex-col bg-gray-50">
+      <div className="flex min-h-0 flex-1 flex-col gap-3 p-3 md:p-4">
 
         {/* Search + status filter button */}
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2">
           {/* Search. The app header carries one from `lg` up and hides it
               below that, so this fills the gap on phones and tablets. */}
-          <div className="relative min-w-0 flex-1 sm:max-w-xs lg:hidden">
+          <div className="relative min-w-0 flex-1 sm:max-w-[16rem] lg:hidden">
             <label htmlFor="services-search" className="sr-only">
               Search repairs
             </label>
@@ -425,14 +425,14 @@ function ServicesContent() {
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Search repairs..."
-              className="h-11 w-full rounded-xl border border-gray-200 bg-white pl-9 pr-3 text-sm transition-colors placeholder:text-gray-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="h-9 w-full rounded-lg border border-gray-200 bg-white pl-9 pr-3 text-sm transition-colors placeholder:text-gray-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
           {/* Filter + New Service stay pinned right. Search's `flex-1`
               already pushes them there below `lg`; `lg:ml-auto` does the
               same once search is hidden at `lg` and up. */}
-          <div className="flex shrink-0 items-center gap-3 lg:ml-auto">
+          <div className="flex shrink-0 items-center gap-2 lg:ml-auto">
           <StatusFilterDropdown
             chips={statusFilterChips}
             statusFilter={statusFilter}
@@ -443,16 +443,16 @@ function ServicesContent() {
 
           {/* New Service Button */}
           <PermissionGuard permissions={["service:write"]} fallback={null}>
-            {/* Square icon button on phones, labelled button from `sm` up. */}
-            <Button href="/services/new" aria-label="New service" size="icon" className="sm:w-auto sm:px-4">
-              <PlusIcon className="w-4 h-4" />
-              <span className="hidden sm:inline">New Service</span>
+            <Button href="/services/new" size="sm">
+              <PlusIcon className="h-4 w-4" />
+              New Service
             </Button>
           </PermissionGuard>
           </div>
         </div>
 
         {/* Services List */}
+        <div className="flex min-h-0 flex-1 flex-col">
         {user?.role === "shop_admin" && <ShopAdminServiceList services={filteredServices} branches={branches} technicians={technicians} loading={loading} search={search} />}
         {user?.role === "branch_admin" && <BranchAdminServiceList services={filteredServices} branches={branches} technicians={technicians} loading={loading} search={search} />}
         {user?.role === "technician" && (
@@ -465,6 +465,7 @@ function ServicesContent() {
            
           />
         )}
+        </div>
 
 
       </div>

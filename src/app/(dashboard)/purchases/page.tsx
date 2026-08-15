@@ -4,7 +4,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import React, { Suspense, useEffect, useRef, useState } from "react";
 
-import { CheckIcon, FunnelIcon } from "@heroicons/react/24/outline";
+import { CheckIcon, FunnelIcon, PlusIcon } from "@heroicons/react/24/outline";
 
 import { Button } from "@/components/ui/Button";
 import { ListPageSkeleton, TableSkeleton } from "@/components/ui/PageSkeleton";
@@ -88,13 +88,13 @@ function PaymentStatusFilterDropdown({
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label={`Filter by payment status: ${activeLabel ?? "All statuses"}`}
-        className={`relative flex h-11 w-11 items-center justify-center rounded-xl border transition-colors ${
+        className={`relative flex h-9 w-9 items-center justify-center rounded-lg border transition-colors ${
           isFiltered
             ? "border-blue-200 bg-blue-50 text-blue-700"
             : "border-gray-200 bg-white text-gray-600"
         }`}
       >
-        <FunnelIcon className="h-5 w-5" />
+        <FunnelIcon className="h-4 w-4" />
         {isFiltered && (
           <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-blue-600" aria-hidden="true" />
         )}
@@ -280,7 +280,7 @@ function PurchasesPageContent() {
   const showSlide = slideMode && viewport === "desktop";
 
   return (
-    <div className="space-y-5 p-4 md:p-6">
+    <div className="flex min-h-screen flex-col gap-3 p-3 md:p-4">
       <PurchaseTabs />
 
       <PurchaseSummaryCards summary={summary} loading={loading} />
@@ -291,12 +291,12 @@ function PurchasesPageContent() {
         </div>
       )}
 
-      <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
+      <div className="flex flex-wrap items-center gap-2">
         <input
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           placeholder="Search reference, supplier, item…"
-          className="h-11 flex-1 rounded-xl border border-gray-200 px-3 text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="h-9 w-full max-w-sm rounded-lg border border-gray-200 px-3 text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
         <div className="flex gap-2 lg:ml-auto">
           <PaymentStatusFilterDropdown
@@ -305,19 +305,24 @@ function PurchasesPageContent() {
             totalCount={purchases.length}
             onSelect={setStatusFilter}
           />
-          <Button onClick={openNewPurchase}>+ New Purchase</Button>
+          <Button onClick={openNewPurchase} size="sm">
+            <PlusIcon className="h-4 w-4" />
+            New Purchase
+          </Button>
         </div>
       </div>
 
       {loading ? (
         <TableSkeleton rows={8} />
       ) : (
-        <PurchaseList
-          purchases={visible}
-          onOpen={handleOpen}
-          branches={branches}
-          showBranchColumn={isShopAdmin}
-        />
+        <div className="flex min-h-0 flex-1 flex-col">
+          <PurchaseList
+            purchases={visible}
+            onOpen={handleOpen}
+            branches={branches}
+            showBranchColumn={isShopAdmin}
+          />
+        </div>
       )}
 
       <SlideOver

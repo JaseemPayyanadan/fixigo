@@ -24,7 +24,7 @@ function Metric({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="min-w-0">
       <p className="text-[11px] font-medium uppercase tracking-wide text-gray-400">{label}</p>
-      <p className="mt-0.5 truncate text-sm font-semibold tabular-nums text-gray-900">{value}</p>
+      <p className="mt-0.5 truncate text-xs font-semibold tabular-nums text-gray-900">{value}</p>
     </div>
   );
 }
@@ -57,7 +57,7 @@ export const TopTechniciansTable = React.memo(function TopTechniciansTable({
                 {row.initials}
               </span>
 
-              <p className="w-28 shrink-0 truncate text-sm font-semibold text-gray-900 sm:w-32">{row.name}</p>
+              <p className="w-28 shrink-0 truncate text-xs font-semibold text-gray-900 sm:w-32">{row.name}</p>
 
               <div className="grid min-w-0 flex-1 grid-cols-2 gap-3">
                 <Metric label="Completed" value={row.completed} />

@@ -1,7 +1,7 @@
 // src/modules/purchase/PurchaseDetails.tsx
 "use client";
 
-import { PencilIcon, TrashIcon } from "@heroicons/react/24/outline";
+import { PencilIcon, PlusIcon, TrashIcon } from "@heroicons/react/24/outline";
 import React from "react";
 
 import { Button } from "@/components/ui/Button";
@@ -135,7 +135,7 @@ const PurchaseDetails = React.memo(function PurchaseDetails({
       <section className="rounded-xl border border-gray-200 bg-white p-4">
         <h3 className="mb-3 text-sm font-semibold text-gray-900">Purchased items</h3>
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
+          <table className="w-full text-left text-xs">
             <thead className="border-b border-gray-200 text-xs uppercase text-gray-500">
               <tr>
                 <th className="py-2">Item</th>
@@ -196,7 +196,8 @@ const PurchaseDetails = React.memo(function PurchaseDetails({
           <h3 className="text-sm font-semibold text-gray-900">Payment history</h3>
           {payable && (
             <Button type="button" size="sm" onClick={onRecordPayment}>
-              + Record Payment
+              <PlusIcon className="h-4 w-4" />
+              Record Payment
             </Button>
           )}
         </div>
