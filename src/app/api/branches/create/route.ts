@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { ApiError, requireUser, toErrorResponse } from "@/lib/apiAuth";
 import { hashPassword } from "@/lib/auth";
 import { adminDb } from "@/lib/firebaseAdmin";
+import { assertWithinPlanLimit, getShopPlanFeatures } from "@/lib/planAccess";
 import type { Branch } from "@/types";
 
 export const dynamic = "force-dynamic";
@@ -28,6 +29,14 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    const features = await getShopPlanFeatures(shopId);
+    const existingBranchCount = await adminDb.collection("branches").where("shopId", "==", shopId).get();
+    assertWithinPlanLimit(
+      existingBranchCount.size,
+      features.maxBranches,
+      `Your plan allows up to ${features.maxBranches} branch(es). Upgrade your plan to add more.`
+    );
 
     const branchQuery = await adminDb
       .collection("branches")

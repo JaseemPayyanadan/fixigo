@@ -4,6 +4,7 @@ export { useDashboardStats } from "./useDashboardStats";
 export { useNavigation } from "./useNavigation";
 export { useNavigationPerformance } from "./useNavigationPerformance";
 export { usePermissions } from "./usePermissions";
+export { usePurchases } from "./usePurchases";
 export { useServices } from "./useServices";
 
 export { useTechnicians } from "./useTechnicians";

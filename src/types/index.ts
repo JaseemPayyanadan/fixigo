@@ -68,6 +68,8 @@ export interface Shop {
   businessType?: string;
   description?: string;
   status: "active" | "inactive";
+  /** Doc id in the `plans` collection this shop is currently on. Absent means never assigned. */
+  activePlanId?: string;
   settings?: {
     notifications?: boolean;
     billing?: Record<string, unknown>;

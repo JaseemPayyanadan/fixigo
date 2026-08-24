@@ -9,6 +9,7 @@ import {
   requireUser,
   toErrorResponse,
 } from "@/lib/apiAuth";
+import { assertPlanFeatureEnabled, getShopPlanFeatures } from "@/lib/planAccess";
 import {
   createPurchase,
   listPurchases,
@@ -25,6 +26,10 @@ export async function GET(request: NextRequest) {
     const user = await requireUser();
     if (user.role === "technician") {
       throw new ApiError(403, "Not permitted to view purchases");
+    }
+    if (user.shopId) {
+      const features = await getShopPlanFeatures(user.shopId);
+      assertPlanFeatureEnabled(features.purchaseManagement, "Purchase management isn't included in your plan. Upgrade your plan to use it.");
     }
 
     // listScopeFor already pins a non-shop-admin to their own branch.
@@ -55,6 +60,11 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const user = await requireUser();
+    if (user.shopId) {
+      const features = await getShopPlanFeatures(user.shopId);
+      assertPlanFeatureEnabled(features.purchaseManagement, "Purchase management isn't included in your plan. Upgrade your plan to use it.");
+    }
+
     const body = await readJsonBody(request);
     const input = parseCreatePurchaseInput(body);
 

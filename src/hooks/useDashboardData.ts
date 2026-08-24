@@ -39,11 +39,15 @@ export interface DashboardData {
 
   // User info
   user: AuthUser | null;
+
+  /** Re-fetches services without flipping `isLoading` — for a manual refresh control. */
+  refresh: () => Promise<void>;
+  refreshing: boolean;
 }
 
 export const useDashboardData = (shopId?: string, branchId?: string): DashboardData => {
   const { user } = useUser();
-  const { services, loading: servicesLoading, error: servicesError } = useServices(shopId, branchId);
+  const { services, loading: servicesLoading, error: servicesError, refreshServices, refreshing } = useServices(shopId, branchId);
 
   // Check if any data is still loading
   const isLoading = useMemo(() => servicesLoading, [servicesLoading]);
@@ -88,5 +92,8 @@ export const useDashboardData = (shopId?: string, branchId?: string): DashboardD
 
     // User info
     user,
+
+    refresh: refreshServices,
+    refreshing,
   };
 };

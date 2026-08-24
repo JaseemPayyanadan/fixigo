@@ -794,6 +794,60 @@ export function revenueTrend(services: Service[], days: TrendWindow = 7, now: Da
   return { points, total, previousTotal, delta: periodDelta(total, previousTotal) };
 }
 
+/**
+ * Daily takings across an arbitrary `[start, end]` range, with the
+ * equal-length window immediately before `start` summed for comparison.
+ *
+ * Backs the Reports page's custom date range — `revenueTrend` covers the
+ * rolling windows (7/30/90 days) the admin dashboard uses; this one takes any
+ * range a person picks. Ranges longer than 45 days bucket by week, matching
+ * `buildDailySeries`, so a multi-month range still renders a readable number
+ * of points.
+ */
+export function revenueForRange(services: Service[], range: DateRange): RevenueTrend {
+  const start = startOfDay(range.start);
+  const end = endOfDay(range.end);
+  if (end < start) return { points: [], total: 0, previousTotal: 0, delta: null };
+
+  const spanDays = dayNumber(end) - dayNumber(start) + 1;
+  const bucketDays = spanDays > 45 ? 7 : 1;
+  const bucketCount = Math.ceil(spanDays / bucketDays);
+  const startDay = dayNumber(start);
+  const previousStartDay = dayNumber(addDays(start, -spanDays));
+
+  const points: RevenueTrendPoint[] = Array.from({ length: bucketCount }, (_, index) => {
+    const date = addDays(start, index * bucketDays);
+    return { label: `${date.getDate()} ${MONTH_LABELS[date.getMonth()]}`, date, revenue: 0 };
+  });
+
+  let total = 0;
+  let previousTotal = 0;
+
+  for (const service of services) {
+    if (!countsAsRevenue(service)) continue;
+
+    const paidAt = toDate(revenueDateOf(service));
+    if (!paidAt) continue;
+
+    const price = Number(service.price);
+    if (!Number.isFinite(price)) continue;
+
+    const offset = dayNumber(paidAt) - startDay;
+    if (offset >= 0 && offset < spanDays) {
+      points[Math.floor(offset / bucketDays)].revenue += price;
+      total += price;
+      continue;
+    }
+
+    const previousOffset = dayNumber(paidAt) - previousStartDay;
+    if (previousOffset >= 0 && previousOffset < spanDays) {
+      previousTotal += price;
+    }
+  }
+
+  return { points, total, previousTotal, delta: periodDelta(total, previousTotal) };
+}
+
 export interface Insight {
   kind: "delay" | "technician" | "repair" | "volume";
   text: string;
