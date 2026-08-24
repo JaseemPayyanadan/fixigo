@@ -1,51 +1,78 @@
-import { DocumentChartBarIcon } from "@heroicons/react/24/outline";
+"use client";
 
-import { AuthGuard } from "@/components";
+import React from "react";
+
+import PermissionGuard from "@/components/auth/PermissionGuard";
+import { FuturisticReportsView } from "@/components/reports/FuturisticReportsView";
+import { useBranches } from "@/hooks/useBranches";
+import { useDashboardData } from "@/hooks/useDashboardData";
+import { usePlanFeatures } from "@/hooks/usePlanFeatures";
+import { usePurchases } from "@/hooks/usePurchases";
+import { useTechnicians } from "@/hooks/useTechnicians";
+import { useUser } from "@/hooks/useUser";
+import type { Branch } from "@/types";
+
+function ReportsLoading() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-[#F6F8FC]">
+      <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-200 border-t-emerald-600" role="status" aria-label="Loading reports" />
+    </div>
+  );
+}
+
+function ReportsUpgradeNotice() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-[#F6F8FC] p-4">
+      <div className="max-w-sm rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
+        <h1 className="text-lg font-semibold text-slate-900">Reports isn&apos;t included in your plan</h1>
+        <p className="mt-2 text-sm text-slate-500">Upgrade your plan to unlock revenue, service, and technician reports for your shop.</p>
+      </div>
+    </div>
+  );
+}
+
+function ReportsContent() {
+  const { user } = useUser();
+  const branchId = user?.role === "branch_admin" ? user.branchId : undefined;
+
+  const { isLoading: servicesLoading, services, servicesError, refresh: refreshServices, refreshing: servicesRefreshing } = useDashboardData(
+    user?.shopId,
+    branchId
+  );
+  const { technicians } = useTechnicians(user?.shopId, branchId);
+  const { branches } = useBranches(user?.shopId);
+  const { purchases, loading: purchasesLoading, refreshPurchases, refreshing: purchasesRefreshing } = usePurchases(user?.shopId, branchId);
+  const { features: planFeatures, loading: planLoading } = usePlanFeatures();
+
+  if (!user || planLoading) return <ReportsLoading />;
+  if (!planFeatures.reports) return <ReportsUpgradeNotice />;
+
+  // Branch-wise comparison only makes sense shop-wide, across more than one branch.
+  const branchesForComparison: Branch[] = user.role === "shop_admin" ? branches : [];
+
+  const handleRefresh = async () => {
+    await Promise.all([refreshServices(), refreshPurchases()]);
+  };
+
+  return (
+    <FuturisticReportsView
+      services={services}
+      technicians={technicians}
+      branches={branchesForComparison}
+      purchases={purchases}
+      isLoading={servicesLoading || purchasesLoading}
+      servicesError={servicesError}
+      onRefresh={handleRefresh}
+      refreshing={servicesRefreshing || purchasesRefreshing}
+      exportEnabled={planFeatures.reportExport}
+    />
+  );
+}
 
 export default function ReportsPage() {
   return (
-    <AuthGuard>
-      <div className="min-h-screen bg-gray-50">
-        <div className="w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          {/* Header */}
-          <div className="mb-8">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                <DocumentChartBarIcon className="w-6 h-6 text-blue-600" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">Reports</h1>
-                <p className="text-gray-600">View and analyze business reports</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Content */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="text-center py-12">
-              <DocumentChartBarIcon className="mx-auto h-12 w-12 text-gray-400" />
-              <h3 className="mt-2 text-sm font-semibold text-gray-900">Reports Dashboard</h3>
-              <p className="mt-1 text-sm text-gray-500">Business reports and analytics will be displayed here.</p>
-              <div className="mt-6">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="bg-blue-50 rounded-lg p-4">
-                    <h4 className="font-semibold text-blue-900">Revenue Reports</h4>
-                    <p className="text-sm text-blue-700">Track income and financial performance</p>
-                  </div>
-                  <div className="bg-green-50 rounded-lg p-4">
-                    <h4 className="font-semibold text-green-900">Service Reports</h4>
-                    <p className="text-sm text-green-700">Analyze service completion and quality</p>
-                  </div>
-                  <div className="bg-purple-50 rounded-lg p-4">
-                    <h4 className="font-semibold text-purple-900">Performance Reports</h4>
-                    <p className="text-sm text-purple-700">Monitor team and branch performance</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </AuthGuard>
+    <PermissionGuard permissions={["report:read"]}>
+      <ReportsContent />
+    </PermissionGuard>
   );
 }

@@ -11,6 +11,7 @@ import {
   metricsForDay,
   recentDays,
   revenueTrend,
+  revenueForRange,
   periodDelta,
   pipelineBreakdown,
   statusBreakdown,
@@ -647,6 +648,60 @@ describe("revenueTrend", () => {
 
   it("has no delta to report when the previous window earned nothing", () => {
     expect(revenueTrend([paid(NOW, 400)], 30, NOW).delta).toBeNull();
+  });
+});
+
+describe("revenueForRange", () => {
+  function paid(date: Date, price: number): Service {
+    return service({ status: "completed", paymentStatus: "paid", paidAt: date, price });
+  }
+
+  it("returns one point per day of a short range, oldest first", () => {
+    const { points } = revenueForRange([], { start: new Date(2026, 6, 1), end: new Date(2026, 6, 10) });
+    expect(points).toHaveLength(10);
+    expect(points[0].date).toEqual(new Date(2026, 6, 1));
+    expect(points[9].date).toEqual(new Date(2026, 6, 10));
+  });
+
+  it("sums takings onto the day the money came in", () => {
+    const { points, total } = revenueForRange(
+      [paid(new Date(2026, 6, 5, 9), 500), paid(new Date(2026, 6, 5, 18), 250)],
+      { start: new Date(2026, 6, 1), end: new Date(2026, 6, 10) }
+    );
+    expect(points[4].revenue).toBe(750);
+    expect(total).toBe(750);
+  });
+
+  it("excludes takings outside the range", () => {
+    const { total } = revenueForRange([paid(new Date(2026, 5, 1), 500)], {
+      start: new Date(2026, 6, 1),
+      end: new Date(2026, 6, 10),
+    });
+    expect(total).toBe(0);
+  });
+
+  it("counts the equal-length preceding window as the comparison", () => {
+    const { total, previousTotal, delta } = revenueForRange(
+      [paid(new Date(2026, 6, 5), 400), paid(new Date(2026, 5, 25), 200)],
+      { start: new Date(2026, 6, 1), end: new Date(2026, 6, 10) }
+    );
+    expect(total).toBe(400);
+    expect(previousTotal).toBe(200);
+    expect(delta).toBeCloseTo(100);
+  });
+
+  it("buckets a range longer than 45 days by week", () => {
+    const { points } = revenueForRange([], { start: new Date(2026, 0, 1), end: new Date(2026, 5, 30) });
+    // 181 days / 7 ≈ 26 weekly buckets
+    expect(points.length).toBeLessThan(30);
+    expect(points.length).toBeGreaterThan(20);
+  });
+
+  it("returns an empty series when the range end precedes its start", () => {
+    const result = revenueForRange([], { start: new Date(2026, 6, 10), end: new Date(2026, 6, 1) });
+    expect(result.points).toEqual([]);
+    expect(result.total).toBe(0);
+    expect(result.delta).toBeNull();
   });
 });
 

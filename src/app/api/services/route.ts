@@ -7,6 +7,7 @@ import {
   requireUser,
   toErrorResponse,
 } from "@/lib/apiAuth";
+import { assertWithinPlanLimit, getShopPlanFeatures } from "@/lib/planAccess";
 import { createService, isVisibleToTechnician, listServices } from "@/lib/serviceRepo";
 import { getTechnicianByUserId } from "@/lib/technicianRepo";
 
@@ -66,6 +67,19 @@ export async function POST(request: NextRequest) {
     }
     if (!branchId) {
       throw new ApiError(400, "Branch is required");
+    }
+
+    const features = await getShopPlanFeatures(user.shopId);
+    if (features.maxServicesPerMonth !== null) {
+      const now = new Date();
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const shopServices = await listServices({ shopId: user.shopId });
+      const servicesThisMonth = shopServices.filter((service) => new Date(service.createdAt) >= monthStart).length;
+      assertWithinPlanLimit(
+        servicesThisMonth,
+        features.maxServicesPerMonth,
+        `Your plan allows up to ${features.maxServicesPerMonth} service(s) per month. Upgrade your plan to add more.`
+      );
     }
 
     const technicianId =

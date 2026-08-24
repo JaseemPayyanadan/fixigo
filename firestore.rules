@@ -124,5 +124,19 @@ service cloud.firestore {
     match /purchaseCounters/{shopId} {
       allow read, write: if false;
     }
+
+    // Global plan catalog — not scoped to a shop. Any signed-in user may read
+    // it; writes only happen server-side via the admin SDK (seed script).
+    match /plans/{planId} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+
+    // Subscription billing history — writes only happen server-side via the
+    // admin SDK (seed/backfill scripts), same as `plans`.
+    match /billingInvoices/{invoiceId} {
+      allow read: if sameShop(resource.data.shopId);
+      allow write: if false;
+    }
   }
 }

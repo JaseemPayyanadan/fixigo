@@ -8,6 +8,7 @@ import {
   requireUser,
   toErrorResponse,
 } from "@/lib/apiAuth";
+import { assertWithinPlanLimit, getShopPlanFeatures } from "@/lib/planAccess";
 import { createTechnician, emailExists, listTechnicians } from "@/lib/technicianRepo";
 import { parseCreateInput } from "@/lib/technicianValidation";
 
@@ -41,6 +42,15 @@ export async function POST(request: NextRequest) {
     if (await emailExists(input.email)) {
       throw new ApiError(400, "A user with this email already exists");
     }
+
+    const shopId = user.shopId as string;
+    const features = await getShopPlanFeatures(shopId);
+    const existingTechnicians = await listTechnicians({ shopId });
+    assertWithinPlanLimit(
+      existingTechnicians.length,
+      features.maxTechnicians,
+      `Your plan allows up to ${features.maxTechnicians} technician(s). Upgrade your plan to add more.`
+    );
 
     const technician = await createTechnician({
       ...input,

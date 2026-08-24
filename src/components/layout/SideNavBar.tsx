@@ -93,17 +93,15 @@ const navItems: Array<{
     label: "Reports",
     href: "/reports",
     icon: BarChart3,
-    description: "Coming soon",
+    description: "View and analyze business reports",
     roles: ["shop_admin", "branch_admin"],
-    comingSoon: true,
   },
   {
     label: "Settings",
     href: "/settings",
     icon: Settings,
-    description: "Coming soon",
+    description: "Configure shop profile and preferences",
     roles: ["shop_admin"],
-    comingSoon: true,
   },
 ];
 
