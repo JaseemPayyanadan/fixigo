@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 
+import { clearUserCache } from "@/hooks/useUser";
 import { AuthUser } from "@/lib/auth";
 import { clearFirebaseSession, establishFirebaseSession } from "@/lib/firebaseSession";
 
@@ -62,6 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const data = await response.json();
     await applyFirebaseSession(data.customToken);
+    clearUserCache();
     setUser(data.user);
   };
 
@@ -79,12 +81,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const data = await response.json();
     await applyFirebaseSession(data.customToken);
+    clearUserCache();
     setUser(data.user);
   };
 
   const logout = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
     await clearFirebaseSession();
+    clearUserCache();
     setUser(null);
   };
 

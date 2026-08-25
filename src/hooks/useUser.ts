@@ -7,6 +7,12 @@ import { AuthUser } from "@/lib/auth";
 let userCache: { user: AuthUser | null; timestamp: number } | null = null;
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
+// Shared across all useUser() instances — must be called on logout so guards
+// (AuthGuard, PermissionGuard) don't keep serving a stale authenticated user.
+export function clearUserCache() {
+  userCache = null;
+}
+
 export function useUser() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);

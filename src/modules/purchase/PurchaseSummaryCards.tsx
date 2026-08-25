@@ -57,8 +57,12 @@ function buildCards(summary: PurchaseSummary): Card[] {
 const PurchaseSummaryCards = React.memo(function PurchaseSummaryCards({ summary, loading }: Props) {
   const cards = React.useMemo(() => (summary ? buildCards(summary) : []), [summary]);
 
-  if (loading || !summary) {
+  if (loading) {
     return <SummaryCardsSkeleton count={4} />;
+  }
+
+  if (!summary) {
+    return null;
   }
 
   return (

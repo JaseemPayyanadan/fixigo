@@ -106,14 +106,6 @@ export default function BranchPage() {
           </div>
           <h1 className="text-2xl font-semibold text-gray-900 mb-3">Access Restricted</h1>
           <p className="text-gray-600 mb-4">{user.role !== "shop_admin" && user.role !== "branch_admin" && user.role !== "technician" ? "Only shop administrators, branch administrators, and technicians can access branches." : "Please complete your shop setup to manage branches."}</p>
-          <div className="text-sm text-gray-500 bg-gray-50 rounded-lg p-4 text-left">
-            <p>
-              <strong>Role:</strong> {user.role}
-            </p>
-            <p>
-              <strong>Shop ID:</strong> {shopId || "Not set"}
-            </p>
-          </div>
         </div>
       </div>
     );
@@ -131,17 +123,6 @@ export default function BranchPage() {
           </div>
           <h1 className="text-2xl font-semibold text-gray-900 mb-3">Error Loading Branches</h1>
           <p className="text-gray-600 mb-4">{error}</p>
-          <div className="text-sm text-gray-500 bg-gray-50 rounded-lg p-4 text-left">
-            <p>
-              <strong>User ID:</strong> {user?.id}
-            </p>
-            <p>
-              <strong>Role:</strong> {user?.role}
-            </p>
-            <p>
-              <strong>Shop ID:</strong> {shopId || "Not set"}
-            </p>
-          </div>
         </div>
       </div>
     );

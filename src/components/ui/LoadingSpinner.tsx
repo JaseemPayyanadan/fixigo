@@ -46,7 +46,7 @@ export default function LoadingSpinner({
 
   if (fullScreen) {
     return (
-      <div className="fixed inset-0 bg-white bg-opacity-75 backdrop-blur-sm z-50">
+      <div className="fixed inset-0 bg-white/75 backdrop-blur-sm z-50">
         {spinner}
       </div>
     );

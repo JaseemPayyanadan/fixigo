@@ -22,6 +22,7 @@ function mapUser(id: string, userData: Record<string, unknown>): AuthUser {
     role: userData.role as AuthUser["role"],
     shopId: userData.shopId as string | undefined,
     branchId: userData.branchId as string | undefined,
+    phone: userData.phone as string | undefined,
     onboardingCompleted: Boolean(userData.onboardingCompleted),
     createdAt: toDate(userData.createdAt),
     updatedAt: toDate(userData.updatedAt),
