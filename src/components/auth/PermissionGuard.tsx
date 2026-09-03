@@ -1,6 +1,9 @@
 "use client";
-import React, { createContext, useContext } from "react";
+import React, { createContext, useContext, useEffect } from "react";
 
+import { useRouter, usePathname } from "next/navigation";
+
+import { PageFallback } from "@/components/ui/PageSkeleton";
 import { useUser } from "@/hooks/useUser";
 import { authUserToUser } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
@@ -29,9 +32,23 @@ export default function PermissionGuard({
   fallback = null 
 }: PermissionGuardProps) {
   const { user } = useUser();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  const needsOnboarding = !!user && user.role === "shop_admin" && !user.onboardingCompleted && pathname !== "/onboarding";
+
+  useEffect(() => {
+    if (needsOnboarding) {
+      router.push("/onboarding");
+    }
+  }, [needsOnboarding, router]);
 
   if (!user) {
     return fallback;
+  }
+
+  if (needsOnboarding) {
+    return <PageFallback label="Redirecting" />;
   }
 
   // Convert AuthUser to User type for compatibility

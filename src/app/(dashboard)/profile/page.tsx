@@ -62,7 +62,7 @@ export default function ProfilePage() {
           id: user.id,
           name: user.name,
           email: user.email,
-          phone: "", // Will be filled from technician data if available
+          phone: user.phone || "", // Will be filled from technician data if available
           shopId: user.shopId || "",
           branchId: user.branchId || "",
           experience: 0,
@@ -203,6 +203,19 @@ export default function ProfilePage() {
     if (error) setError(null);
   };
 
+  const getRoleDisplay = () => {
+    switch (profile?.created_by?.role) {
+      case "shop_admin":
+        return "Shop Administrator";
+      case "branch_admin":
+        return "Branch Administrator";
+      case "technician":
+        return "Technician • Mobile Repair";
+      default:
+        return "";
+    }
+  };
+
   const handleLogout = async () => {
     try {
       await logout();
@@ -248,7 +261,7 @@ export default function ProfilePage() {
           {/* Name and Role */}
           <h1 className="text-2xl font-bold text-gray-900 mb-1">{profile.name}</h1>
           <p className="text-gray-600 text-base">
-            Technician • Mobile Repair
+            {getRoleDisplay()}
           </p>
         </div>
       </div>
@@ -327,7 +340,7 @@ export default function ProfilePage() {
 
       {/* Edit Profile Modal */}
       {editing && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl p-6 w-full max-w-md">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Edit Profile</h3>
             

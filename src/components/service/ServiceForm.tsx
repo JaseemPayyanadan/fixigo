@@ -323,6 +323,15 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="p-6 space-y-8">
+            {/* No branches yet — block submission with a clear reason instead of a silent validation error */}
+            {fieldConfig.showBranchSelector && branches.length === 0 && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                <p className="text-amber-800 text-sm">
+                  You don&apos;t have any branches yet. Create a branch before adding a service.
+                </p>
+              </div>
+            )}
+
             {/* Error Display */}
             {error && (
               <div className="bg-red-50 border border-red-200 rounded-lg p-4">
@@ -578,7 +587,7 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
             <div className="flex justify-end pt-6 border-t border-gray-200">
               <Button
                 type="submit"
-                disabled={isSubmitting || loading}
+                disabled={isSubmitting || loading || (fieldConfig.showBranchSelector && branches.length === 0)}
                 className="min-w-[120px]"
               >
                 {isSubmitting || loading ? "Processing..." : (editing ? "Update Service" : "Create Service")}

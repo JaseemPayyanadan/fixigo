@@ -36,11 +36,24 @@ const BranchAdminServiceList: React.FC<BranchAdminServiceListProps> = ({
   onEdit,
   onDelete,
 }) => {
+  const technicianNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const technician of technicians) map.set(technician.id, technician.name);
+    return map;
+  }, [technicians]);
+  const branchNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const branch of branches) map.set(branch.id, branch.name);
+    return map;
+  }, [branches]);
+
   const filteredServices = useMemo(() => {
     if (!search) return services;
 
     const searchTerm = search.toLowerCase();
     return services.filter((service) => {
+      const technicianName = service.technician_id ? technicianNameById.get(service.technician_id) : undefined;
+      const branchName = branchNameById.get(service.branchId);
       return (
         service.name?.toLowerCase().includes(searchTerm) ||
         service.description?.toLowerCase().includes(searchTerm) ||
@@ -48,10 +61,12 @@ const BranchAdminServiceList: React.FC<BranchAdminServiceListProps> = ({
         service.device?.brand?.toLowerCase().includes(searchTerm) ||
         service.device?.imei?.toLowerCase().includes(searchTerm) ||
         service.customer?.name?.toLowerCase().includes(searchTerm) ||
-        service.customer?.phone?.toLowerCase().includes(searchTerm)
+        service.customer?.phone?.toLowerCase().includes(searchTerm) ||
+        technicianName?.toLowerCase().includes(searchTerm) ||
+        branchName?.toLowerCase().includes(searchTerm)
       );
     });
-  }, [services, search]);
+  }, [services, search, technicianNameById, branchNameById]);
 
   if (loading) {
     return (

@@ -13,6 +13,7 @@ export interface AuthUser {
   role: "shop_admin" | "branch_admin" | "technician";
   shopId?: string;
   branchId?: string;
+  phone?: string;
   onboardingCompleted: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -51,6 +52,7 @@ export function generateToken(user: AuthUser): string {
       role: user.role,
       shopId: user.shopId,
       branchId: user.branchId,
+      phone: user.phone,
       onboardingCompleted: user.onboardingCompleted,
     },
     JWT_SECRET,
@@ -82,6 +84,7 @@ export function authUserToUser(authUser: AuthUser): User {
     role: authUser.role,
     shopId: authUser.shopId || "",
     branchId: authUser.branchId,
+    phone: authUser.phone,
     status: "active" as const,
     onboardingCompleted: authUser.onboardingCompleted,
     createdAt: authUser.createdAt,

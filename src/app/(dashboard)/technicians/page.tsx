@@ -4,7 +4,7 @@ import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 
 import { useRouter, useSearchParams } from "next/navigation";
 
-import { CheckIcon, FunnelIcon, PlusIcon, UserGroupIcon } from "@heroicons/react/24/outline";
+import { CheckIcon, FunnelIcon, MagnifyingGlassIcon, PlusIcon, UserGroupIcon } from "@heroicons/react/24/outline";
 
 import { PermissionGuard, RoleGuard } from "@/components";
 import { Button } from "@/components/ui/Button";
@@ -176,6 +176,7 @@ function TechniciansContent() {
 
   // unknown until matchMedia runs — avoid bouncing desktop users to /technicians/new
   const [viewport, setViewport] = useState<"unknown" | "mobile" | "desktop">("unknown");
+  const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [branchFilter, setBranchFilter] = useState<string>("all");
   const [viewing, setViewing] = useState<Technician | null>(null);
@@ -227,13 +228,26 @@ function TechniciansContent() {
     await refresh();
   };
 
+  const branchNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const branch of branches || []) map.set(branch.id, branch.name);
+    return map;
+  }, [branches]);
+
   const filteredTechnicians = useMemo(() => {
+    const searchTerm = search.trim().toLowerCase();
     return technicians.filter((tech) => {
+      const matchesSearch =
+        !searchTerm ||
+        tech.name?.toLowerCase().includes(searchTerm) ||
+        tech.email?.toLowerCase().includes(searchTerm) ||
+        tech.phone?.toLowerCase().includes(searchTerm) ||
+        branchNameById.get(tech.branchId)?.toLowerCase().includes(searchTerm);
       const matchesStatus = statusFilter === "all" || tech.status === statusFilter;
       const matchesBranch = branchFilter === "all" || tech.branchId === branchFilter;
-      return matchesStatus && matchesBranch;
+      return matchesSearch && matchesStatus && matchesBranch;
     });
-  }, [technicians, statusFilter, branchFilter]);
+  }, [technicians, search, statusFilter, branchFilter, branchNameById]);
 
   const handleDelete = async (technician: Technician) => {
     if (!canDeleteTechnician()) {
@@ -288,20 +302,37 @@ function TechniciansContent() {
     <div className="flex min-h-screen flex-col bg-gray-50">
       <div className="flex min-h-0 flex-1 flex-col gap-3 p-3 md:p-4">
         <div className="flex flex-wrap items-center gap-2">
-          <TechnicianFilterDropdown
-            branches={branches || []}
-            statusFilter={statusFilter}
-            branchFilter={branchFilter}
-            onStatusChange={setStatusFilter}
-            onBranchChange={setBranchFilter}
-          />
+          <div className="relative min-w-0 flex-1 sm:max-w-[16rem]">
+            <label htmlFor="technicians-search" className="sr-only">
+              Search technicians
+            </label>
+            <MagnifyingGlassIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <input
+              id="technicians-search"
+              type="search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search technicians..."
+              className="h-9 w-full rounded-lg border border-gray-200 bg-white pl-9 pr-3 text-sm transition-colors placeholder:text-gray-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
 
-          <PermissionGuard permissions={["technician:write"]} fallback={null}>
-            <Button onClick={openNew} size="sm" className="lg:ml-auto">
-              <PlusIcon className="h-4 w-4" />
-              Add Technician
-            </Button>
-          </PermissionGuard>
+          <div className="flex shrink-0 items-center gap-2 ml-auto">
+            <TechnicianFilterDropdown
+              branches={branches || []}
+              statusFilter={statusFilter}
+              branchFilter={branchFilter}
+              onStatusChange={setStatusFilter}
+              onBranchChange={setBranchFilter}
+            />
+
+            <PermissionGuard permissions={["technician:write"]} fallback={null}>
+              <Button onClick={openNew} size="sm">
+                <PlusIcon className="h-4 w-4" />
+                Add Technician
+              </Button>
+            </PermissionGuard>
+          </div>
         </div>
 
         {loading ? (

@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 
-import { verifyToken } from "@/lib/auth";
+import { generateToken, verifyToken } from "@/lib/auth";
 import { getUserById } from "@/lib/authUsers";
 import { adminDb } from "@/lib/firebaseAdmin";
 
@@ -69,8 +69,24 @@ export async function POST(request: NextRequest) {
 
     await adminDb.collection("users").doc(user.id).update({
       shopId: shopRef.id,
+      phone,
       onboardingCompleted: true,
       updatedAt: now,
+    });
+
+    const updatedUser = {
+      ...user,
+      shopId: shopRef.id,
+      onboardingCompleted: true,
+      updatedAt: now,
+    };
+    const token = generateToken(updatedUser);
+    cookieStore.set("session", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 60 * 60 * 24 * 7,
+      path: "/",
     });
 
     return NextResponse.json({

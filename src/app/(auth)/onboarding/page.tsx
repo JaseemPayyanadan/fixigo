@@ -2,15 +2,12 @@
 
 import React, { useCallback, useState } from "react";
 
-import { useRouter } from "next/navigation";
-
 import { MdArrowForward, MdBusiness, MdCheckCircle, MdEmail, MdLocationOn, MdPerson, MdPhone, MdStore } from "react-icons/md";
 
 import { FixigoLogo } from "@/components/brand/FixigoLogo";
 import TextInput from "@/components/ui/TextInput";
 
 export default function OnboardingPage() {
-  const router = useRouter();
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState({
     shopName: "",
@@ -95,11 +92,12 @@ export default function OnboardingPage() {
         throw new Error(errorData.error || "Failed to save shop information");
       }
 
-      // Redirect to dashboard
-      router.push("/dashboard");
+      // Full navigation so the client re-reads the session cookie the
+      // onboarding API just reissued (shopId/onboardingCompleted) instead of
+      // reusing the stale cached auth state from before onboarding.
+      window.location.href = "/dashboard";
     } catch (error) {
       setError(error instanceof Error ? error.message : "Failed to save information");
-    } finally {
       setSubmitting(false);
     }
   };

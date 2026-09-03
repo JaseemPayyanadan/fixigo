@@ -193,10 +193,8 @@ function ServicesContent() {
 
   const [services, setServices] = useState<ServiceListItem[]>([]);
   const [loading, setLoading] = useState(true);
-  // Seeded from ?q= — the app header's search box navigates here with it, and
-  // the header's box is itself hidden below `lg`, which is why this page needs
-  // an input of its own. Typing in that input filters locally rather than
-  // pushing a URL per keystroke; a later ?q= still wins.
+  // Seeded from ?q= so a direct link with a query still filters on load.
+  // Typing in the input filters locally rather than pushing a URL per keystroke.
   const searchParams = useSearchParams();
   const urlSearch = searchParams.get("q") ?? "";
   const [search, setSearch] = useState(urlSearch);
@@ -317,21 +315,39 @@ function ServicesContent() {
   }, [user?.shopId, user?.branchId, user?.role, user?.id, user?.uid]);
 
 
+  // Technician and branch names aren't on the service record itself (just
+  // their ids), so a search for either has to go through these lookups.
+  const technicianNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const technician of technicians) map.set(technician.id, technician.name);
+    return map;
+  }, [technicians]);
+  const branchNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const branch of branches) map.set(branch.id, branch.name);
+    return map;
+  }, [branches]);
+
   // Filtered services
   const filteredServices = useMemo(() => {
     console.log("🔍 Filtering services with statusFilter:", statusFilter);
     console.log("🔍 Total services before filtering:", services.length);
-    
+
     const filtered = services.filter((service) => {
+      const searchTerm = search.toLowerCase();
+      const technicianName = service.technician_id ? technicianNameById.get(service.technician_id) : undefined;
+      const branchName = branchNameById.get(service.branchId);
       const matchesSearch =
         !search ||
-        service.name?.toLowerCase().includes(search.toLowerCase()) ||
-        service.description?.toLowerCase().includes(search.toLowerCase()) ||
-        service.device?.model?.toLowerCase().includes(search.toLowerCase()) ||
-        service.device?.brand?.toLowerCase().includes(search.toLowerCase()) ||
-        service.device?.imei?.toLowerCase().includes(search.toLowerCase()) ||
-        service.customer?.name?.toLowerCase().includes(search.toLowerCase()) ||
-        service.customer?.phone?.toLowerCase().includes(search.toLowerCase());
+        service.name?.toLowerCase().includes(searchTerm) ||
+        service.description?.toLowerCase().includes(searchTerm) ||
+        service.device?.model?.toLowerCase().includes(searchTerm) ||
+        service.device?.brand?.toLowerCase().includes(searchTerm) ||
+        service.device?.imei?.toLowerCase().includes(searchTerm) ||
+        service.customer?.name?.toLowerCase().includes(searchTerm) ||
+        service.customer?.phone?.toLowerCase().includes(searchTerm) ||
+        technicianName?.toLowerCase().includes(searchTerm) ||
+        branchName?.toLowerCase().includes(searchTerm);
 
       // Use original display status values for filtering
       const matchesStatus = statusFilter === "All" || service.status === statusFilter;
@@ -345,7 +361,7 @@ function ServicesContent() {
     
     console.log("🔍 Filtered services count:", filtered.length);
     return filtered;
-  }, [services, search, statusFilter]);
+  }, [services, search, statusFilter, technicianNameById, branchNameById]);
 
   // Get status filter chips with counts
   const statusFilterChips = useMemo(() => {
@@ -412,9 +428,8 @@ function ServicesContent() {
 
         {/* Search + status filter button */}
         <div className="flex flex-wrap items-center gap-2">
-          {/* Search. The app header carries one from `lg` up and hides it
-              below that, so this fills the gap on phones and tablets. */}
-          <div className="relative min-w-0 flex-1 sm:max-w-[16rem] lg:hidden">
+          {/* Search */}
+          <div className="relative min-w-0 flex-1 sm:max-w-[16rem]">
             <label htmlFor="services-search" className="sr-only">
               Search repairs
             </label>
@@ -429,10 +444,8 @@ function ServicesContent() {
             />
           </div>
 
-          {/* Filter + New Service stay pinned right. Search's `flex-1`
-              already pushes them there below `lg`; `lg:ml-auto` does the
-              same once search is hidden at `lg` and up. */}
-          <div className="flex shrink-0 items-center gap-2 lg:ml-auto">
+          {/* Filter + New Service stay pinned right; search's `flex-1` pushes them there. */}
+          <div className="flex shrink-0 items-center gap-2 ml-auto">
           <StatusFilterDropdown
             chips={statusFilterChips}
             statusFilter={statusFilter}
