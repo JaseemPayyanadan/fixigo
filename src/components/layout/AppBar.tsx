@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { ArrowRightOnRectangleIcon, ShieldCheckIcon, UserIcon } from "@heroicons/react/24/outline";
-import { CalendarDays, Menu, Search } from "lucide-react";
+import { CalendarDays, Menu } from "lucide-react";
 
 import { FixigoLogo } from "@/components/brand/FixigoLogo";
 import { useAuth } from "@/contexts/AuthContext";
@@ -21,11 +21,9 @@ function greetingFor(hour: number): string {
 
 export function AppBar() {
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [query, setQuery] = useState("");
 
   const userIconRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const searchRef = useRef<HTMLInputElement>(null);
   const { user, loading } = useUser();
   const { logout } = useAuth();
   const router = useRouter();
@@ -53,26 +51,8 @@ export function AppBar() {
     };
   }, [dropdownOpen]);
 
-  // ⌘K / Ctrl-K focuses search, matching the shortcut advertised in the field.
-  useEffect(() => {
-    function handleShortcut(event: KeyboardEvent) {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
-        event.preventDefault();
-        searchRef.current?.focus();
-      }
-    }
-    document.addEventListener("keydown", handleShortcut);
-    return () => document.removeEventListener("keydown", handleShortcut);
-  }, []);
-
   const userInitial = user?.name ? user.name.charAt(0).toUpperCase() : "U";
   const firstName = user?.name?.trim().split(/\s+/)[0] || "there";
-
-  const handleSearch = (event: React.FormEvent) => {
-    event.preventDefault();
-    const trimmed = query.trim();
-    if (trimmed) router.push(`/services?q=${encodeURIComponent(trimmed)}`);
-  };
 
   const handleSignOut = async () => {
     if (window.confirm("Are you sure you want to sign out?")) {
@@ -128,26 +108,6 @@ export function AppBar() {
         <CalendarDays className="h-4 w-4 text-gray-400" aria-hidden="true" />
         <span className="whitespace-nowrap">{today ?? " "}</span>
       </div>
-
-      {/* Search */}
-      <form onSubmit={handleSearch} role="search" className="relative hidden shrink-0 lg:block">
-        <label htmlFor="appbar-search" className="sr-only">
-          Search by device, customer or invoice
-        </label>
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-        <input
-          id="appbar-search"
-          ref={searchRef}
-          type="search"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search by device, customer or invoice..."
-          className="h-9 w-56 rounded-lg border border-gray-200 py-1.5 pl-9 pr-12 text-sm transition-colors placeholder:text-gray-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500 xl:w-72"
-        />
-        <kbd className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 rounded border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[10px] font-medium text-gray-500">
-          ⌘K
-        </kbd>
-      </form>
 
       {/* Notifications */}
       <NotificationBell className="shrink-0" />

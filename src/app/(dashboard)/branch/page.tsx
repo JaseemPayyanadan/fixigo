@@ -18,6 +18,7 @@ export default function BranchPage() {
   const shopId = user?.shopId;
   const { branches, loading, error, deleteBranch } = useBranches(shopId);
 
+  const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [branchToDelete, setBranchToDelete] = useState<Branch | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -55,17 +56,26 @@ export default function BranchPage() {
   }, [branchToDelete, deleteBranch]);
 
   const handleClearFilters = useCallback(() => {
+    setSearch("");
     setStatusFilter("All");
   }, []);
 
   // Filter branches - moved here to avoid recalculating in useEffect
+  const searchTerm = search.trim().toLowerCase();
   const filteredBranches = branches.filter((branch) => {
     // For branch admins, only show their own branch
     if (user?.role === "branch_admin" && user?.branchId && branch.id !== user.branchId) {
       return false;
     }
 
-    return statusFilter === "All" || branch.status === statusFilter;
+    const matchesSearch =
+      !searchTerm ||
+      branch.name?.toLowerCase().includes(searchTerm) ||
+      branch.location?.toLowerCase().includes(searchTerm) ||
+      branch.phone?.toLowerCase().includes(searchTerm) ||
+      branch.managerName?.toLowerCase().includes(searchTerm);
+
+    return matchesSearch && (statusFilter === "All" || branch.status === statusFilter);
   });
 
   // Render loading state
@@ -135,6 +145,9 @@ export default function BranchPage() {
         <div className="px-6 py-4">
           <div className="flex flex-row flex-wrap items-center justify-end gap-5">
             <SearchFilter
+              search={search}
+              onSearchChange={setSearch}
+              placeholder="Search branches..."
               filters={[
                 {
                   key: "status",
